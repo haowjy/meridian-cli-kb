@@ -224,3 +224,4 @@ error.
   projection authority
 - [State Model](state-model.md) — JSONL event stores and crash-only design
 - `../operations/configuration-guide.md` — TOML config and env var reference
+- [Spawn Output Contract](spawn-output-contract.md) — what `spawn wait` prints when a single spawn completes; report-first default, transcript pointer, progressive disclosure
