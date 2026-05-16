@@ -56,6 +56,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/overview.md](concepts/overview.md) — Concepts domain overview and reading map
 - [concepts/spawn-lifecycle.md](concepts/spawn-lifecycle.md) — What a spawn is, the full status machine from `queued` to terminal, heartbeat and reaper mechanics, cancel-all subtree scoping
 - [concepts/spawn-wait-barrier.md](concepts/spawn-wait-barrier.md) — `meridian spawn wait` semantics: chat lineage scoping, descendant-scoping for nested spawns, wait-set display, yield-checkpoint, harness-aware yield defaults
+- [concepts/spawn-output-contract.md](concepts/spawn-output-contract.md) — Report-first default output, transcript pointer as primary result, `--metadata` vs `--verbose` split, progressive disclosure hierarchy, agent-mode text default
 - [concepts/state-model.md](concepts/state-model.md) — Dual-root state split (repo + user), event sourcing via JSONL, crash-only as a state property, UUID keying
 - [concepts/harness-abstraction.md](concepts/harness-abstraction.md) — Policy/mechanism split, adapter contract, capability flags, why harness-agnostic is load-bearing
 - [concepts/composition-pipeline.md](concepts/composition-pipeline.md) — Semantic IR → adapter projection: how `ComposedLaunchContent` becomes harness-specific argv and env
