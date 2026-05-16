@@ -1,0 +1,24 @@
+# Package Management Vocabulary
+
+Terms covering the Mars compiler pipeline, source package resolution, targeting, and sync model. For the full vocabulary index see [../../vocabulary.md](../../vocabulary.md).
+
+| Term | Definition | See also |
+|---|---|---|
+| **Agent emission** | Mars compiler policy controlling whether agents are written to native harness directories. Values: `Auto` (emit when harness dir is a managed target), `Always`, `Never`. | [targeting.md](targeting.md) |
+| **Compiler pipeline** | The mars compiler orchestration sequence: build target state → create plan → frozen gate → apply plan → reconcile native agent surfaces → compile config entries → sync managed targets → finalize lock/report. | [compiler-pipeline.md](compiler-pipeline.md) |
+| **Dest path** | The mars safe destination path type for output files. Rejects traversal (`../`), absolute paths, and Windows-invalid or reserved-device filenames on all platforms. | [targeting.md](targeting.md) |
+| **Global cache** | The mars source-cache root with `archives/` and `git/` subdirectories. Used to cache fetched source packages across sync operations. | [resolution-algorithm.md](resolution-algorithm.md) |
+| **Harness dir** | A native harness-specific directory emitted by mars targeting. Receives compiled skill projections, MCP server configs, and hook configs in harness-native format. Examples: `.claude/`, `.codex/`, `.opencode/`. | [targeting.md](targeting.md) |
+| **Install dep** | A mars dependency declaration (`InstallDep`) with `url` XOR `path`, optional `subpath`, `version` constraint, and filter config. Defined under `[dependencies]` or `[local-dependencies]` in `mars.toml`. | [overview.md](overview.md) |
+| **Mars context** | The mars compilation context (`MarsContext`) tying together `project_root`, `managed_root` (typically `.mars/`), and a flag indicating Meridian-managed mode (suppresses native agent surface emission). | [compiler-pipeline.md](compiler-pipeline.md) |
+| **Mars lock** | The `mars.lock` file. Schema v2, keyed by logical item identity (`kind/name`) with per-output provenance records (checksums, source commit, dest path). Legacy v1 is transparently promoted at read time. | [sync-model.md](sync-model.md) |
+| **MVS** | Minimum Version Selection. Mars's default dependency resolution algorithm: selects the lowest version satisfying all constraints across the dependency graph. Replaced by max-selection (maximize mode) during upgrades. | [resolution-algorithm.md](resolution-algorithm.md) |
+| **Reader IR** | The intermediate representation (`ReaderIr`) produced by the mars reader stage. Contains: loaded config, resolved dependency graph, and discovered local items. Input to the compiler. | [compiler-pipeline.md](compiler-pipeline.md) |
+| **Resolved graph** | The mars resolver output (`ResolvedGraph`). A deterministic dependency graph with version, provenance, and discovered items per package. Input to the compiler pipeline. | [resolution-algorithm.md](resolution-algorithm.md) |
+| **Source ID** | The canonical mars identity for a source package: either a git URL with optional subpath (`git:<url>[/<subpath>]`) or a local path (`path:<canonical-path>`). Used as the primary deduplication key in the resolver. | [resolution-algorithm.md](resolution-algorithm.md) |
+| **Source name** | The string newtype (`SourceName`) for the declared package name in mars configuration. Used as a stable reference key; renamed via `RenameMap` when packages are renamed. | [overview.md](overview.md) |
+| **Source subpath** | The mars safe subpath type (`SourceSubpath`) for selecting a subdirectory within a source package. Rejects traversal (`../`) and absolute paths. Applied by `apply_subpath()` with missing-path validation. | [resolution-algorithm.md](resolution-algorithm.md) |
+| **Sync request** | The mars sync entry point struct (`SyncRequest`) carrying resolution mode (normal/maximize/frozen), config mutation, and sync options (force, diff, no-refresh-models). | [sync-model.md](sync-model.md) |
+| **Target adapter** | The mars extension point for harness-native emission (`TargetAdapter`). Built-in adapters: `.agents` (legacy full-fidelity), `.claude` (writes `.mcp.json` + `settings.json`), `.codex` (writes `codex_mcp.json` + `codex_hooks.json`), `.opencode`, `.cursor`, `.pi`. | [targeting.md](targeting.md) |
+| **Target state** | Intermediate compiler state representing what currently exists in managed target directories. Used to compute the diff → plan → apply sequence during mars sync. | [sync-model.md](sync-model.md) |
+| **Version constraint** | A semver constraint on a mars dependency (e.g., `^0.2`, `>=1.0.0`). Checked during resolution traversal and again after the full graph is resolved. All constraints must be satisfiable by the selected version. | [resolution-algorithm.md](resolution-algorithm.md) |

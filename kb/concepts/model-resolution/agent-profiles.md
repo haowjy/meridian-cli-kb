@@ -1,0 +1,163 @@
+# Agent Profiles
+
+An **agent profile** is a Markdown file in `.mars/agents/` that declares a
+named agent's behavioral defaults: model, harness, skills, approval mode, and
+other runtime settings. The file body becomes part of the system prompt. The
+YAML frontmatter provides the overrides that feed into Pass 2 of the resolution
+merge.
+
+## Loading
+
+`scan_agent_profiles()` walks `.mars/agents/*.md` at project root:
+
+1. Reads all `.md` files in `.mars/agents/`
+2. Parses YAML frontmatter + body for each file
+3. Duplicate names: identical-content duplicates are silently deduped; conflicting
+   duplicates log a warning and first-seen wins
+
+Source: `src/meridian/lib/catalog/agent.py:425-463`
+
+`load_agent_profile_with_fallback()` selects a profile via:
+
+1. Explicit requested agent name (from `-a <name>`)
+2. Configured default agent (`config.default_agent`, usually `__meridian-subagent`)
+3. No profile (degraded config — no system prompt body, no skills)
+
+A missing default profile emits a warning but doesn't fail the spawn.
+Source: `src/meridian/lib/launch/resolve.py:19-60`
+
+## Profile Schema
+
+```yaml
+---
+name: coder
+description: "Implements code changes"
+model: sonnet            # alias or concrete model ID
+harness: claude          # optional; overrides model-derived harness
+skills:
+  - meridian-spawn
+  - kb-conventions
+approval: auto           # default | confirm | auto | yolo
+effort: high             # low | medium | high
+mode: subagent           # primary | subagent
+model-policies:
+  - match:
+      alias: gpt55
+    override: {}          # participates in fallback, no overrides
+  - match:
+      alias: codex
+    override:
+      effort: high
+---
+
+# Coder Agent
+
+You implement code changes...
+```
+
+The profile's `model` field is an alias or bare model ID, not a harness.
+After loading, `resolve_model()` turns it into a concrete `AliasEntry`.
+
+## Frontmatter Fields
+
+### `mode: primary | subagent`
+
+Declares whether the agent runs as a primary interactive session agent or as a
+subagent spawned by an orchestrator. Affects grouping in `meridian list` output.
+Default: `subagent`.
+
+- `primary` — e.g., `__meridian-orchestrator`
+- `subagent` — e.g., `coder`, `reviewer`, `kb-writer`
+
+### `model-invocable: true | false`
+
+Controls whether this agent appears in the model-facing agent inventory prompt
+(the `# Meridian Agents` system prompt block). Default: `true`.
+
+- `true` (default) — agent is listed in the inventory prompt; the model can
+  suggest or invoke it.
+- `false` — agent is excluded from the inventory prompt. The model never sees
+  it in the menu. Explicit invocation via `meridian spawn -a <name>` still works;
+  this field does not restrict CLI users.
+
+The filter runs in `build_agent_inventory_prompt()`, not in `scan_agent_profiles()`.
+The catalog scanner returns all profiles regardless of this field; only the
+inventory prompt consumer applies the visibility rule.
+
+Use `model-invocable: false` for internal orchestration agents, deprecated agents,
+or any agent that should not appear in the model's awareness.
+
+> **Mars contract gap:** Mars currently does not parse `model-invocable` for agent
+> profile files (it does for skills). Until resolved (tracked in mars-agents#40),
+> Mars must preserve this frontmatter field verbatim when compiling source packages
+> into `.mars/agents/`. It currently does so, but this is not formally specified.
+
+See [decisions/launch.md](../../decisions/launch.md#d-model-invocable-filter-at-inventory-prompt-boundary-not-at-catalog-scan)
+for the rationale behind the filter-seam choice.
+
+### `model-policies: [...]`
+
+Typed selector rules that apply overrides when a specific model or alias is
+selected, and declare fallback candidates for harness-availability fallback.
+Rules participate in fallback by default (for `model` and `alias` match types).
+Set `no-fallback: true` on a rule to exclude it from fallback while still
+applying its overrides. List order determines fallback priority.
+
+See [model-policies.md](model-policies.md) for the full match/override semantics.
+
+## Profile vs Direct Model
+
+When both `-a profile` and `-m model` are passed, the model override wins per
+config precedence (CLI flags beat profile frontmatter). This lets you use a
+profile's skills and system prompt body while routing to a different model:
+
+```bash
+meridian spawn -a coder -m gpt55   # coder's skills + prompt, gpt55 model
+```
+
+## Harness Availability Fallback
+
+Profile `model-policies` rules with `model` or `alias` match types can
+participate in harness-availability fallback by default. `no-fallback: true`
+opts a rule out, and `model-glob` rules never participate.
+
+The full candidate-chain mechanics, including demoted-base behavior and overlay
+interaction, live in [aliases-and-routing.md](aliases-and-routing.md#harness-availability-fallback)
+and [model-policies.md](model-policies.md#fallback-participation).
+
+Source: `src/meridian/lib/launch/policies.py` — `_try_harness_availability_fallback()`,
+`_fallback_candidates_from_policies()`, `_compiler_request_for_fallback_candidate()`.
+
+## Primary Agent
+
+`config.primary_agent` is the same concept as `default_agent` but for primary
+interactive launches (not subagent spawns). It defaults to
+`__meridian-orchestrator`.
+
+## Skill Attachment
+
+Skills listed in the profile's `skills:` field are loaded at spawn time from
+`.mars/skills/*/SKILL.md`. They're re-injected fresh on each launch, so they
+survive session compaction.
+
+`resolve_skills_from_profile()`:
+1. Builds a `SkillRegistry` from the project's `.mars/skills/` directory
+2. Resolves variant selection for each skill based on resolved harness and model token
+3. Returns `skill_names`, `loaded_skills`, and `missing_skills`
+
+Missing skills produce a warning, not a launch failure.
+Source: `src/meridian/lib/launch/resolve.py:71-109`
+
+See [concepts/skill-schema.md](../skill-schema.md) for how variants are selected,
+and [concepts/composition-pipeline.md](../composition-pipeline.md) for how skill
+content gets routed into the prompt.
+
+## Related
+
+- [overview.md](overview.md) — full resolution pipeline and two-pass merge
+- [aliases-and-routing.md](aliases-and-routing.md) — how the profile's model
+  name is resolved to a concrete model ID and harness
+- [model-policies.md](model-policies.md) — `model-policies` rule semantics
+- [concepts/skill-schema.md](../skill-schema.md) — skill variant selection ladder
+- [architecture/launch-system.md](../../architecture/launch-system.md) — where
+  profile loading sits in the launch factory
