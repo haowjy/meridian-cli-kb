@@ -60,6 +60,9 @@ Child sandboxes receive purpose-scoped projection only (project runtime roots, w
 
 ---
 
+**Session initiation: four-mode model, identity lock, argv normalization (D-fork-identity-lock, D-prior-context-user-turn, D-argv-normalization-sentinel, D-from-fork-mutual-exclusion, 2026-05 PR #216)**
+Four session-initiation modes unified across spawn and primary surfaces: `--continue` (resume in-place), `--fork` (fork transcript, identity locked), `--fork-fresh` (fork transcript, identity overridable), `--from` (fresh session, prior context → user-turn context blocks). Identity lock: `--fork` rejects `-a`/`-m`/`--skills` at CLI only; cache-preservation rationale. Prior context in user turn, not system prompt: four reasons (injection defense, cache locality, harness consistency, -f semantic consistency). Argv normalization sentinel (`__SELF__`): pre-Cyclopts normalization for optional-value flags; applies to all three flags on both surfaces. `--from` + fork rejected (MVP): redundancy via dual transcript coverage. See [launch decisions](decisions/launch.md#session-initiation-2026-05-pr-216) and [concepts/session-initiation.md](concepts/session-initiation.md).
+
 ## Domain Index
 
 | Domain | Coverage | Page |

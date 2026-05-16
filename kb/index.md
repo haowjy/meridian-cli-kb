@@ -65,6 +65,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/bootstrap-docs.md](concepts/bootstrap-docs.md) — Two-tier bootstrap doc discovery (skill resources + package-level), `meridian bootstrap` command design
 - [concepts/config-precedence.md](concepts/config-precedence.md) — File-backed settings loader vs per-spawn runtime override stack; which system handles which setting
 - [concepts/context-resolution.md](concepts/context-resolution.md) — Named context paths (work/kb/archive/strategy) surfaced to agents as `MERIDIAN_CONTEXT_*_DIR` env vars
+- [concepts/session-initiation.md](concepts/session-initiation.md) — Four-mode session initiation: `--continue`, `--fork`, `--fork-fresh`, `--from`; identity lock; four-layer content composition; bare flag inference
 - [concepts/workspace-projection.md](concepts/workspace-projection.md) — Filesystem permission grants for sibling repos; contrast with context resolution (permission vs guidance)
 
 ### Model Resolution
