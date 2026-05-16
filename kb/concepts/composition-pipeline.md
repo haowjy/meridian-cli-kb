@@ -255,6 +255,7 @@ for the field semantics.
 
 - [Harness Abstraction](harness-abstraction.md) — the `project_content()`
   contract and how each harness implements it
+- [session-initiation.md](session-initiation.md) — four-mode session initiation model; why `prior_output` (`--from`) goes in the user turn, not the system prompt; identity lock and bare-flag inference
 - `../architecture/launch-system.md` — where `build_launch_context()` fits in
   the full launch factory
 - `../codebase/harness-adapters.md` — per-harness projection notes

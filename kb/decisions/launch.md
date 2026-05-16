@@ -845,9 +845,80 @@ This is the same rationale as `SpawnStartMetadata` in the spawn-goal work: typed
 
 **Why:** The compat bridges existed to ease migration from an older struct shape. Once the migration was complete, the bridges were pure ceremony — they copied fields without transforming them. Flattening into `ResolvedLaunchSpec` gives a single canonical struct that all downstream paths read, eliminating the question of which shape is authoritative.
 
+## Session Initiation (2026-05, PR #216)
+
+### D-fork-identity-lock: `--fork` locks identity; `--fork-fresh` allows changes
+
+**Decision:** `--fork` rejects `-a`, `-m`, and `--skills` at the CLI. `--fork-fresh` is the distinct mode that permits identity overrides. Enforcement is CLI-only — the ops layer (`SpawnForkInput`) handles both modes without a separate field.
+
+**Why:** Agent, model, and skills determine the system prompt fingerprint — the dominant factor in prompt cache locality. `--fork` guarantees identity-shaping inputs are unchanged, so the harness cache can warm from the shared prefix. Without the explicit split, callers would silently invalidate the cache by passing `-a` to `--fork`. The two modes capture two distinct user intents: "branch this conversation to explore a task variant" (`--fork`) vs "hand off to a different role" (`--fork-fresh`).
+
+Task-scoped overrides (`--goal`, `-f`, `--prompt-var`, `--work`, `-p`) are allowed by `--fork`. These change task-scoped content within a preserved identity, not the identity itself. `--prompt-var` substitutes into the profile body — this is intentional customization, not an identity change.
+
+**Why CLI-only:** `SpawnForkInput` already handles both fork behaviors. The ops layer does not need to enforce CLI ergonomics. Non-CLI callers (MCP, programmatic) may legitimately fork with identity changes.
+
+**Alternatives rejected:**
+- Reject `-a`/`-m`/`--skills` in the ops layer — couples an ergonomic CLI policy to a layer that has no semantic stake in it; breaks programmatic callers.
+- Add a mode field to `SpawnForkInput` — adds coupling without correctness benefit; the CLI already validated before constructing the input.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) — full four-mode model.
+
+---
+
+### D-prior-context-user-turn: `--from` prior context goes in user turn, not system prompt
+
+**Decision:** Prior spawn/session context delivered via `--from` is rendered into `UserTurn.context_blocks` (user turn), not into `SystemInstruction` (system prompt / `--append-system-prompt`).
+
+**Why (four independent reasons):**
+
+1. **Prompt injection defense.** Prior spawn reports may contain user-generated content or tool outputs. System prompt placement grants implicit authority status. User-turn placement means the model evaluates the content as evidence, not as instructions to obey. `sanitize_prior_output()` is defense-in-depth; channel placement is the primary trust boundary.
+2. **Prompt cache locality.** The system prompt fingerprint determines the cache key. Variable prior-context material in the system prompt destroys cross-session cache sharing for sessions that share the same agent identity. User-turn injection preserves the stable system-prompt prefix.
+3. **Harness consistency.** `--append-system-prompt` is reserved for agent identity material. Codex and OpenCode have no separate system-prompt channel; the user-turn channel is the only consistent cross-harness delivery path.
+4. **Semantic consistency with `-f`.** File references (`-f`) go in user-turn context blocks. `--from` prior context is structurally the same kind of reference material. Same channel avoids a confusing distinction.
+
+**Exception:** The completion goal (`--goal`) and report contract are authoritative stopping conditions set by Meridian — not prior agent output — and belong in `SystemInstruction`.
+
+**Alternatives rejected:**
+- System prompt injection for authority — grants untrusted prior output instruction status; invalidates the prompt cache.
+- Harness-specific channels — inconsistent across Claude/Codex/OpenCode; user-turn is the only cross-harness consistent path.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) — full layer model and authority hierarchy.
+
+---
+
+### D-argv-normalization-sentinel: Pre-Cyclopts argv normalization for optional-value flags
+
+**Decision:** `--fork`, `--fork-fresh`, and `--from` accept an optional positional REF. Because Cyclopts requires a value token for `str | None` parameters, bare invocations (e.g., `--fork` without a ref) would cause a parse error. The fix is pre-Cyclopts argv normalization: `normalize_optional_value_flags()` in `cli/argv_normalization.py` inserts a sentinel token (`__SELF__`) before Cyclopts sees the argv. Bootstrap uses `SYNTHETIC_VALUE_TOKENS` to detect and skip synthetic values. `resolve_optional_ref(raw_ref, flag_name)` maps the sentinel to `$MERIDIAN_SPAWN_ID` or raises with a flag-specific error.
+
+**Why pre-Cyclopts:** Cyclopts does not support optional-value parameters natively. Post-Cyclopts transformation would require patching the parsed result after Cyclopts already rejected the bare form. Pre-normalization is transparent to Cyclopts — the sentinel looks like a normal value token.
+
+**Sentinel design:** `__SELF__` is not a valid spawn ref (`pN`), chat ref (`cN`), or UUID. The sentinel is defined as a named constant (`SELF_FORK_REF_SENTINEL`), not a magic string, and checked explicitly in `resolve_optional_ref`.
+
+**Bare ref semantics:** All three flags default to `$MERIDIAN_SPAWN_ID` — the current spawn context. `$MERIDIAN_CHAT_ID` is available as an explicit ref for session-level context. `--continue` was intentionally excluded: bare `--continue` means "resume this session" which is a no-op, and its semantics differ from the optional-ref pattern.
+
+**Applies to both surfaces:** spawn and primary. The normalization runs in `main.py` before bootstrap and Cyclopts dispatch.
+
+**Alternatives rejected:**
+- Cyclopts optional-value parameter — not supported without custom type annotation plumbing.
+- Post-parse sentinel injection — brittle; Cyclopts rejects before transformation can run.
+- Require explicit ref always — adds ceremony for the common case; `$MERIDIAN_SPAWN_ID` is always set inside a Meridian-managed session.
+
+---
+
+### D-from-fork-mutual-exclusion: `--from` + fork rejected in MVP
+
+**Decision:** Combining `--from` with `--fork` or `--fork-fresh` is rejected. If external context is needed on a forked conversation, pass it via `-f`.
+
+**Why:** `--fork` already carries the full prior transcript as Layer 2 (harness-managed, Meridian-invisible). Adding `--from` on top is redundant — the model would see the same context twice (once as lived transcript, once as rendered reference) with ambiguous ordering between a harness-managed layer and a Meridian-rendered layer. `-f` composes cleanly with fork because file references are always Layer 3 content with no semantic overlap with transcript lineage.
+
+**Future path if needed:** Allow `--from` + `--fork` with explicit ordering rule: `--from` blocks rendered into user turn after the forked transcript and before `-p` text. But the redundancy risk makes this opt-in, not default.
+
+---
+
 ## Related
 
 - [../architecture/launch-system.md](../architecture/launch-system.md) — launch architecture
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — prompt composition mental model
+- [../concepts/session-initiation.md](../concepts/session-initiation.md) — four-mode session initiation model
 - [../concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md) — wait mechanism
 - [state-and-launch.md](state-and-launch.md) — compatibility map for the previous combined decision page
