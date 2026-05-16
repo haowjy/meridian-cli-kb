@@ -4,6 +4,68 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-16 — Candidate-aware harness routing (PR #219)
+
+### Trigger
+
+Post-ship KB capture for PR #219 "Candidate-aware model harness routing" (merged 2026-05-16).
+
+### What changed
+
+**New decision records in `decisions/model-resolution.md`:**
+- D76: Harness-specific model IDs via `RunnablePath` — `AliasEntry.harness_candidates` and `runnable_paths`; `harness_model_id` threading to bind time.
+- D77: Explicit harness = force — `validate_harness_compatibility()` now checks only adapter availability, not model compatibility, for explicit harness selections.
+- D78: Invalid override key skip — model-policy rules with all-invalid override keys silently skipped at profile load time instead of kept as phantom no-ops.
+
+**Concept updates:**
+- `concepts/model-resolution/aliases-and-routing.md`: added "Harness-Specific Model IDs" section covering `RunnablePath`, `AliasEntry.runnable_paths`, and `harness_model_id_for()`; updated `AliasEntry` and `ModelSelectionContext` code blocks with new fields.
+- `concepts/model-resolution/overview.md`: added note in "What Gets Resolved" that `harness_model_id` may differ from `canonical_model_id` at the harness command boundary, with link to aliases-and-routing.
+
+---
+
+## 2026-05-16 — Bootstrap command, release CI fix, PR #184 carrier consolidation
+
+### Trigger
+
+Post-ship KB capture for PR #215 (bootstrap command), PR #213 (release CI semver fix), and PR #184 structural simplification waves.
+
+### What changed
+
+**New page:**
+- `operations/bootstrap-command.md` — `meridian bootstrap --add` contract: init steps + guided session launch, difference from `meridian init --add`, rootless startup class rationale, idempotency.
+
+**Navigation updates:**
+- `operations/overview.md`: added bootstrap-command.md entry.
+- `index.md`: added bootstrap-command.md to operations section.
+
+**Decision update — `decisions/launch.md`:**
+- Added Structural Simplification (2026-05, PR #184) section covering Wave 1 (four indirections removed), Wave 2 (session carrier consolidation: `SessionRequest` + `PrimarySessionMetadata` typed carriers replace `**kwargs`), and Wave 3 (LaunchSpec flattened to `ResolvedLaunchSpec`, compat bridges removed).
+
+**Release CI note:**
+- Release CI (`release-on-merge.yml`) now computes next version from highest stable `v*` semver tag, not just latest commit tag. Prevents stale lower-version tags from shadowing higher versions. (PR #213, 2026-05-14)
+
+---
+
+## 2026-05-16 — control_root/task_cwd split (PR #210)
+
+### Trigger
+
+Post-ship KB capture for PR #210 "Preserve control root and task cwd across launch" (merged 2026-05-13). The split of `execution_cwd` into `control_root` + `task_cwd` touched spawn/session record schemas and continue/fork authority logic.
+
+### What changed
+
+- `architecture/spawn-finalization.md`: updated `PreparedExecutionHandoff` schema to show `control_root`, `task_cwd`, and `execution_cwd` (legacy alias) as three separate fields with explanatory note.
+- `architecture/claude-session-isolation.md`: fixed stale `source_execution_cwd` reference to `source_control_root` in the `--continue` flow diagram.
+- `architecture/launch-system.md`: added `## control_root / task_cwd Split` section documenting the two fields on `LaunchContext`, `bind_launch_context()` behavior, env/prompt injection, and continue/fork authority.
+- `decisions/launch.md`: added `D-control-root-task-cwd-split` decision record with rationale, alternatives rejected, and behavior description.
+
+### Validation
+
+- `meridian kg check kb/`: run after edits.
+- `meridian mermaid check kb/`: run after edits.
+
+---
+
 ## 2026-05-13 — model-invocable feature knowledge capture (PR #208)
 
 ### Trigger

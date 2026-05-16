@@ -48,6 +48,34 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 ---
 
+### D-control-root-task-cwd-split: Split execution_cwd into control_root + task_cwd
+
+**Decision (2026-05-13, PR #210):** `LaunchContext`, spawn records, and session start events now carry two distinct path fields — `control_root` and `task_cwd` — instead of the single overloaded `execution_cwd` / `project_root` field.
+
+- **`control_root`** — the project config/authority root. Always anchored to the directory that contains `meridian.toml`. Used for spawn log directory construction, config loading, and harness `--add-dir` workspace root injection. This is what `project_root` / `execution_cwd` meant before the split.
+- **`task_cwd`** — the task's intended working directory. Non-null only when the spawn was requested from a subdirectory of the project root. `None` in the common case where task and config roots coincide.
+
+**Why:** `execution_cwd` was overloaded — one field served double duty as both config authority and task directory. When a spawn originates from a nested directory (e.g., `packages/auth/`), these two concerns diverge: the config authority should stay at the repo root (`control_root`) while the agent needs to know it should operate in the subdirectory (`task_cwd`). A single field cannot express both truths simultaneously.
+
+**Behavior:** When `task_cwd` differs from `control_root`, `bind_launch_context()` communicates this to the agent in two ways:
+1. `MERIDIAN_TASK_CWD` env var set to the task_cwd path in the child process environment.
+2. A `# Task Working Directory` system prompt block injected explaining that the process cwd is not the task directory.
+
+A `_is_task_cwd_covered_by_projection()` check prevents redundant workspace root additions when the task_cwd is already covered by the projected roots.
+
+**continue/fork authority:** `ClaudeSessionAccessSource` (and the equivalent structs for other harnesses) now carries `source_control_root` and `target_control_root` instead of `source_cwd`. `resolve_session_reference()` uses `source_control_root` from persisted spawn records for continue/fork authority. Legacy records that predate this split fall back to the current launch `control_root`.
+
+**`execution_cwd` legacy field:** Retained as an alias for the actual process cwd (`child_cwd`) in `PreparedExecutionHandoff` for backward compatibility with existing call sites that read this field. New code should use `control_root` and `task_cwd`.
+
+**Alternatives rejected:**
+- *Keep using process cwd as project root* — spawns launched from nested directories would pick up the wrong `meridian.toml`, breaking config loading and spawn log placement.
+- *Keep a single "project cwd" concept* — loses the task directory intent when the two diverge; the agent would have no way to know its process cwd is not where the user intended work.
+- *Pass task_cwd only as env var, not in spawn records* — loses the durable intent across continue/fork sessions; the next launch would not know what directory the task was originally scoped to.
+
+See [architecture/launch-system.md](../architecture/launch-system.md#control_root--task_cwd-split).
+
+---
+
 ### Resolve-before-persist for REST app and streaming-serve paths
 
 **Decision:** Both the REST app path and the CLI streaming-serve path call `build_launch_context()` before creating the spawn row (`SpawnApplicationService.prepare_spawn()`). The spawn row is created only if resolution succeeds.
@@ -779,6 +807,43 @@ See [../concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md) —
 descendant-scoping semantics and implementation detail.
 
 ---
+
+---
+
+## Structural Simplification (2026-05, PR #184)
+
+### Wave 1: Indirection removal
+
+**Decision:** Four proxy/wrapper indirections were deleted:
+- `decision.py` proxy — callers now call target functions directly
+- `prepare.py` wrapper pairs for the dry-run prepare path — inlined to direct calls
+- `process/__init__.py` compat shim — removed
+- `autocompact` validation — centralized
+
+**Why:** Each removed indirection was a pure maintenance surface with no semantic value — it routed calls without adding logic, policy, or error handling. Extra layers obscured the actual call chain, made grep-based navigation harder, and created dead weight in reviews. Removing them makes the data flow explicit and auditable at a glance.
+
+**Principle:** Indirections earn their keep by expressing a boundary, enabling testing, or isolating change. Proxy modules that just re-export the target do none of these.
+
+---
+
+### Wave 2: Session carrier consolidation
+
+**Decision:** `session_scope()` and `lifecycle.start()` accept typed carriers (`SessionRequest` + `PrimarySessionMetadata`) instead of individual keyword arguments.
+
+**Why:** `**kwargs` spreading at call sites made it impossible to see at a glance what was being passed, deferred type errors to runtime, and meant new fields silently vanished if a caller forgot to thread them. Typed carrier dataclasses make the call site explicit and auditable — what goes in is visible from the type, not inferred from reading the function body.
+
+This is the same rationale as `SpawnStartMetadata` in the spawn-goal work: typed carriers over `**kwargs` is the consistent pattern for session and spawn boundary calls.
+
+---
+
+### Wave 3: LaunchSpec flattening
+
+**Decision:**
+- `build_child_env_overrides` wrapper deleted — call sites use the target directly
+- `LaunchRequest` compat bridges removed
+- Harness launch specs flattened into a single `ResolvedLaunchSpec`
+
+**Why:** The compat bridges existed to ease migration from an older struct shape. Once the migration was complete, the bridges were pure ceremony — they copied fields without transforming them. Flattening into `ResolvedLaunchSpec` gives a single canonical struct that all downstream paths read, eliminating the question of which shape is authoritative.
 
 ## Related
 

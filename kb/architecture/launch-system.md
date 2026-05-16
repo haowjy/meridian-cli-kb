@@ -50,6 +50,27 @@ LaunchContext
 
 The primary CLI path is the canonical example of prepare-once/bind-twice: `prepare_launch_surface()` is called once before the session is opened, then `bind_launch_context()` runs for dry-run preview (display), then again with real spawn-id/paths for actual execution.
 
+## control_root / task_cwd Split
+
+`LaunchContext` carries two distinct path fields introduced in PR #210:
+
+- **`control_root: Path`** — the project config/authority root. Where `meridian.toml` lives. Used for spawn log directories, config loading, and harness `--add-dir` roots. Equivalent to the old `project_root` / `execution_cwd` in the pre-#210 model.
+- **`task_cwd: Path | None`** — the task's intended working directory. Set only when the spawn was requested from a directory other than the project root. `None` in the common case where task directory == control root.
+
+The split captures the divergence between *where project config lives* and *where the task should be done*. A spawn launched from a nested subdirectory of a project (e.g., `packages/auth/`) should use the repo root as its config authority but communicate `packages/auth/` as the task working directory to the agent.
+
+**`bind_launch_context()` behavior when `task_cwd` is set:**
+1. Sets `MERIDIAN_TASK_CWD` in the child process's environment to the `task_cwd` value.
+2. Appends a `# Task Working Directory` block to the agent's system prompt explaining that the process cwd is not the task directory and providing the `MERIDIAN_TASK_CWD` value.
+3. Runs `_is_task_cwd_covered_by_projection()` to check whether `task_cwd` is already covered by projected workspace roots before adding it as an extra root.
+
+**Spawn and session records** persist both fields: `control_root` (config authority) and `task_cwd` (nullable, task directory intent). `execution_cwd` remains as a legacy alias for the actual process cwd (`child_cwd`).
+
+**continue/fork authority:** `resolve_session_reference()` uses `source_control_root` from persisted spawn records. Legacy refs that predate PR #210 fall back to the current launch `control_root`.
+
+See [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split) for the rationale.
+
+
 ## Four Driving Adapters
 
 ```mermaid
