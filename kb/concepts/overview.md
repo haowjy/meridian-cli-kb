@@ -6,6 +6,7 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 
 - [spawn-lifecycle.md](spawn-lifecycle.md) — Spawn status machine, heartbeat, and reaper mechanics.
 - [spawn-wait-barrier.md](spawn-wait-barrier.md) — Chat-lineage wait sets, yield checkpoints, and barrier discipline.
+- [spawn-output-contract.md](spawn-output-contract.md) — Report-first spawn output, transcript pointer behavior, and metadata disclosure levels.
 - [state-model.md](state-model.md) — Dual-root state split, JSONL event sourcing, crash-only recovery, and UUID keying.
 - [harness-abstraction.md](harness-abstraction.md) — Policy/mechanism split, adapter contract, and harness-agnostic constraints.
 - [composition-pipeline.md](composition-pipeline.md) — Semantic IR to harness-specific argv/env projection.
