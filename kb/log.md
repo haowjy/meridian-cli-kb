@@ -4,6 +4,31 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-16 — Session initiation semantics and PR #216 knowledge capture
+
+### Trigger
+
+Work item audit-dev-workflow-scope shipped unified session-initiation semantics (--fork/--fork-fresh split, bare flag inference, primary --from, argv normalization sentinel, four-layer content composition model). No KB pages existed for the four-mode initiation model or the identity-lock and argv-normalization design decisions.
+
+### What changed
+
+**New page:**
+- `concepts/session-initiation.md` — Authoritative page for the four-mode session initiation model (--continue, --fork, --fork-fresh, --from). Covers: mode semantics and use cases, decision tree, four-layer content composition model (why Layer 3 is user-turn not system prompt), identity lock (fork vs fork-fresh), bare flag inference, argv normalization sentinel pattern, mutual exclusion matrix, surface coverage table, and implementation seam (`resolve_task_context_inputs`).
+
+**Updated pages:**
+- `decisions/launch.md` — Added Session Initiation section (2026-05 PR #216) with four new decisions: D-fork-identity-lock, D-prior-context-user-turn, D-argv-normalization-sentinel, D-from-fork-mutual-exclusion.
+- `concepts/composition-pipeline.md` — Added session-initiation.md to Related Pages.
+- `concepts/overview.md` — Added session-initiation entry.
+- `index.md` — Added session-initiation.md to concepts section.
+- `decisions.md` — Added chronological entries and updated Launch row in domain index.
+
+### Validation
+
+Ran `meridian kg check kb` and `meridian mermaid check kb` — see below.
+
+
+---
+
 ## 2026-05-16 — Candidate-aware harness routing (PR #219)
 
 ### Trigger
