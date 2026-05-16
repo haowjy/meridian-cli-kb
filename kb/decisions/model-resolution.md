@@ -287,6 +287,46 @@ Source: `src/meridian/lib/launch/policies.py`
 
 ---
 
+## Candidate-Aware Harness Routing (2026-05-16)
+
+### D76: Harness-specific model IDs via RunnablePath
+
+**Decision:** Mars returns harness-specific model strings for aliases via a `RunnablePath` structure. `AliasEntry` carries `harness_candidates` (list of `RunnablePath` entries) and `runnable_paths` (dict of `{harness_id: model_id}` for fast lookup). At bind time, `select_harness_model_id()` looks up the resolved harness in `runnable_paths` and passes the harness-specific string to the harness adapter.
+
+**Why:** A model token like `gpt-5.5` may need to be `openai/gpt-5.5` when sent to OpenCode's HTTP API, but bare `gpt-5.5` for Codex. The canonical alias ID is the right handle for policy matching and user communication, but the harness command boundary needs the provider-prefixed form. Using the alias token uniformly sends the wrong string to harnesses that expect provider-prefixed IDs.
+
+**`ModelSelectionContext.harness_model_id`:** The resolved harness-specific model string threads from `resolve_policies()` through `LaunchContext` to `bind_launch_context()`. `context.py:bind_launch_context()` applies `harness_model_id` when building the harness subprocess command.
+
+**Alternatives rejected:**
+- Teach each harness adapter to do its own model-string transformation — puts transformation logic in the mechanism layer, not the policy layer. Fails when the same alias token maps to different provider paths across harnesses.
+- Store only one model ID and add per-harness prefix rules in adapter config — equivalent complexity, lower locality, harder to audit.
+
+---
+
+### D77: Explicit harness = force; only adapter availability can reject
+
+**Decision:** `validate_harness_compatibility()` no longer checks model compatibility for explicit harness selections. It only checks harness adapter availability (binary present/installed). An explicit harness selection via CLI `--harness`, `MERIDIAN_HARNESS` env, or a model-policy override is **never rejected for model incompatibility** — only for adapter unavailability.
+
+**Why:** Explicit overrides represent deliberate user or profile-author choice. Rejecting them for model incompatibility assumes the catalog is authoritative, but models are added to harnesses faster than catalogs update. Users who force a harness may have out-of-band knowledge (new model added before catalog refresh, custom harness config). The right failure mode is "harness adapter not installed," not "harness doesn't list this model."
+
+**Before (rejected behavior):** `validate_harness_compatibility()` checked whether the resolved model was in the harness's candidate list and raised `ValueError` if not — blocking any explicit override that referenced a model newer than the local catalog.
+
+**Alternatives rejected:**
+- Keep the compatibility check but add a `--force-harness` flag — adds surface area; `--harness` is already an explicit override with the same intent.
+- Warn instead of reject — warning noise for an explicit user choice that may be entirely valid.
+
+---
+
+### D78: Invalid override key skip in model-policy rules
+
+**Decision:** Model-policy rules where **all override keys are invalid** (unrecognized field names) are silently skipped during profile loading, not kept as phantom no-op rules.
+
+**Why:** A phantom rule with invalid keys occupies a position in the policy list under first-match priority. A no-op rule at position N shadows all downstream rules at positions N+1, N+2, ... that might validly match the same selector. A rule that does nothing is strictly worse than no rule — it blocks rules that would have done something useful. Skipping is the correct behavior; it matches the intent of the profile author (add an override) rather than the broken artifact (malformed keys).
+
+**Scope:** Applied at profile load time in `agent.py`. Logged at debug level for diagnostics. Does not affect rules with a mix of valid and invalid keys — partial-valid rules are applied with the valid keys only.
+
+---
+
 ## Related
 
 - [launch.md](launch.md) — harness identity env var decisions (D32, D33, D57, D63); background worker resolution refactor

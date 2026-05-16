@@ -32,6 +32,8 @@ class AliasEntry(BaseModel):
     description: str | None
     default_effort: str | None
     default_autocompact: int | None
+    harness_candidates: list[RunnablePath]      # per-harness (harness_id, model_id) pairs
+    runnable_paths: dict[HarnessId, ModelId]    # fast lookup: harness → harness-specific model string
 
     @property
     def harness(self) -> HarnessId:
@@ -42,12 +44,47 @@ class AliasEntry(BaseModel):
     @property
     def mars_provided_harness(self) -> HarnessId | None:
         return self.resolved_harness
+
+    def harness_model_id_for(self, harness_id: HarnessId) -> ModelId:
+        """Return the harness-specific model string, or canonical model_id if not in runnable_paths."""
+        return self.runnable_paths.get(harness_id, self.model_id)
 ```
 
 Source: `src/meridian/lib/catalog/model_aliases.py:28-48`
 
 `mars_provided_harness` returns `None` when Mars doesn't specify a harness
 for the alias. Harness assignment then falls to `resolve_harness_routing()`.
+
+## Harness-Specific Model IDs
+
+Some models carry different concrete model strings per harness. For example,
+`gpt-5.5` may be `gpt-5.5` on Codex but `openai/gpt-5.5` on OpenCode (which
+routes to an HTTP API requiring provider-prefixed IDs).
+
+Mars encodes these per-harness strings via **`RunnablePath`** entries:
+
+```python
+@dataclass(frozen=True)
+class RunnablePath:
+    harness_id: HarnessId    # which harness this path applies to
+    model_id: ModelId        # the harness-specific model string for that harness
+```
+
+`AliasEntry.harness_candidates` is the ordered list of `RunnablePath` entries
+for the alias. `AliasEntry.runnable_paths` is a dict derived from it for O(1)
+lookup: `{harness_id: model_id}`.
+
+At bind time, `context.py:bind_launch_context()` calls
+`entry.harness_model_id_for(resolved_harness)` to retrieve the harness-specific
+model string. This string is stored as `ModelSelectionContext.harness_model_id`
+and passed to the harness adapter when building the subprocess command.
+
+If `runnable_paths` has no entry for the resolved harness, `harness_model_id_for()`
+falls back to the canonical `model_id` — preserving behavior for harnesses that
+don't need a provider-prefixed form.
+
+Source: `src/meridian/lib/catalog/model_aliases.py` — `RunnablePath`,
+`parse_harness_candidates()`, `parse_runnable_paths()`.
 
 ## Identity vs. Routing Split
 
@@ -105,6 +142,7 @@ class ModelSelectionContext:
     requested_token: str          # original user input ("sonnet", "gpt-4o")
     selected_model_token: str     # alias or model_id used for policy matching
     canonical_model_id: str       # fully resolved model ID
+    harness_model_id: str         # harness-specific model string (may differ from canonical_model_id)
     mars_provided_harness: HarnessId | None
     resolved_entry: AliasEntry | None
     harness_provenance: str       # why this harness was selected
@@ -112,6 +150,12 @@ class ModelSelectionContext:
 
 `requested_token` preserves the original user input — important for `--dry-run`
 output that shows "you asked for X, resolved to Y via Z".
+
+`harness_model_id` is the string actually passed to the harness subprocess. It equals
+`canonical_model_id` for harnesses that use the canonical form, but diverges when
+`AliasEntry.runnable_paths` has a harness-specific entry (e.g. `openai/gpt-5.5` for
+OpenCode). Always use `harness_model_id` at the harness command boundary, never
+`canonical_model_id` directly.
 
 ## Harness Routing: 7-Source Cascade
 

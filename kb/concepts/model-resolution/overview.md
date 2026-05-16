@@ -52,16 +52,22 @@ Each field resolves independently. A CLI model override doesn't change the appro
 
 After both passes, the pipeline has produced:
 
-- **`AliasEntry`** — alias string mapped to a concrete `model_id` and
-  optional `mars_provided_harness`
+- **`AliasEntry`** — alias string mapped to a concrete `model_id`, optional
+  `mars_provided_harness`, and `runnable_paths` (harness-specific model strings)
 - **`ModelSelectionContext`** — frozen record carrying the original
-  `requested_token`, `canonical_model_id`, and `harness_provenance` string
+  `requested_token`, `canonical_model_id`, `harness_model_id` (harness-specific
+  model string, may differ from canonical), and `harness_provenance` string
 - **Harness** — which harness process to launch, determined via the 7-source
   cascade in `resolve_harness_routing()`
 - **Skills** — list of skill names from the profile, loaded and variant-selected
   for the resolved harness and model token
 - **`LaunchContext`** — all the above assembled and ready for the composition
   stage
+
+At the harness command boundary, `bind_launch_context()` uses `harness_model_id`
+(not `canonical_model_id`) when building the subprocess command. For most harnesses
+these are identical, but models with provider-prefixed IDs (e.g. `openai/gpt-5.5`
+for OpenCode) diverge here. See [aliases-and-routing.md](aliases-and-routing.md#harness-specific-model-ids).
 
 ## Entry Points
 
