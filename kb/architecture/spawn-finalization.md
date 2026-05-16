@@ -174,10 +174,14 @@ class PreparedExecutionHandoff:
     launch_context: LaunchContext
     session_context: _SessionExecutionContext
     session_exit_stack: ExitStack   # owns session scope cleanup
-    execution_cwd: str
+    control_root: str       # project config/authority root (where meridian.toml lives)
+    task_cwd: str | None    # task working directory when different from control_root; None otherwise
+    execution_cwd: str      # legacy alias: actual process cwd (child_cwd)
     work_id: str | None
     harness_session_id_observer: Callable[[str], None]
 ```
+
+`control_root` and `task_cwd` were split in PR #210. `control_root` anchors config authority (spawn log directories, `--add-dir` roots); `task_cwd` carries the caller's task directory when it differs from the project root. When `task_cwd` is set, `bind_launch_context()` injects `MERIDIAN_TASK_CWD` into the child env and appends a system prompt block so the agent knows its process cwd is not its task directory. `execution_cwd` is the legacy field name and now points to the actual process working directory (child_cwd). See [architecture/launch-system.md](launch-system.md#control_root--task_cwd-split) and [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split) for rationale.
 
 The ownership transfer pattern in `_prepare_execution_handoff()`:
 ```python

@@ -188,7 +188,7 @@ ORIGINAL SESSION:
   6. shutil.rmtree(overlay)
 
 CONTINUE SESSION:
-  1. resolve_session_reference() finds source_execution_cwd + source_claude_config_dir
+  1. resolve_session_reference() finds source_control_root + source_claude_config_dir
   2. New overlay created; CLAUDE_CONFIG_DIR → new overlay
   3. ensure_claude_session_accessible() fires:
        - source_config_root = old overlay path (deleted) → falls back to canonical

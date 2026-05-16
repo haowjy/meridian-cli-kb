@@ -153,6 +153,7 @@ Operational knowledge for running, configuring, and diagnosing Meridian in pract
 - [operations/troubleshooting.md](operations/troubleshooting.md) — Common failure patterns (`orphan_run`, `orphan_finalization`, locked files, harness startup failures) and recovery procedures
 - [operations/configuration-guide.md](operations/configuration-guide.md) — Practical config setup: TOML file locations, `[workspace]` entries, env vars, profile overrides, resolution verification
 - [operations/init-command.md](operations/init-command.md) — `meridian init --add` contract: bootstrap sequence, auto-link, primary agent handling, idempotency, JSON output
+- [operations/bootstrap-command.md](operations/bootstrap-command.md) — `meridian bootstrap --add`: first-run setup alias that runs init steps then launches a guided session with the primary agent
 
 ---
 
