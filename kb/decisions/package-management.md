@@ -254,6 +254,122 @@ let upgrades_available = if request.options.frozen {
 
 ---
 
+## Launch-Bundle System
+
+Decisions about the `mars build launch-bundle` flow: Mars/Meridian ownership split,
+native-config passthrough, portable tool-policy preservation, and harness target
+status.
+
+For mechanism, see:
+- [architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — cross-repo launch-bundle system, bundle contract, scaffold slots
+- [concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept and per-harness projection
+
+---
+
+### D80: Mars/Meridian launch-bundle ownership split
+
+**Decision:** Mars builds the static scaffold (agent identity, routing, execution policy,
+prompt surface, scaffold slots, tool policy). Meridian injects per-spawn dynamic content
+(prompt file, context files, goal, prior session history, spawn metadata) and launches
+the harness process.
+
+**Why:** Mars has access to the full compiled agent/skill graph at build time; it cannot
+see per-spawn content because that content is Meridian's runtime concern. Prompt files,
+context files, and session history are session-scoped — they change per spawn, not per
+agent version. Mars knowing about them would couple the build system to spawn runtime
+semantics.
+
+**Rejected alternative:** Mars receives the prompt file and produces a fully concrete
+launch command. Rejected: the prompt file is confidential per-spawn content; Mars is a
+shared CLI tool and should not receive it. Also, prompt injection (goal, prior session)
+is spawn-lifecycle policy that belongs in Meridian.
+
+---
+
+### D81: Public verb is `build`, not `compile`
+
+**Decision:** The CLI verb for producing the launch scaffold is `build`
+(`mars build launch-bundle`). Internal code and design may use "compile" or "lower",
+but CLI and user-facing docs use `build`.
+
+**Why:** "Build" is the standard verb for transforming source artifacts to derived
+artifacts in CLI tools (cf. `cargo build`, `docker build`). "Compile" implies a
+language-level transformation and creates confusion with "compiler" as the term for
+the Mars agent profile parser/lowerer.
+
+---
+
+### D82: `native-config` — shape-validated passthrough, not portable semantics
+
+**Decision:** `native-config` under `harness-overrides.<target>` is raw harness config
+passthrough. Mars validates shape only (string keys, serializable values). Mars does NOT
+interpret key names or enforce key semantics. The bundle carries `native-config` in
+`execution_policy.native_config`; Meridian's harness adapter projects it at launch time.
+
+**Why:** Making Mars understand every harness's config surface would require Mars to track
+every harness version's config schema — unsustainable. The escape hatch gives profile
+authors direct access to the harness surface for cases with no portable equivalent. If a
+knob proves universally useful, promote it to a first-class field later.
+
+**Rejected alternative:** Mars validates specific known `native-config` key names per
+harness. Rejected: would require Mars to track every harness version's config schema,
+coupling Mars to harness implementation details.
+
+---
+
+### D83: Portable tool policy preserved through the full pipeline (mixed allow/deny)
+
+**Decision:** `tools` (map format with allow/deny entries) and `disallowed-tools` are
+portable Meridian semantics. Mars resolves them into the bundle's `tools` field
+(`{allowed: [...], disallowed: [...], mcp: [...]}`). Both `allowed` and `disallowed` are
+preserved simultaneously — neither side is dropped. Meridian projects both sides per
+harness.
+
+**The c859 bug:** Prior Meridian Claude projection only emitted `--allowedTools` when a
+wildcard `*: deny` was present. Mixed profiles without a wildcard deny silently lost the
+allowlist. Fix: emit `--allowedTools` whenever `tools.allowed` is non-empty; emit
+`--disallowedTools` whenever `tools.disallowed` is non-empty. No dependency between the
+two decisions.
+
+**Why separate from native-config:** Tool policy is portable (Claude, OpenCode have
+allow/deny surfaces). Encoding tool policy as `native-config` would require per-harness
+duplication and lose portability.
+
+---
+
+### D84: Cursor experimental, Pi future-first-class, Gemini out of scope
+
+**Decision:**
+- **Cursor:** Supported as experimental launch-bundle target. Bundle carries
+  `provenance.harness_stability: "experimental"` and a warning. Projection is
+  best-effort; contract may change.
+- **Pi:** Future first-class Meridian-owned harness. Pi contract is still being
+  developed. Not part of the launch-bundle first slice. Tool policy should be part
+  of the future Pi contract.
+- **Gemini:** Not a current Mars/Meridian target. Excluded from launch-bundle and
+  native-config requirements.
+
+**Why Cursor experimental vs first-class:** Cursor's config surfaces are actively
+evolving. Committing to a stable projection contract prematurely creates maintenance
+debt.
+
+---
+
+### D85: Static sync and launch-bundle are intentionally different consumers
+
+**Decision:** `mars sync` produces harness-native static artifacts; `mars build launch-bundle`
+produces a runtime JSON scaffold for Meridian. These are different build products for
+different consumers. `native-config` is dropped from static native artifacts
+(meridian-only in lossiness matrix) but preserved in the launch-bundle for runtime
+projection. This divergence is intentional.
+
+**Why:** Static native artifacts are for harness-native agent discovery (e.g., Claude Code
+sidebar). They don't carry `native-config` because the harness would need to know how to
+apply it — that's Meridian's job. The launch-bundle is Meridian's runtime surface; it
+carries everything Meridian needs.
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution
@@ -263,5 +379,7 @@ let upgrades_available = if request.options.frozen {
 - [concepts/package-management/sync-model.md](../concepts/package-management/sync-model.md) — sync pipeline mechanics
 - [architecture/mars-compiler.md](../architecture/mars-compiler.md) — compiler internals
 - [architecture/mars-targeting.md](../architecture/mars-targeting.md) — targeting architecture
+- [architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — launch-bundle system
 - [concepts/skill-schema.md](../concepts/skill-schema.md) — skill schema and variant lowering
 - [concepts/bootstrap-docs.md](../concepts/bootstrap-docs.md) — bootstrap doc discovery mechanism
+- [concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept

@@ -12,6 +12,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [app-server.md](app-server.md) — REST, WebSocket/SSE streaming, MCP stdio server, and connection management.
 - [mars-compiler.md](mars-compiler.md) — Mars compiler module map, config-entry pipeline, collision resolution, and stale cleanup.
 - [mars-targeting.md](mars-targeting.md) — Mars targeting architecture: `.mars/` as Meridian compiled read surface, native harness skill dirs, and conditional native agent emission.
+- [mars-launch-bundle.md](mars-launch-bundle.md) — Cross-repo launch-bundle system: Mars/Meridian ownership, bundle contract, scaffold slots, harness status, static sync vs runtime differences.
 
 ## Subtrees
 
