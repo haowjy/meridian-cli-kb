@@ -9,6 +9,7 @@ Cross-repo system spanning `mars-agents` (builds the scaffold) and `meridian-cli
 - [mars-targeting.md](mars-targeting.md) — static `.mars/` targeting vs. launch-bundle
 - [../concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept
 - [../decisions/package-management.md](../decisions/package-management.md) — D80–D85 for decisions made during this work
+- [../lessons/mars-launch-bundle-lessons.md](../lessons/mars-launch-bundle-lessons.md) — implementation lessons from the launch-bundle work item
 
 ---
 
