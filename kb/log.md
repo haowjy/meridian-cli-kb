@@ -4,6 +4,22 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-19 — Spawn finalization cross-reference health pass
+
+### Trigger
+
+Structural health check after the spawn-exit-schema-split capture pass exposed one broken KB reference in the new spawn-finalization material.
+
+### What changed
+
+- `architecture/spawn-finalization.md`: removed a broken work-item link target and left the work-item reference as plain text so the page no longer points at a non-existent KB path.
+
+### Validation
+
+- `meridian kg check kb` after the edit still reports `0 errors`.
+
+---
+
 ## 2026-05-16 — Session initiation semantics and PR #216 knowledge capture
 
 ### Trigger

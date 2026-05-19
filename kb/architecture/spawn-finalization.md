@@ -329,7 +329,8 @@ decide_generic_reconciliation(record, snapshot, now):
   → FailOrphan("orphan_run", exit_code=last_attempt_exit_code or 1)
 ```
 
-For the full decision tree and test scenarios see the work-item design docs (`work/spawn-exit-schema-split/design/reaper-logic.md`).
+For the full decision tree and test scenarios, see the work-item design docs for the
+spawn-exit-schema-split pass.
 
 ---
 
