@@ -94,9 +94,47 @@ The user sees the normal TUI. Meridian sees all events.
 
 ---
 
+
+## Why Extension Injection for Pi (Managed-Bash and Lifecycle)
+
+**The problem:** Pi's JSONL RPC event stream doesn't surface background job completion or session quiescence. No `job.finished` or `session.idle` event exists. Meridian needs to know when tracked child work completes before declaring a spawn done — and Pi's protocol doesn't provide it.
+
+**The solution:** Meridian injects TypeScript extensions into Pi via `-e <path>` flags. These extensions run inside Pi's process, access Pi's internal event bus and bash execution context, and emit structured machine events through a sidecar file (`pi-lifecycle-events.jsonl`) that Meridian tails from Python.
+
+Two managed extensions ship as package data:
+- **`managed-bash`** — overrides Pi's bash builtin. Tracks background jobs, supports `wait_policy: "tracked" | "detached"`. Returns immediately with `state: "running"` + `job_id` for long-running tracked commands; blocks for synchronous ones.
+- **`meridian-lifecycle`** — reads the managed-bash event bus and emits canonical lifecycle events (child start/end, notification queued/delivered) to `pi-lifecycle-events.jsonl` via `fs.writeSync` (append-mode fd for reliability).
+
+**Why sidecar file instead of stdout:** Pi's stdout carries the JSONL RPC protocol. Mixing lifecycle events into stdout would require Pi to multiplex two protocols — which Pi doesn't support. The sidecar file is a write-once-read-many side channel that doesn't interfere with the RPC stream.
+
+**The lesson:** When a harness's native protocol doesn't expose enough structure for quiescence detection, extension injection lets Meridian add a code path inside the harness process rather than working around it. The tradeoff is coupling to Pi's extension API: if Pi changes its extension loading mechanism, the extensions may need updates. The compatibility probe (`pi --help` must advertise `--no-extensions` and `-e`) gates the harness before any spawn.
+
+**Where this lives:** `src/meridian/pi_runtime/extensions/`, `harness/connections/pi_rpc.py`, `harness/pi.py:env_overrides()`
+
+---
+
+## Pi Runtime Resolution vs Bundled Runtime
+
+**Prior harness pattern:** Claude, Codex, and OpenCode are launched by name via PATH (`claude`, `codex`, `opencode`). No pre-launch probe, no compatibility check.
+
+**Why Pi differs:** Pi's RPC mode and extension loading surface (`--mode rpc`, `-e`, `--no-extensions`, `--session-dir`) are required for Meridian to function correctly. If the installed `pi` binary doesn't support these flags, the spawn fails mid-run with an unhelpful error — or worse, silently degrades.
+
+**The solution:** Probe-before-launch via `PiRuntimeResolver`:
+1. Resolve binary: `MERIDIAN_PI_BINARY` override, then `pi` from PATH.
+2. Run `pi --version` — must exit 0.
+3. Run `pi --help` — must advertise required flags (`--mode rpc`, `-e`, `--session-dir`, `--no-extensions`, `--append-system-prompt`, `--session`, `--fork`).
+4. Fail fast with actionable guidance if probe fails.
+
+**The lesson:** For harnesses where the required CLI surface is non-trivial, probe-before-launch gives a clear pre-launch error rather than a cryptic mid-run failure. The probe cost (two fast subprocesses) is negligible compared to the spawn itself. This pattern should be adopted for any future harness that requires specific CLI flags or modes that may not be present in all versions.
+
+**Where this lives:** `harness/pi_runtime_resolver.py`, `harness/pi.py:_resolve_binary()`
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism
 - [principles/invariants.md](../principles/invariants.md) — strategy map invariant, I-9 (no surface-specific logic in adapters)
 - [architecture/launch-system.md](../architecture/launch-system.md) — four driving adapters and the composition factory
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — the harness abstraction model
+- [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model and extension architecture

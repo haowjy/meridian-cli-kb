@@ -2,7 +2,7 @@
 
 A **harness** is the mechanism that translates a resolved spawn request into an
 executable process (or in-process call) and extracts results from its output.
-Claude, Codex, and OpenCode are harnesses. The Direct adapter is a harness.
+Claude, Codex, OpenCode, and Pi are harnesses. The Direct adapter is a harness.
 
 The harness layer embodies Meridian's policy/mechanism split: the CLI and ops
 layer decide **what** to run and **why** (policy). The harness adapter knows
@@ -79,17 +79,17 @@ Every adapter declares its feature flags via `HarnessCapabilities`. These flags
 let the launch layer make harness-sensitive decisions without writing
 adapter-specific conditional branches in shared code.
 
-| Capability | Claude | Codex | OpenCode | Direct |
-|-----------|:------:|:-----:|:--------:|:------:|
-| `supports_stream_events` | ✓ | ✓ | ✓ | ✗ |
-| `supports_stdin_prompt` | ✓ | ✓ | ✓ | — |
-| `supports_session_resume` | ✓ | ✓ | ✓ | ✗ |
-| `supports_session_fork` | ✓ | ✓ | ✓ | ✗ |
-| `supports_native_skills` | ✓ | ✓ | ✓ | ✗ |
-| `supports_native_agents` | ✓ | ✗ | ✗ | ✗ |
-| `supports_programmatic_tools` | ✗ | ✗ | ✗ | ✓ |
-| `supports_primary_launch` | ✓ | ✓ | ✓ | ✗ |
-| `supports_native_file_injection` | ✗ | ✗ | ✗ | ✗ |
+| Capability | Claude | Codex | OpenCode | Pi | Direct |
+|-----------|:------:|:-----:|:--------:|:--:|:------:|
+| `supports_stream_events` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `supports_stdin_prompt` | ✓ | ✓ | ✓ | ✓ | — |
+| `supports_session_resume` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `supports_session_fork` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `supports_native_skills` | ✓ | ✓ | ✓ | ✗ | ✗ |
+| `supports_native_agents` | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `supports_programmatic_tools` | ✗ | ✗ | ✗ | ✗ | ✓ |
+| `supports_primary_launch` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `supports_native_file_injection` | ✗ | ✗ | ✗ | ✗ | ✗ |
 
 Notable: no harness currently supports `supports_native_file_injection`. All
 reference files are either rendered inline into the prompt or omitted. This
@@ -97,7 +97,11 @@ routing decision lives in `project_content()` — not in shared composition code
 
 `supports_native_agents` is Claude-only. This means agent profile bodies are
 delivered via `--agents` payload for Claude, but injected into the system
-prompt for Codex and OpenCode.
+prompt for Codex, OpenCode, and Pi.
+
+`supports_native_skills` is deferred for Pi — Pi has a native skills system but
+Meridian does not yet project skills into it. Pi spawns currently receive skill
+content via the system prompt channel instead.
 
 ---
 
@@ -137,18 +141,20 @@ full pattern.
 
 Current projection behavior at a glance:
 
-| Content category | Claude | Codex | OpenCode |
-|-----------------|--------|-------|----------|
-| SYSTEM_INSTRUCTION | `--append-system-prompt-file` | Inline (first) | Inline (first) |
-| TASK_CONTEXT | User-turn channel | Inline (second) | Inline (second) |
-| USER_TASK_PROMPT | User-turn channel | Inline (last) | Inline (last) |
+| Content category | Claude | Codex | OpenCode | Pi |
+|-----------------|--------|-------|----------|----|
+| SYSTEM_INSTRUCTION | `--append-system-prompt-file` | Inline (first) | Inline (first) | `--append-system-prompt` (inline text) |
+| TASK_CONTEXT | User-turn channel | Inline (second) | Inline (second) | User-turn channel |
+| USER_TASK_PROMPT | User-turn channel | Inline (last) | Inline (last) | User-turn channel |
+
+**Pi vs Claude system prompt channel:** Claude writes the system instruction to a temp file and passes the path via `--append-system-prompt-file`. Pi takes the text inline via `--append-system-prompt <text>`. Same semantic, different channel — the projection layer handles the difference transparently.
 
 ---
 
 ## The Registry
 
 `HarnessRegistry` maps `HarnessId` to adapter instances. The default registry
-registers Claude, Codex, OpenCode, and Direct via `with_defaults()`.
+registers Claude, Codex, OpenCode, Pi, and Direct via `with_defaults()`.
 
 Adding a harness = one adapter file + one `register()` call. No other changes.
 
@@ -171,7 +177,25 @@ and runtime model switching.
 
 Claude's primary launch still uses a black-box PTY/pipe path, not the
 connections layer. Codex primary always uses `CodexConnection` via the managed
-attach flow.
+attach flow. Pi spawned sessions use `PiRpcConnection`, which drains a JSONL
+event stream from `pi --mode rpc` over subprocess stdin/stdout — a third
+connection model distinct from Claude's PTY and Codex's WebSocket. Prompt
+delivery happens by writing prompt JSON to Pi's stdin; events arrive on stdout.
+
+Pi also introduces **extension injection**: Meridian-owned TypeScript extensions
+are loaded into the Pi process via `-e <path>` flags. Two managed extensions ship
+as package data under `src/meridian/pi_runtime/extensions/`:
+
+- **`managed-bash`** — overrides Pi's bash builtin; tracks background jobs,
+  supports `wait_policy: "tracked" | "detached"`.
+- **`meridian-lifecycle`** — emits lifecycle machine events (child start/end,
+  quiescence signals, notification delivery) to a sidecar JSONL file
+  (`pi-lifecycle-events.jsonl`), not stdout/stderr.
+
+Spawned Pi sessions load both extensions (`--no-extensions -e managed-bash.js -e lifecycle.js`).
+Primary Pi sessions load lifecycle only (`-e lifecycle.js`). See
+[../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the
+quiescence model built on top of these extensions.
 
 ---
 
@@ -202,3 +226,4 @@ automatically once registered.
 - `../architecture/launch-system.md` — how the launch factory invokes the
   harness adapter
 - `../codebase/harness-adapters.md` — per-harness notes and known quirks
+- `../architecture/pi-lifecycle.md` — Pi's quiescence-based completion model and extension architecture

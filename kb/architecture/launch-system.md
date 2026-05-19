@@ -145,6 +145,8 @@ The background worker trusts the `BackgroundWorkerLaunchRequest` written by `exe
 
 **Note:** `ops/spawn/prepare.py` uses `SPAWN_PREPARE` surface + `LaunchArgvIntent.REQUIRED` — it needs a real argv to populate `cli_command` for display. This is the exception; all execution paths use `SPEC_ONLY`.
 
+**Pi dual launch path.** Pi is the first harness with two completely different launch configurations per role. Primary uses the native Pi TUI (`pi [--model ...] [--session/--fork ...]`, no `--mode`, lifecycle extension only). Spawned uses Pi RPC (`pi --mode rpc ... --no-extensions -e managed-bash.js -e lifecycle.js`, prompt written to stdin, JSONL drained from stdout). The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned. See [pi-lifecycle.md](pi-lifecycle.md) for the quiescence model.
+
 ### 3. REST App Path
 
 `SpawnApplicationService.prepare_spawn()` implements resolve-before-persist:
@@ -216,6 +218,12 @@ Two steps inside `build_launch_context()`:
 - No roots: `"ignored:no_roots"` for all harnesses
 
 Roots are stored in `run_params.projected_roots` / `ResolvedLaunchSpec.projected_roots`. Harness projections convert that field into argv or env at the edge; `extra_args` remains user-owned passthrough only. OpenCode env results merge into `LaunchContext.env_overrides`.
+
+**Pi env overrides.** `PiAdapter.env_overrides()` injects two Pi-specific env vars into every Pi child process:
+- `PI_CODING_AGENT_SESSION_DIR` — scopes Pi's session file storage to `~/.meridian/meridian-pi/sessions` (Meridian-managed path, not Pi's default)
+- `MERIDIAN_PI_SESSION_ROLE` — `"primary"` or `"spawned"`; extensions use this to gate quiescence machinery to spawned-only sessions
+
+These are set by the adapter's `env_overrides()` method and flow through `build_harness_child_env()` alongside other harness-specific overrides.
 
 ## MERIDIAN_HARNESS Child Env Injection
 
@@ -293,3 +301,4 @@ ops/spawn/execute.py
 - [../codebase/harness-adapters.md](../codebase/harness-adapters.md) — per-harness adapter notes
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn lifecycle mental model
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection
+- [pi-lifecycle.md](pi-lifecycle.md) — Pi's quiescence-based completion model and extension architecture
