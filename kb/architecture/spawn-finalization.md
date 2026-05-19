@@ -219,6 +219,120 @@ Before the refactor, 8 scattered call sites each independently chose `status`, `
 
 ---
 
+## Attempt-vs-Spawn Terminal-State Schema Boundary
+
+The spawn schema splits attempt-level bookkeeping from spawn-level terminal intent. The split prevents the reaper from treating per-attempt evidence as spawn-level truth.
+
+### Attempt-level fields (overwritten on each retry, carry no terminal meaning)
+
+| Field | Type | Semantics |
+|-------|------|-----------|
+| `last_attempt_exit_code` | `int \| None` | Exit code of the most recently drained harness attempt |
+| `last_attempt_exited_at` | `str \| None` | ISO timestamp of the most recently drained attempt |
+
+Renamed from `process_exit_code` / `exited_at`. Same write path (`record_exited` in lifecycle, `apply_record_exited` in transitions); only the field names changed. Rename makes attempt-level semantics explicit — no reader can mistake `last_attempt_exit_code` for the spawn's terminal exit code (see [decisions/state.md](../decisions/state.md) D2).
+
+### Runner terminal-intent tuple (written exactly once, before any `mark_finalizing()`)
+
+| Field | Type | Semantics |
+|-------|------|-----------|
+| `runner_exit_status` | `str \| None` | `"succeeded"` \| `"failed"` \| `"cancelled"` |
+| `runner_exit_code` | `int \| None` | Resolved exit code from the runner |
+| `runner_exit_error` | `str \| None` | e.g. `"guardrail_failed"`, `"timeout"`, `"budget_exceeded"` |
+| `runner_exit_at` | `str \| None` | ISO timestamp when the runner resolved its outcome |
+
+Authoritative presence check: `runner_exit_status is not None`. If `runner_exit_status` is `None`, the entire tuple is treated as absent regardless of other `runner_exit_*` values.
+
+### Write sequence (crash-only safety invariant)
+
+The runner writes the tuple **once**, after all attempts + post-attempt work (guardrails, retry decisions, budget checks), before calling `complete_execution()`:
+
+```
+1. Resolve terminal_facts from run conclusion
+2. lifecycle.record_runner_exit(...)    ← atomic state write
+3. complete_execution(terminal_facts)  → mark_finalizing() → finalize()
+```
+
+If the runner crashes between step 2 and step 3, the reaper reconstructs the correct terminal state from the persisted tuple. A runner that crashes before step 2 leaves `runner_exit_status=None` — the safe pessimistic default.
+
+**Why a full outcome tuple, not a boolean:** The runner's resolved terminal state can differ from the last attempt's exit code. Post-attempt budget checks, guardrail-failure tallying, and strategy classification can flip a 0-exit attempt into a failed spawn. A boolean `runner_completed` doesn't carry the resolved outcome and forces the reaper to re-derive from ambiguous evidence (see [decisions/state.md](../decisions/state.md) D1).
+
+All finalization paths must persist `runner_exit_*` before calling `complete_execution()`:
+- `execute_with_streaming()` `finally` block in `streaming_runner.py`
+- `_finalize_lifecycle_and_observe_session()` in `launch/process/runner.py`
+- `streaming_serve.py` CLI path (calls `complete_spawn()` after `run_streaming_spawn()`)
+
+For the full `StoredSpawnState` / `SpawnRecord` field definitions see `state/spawn/.context/CONTEXT.md`.
+
+### `runner_created_at_epoch`
+
+Also added alongside this boundary split: `runner_created_at_epoch: float | None` — `psutil.Process(runner_pid).create_time()` captured when `runner_pid` is written. Hardens the reaper's `is_process_alive()` PID-liveness check. The prior heuristic (`started_at` with a 30s grace) was fragile under delayed launch; this field makes PID-birth-time verification robust (see [decisions/state.md](../decisions/state.md) D4).
+
+---
+
+## Reaper `runner_exit_*` Invariant
+
+The reaper's `decide_generic_reconciliation()` pivots entirely on `runner_exit_status`. Attempt-level fields (`last_attempt_exit_code`, `last_attempt_exited_at`) carry no terminal weight in the reaper's decision.
+
+### When `runner_exit_status is not None`
+
+Runner resolved its outcome before crashing. Reaper uses `FinalizeFromRunnerExit(status, exit_code, error)` — passes the runner's decision directly to `_finalize_and_log()` without re-derivation.
+
+`_in_post_runner_exit_grace()` (keyed on `runner_exit_at`) gives the runner a brief window to land the terminal write after persisting `runner_exit_*` before the reaper steps in. Replaces the old `_in_post_exit_finalization_grace()` which was keyed on `exited_at`.
+
+### When `runner_exit_status is None` and the runner is dead
+
+Always `FailOrphan`. The reaper does **not** check `durable_report` or `last_attempt_exit_code`. Both are attempt-level evidence that could be stale — a `report.md` from a guardrail-failing attempt looks identical to one from a successful run.
+
+This closes two false-success channels that existed before this work:
+- `process_exit_code == 0` → `FinalizeSucceededFromExit` (attempt exit code misread as spawn terminal exit code)
+- Stale `report.md` → `FinalizeSucceededFromReport` when the runner died before resolving its outcome
+
+Builds on commit 5ad60c23 (live-runner mitigation: `runner_pid_alive` → `Skip`).
+
+### `finalizing` without `runner_exit_*`
+
+Invalid / orphan state. The `finalizing` branch checks `runner_exit_status` first:
+- Present → `FinalizeFromRunnerExit`
+- Absent → `FailOrphanFinalization` — does NOT fall back to `durable_report`
+
+A stale report from a prior attempt looks identical to a valid final report without the runner's resolved outcome. D11 invariant: every code path that enters `finalizing` must have already persisted `runner_exit_*`. Enforcement: `complete_execution()` calls `lifecycle.record_runner_exit()` then `mark_finalizing()` then `finalize()`. Any path that enters `finalizing` without a prior `record_runner_exit()` call is a calling-code bug; the reaper treats it as orphan finalization.
+
+### `FinalizeSucceededFromReport` — preserved paths
+
+Kept for non-retry scenarios where a `report.md` cannot be stale from a prior attempt:
+- Launch-boundary ghosts (pre-worker takeover)
+- Missing-runner-pid fallback
+- `ManagedPrimaryReconciliationStrategy`
+
+These are single-attempt paths where a durable report is reliable terminal evidence.
+
+### Updated decision tree (sketch)
+
+```
+decide_generic_reconciliation(record, snapshot, now):
+  if status == "finalizing":
+    if recent_activity → Skip
+    if runner_exit_status is not None → FinalizeFromRunnerExit
+    → FailOrphanFinalization
+
+  if runner_exit_status is not None:
+    if post_runner_exit_grace(runner_exit_at) → Skip
+    → FinalizeFromRunnerExit
+
+  # runner_exit_status is None — no resolved outcome persisted
+  if pre_worker_ghost → ...report fallback (single-attempt path)...
+  if no runner_pid → ...report fallback (single-attempt path)...
+  if runner_pid_alive → Skip
+  if recent_activity → Skip
+  if startup_grace → Skip
+  → FailOrphan("orphan_run", exit_code=last_attempt_exit_code or 1)
+```
+
+For the full decision tree and test scenarios see the work-item design docs (`work/spawn-exit-schema-split/design/reaper-logic.md`).
+
+---
+
 ## Key Files
 
 | File | Role |
