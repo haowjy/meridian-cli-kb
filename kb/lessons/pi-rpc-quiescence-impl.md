@@ -116,5 +116,6 @@ assert result == "/tmp/pi"  # or use the variable directly
 ## Cross-References
 
 - [harness-integration.md](harness-integration.md) — Claude, Codex, and OpenCode integration patterns
+- [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — quiescence architecture, state machine, and extension model
 - [arch-refactor-pitfalls.md](arch-refactor-pitfalls.md) — Earlier architecture refactor pitfalls including Windows asyncio and process-group cleanup
-- [decisions/023-nested-stale-detection.md](../decisions/023-nested-stale-detection.md) — Read-only nested stale shaping decision
+> [!FLAG] **Needs human review** — the nested-stale shaping decision is not present in this KB checkout. Re-link it here if the decision exists in another archive, or capture the rationale in a decision page before reintroducing this reference.
