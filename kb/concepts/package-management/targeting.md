@@ -176,6 +176,54 @@ Cross-platform hook command quoting is handled centrally in `src/target/mod.rs`.
 - Cursor adapter: `src/target/cursor.rs`
 - Target sync: `src/target_sync/mod.rs`
 
+## Known Harness Links vs. Generic Targets
+
+**Not all `settings.targets` entries behave the same way.** Entries that name
+known harnesses act as routing constraints; all others are materialization-only.
+
+### Known harness links
+
+An entry whose name matches a known harness identifier — with or without a leading
+dot — is a **known harness link**:
+
+```
+claude    .claude
+codex     .codex
+pi        .pi
+opencode  .opencode
+cursor    .cursor
+```
+
+When one or more known harness links are present in `settings.targets`, **Mars
+auto-routing only considers those harnesses**. A model alias whose Mars-provided
+harness isn't in the known-link set will not be routed to that harness for this
+project.
+
+### Generic targets
+
+Entries that do not match a known harness name — `agents`, `.agents`, a custom
+output dir name, or anything else — are **generic targets**. They affect where
+content is materialized but **never constrain which harness is selected during
+routing**.
+
+```toml
+[settings]
+targets = [".claude", "agents"]  # .claude is a routing constraint; "agents" is not
+```
+
+### Historical bug source
+
+Adding `.agents` (or any non-harness name) to `targets` was a source of confusion:
+it looked like it should affect routing alongside `.claude` or `.codex`, but it was
+actually inert with respect to routing. Projects that listed only `.agents` without
+any known harness link ended up with unconstrained routing — all harnesses were
+considered — which was surprising when the intent was to restrict to one harness.
+
+**Rule:** When you want to constrain routing to a specific harness, include its
+canonical name (e.g. `.claude`) in `settings.targets`. Generic target names have
+no routing effect regardless of their position in the list.
+
+
 ## Related
 
 - [compiler-pipeline.md](compiler-pipeline.md) — what the compiler produces before targeting

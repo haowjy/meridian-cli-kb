@@ -125,3 +125,35 @@ V1→V2 lock promotion collision warnings were routed to `stderr` via
 
 The fix routed those warnings through the collector, making them suppressible,
 testable, and structurally consistent with the rest of Mars.
+
+---
+
+## Test Cache Isolation: Use MARS_CACHE_DIR, Not XDG Env Vars
+
+Tests that exercise Mars probe caching (OpenCode, Pi probes) failed on Windows
+when using XDG env vars to isolate cache directories. XDG vars (`XDG_CACHE_HOME`
+etc.) have no effect on Windows; `MARS_CACHE_DIR` takes precedence over
+platform-specific cache dir discovery on **all platforms**.
+
+**Why XDG fails on Windows:** Mars cache directory resolution:
+
+1. `MARS_CACHE_DIR` env var (honored on all platforms)
+2. Platform-native cache dir: `%LOCALAPPDATA%\mars\cache` on Windows, `$XDG_CACHE_HOME/mars` or `~/.cache/mars` on POSIX
+
+Setting only `XDG_CACHE_HOME` on Windows silently falls through to `%LOCALAPPDATA%`.
+Tests that believe they're isolated are actually writing to the real user cache —
+contaminating each other or failing non-deterministically when stale entries exist.
+
+**Pattern for cross-platform safe cache isolation:**
+
+```rust
+env::set_var("MARS_CACHE_DIR", &temp_dir.path());
+```
+
+**Scope:** Any test that:
+- Exercises probe caching (OpenCode, Pi harness detection probes)
+- Reads or writes the `~/.mars/cache/` equivalent
+- Needs deterministic cache state across platforms
+
+**Consistency:** The same rule applies in Meridian tests — use `MERIDIAN_HOME`
+or `MARS_CACHE_DIR` rather than XDG vars for cross-platform isolation.

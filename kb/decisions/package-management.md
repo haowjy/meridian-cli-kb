@@ -370,6 +370,30 @@ carries everything Meridian needs.
 
 ---
 
+### D86: Routing parity invariant — `mars models resolve` and `mars build launch-bundle` share `routing::evaluate_candidates()`
+
+**Decision:** The `mars models resolve <model>` command and `mars build launch-bundle --model <model>`
+both call the same `routing::evaluate_candidates()` function. The harness they select and the
+confidence they assign for a given input are guaranteed to be identical by shared code, not by
+convention.
+
+**Why:** Before the routing refactor (PR #51), `mars models resolve` used a separate harness
+inference path from `mars build launch-bundle`. A user who ran `mars models resolve sonnet` to
+preview routing could see a different harness than what the bundle would actually emit. This
+made debugging routing mismatches difficult and undermined the usability of `models resolve`
+as a preview tool.
+
+**Invariant enforced by shared code:** For any given `(model_token, settings.targets,
+harness_availability)` input, both commands produce the same `(harness_id, confidence)` outcome.
+The `routing::evaluate_candidates()` function is the single authority — neither command has its
+own harness selection logic.
+
+**Practical consequence:** `mars models resolve <token>` is a reliable preview. If it resolves
+to claude with high confidence, the launch bundle will route to claude. No silent divergence.
+
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution
