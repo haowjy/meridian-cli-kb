@@ -171,6 +171,11 @@ The `None`-vs-empty distinction is preserved through all config normalization la
 
 ### D73: Canonical launch-parameter compiler in `compiler.py` with pure-data contract
 
+> **Superseded.** PRIMARY/SPAWN_PREPARE routing now resolves through Mars
+> launch-bundle (`_resolve_policy_from_bundle()` → `bundle_adapter.request_and_resolve()`).
+> `compiler.py` is explicitly deprecated in its module docstring. This record is
+> preserved for historical context only.
+
 **Decision:** A dedicated module `src/meridian/lib/launch/compiler.py` owns all launch-parameter resolution: routing field tier walks, policy field tier walks, model-policy matching, overlay application, harness derivation, and provenance tracking. The compiler accepts `CompilerRequest` (pure data) and returns `CompilerResult` (pure data). A separate `materialize.py` converts `CompilerResult` to runtime objects (`SubprocessHarness`, loaded skills, etc.).
 
 **Why a dedicated compiler over continued growth of `resolve_policies()`:** `resolve_policies()` had become an implicit blob combining profile loading, model resolution, precedence, skill attachment, and harness derivation. Adding the new agent overlay tier would have made it worse. The compiler forces explicit typed inputs/outputs, testable in isolation, with clear provenance tracking.
@@ -186,6 +191,10 @@ The `None`-vs-empty distinction is preserved through all config normalization la
 ---
 
 ### D74: Compiler lives in Meridian, not Mars (Option C over B)
+
+> **Superseded.** The question of whether the compiler lives in Meridian vs. Mars
+> was resolved differently: Mars now owns routing via launch-bundle. The compiler
+> module (`compiler.py`) is deprecated. This record is preserved for historical context.
 
 **Decision:** After an explicit adversarial review (three agent spawns: pro-Mars p4321, pro-Meridian p4322, boundary/risk analysis p4324), Option C was confirmed: the launch-parameter compiler lives in Meridian now, behind a stable JSON-serializable contract, movable to Mars later if warranted.
 

@@ -1,8 +1,8 @@
 # Aliases and Harness Routing
 
 Model names in a spawn request resolve to concrete model IDs via **Mars aliases**,
-then route to a harness via a priority cascade. This page covers the alias
-mechanism, the identity/routing split, and how a final harness is selected.
+then route to a harness via the Mars launch-bundle. This page covers the alias
+mechanism, the identity/routing split, and how harness-specific model strings work.
 
 ## Alias Authority: Mars
 
@@ -52,8 +52,9 @@ class AliasEntry(BaseModel):
 
 Source: `src/meridian/lib/catalog/model_aliases.py:28-48`
 
-`mars_provided_harness` returns `None` when Mars doesn't specify a harness
-for the alias. Harness assignment then falls to `resolve_harness_routing()`.
+`mars_provided_harness` returns `None` when Mars doesn't specify a harness for
+the alias. In the bundle path, Mars handles harness assignment in the
+launch-bundle response.
 
 ## Harness-Specific Model IDs
 
@@ -92,9 +93,12 @@ Source: `src/meridian/lib/catalog/model_aliases.py` — `RunnablePath`,
 It returns an `AliasEntry` with `model_id` and optional `mars_provided_harness`.
 It does not raise if the harness is unknown.
 
-**Harness routing** is handled separately by `resolve_harness_routing()`, where
-all override sources (profile, config, CLI) are visible. This split lets identity
-resolution succeed independently of harness assignment.
+**Harness routing** for PRIMARY/SPAWN_PREPARE is handled by Mars via the
+launch-bundle. Meridian passes explicit CLI/env overrides to
+`mars build launch-bundle` and Mars returns the resolved harness in the bundle
+payload. This split lets identity resolution succeed independently of harness
+assignment; the full routing resolution (including policy rules and fallback)
+lives in Mars.
 
 ## resolve_model() Algorithm
 
@@ -109,11 +113,6 @@ resolution succeed independently of harness assignment.
 ```
 
 Source: `src/meridian/lib/catalog/models.py:44-136`
-
-Aliases are resolved **exactly once** in `resolve_policies()`. The resulting
-`AliasEntry` threads through the rest of the pipeline without re-resolution,
-eliminating a previous double-resolution bug. See
-[decisions/model-resolution.md](../../decisions/model-resolution.md).
 
 ## Pattern Fallback for Raw Model IDs
 
@@ -133,7 +132,7 @@ in production — it's mainly for bare model IDs in development.
 
 ## ModelSelectionContext
 
-After `resolve_model()`, the resolved state is captured in a frozen
+After bundle resolution, the routing context is captured in a frozen
 `ModelSelectionContext`:
 
 ```python
@@ -142,10 +141,10 @@ class ModelSelectionContext:
     requested_token: str          # original user input ("sonnet", "gpt-4o")
     selected_model_token: str     # alias or model_id used for policy matching
     canonical_model_id: str       # fully resolved model ID
-    harness_model_id: str         # harness-specific model string (may differ from canonical_model_id)
+    harness_model_id: str | None  # harness-specific model string (may differ from canonical_model_id)
     mars_provided_harness: HarnessId | None
     resolved_entry: AliasEntry | None
-    harness_provenance: str       # why this harness was selected
+    harness_provenance: str       # why this harness was selected (from bundle provenance)
 ```
 
 `requested_token` preserves the original user input — important for `--dry-run`
@@ -157,82 +156,27 @@ output that shows "you asked for X, resolved to Y via Z".
 OpenCode). Always use `harness_model_id` at the harness command boundary, never
 `canonical_model_id` directly.
 
-## Harness Routing: 7-Source Cascade
+In the bundle path, `harness_model_id` comes from `bundle_result.harness_model`
+returned by Mars; `harness_provenance` comes from the bundle provenance map
+(`harness_source` key).
 
-`resolve_harness_routing()` determines the final harness from multiple sources
-in priority order:
+## Harness Routing via Mars Bundle
 
-```
-1. Explicit CLI override (--harness)
-   → provenance: "explicit-override"
+For PRIMARY and SPAWN_PREPARE launches, harness routing is owned by Mars. Meridian
+forwards explicit routing overrides:
 
-2. Matched model-policies rule with harness override
-   → provenance: "profile-model-policy"
+- CLI `--model` / `--harness` → `bundle_request.model_override` / `bundle_request.harness_override`
+- CLI `--effort`, `--approval`, `--sandbox` → corresponding bundle request fields
+- If model was set via CLI (not profile/config), model-derived harness takes precedence
+  over any profile/config harness in the bundle
 
-3. Profile frontmatter harness field
-   → provenance: "explicit-override"
+The bundle response includes:
+- `routing.harness` — resolved harness ID
+- `routing.harness_model` — harness-specific model string (if needed)
+- `routing.model_token` — alias or token used for routing
+- `provenance` map — per-field source attribution
 
-4. Model alias → harness derivation (AliasEntry.mars_provided_harness)
-   → provenance: "mars-provided"
-
-5. Pattern fallback from model ID
-   → provenance: "pattern-fallback"
-
-6. Configured default (config default_harness or primary.harness)
-   → provenance: "configured-default"
-
-7. Harness-availability fallback (demoted base if policy transformed, then
-   model-policies list candidates in order)
-   → provenance: "availability-fallback"
-```
-
-The `harness_provenance` string surfaces in `--dry-run` output and debug logs.
-
-**Model-derived override:** When the user explicitly sets a model via CLI,
-the model-derived harness wins over profile or config harness. `meridian spawn -m gpt55`
-routes to Codex even if the profile says `harness: claude`.
-
-Source: `src/meridian/lib/launch/policies.py:382-626`
-
-## Harness-Availability Fallback
-
-When the selected harness is unavailable (binary not found) **and** the user
-didn't explicitly specify a model, Meridian walks an ordered **candidate chain**
-rather than scanning for any available option:
-
-```
-[demoted base candidate]      ← if a model-policy rule matched and transformed
-[model-policies[0], [1], …]   ← rules where no-fallback != true and match_type is model or alias
-```
-
-Steps:
-
-1. **Primary attempt** — compile the base launch candidate (profile/config/CLI).
-   Apply the effective `model-policies` list. If a rule matches, its overrides
-   become the primary candidate.
-2. **Demoted base** — if the primary candidate's harness is unavailable and a
-   policy rule transformed it, try the demoted base candidate (same model, no
-   policy overrides applied).
-3. **model-policies candidates** — if the demoted base is also unavailable (or
-   no rule matched and the base itself is unavailable), walk `model-policies` rules
-   in list order. For each rule where `no-fallback` is not `true` and `match_type`
-   is `model` or `alias`, try to resolve `match_value` as a model token with an
-   available harness. The first successful entry wins. The matched rule's overrides
-   are preserved — injected at CLI-equivalent precedence so the fallback keeps its
-   intended execution policy and harness routing. Model-policies are **not**
-   re-applied recursively against the fallback token.
-4. **Fail loudly** — if nothing in the chain resolves to an available harness,
-   raise an unavailability error naming the harness.
-
-`model-glob` rules never participate in fallback. They apply overrides during
-primary compilation only.
-
-The fallback only activates when routing came from a profile or config default,
-not from an explicit user choice. `meridian spawn -m sonnet` never falls back
-silently to Codex.
-
-Source: `src/meridian/lib/launch/policies.py` — `_try_harness_availability_fallback()`,
-`_fallback_candidates_from_policies()`, `_compiler_request_for_fallback_candidate()`.
+Source: `src/meridian/lib/launch/bundle_adapter.py`, `src/meridian/lib/launch/policies.py:_resolve_policy_from_bundle()`
 
 ## Known Limitation
 
@@ -248,7 +192,9 @@ is tracked in [decisions/model-resolution.md](../../decisions/model-resolution.m
 - [model-policies.md](model-policies.md) — model-policies rules that override
   harness per selected model and declare fallback candidates
 - [agent-profiles.md](agent-profiles.md) — how model-policies are declared in
-  profile frontmatter and drive harness-availability fallback
+  profile frontmatter
 - [architecture/launch-system.md](../../architecture/launch-system.md) — where
   these functions sit in the launch factory
+- [architecture/mars-launch-bundle.md](../../architecture/mars-launch-bundle.md) —
+  Mars launch-bundle schema, bundle request fields, and response structure
 - [architecture/mars-routing.md](../../architecture/mars-routing.md) — mars-agents internal routing: slug primitive, SelectionKind/MatchEvidence split, acceptance layer, RouteDecisionReport DTO

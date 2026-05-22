@@ -117,22 +117,20 @@ profile generic defaults, but below explicit CLI/env user overrides:
 CLI flags > env vars > effective model-policy rule > agent overlay default > profile generic default > config default > alias default
 ```
 
-A matched `model-policies` harness override participates in the separate
-**harness** cascade (`resolve_harness_routing()`), labeled by whether it came
-from the overlay or profile policy source. Routing-field resolution is distinct
-from the policy cascade above.
+A matched `model-policies` harness override is forwarded to Mars via the
+launch-bundle request and affects the harness Mars selects. Routing-field resolution
+is distinct from the policy cascade above.
 
-The canonical implementation lives in `src/meridian/lib/launch/compiler.py`.
-`resolve_policies()` is a wrapper that feeds profile and overlay data into the
-compiler. See [config-precedence.md](../config-precedence.md#routing-vs-policy-fields).
+For PRIMARY/SPAWN_PREPARE launches, model-policies are evaluated by Mars within
+the bundle. Execution-policy overrides from matched rules are returned in the bundle
+payload and applied post-bundle in Meridian's `_resolve_bundle_execution_policy()`.
+See [config-precedence.md](../config-precedence.md#routing-vs-policy-fields).
 
 For harness-availability fallback, model-policies rules with `no-fallback != true`
 and `match_type` of `model` or `alias` serve as ordered fallback candidates. The
 pre-transform base candidate (if a policy rule matched) is demoted and tried first;
 then model-policies rules are walked in list order.
-See [aliases-and-routing.md](aliases-and-routing.md#harness-availability-fallback)
-for the chain mechanics and
-[D75](../../decisions/model-resolution.md#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan)
+See [D75](../../decisions/model-resolution.md#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan)
 for the decision rationale.
 
 ## Model Visibility Policy

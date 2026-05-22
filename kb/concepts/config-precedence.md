@@ -37,7 +37,7 @@ Fields are split into two categories, codified in `_ROUTING_OVERRIDE_FIELDS`:
 - **Routing fields** (`model`, `harness`, `agent`) — determine *where* to run
 - **Policy fields** (`effort`, `approval`, `sandbox`, `autocompact`, `timeout`) — determine *how* to run
 
-`model_policy_scope()` on `RuntimeOverrides` returns a copy containing only the policy fields (i.e. everything not in `_ROUTING_OVERRIDE_FIELDS`). It's used by `_resolve_model_policy_overrides()` in `policies.py` to isolate the policy field resolution path. Because the exclusion is set-based, any new policy field added to `RuntimeOverrides` is automatically included — no hand-curation needed.
+`model_policy_scope()` on `RuntimeOverrides` returns a copy containing only the policy fields (i.e. everything not in `_ROUTING_OVERRIDE_FIELDS`). It's used by the bundle execution policy resolver in `policies.py` to isolate the policy field resolution path. Because the exclusion is set-based, any new policy field added to `RuntimeOverrides` is automatically included — no hand-curation needed.
 
 **Policy fields have a more granular cascade than the simple layer order above.** The full 7-tier ladder for policy fields (`effort`, `approval`, `sandbox`, `autocompact`, `timeout`):
 

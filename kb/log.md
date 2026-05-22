@@ -4,6 +4,64 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-22 — Model-resolution KB: remove deprecated Meridian compiler as current runtime authority
+
+### Trigger
+
+Code audit (p2178/p2179) found that several model-resolution KB pages still presented
+`compile_launch_params()` / `compiler.py` as the canonical runtime authority, and
+referenced a non-existent `resolve_harness_routing()` function. Current code routes
+PRIMARY/SPAWN_PREPARE through `_resolve_policy_from_bundle()` → `bundle_adapter.request_and_resolve()`.
+The compiler module is marked deprecated in its own docstring.
+
+Also flagged: D73/D74 decisions described the Meridian-owned compiler as authoritative;
+`resolve_harness_routing()` was cited as a live function; the 7-source harness cascade
+was presented as the current runtime path. None of these match current code.
+
+Human-review discrepancy: task prompt mentioned bundle schema v2 / mars 0.5.0, but
+current code has `_SUPPORTED_BUNDLE_SCHEMA_VERSION = 1` and `_MARS_BUNDLE_MIN_VERSION = "0.4.8rc3"`.
+No KB changes for those values — `architecture/mars-launch-bundle.md` (which already
+reflected v1) left intact. Flagged for human review below.
+
+### What changed
+
+- `concepts/model-resolution/overview.md`: replaced `compile_launch_params()` pipeline
+  diagram and two-pass compiler narrative with bundle-based pipeline diagram and
+  current entry points; added legacy note for deprecated `compiler.py`
+- `concepts/model-resolution/aliases-and-routing.md`: removed 7-source
+  `resolve_harness_routing()` cascade (function doesn't exist in current code) and
+  compiler-era harness-availability fallback section; added current Mars bundle
+  routing section; kept AliasEntry/RunnablePath/ModelSelectionContext material
+- `concepts/model-resolution/model-policies.md`: replaced compiler-centric
+  implementation paragraph (removed `resolve_harness_routing()` cascade reference
+  and `compiler.py` canonical claim); updated to bundle-based policy evaluation
+- `concepts/model-resolution/vocabulary.md`: updated `Resolved policies` definition
+  to reference `resolve_launch_policy()` / Mars bundle path
+- `concepts/model-resolution/agent-profiles.md`: narrowed `resolve_model()` sentence
+  to catalog-lookup context; updated Harness Availability Fallback section to remove
+  non-existent function references (`_try_harness_availability_fallback()` etc.) and
+  fixed broken `#harness-availability-fallback` anchor
+- `concepts/config-precedence.md`: removed `_resolve_model_policy_overrides()` reference
+  (function doesn't exist); replaced with bundle execution policy resolver description
+- `decisions/model-resolution.md`: marked D73 and D74 as superseded by Mars
+  launch-bundle routing, preserved text for historical context
+
+### Human-review flag
+
+> [!FLAG] **Needs human review** — version discrepancy: task prompt referenced
+> bundle schema v2 / mars >= 0.5.0, but current source code has
+> `_SUPPORTED_BUNDLE_SCHEMA_VERSION = 1` and `_MARS_BUNDLE_MIN_VERSION = "0.4.8rc3"`.
+> `architecture/mars-launch-bundle.md` was left unchanged (it correctly reflects v1).
+> If the codebase has been updated to v2/0.5.0 since this audit, update
+> `bundle_adapter.py` constants and `architecture/mars-launch-bundle.md` accordingly.
+
+### Validation
+
+- `meridian kg check kb` → 0 errors, 5 warnings (all pre-existing flag blocks)
+- `meridian mermaid check kb/concepts/model-resolution/` → 1 block valid
+
+---
+
 ## 2026-05-19 — Spawn finalization cross-reference health pass
 
 ### Trigger

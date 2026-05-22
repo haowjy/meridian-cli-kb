@@ -56,7 +56,9 @@ You implement code changes...
 ```
 
 The profile's `model` field is an alias or bare model ID, not a harness.
-After loading, `resolve_model()` turns it into a concrete `AliasEntry`.
+For catalog lookups, `resolve_model()` turns it into a concrete `AliasEntry`.
+For PRIMARY/SPAWN_PREPARE launches, the profile name is forwarded to Mars via
+the bundle request and Mars resolves the model internally.
 
 ## Frontmatter Fields
 
@@ -121,12 +123,14 @@ Profile `model-policies` rules with `model` or `alias` match types can
 participate in harness-availability fallback by default. `no-fallback: true`
 opts a rule out, and `model-glob` rules never participate.
 
-The full candidate-chain mechanics, including demoted-base behavior and overlay
-interaction, live in [aliases-and-routing.md](aliases-and-routing.md#harness-availability-fallback)
-and [model-policies.md](model-policies.md#fallback-participation).
+For PRIMARY/SPAWN_PREPARE launches, harness-availability fallback is handled
+by Mars within the bundle. The `model-policies` rule schema (match type, list
+order, `no-fallback` flag) controls which rules Mars treats as fallback candidates.
 
-Source: `src/meridian/lib/launch/policies.py` — `_try_harness_availability_fallback()`,
-`_fallback_candidates_from_policies()`, `_compiler_request_for_fallback_candidate()`.
+See [model-policies.md](model-policies.md#fallback-participation) for the
+candidate-chain semantics and
+[D75](../../decisions/model-resolution.md#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan)
+for the decision rationale.
 
 ## Primary Agent
 
