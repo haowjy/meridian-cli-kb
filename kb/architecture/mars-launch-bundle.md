@@ -57,13 +57,13 @@ inject per-spawn content before assembling the final system prompt.
 
 ## Bundle Structure
 
-Top-level fields in the JSON schema (version 1):
+Top-level fields in the JSON schema (version 2, mars >= 0.5.0):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `version` | integer | Schema version (currently `1`) |
+| `version` | integer | Schema version (currently `2`) |
 | `agent` | string | Resolved agent name |
-| `routing` | object | `model`, `model_token`, `harness` |
+| `routing` | object | `model`, `model_token`, `harness`, `harness_model` |
 | `execution_policy` | object | Portable execution settings + `native_config` |
 | `prompt_surface` | object | System instruction + supplemental documents |
 | `scaffold_slots` | object | Placeholder positions for Meridian injection |
@@ -71,6 +71,19 @@ Top-level fields in the JSON schema (version 1):
 | `skills_metadata` | object | Skill loading metadata |
 | `provenance` | object | Source attribution for each resolved field |
 | `warnings` | string[] | User-visible warnings emitted during build |
+
+### `routing` object (Meridian-consumed fields)
+
+Meridian reads the following fields from the `routing` object:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `model` | string | Canonical resolved model identifier |
+| `model_token` | string | Token passed to the harness (may differ from `model`) |
+| `harness` | string | Harness identifier (e.g. `"claude"`, `"codex"`, `"opencode"`) |
+| `harness_model` | string \| null | Harness-specific model ID; `null` means use `model_token` |
+
+Mars may include additional diagnostic fields in the routing object (such as `selection_kind`, `match_evidence`, `route_trace`) as Mars-internal instrumentation. Meridian's bundle adapter ignores these fields — they are not part of Meridian's consumed contract.
 
 ### `execution_policy` key fields
 
@@ -223,12 +236,15 @@ Model context never contains raw harness config.
 
 ## Compatibility
 
-`native_config` is optional and additive — existing bundles without it remain valid.
-Cursor is an additive harness enum variant. Neither requires a version bump.
+Schema v2 (mars >= 0.5.0) added `routing.harness_model` and is the current required schema.
+Meridian requires schema v2 exactly — older bundles from mars < 0.5.0 are rejected at parse time.
+
+`native_config` remains optional and additive — bundles without it remain valid within v2.
+Cursor is an additive harness enum variant.
 
 Meridian validates the version field at consumption time:
 
 ```python
-if bundle.version > SUPPORTED_MAX_VERSION:
-    raise IncompatibleBundleVersion(bundle.version, SUPPORTED_MAX_VERSION)
+if version != _SUPPORTED_BUNDLE_SCHEMA_VERSION:
+    raise RuntimeError(f"Mars launch-bundle schema version {version} is unsupported. Expected {_SUPPORTED_BUNDLE_SCHEMA_VERSION}.")
 ```

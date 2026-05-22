@@ -135,7 +135,7 @@ evaluator independently testable.
 
 ## Serialization DTO (`routing::report::RouteDecisionReport`)
 
-Public surface for consumers outside the routing module.
+**Mars-internal DTO.** This is the public surface for consumers _within_ mars-agents (outside the routing module). Meridian never sees this type — it consumes only the fields in the bundle's `routing` JSON object.
 
 **String labels for all fields:**
 
@@ -153,8 +153,7 @@ Rationale: JSON keys decoupled from internal enum variants. New evaluator varian
 don't break serialized output. Matches existing `bundle.rs` convention where
 `route_confidence` was already `String` before this refactor.
 
-Consumers (`build::policy::harness`, `build::policy::runnable`, `cli::models`)
-operate on `RouteDecisionReport` rather than inspecting evaluator-internal types.
+**Mars-internal consumers only:** `build::policy::harness`, `build::policy::runnable`, and `cli::models` are all Mars modules. Meridian's bundle adapter (`bundle_adapter.py`) reads only the `routing` object fields: `model`, `model_token`, `harness`, `harness_model`. Diagnostic fields like `selection_kind`, `match_evidence`, and `rejection` may or may not appear in Mars JSON output; Meridian ignores them regardless.
 
 ---
 

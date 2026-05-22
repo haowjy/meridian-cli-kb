@@ -4,6 +4,34 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-22 — Bundle schema v2 / mars 0.5.0 KB update
+
+### Trigger
+
+`bundle_adapter.py` confirmed `_SUPPORTED_BUNDLE_SCHEMA_VERSION = 2` and `_MARS_BUNDLE_MIN_VERSION = "0.5.0"`, resolving the human-review flag left by the 2026-05-22 model-resolution KB pass. The KB still reflected schema v1 and mars 0.4.8rc3.
+
+### What changed
+
+- `architecture/mars-launch-bundle.md`:
+  - Updated Bundle Structure header from "version 1" to "version 2, mars >= 0.5.0"
+  - Updated `version` row to say currently `2`
+  - Updated `routing` row to include `harness_model`
+  - Added `routing` object subsection documenting the four Meridian-consumed fields (`model`, `model_token`, `harness`, `harness_model`) and noting that Mars-internal diagnostic fields (`selection_kind`, `match_evidence`, `route_trace`) are ignored by Meridian
+  - Updated Compatibility section to reflect v2 as the required schema with exact-match validation
+- `architecture/mars-routing.md`:
+  - Added "Mars-internal DTO" clarification to the `RouteDecisionReport` section
+  - Made explicit that Mars-internal consumers are `build::policy::*` (all Mars modules), not Meridian
+  - Added note that Meridian reads only `model`, `model_token`, `harness`, `harness_model` from the bundle routing object
+- `log.md` (this file):
+  - Removed the stale human-review FLAG from the 2026-05-22 model-resolution pass
+  - Removed the stale "Human-review note" from the structural follow-up entry above it
+
+### Validation
+
+Run `meridian kg check kb` and `meridian mermaid check kb/architecture/` before committing.
+
+---
+
 ## 2026-05-22 — Model-resolution KB structural follow-up
 
 ### Trigger
@@ -32,12 +60,6 @@ and the old candidate-chain helper names in D75. A related link label in
 
 - `meridian kg check kb` → 0 errors, 6 warnings (all existing flag blocks)
 - `meridian mermaid check /home/jimyao/.meridian/git/haowjy-meridian-cli-kb/kb/concepts/model-resolution` → 1 Mermaid block valid
-
-### Human-review note
-
-The bundle schema discrepancy remains intentionally flagged for human review:
-current source still shows schema v1 / Mars `0.4.8rc3`, so the KB keeps the
-existing note instead of rewriting `architecture/mars-launch-bundle.md`.
 
 ---
 
@@ -82,15 +104,6 @@ reflected v1) left intact. Flagged for human review below.
   (function doesn't exist); replaced with bundle execution policy resolver description
 - `decisions/model-resolution.md`: marked D73 and D74 as superseded by Mars
   launch-bundle routing, preserved text for historical context
-
-### Human-review flag
-
-> [!FLAG] **Needs human review** — version discrepancy: task prompt referenced
-> bundle schema v2 / mars >= 0.5.0, but current source code has
-> `_SUPPORTED_BUNDLE_SCHEMA_VERSION = 1` and `_MARS_BUNDLE_MIN_VERSION = "0.4.8rc3"`.
-> `architecture/mars-launch-bundle.md` was left unchanged (it correctly reflects v1).
-> If the codebase has been updated to v2/0.5.0 since this audit, update
-> `bundle_adapter.py` constants and `architecture/mars-launch-bundle.md` accordingly.
 
 ### Validation
 
