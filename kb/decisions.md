@@ -40,6 +40,9 @@ Integration strategy changed from `git pull --rebase` to `git merge origin/<bran
 **Durable process-scope ownership over POSIX-only or psutil-only cleanup (D-process-scope-ownership, 2026-05 PR #184)**
 Shared containment layer with OS-specific mechanisms, durable ownership metadata, and lease-aware policy. POSIX: setsid/process-group. Windows: Job Objects (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`). psutil tree kill is the degraded fallback. `spawn_owned` scopes die with the spawn; `session_owned` scopes persist while a session lease is active. Rejected: POSIX-only (Option A), psutil-primary (Option B), harness-specific (Option C) — all kept as sub-components. See [launch decisions](decisions/launch.md#d-process-scope-ownership-durable-process-scope-ownership-over-posix-only-or-psutil-only-cleanup) and [architecture/process-scope.md](architecture/process-scope.md).
 
+**Authority/task domain split for spawn CWD and reference resolution (PR #248, 2026-05-22)**
+Every spawn resolves two separate domains: authority domain (agent profiles, skills, config, KB — always from `control_root`) and task domain (agent working directory, reference file anchor — from worktree resolution). `kb:` prefix resolves KB-relative paths from the authority domain. Relative `-f` paths resolve from `task_cwd` (= `reference_anchor`). `@` removed for `-f` paths (use `kb:` instead). See [spawn-cwd-worktree-anchor decisions](decisions/spawn-cwd-worktree-anchor.md) and [architecture/launch-system.md](architecture/launch-system.md).
+
 **Harness adapters are the only launch path (D63-launch)**
 `MERIDIAN_HARNESS_COMMAND` env override was removed. All harness launches go through typed adapters in `src/meridian/lib/harness/`. Adding a harness is one adapter file plus registration — no other code changes. See [launch decisions](decisions/launch.md#d63-launch).
 

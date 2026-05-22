@@ -54,21 +54,90 @@ The primary CLI path is the canonical example of prepare-once/bind-twice: `prepa
 
 `LaunchContext` carries two distinct path fields introduced in PR #210:
 
-- **`control_root: Path`** — the project config/authority root. Where `meridian.toml` lives. Used for spawn log directories, config loading, and harness `--add-dir` roots. Equivalent to the old `project_root` / `execution_cwd` in the pre-#210 model.
-- **`task_cwd: Path | None`** — the task's intended working directory. Set only when the spawn was requested from a directory other than the project root. `None` in the common case where task directory == control root.
+- **`control_root: Path`** — the project config/authority root. Where `meridian.toml` lives. Used for spawn log directories, config loading, and harness `--add-dir` roots. Equivalent to the old `project_root` / `execution_cwd` in the pre-#210 model. Also called `authority_root` in design docs.
+- **`task_cwd: Path | None`** — the task's intended working directory. `None` when task directory == control root (common case).
 
-The split captures the divergence between *where project config lives* and *where the task should be done*. A spawn launched from a nested subdirectory of a project (e.g., `packages/auth/`) should use the repo root as its config authority but communicate `packages/auth/` as the task working directory to the agent.
+The split captures the divergence between *where project config lives* and *where the task should be done*.
 
 **`bind_launch_context()` behavior when `task_cwd` is set:**
 1. Sets `MERIDIAN_TASK_CWD` in the child process's environment to the `task_cwd` value.
-2. Appends a `# Task Working Directory` block to the agent's system prompt explaining that the process cwd is not the task directory and providing the `MERIDIAN_TASK_CWD` value.
-3. Runs `_is_task_cwd_covered_by_projection()` to check whether `task_cwd` is already covered by projected workspace roots before adding it as an extra root.
+2. Appends a `# Task Working Directory` block to the agent's system prompt when actual process cwd cannot be set to task_cwd (`LaunchDirectoryContext.requires_task_cwd_instruction`).
+3. Runs `_is_task_cwd_covered_by_projection()` before adding task_cwd as a workspace root to avoid redundant projection.
 
 **Spawn and session records** persist both fields: `control_root` (config authority) and `task_cwd` (nullable, task directory intent). `execution_cwd` remains as a legacy alias for the actual process cwd (`child_cwd`).
 
 **continue/fork authority:** `resolve_session_reference()` uses `source_control_root` from persisted spawn records. Legacy refs that predate PR #210 fall back to the current launch `control_root`.
 
 See [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split) for the rationale.
+
+## Authority/Task Domain Split (PR #248)
+
+PR #248 extends the PR #210 two-field model into a full two-domain architecture. Every spawn resolves two separate domains:
+
+```mermaid
+graph TD
+    subgraph "Authority Domain (from control_root)"
+        AR[control_root] --> Agents[Agent Profiles]
+        AR --> Skills[Skills]
+        AR --> Config[Config/Settings]
+        AR --> Catalog[Package Catalogs]
+        AR --> KB[KB Directory]
+    end
+
+    subgraph "Task Domain (from task_cwd)"
+        TC[task_cwd] --> Files[File Operations]
+        TC --> Commands[Shell Commands]
+        TC --> RefAnchor[reference_anchor]
+        RefAnchor --> RelF[Relative -f Paths]
+    end
+```
+
+**Authority domain** (`control_root`): agent profiles, skills, config, package catalogs, KB directory. Never changes based on worktree selection. `kb:` references always resolve here.
+
+**Task domain** (`task_cwd`): where the spawned agent works. Where relative `-f` reference files resolve from. Set by worktree resolution.
+
+### task_cwd Resolution Priority
+
+Priority chain (highest wins):
+
+| Priority | Source | task_cwd |
+|----------|--------|----------|
+| 1 | `--no-worktree` flag | `control_root` (forced) |
+| 2 | `--worktree` flag | work item's `worktree_path` (error if none) |
+| 3 | `--work <item>` (explicit — hard boundary) | item's `worktree_path` if set; else `control_root`. Ambient work NOT consulted. |
+| 4 | Ambient session work attachment | item's `worktree_path` if set |
+| 5 | Default | `control_root` |
+
+**Stale worktree_path** (path no longer exists on disk) → hard error. NOT silent fallback to control_root. Only `--no-worktree` bypasses this.
+
+**Explicit `--work` is a hard selection boundary.** When the user specifies `--work <item>`, only that item is consulted. If it has no worktree_path, task_cwd = control_root — the ambient session work attachment is NOT used as a fallback.
+
+### Reference File Anchor
+
+`task_cwd` is also the `reference_anchor` — the base directory for all relative `-f` paths:
+
+| Prefix | Resolves from |
+|--------|--------------|
+| `(relative)` | `reference_anchor` = `task_cwd` |
+| `/absolute` | Direct pass-through |
+| `~/path` | HOME expansion |
+| `kb:path` | KB directory (from `control_root`) |
+| `@path` | **ERROR** — use `kb:path` instead |
+
+`kb:` always resolves from the authority domain. Changing task_cwd does not affect KB path resolution.
+
+See [../concepts/reference-resolution.md](../concepts/reference-resolution.md) for full resolution algorithm.
+
+### Adapter CWD Policy
+
+| Harness | Behavior |
+|---------|----------|
+| PI / OpenCode / Codex | Actual process cwd = `task_cwd` |
+| Claude `-p` (legacy) | Process cwd = `control_root`; task-cwd instruction injected into system prompt |
+
+When `task_cwd` is outside `control_root`, it must be included in workspace projection so the harness sandbox grants filesystem access. If the harness cannot project the path, the fallback (instruction injection) applies.
+
+See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for rationale on all design decisions.
 
 
 ## Four Driving Adapters

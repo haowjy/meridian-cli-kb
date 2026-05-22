@@ -25,6 +25,44 @@ Configured via `[context.work]` in `meridian.toml`. Surfaced to agents as `MERID
 
 See [../concepts/context-resolution.md](../concepts/context-resolution.md) for how `MERIDIAN_CONTEXT_*_DIR` env vars are populated.
 
+## Worktree Assignment
+
+Work items can have an associated worktree path — a directory where spawns scoped to that work item will run. This determines the `task_cwd` for agent processes.
+
+### Two Assignment Paths
+
+**Managed** (`WorktreeMetadata.managed = true`): Created by `work start --worktree`. Meridian provisioned the git worktree and owns its lifecycle:
+- Removed on `work done` / `work delete` when not shared with other active work items
+- Renamed if the work item is renamed
+
+**Manual** (`WorktreeMetadata.managed = false`): Assigned by `work set-worktree`. Meridian treats it as read-only:
+- Never deletes the directory
+- `work clear-worktree` removes only the assignment, not the directory
+
+Multiple work items may point to the same `worktree_path`. No uniqueness constraint. Managed cleanup skips removal when the path is shared.
+
+### Commands
+
+```bash
+meridian work set-worktree <work-item> <path>   # assign existing directory
+meridian work clear-worktree <work-item>         # remove assignment (not directory)
+```
+
+`set-worktree` validates the path exists and is a directory. Both commands log the change.
+
+`work start --worktree` is the "provision and assign" path (creates a git worktree). `set-worktree` is the "assign only" path for pre-existing directories.
+
+### Effect on Spawns
+
+When a work item has a `worktree_path`, spawns attached to that item run in it:
+- Agent process cwd = `worktree_path` (for PI/OpenCode/Codex)
+- Relative `-f` reference paths resolve from `worktree_path`
+- `kb:` reference paths still resolve from `authority_root` (the config root)
+
+If the `worktree_path` no longer exists on disk, spawn fails with a hard error rather than silently falling back to the authority root. Use `--no-worktree` to bypass this.
+
+See [../architecture/launch-system.md](../architecture/launch-system.md) — Authority/Task Domain Split for the full model. See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for design rationale.
+
 ## Hook and Event Coordination
 
 `work start` fires a `work.started` lifecycle hook. `work done` fires `work.done`. These are dispatched through `lib/core/lifecycle.py`'s `get_hook_dispatcher()`. Hooks can trigger downstream automation (e.g., git-autosync after a work item closes).

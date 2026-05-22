@@ -74,6 +74,8 @@ A `_is_task_cwd_covered_by_projection()` check prevents redundant workspace root
 
 See [architecture/launch-system.md](../architecture/launch-system.md#control_root--task_cwd-split).
 
+**Extended by PR #248 (2026-05-22):** The two-field model was extended into a full authority/task domain architecture with worktree-based task_cwd resolution, reference_anchor for `-f` paths, `kb:` prefix, and adapter cwd policy. See [spawn-cwd-worktree-anchor.md](spawn-cwd-worktree-anchor.md).
+
 ---
 
 ### Resolve-before-persist for REST app and streaming-serve paths

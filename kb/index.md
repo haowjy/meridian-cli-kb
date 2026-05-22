@@ -46,6 +46,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/managed-command-references.md](decisions/managed-command-references.md) — `managed_cmd()` pattern: how mars-agents surfaces `mars` vs `meridian mars` in user-facing output based on `MERIDIAN_MANAGED`
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
 - [decisions/workspace.md](decisions/workspace.md) — Why named workspace entries, permission-grant vs context-surfacing split, missing-path behavior, migration strategy
+- [decisions/spawn-cwd-worktree-anchor.md](decisions/spawn-cwd-worktree-anchor.md) — Authority/task domain split: single reference anchor, kb: resolution from authority_root, stale worktree hard error, managed vs manual worktree ownership
 
 ---
 
@@ -68,6 +69,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/context-resolution.md](concepts/context-resolution.md) — Named context paths (work/kb/archive/strategy) surfaced to agents as `MERIDIAN_CONTEXT_*_DIR` env vars
 - [concepts/session-initiation.md](concepts/session-initiation.md) — Four-mode session initiation: `--continue`, `--fork`, `--fork-fresh`, `--from`; identity lock; four-layer content composition; bare flag inference
 - [concepts/workspace-projection.md](concepts/workspace-projection.md) — Filesystem permission grants for sibling repos; contrast with context resolution (permission vs guidance)
+- [concepts/reference-resolution.md](concepts/reference-resolution.md) — How `-f` reference file paths resolve: relative paths from task_cwd, kb: prefix for KB-relative paths (authority_root-derived), @ removal
 
 ### Model Resolution
 
