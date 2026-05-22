@@ -251,3 +251,4 @@ is tracked in [decisions/model-resolution.md](../../decisions/model-resolution.m
   profile frontmatter and drive harness-availability fallback
 - [architecture/launch-system.md](../../architecture/launch-system.md) — where
   these functions sit in the launch factory
+- [architecture/mars-routing.md](../../architecture/mars-routing.md) — mars-agents internal routing: slug primitive, SelectionKind/MatchEvidence split, acceptance layer, RouteDecisionReport DTO
