@@ -82,11 +82,12 @@ fallback candidates** by default. When the primary harness is unavailable, the
 runtime walks model-policies rules in list order and tries each eligible rule's
 `match_value` as a fallback model token.
 
-- `no-fallback: true` on a rule opts it out of fallback. The rule still applies
-  its overrides when matched during primary compilation; it just won't be tried
-  as a fallback candidate.
-- `model-glob` rules are **always** `no-fallback: true`. Glob rules apply
-  overrides during primary compilation only and never become fallback candidates.
+  - `no-fallback: true` on a rule opts it out of fallback. The rule still applies
+  its overrides when matched during primary launch resolution; it just won't be
+  tried as a fallback candidate.
+  - `model-glob` rules are **always** `no-fallback: true`. Glob rules apply
+  overrides during primary launch resolution only and never become fallback
+  candidates.
 - An empty `override: {}` is valid for a fallback-only rule (one that participates
   in the fallback chain without applying any overrides).
 
@@ -229,7 +230,7 @@ model-policies:
 
 - [overview.md](overview.md) — full resolution pipeline
 - [aliases-and-routing.md](aliases-and-routing.md) — where model-policies sit
-  in the 7-source harness cascade
+  in the Mars bundle routing path
 - [agent-profiles.md](agent-profiles.md) — how model-policies are declared in
   profile frontmatter
 - [../config-precedence.md](../config-precedence.md) — where the agent overlay

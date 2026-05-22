@@ -35,7 +35,7 @@ For mechanism, see:
 
 ### D52: Identity separated from routing in `resolve_model()` (MR1)
 
-**Decision:** `resolve_model()` returns an `AliasEntry` with `model_id` and `mars_provided_harness` (may be `None`). Harness routing is handled separately by `resolve_harness_routing()`. The function no longer raises an error when harness can't be determined.
+**Decision:** `resolve_model()` returns an `AliasEntry` with `model_id` and `mars_provided_harness` (may be `None`). Harness routing is handled downstream by the Mars launch-bundle path. The function no longer raises an error when harness can't be determined.
 
 **Why the split:** Previously, `resolve_model()` raised `ValueError` if no harness could be determined — even in contexts where the harness would be provided by profile frontmatter, config defaults, or explicit CLI override. This forced callers to pass dummy harness context just to satisfy the resolver. The split lets identity resolution succeed independently; harness assignment happens downstream where all override sources are available.
 
@@ -45,9 +45,9 @@ For mechanism, see:
 
 ### D53: `ModelSelectionContext` introduced as routing context type (MR2+MR3)
 
-**Decision:** `ModelSelectionContext` is a frozen dataclass carrying `requested_token`, `selected_model_token`, `canonical_model_id`, `mars_provided_harness`, `resolved_entry`, and `harness_provenance` through the pipeline. It threads from `resolve_policies()` through `LaunchContext` to dry-run output.
+**Decision:** `ModelSelectionContext` is a frozen dataclass carrying `requested_token`, `selected_model_token`, `canonical_model_id`, `mars_provided_harness`, `resolved_entry`, and `harness_provenance` through the pipeline. It threads from `resolve_launch_policy()` through `LaunchContext` to dry-run output.
 
-**Why:** Routing provenance ("why was this harness selected?") was previously lost after `resolve_policies()` returned. Debugging wrong harness selection required reading source code, not just inspecting the dry-run output. `ModelSelectionContext` makes provenance a first-class value.
+**Why:** Routing provenance ("why was this harness selected?") was previously lost after `resolve_launch_policy()` returned. Debugging wrong harness selection required reading source code, not just inspecting the dry-run output. `ModelSelectionContext` makes provenance a first-class value.
 
 **`requested_token` field:** Specifically preserves the user's original input — so dry-run output can say "you asked for `sonnet`, resolved to `claude-sonnet-4-5` via claude harness (mars-provided)".
 
@@ -55,9 +55,9 @@ For mechanism, see:
 
 ### D55: Resolve-once pattern: model aliases resolved exactly once
 
-**Decision:** Model aliases are resolved exactly once in `resolve_policies()`. The resolved `AliasEntry` is threaded through harness derivation and final model selection. Config normalization no longer calls `resolve_model()` — it only normalizes field shapes.
+**Decision:** Model aliases are resolved exactly once in `resolve_launch_policy()`. The resolved `AliasEntry` is threaded through harness derivation and final model selection. Config normalization no longer calls `resolve_model()` — it only normalizes field shapes.
 
-**Why:** Previously, the same alias could be resolved twice: once in `_normalize_toml_payload()` (during config loading) and again in `resolve_policies()`. If the alias catalog changed between the two calls (rare but possible), the results could be inconsistent. The double-resolution also wasted compute. The `requested_token` field on `ModelSelectionContext` preserves what the user originally asked for, so downstream consumers can distinguish "user said gpt55" from "resolved canonical ID claude-sonnet-4-5".
+**Why:** Previously, the same alias could be resolved twice: once in `_normalize_toml_payload()` (during config loading) and again in `resolve_launch_policy()`. If the alias catalog changed between the two calls (rare but possible), the results could be inconsistent. The double-resolution also wasted compute. The `requested_token` field on `ModelSelectionContext` preserves what the user originally asked for, so downstream consumers can distinguish "user said gpt55" from "resolved canonical ID claude-sonnet-4-5".
 
 ---
 
@@ -285,14 +285,8 @@ via `[agents.<name>]` overlay controls the chain at its source. An empty overlay
 transform fires) and also neutralizes the legacy `models:` compatibility overrides.
 
 **Implementation references:**
-- `_demoted_base_candidate()` — strips policies from the base request, compares
-  to primary result; returns demoted result only if it differs meaningfully.
-- `_try_harness_availability_fallback()` — walks `profile.fanout` in order;
-  returns `(token, harness_id, entry)` for the first available entry.
-- `_compiler_request_for_base_candidate()` — strips `model_policies` from both
-  overlay and request before compiling a base candidate.
-
-Source: `src/meridian/lib/launch/policies.py`
+- `src/meridian/lib/launch/compiler.py` — deprecated compiler-era implementation that still carries the historical candidate-chain mechanics
+- `src/meridian/lib/launch/policies.py` — live PRIMARY/SPAWN_PREPARE entry point that resolves and consumes the bundle-produced policy surface
 
 ---
 

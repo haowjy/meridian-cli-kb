@@ -4,6 +4,43 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-22 — Model-resolution KB structural follow-up
+
+### Trigger
+
+Post-cleanup review found a few live stale references still lingering in the
+decision and related pages:
+`resolve_harness_routing()`, `resolve_policies()` as the routing-thread anchor,
+and the old candidate-chain helper names in D75. A related link label in
+`config-precedence.md` still read like the compiler was current authority.
+
+### What changed
+
+- `decisions/model-resolution.md`: rewrote D52/D53/D55 to point at the Mars
+  bundle path / `resolve_launch_policy()` instead of `resolve_harness_routing()`
+  or `resolve_policies()` as the routing anchor; replaced D75 helper-list
+  references with current module-level references
+- `concepts/model-resolution/model-policies.md`: changed "primary compilation"
+  wording to "primary launch resolution" and retargeted the related-page link to
+  the Mars bundle routing path
+- `concepts/model-resolution/agent-profiles.md`: tightened the related-page label
+  to "full bundle-based resolution pipeline"
+- `concepts/config-precedence.md`: retitled the D73 related link text so it no
+  longer reads as current compiler authority
+
+### Validation
+
+- `meridian kg check kb` → 0 errors, 6 warnings (all existing flag blocks)
+- `meridian mermaid check /home/jimyao/.meridian/git/haowjy-meridian-cli-kb/kb/concepts/model-resolution` → 1 Mermaid block valid
+
+### Human-review note
+
+The bundle schema discrepancy remains intentionally flagged for human review:
+current source still shows schema v1 / Mars `0.4.8rc3`, so the KB keeps the
+existing note instead of rewriting `architecture/mars-launch-bundle.md`.
+
+---
+
 ## 2026-05-22 — Model-resolution KB: remove deprecated Meridian compiler as current runtime authority
 
 ### Trigger

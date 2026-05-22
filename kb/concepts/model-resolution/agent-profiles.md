@@ -158,7 +158,7 @@ content gets routed into the prompt.
 
 ## Related
 
-- [overview.md](overview.md) — full resolution pipeline and two-pass merge
+- [overview.md](overview.md) — full bundle-based resolution pipeline
 - [aliases-and-routing.md](aliases-and-routing.md) — how the profile's model
   name is resolved to a concrete model ID and harness
 - [model-policies.md](model-policies.md) — `model-policies` rule semantics

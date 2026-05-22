@@ -188,5 +188,5 @@ Set via `--approval` flag, `MERIDIAN_APPROVAL` env var, profile frontmatter, or 
 - [concepts/workspace-projection.md](workspace-projection.md) — workspace roots: a separate system from both config and context
 - [concepts/model-resolution/overview.md](model-resolution/overview.md) — how model names become concrete models after precedence resolves
 - [decisions/model-resolution.md#d72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface) — agent overlay config design rationale
-- [decisions/model-resolution.md#d73](../decisions/model-resolution.md#d73-canonical-launch-parameter-compiler-in-compilerpy-with-pure-data-contract) — why the compiler was extracted
+- [decisions/model-resolution.md#d73](../decisions/model-resolution.md#d73-canonical-launch-parameter-compiler-in-compilerpy-with-pure-data-contract) — compiler-era rationale, now superseded by Mars bundle routing
 - [operations/configuration-guide.md](../operations/configuration-guide.md) — practical config setup guide
