@@ -108,10 +108,11 @@ Also flagged: D73/D74 decisions described the Meridian-owned compiler as authori
 `resolve_harness_routing()` was cited as a live function; the 7-source harness cascade
 was presented as the current runtime path. None of these match current code.
 
-Human-review discrepancy: task prompt mentioned bundle schema v2 / mars 0.5.0, but
-current code has `_SUPPORTED_BUNDLE_SCHEMA_VERSION = 1` and `_MARS_BUNDLE_MIN_VERSION = "0.4.8rc3"`.
-No KB changes for those values — `architecture/mars-launch-bundle.md` (which already
-reflected v1) left intact. Flagged for human review below.
+Human-review discrepancy (at this audit point on 2026-05-22): task prompt mentioned
+bundle schema v2 / mars 0.5.0, but inspected code then had
+`_SUPPORTED_BUNDLE_SCHEMA_VERSION = 1` and `_MARS_BUNDLE_MIN_VERSION = "0.4.8rc3"`.
+No KB changes for those values in this pass — `architecture/mars-launch-bundle.md`
+(which then reflected v1) was left intact pending follow-up confirmation.
 
 ### What changed
 
