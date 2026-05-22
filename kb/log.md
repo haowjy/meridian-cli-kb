@@ -4,6 +4,37 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-22 — Launch-bundle schema v2 follow-up (routing/scaffold detail pass)
+
+### Trigger
+
+Targeted follow-up after the first schema-v2 update: source audit showed a few
+stale or ambiguous claims remained in launch-bundle/routing docs (old scaffold
+placeholder names, `model_token` wording at harness boundary, and over-specific
+enum-label examples in Mars routing diagnostics).
+
+### What changed
+
+- `architecture/mars-launch-bundle.md`:
+  - Split "full Mars v2 schema" vs "Meridian-consumed subset" explicitly
+  - Added top-level `agent_body` row and clarified `agent`/`agent_body` optionality
+  - Corrected routing semantics:
+    - `model_token` documented as selected routing/policy token
+    - `harness_model` documented as the harness-boundary model ID when present
+  - Listed current Mars routing diagnostic fields as Mars-owned and ignored by Meridian
+  - Replaced stale scaffold placeholder table with v2 `scaffold_slots` keys:
+    `completion_contract`, `context_prompt`, `user_prompt_file`, `context_files`,
+    `prior_session_context`, `spawn_metadata` (all `###SLOT###`)
+  - Tightened compatibility text to exact schema v2 + mars >= 0.5.0
+- `architecture/mars-routing.md`:
+  - Kept SelectionKind/MatchEvidence and RouteDecisionReport conceptual, but removed
+    stale hard-coded enum-label examples
+  - Clarified diagnostic labels are Mars-internal serialized strings, not Meridian contract
+
+### Validation
+
+Run `meridian kg check kb` and `meridian mermaid check kb/architecture/` before committing.
+
 ## 2026-05-22 — Bundle schema v2 / mars 0.5.0 KB update
 
 ### Trigger

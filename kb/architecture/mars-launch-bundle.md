@@ -57,13 +57,14 @@ inject per-spawn content before assembling the final system prompt.
 
 ## Bundle Structure
 
-Top-level fields in the JSON schema (version 2, mars >= 0.5.0):
+Top-level fields in the full Mars JSON schema (version 2, mars >= 0.5.0):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `version` | integer | Schema version (currently `2`) |
-| `agent` | string | Resolved agent name |
-| `routing` | object | `model`, `model_token`, `harness`, `harness_model` |
+| `agent` | string \| null | Resolved agent name (`null` for ad-hoc mode) |
+| `agent_body` | string \| null | Agent body markdown when an agent is provided; omitted/null in ad-hoc mode |
+| `routing` | object | Routing result + Mars diagnostics (`model`, `model_token`, `harness`, `harness_model`, diagnostic fields) |
 | `execution_policy` | object | Portable execution settings + `native_config` |
 | `prompt_surface` | object | System instruction + supplemental documents |
 | `scaffold_slots` | object | Placeholder positions for Meridian injection |
@@ -72,6 +73,17 @@ Top-level fields in the JSON schema (version 2, mars >= 0.5.0):
 | `provenance` | object | Source attribution for each resolved field |
 | `warnings` | string[] | User-visible warnings emitted during build |
 
+Meridian consumes a subset of this schema. It parses:
+- `routing.model`, `routing.model_token`, `routing.harness`, `routing.harness_model`
+- `execution_policy` fields
+- `prompt_surface`
+- `tools`
+- `skills_metadata`
+- `provenance`
+- `warnings`
+
+Other routing fields are Mars-owned diagnostics and are ignored by Meridian.
+
 ### `routing` object (Meridian-consumed fields)
 
 Meridian reads the following fields from the `routing` object:
@@ -79,11 +91,11 @@ Meridian reads the following fields from the `routing` object:
 | Field | Type | Description |
 |-------|------|-------------|
 | `model` | string | Canonical resolved model identifier |
-| `model_token` | string | Token passed to the harness (may differ from `model`) |
+| `model_token` | string | Selected model token from Mars routing/policy resolution (may differ from `model`) |
 | `harness` | string | Harness identifier (e.g. `"claude"`, `"codex"`, `"opencode"`) |
-| `harness_model` | string \| null | Harness-specific model ID; `null` means use `model_token` |
+| `harness_model` | string \| null | Harness-specific model ID used at harness command-build time when present; otherwise Meridian launches with the canonical resolved model ID |
 
-Mars may include additional diagnostic fields in the routing object (such as `selection_kind`, `match_evidence`, `route_trace`) as Mars-internal instrumentation. Meridian's bundle adapter ignores these fields — they are not part of Meridian's consumed contract.
+Current Mars output also includes diagnostic routing fields such as `selection_kind`, `match_evidence`, `harness_model_source`, `harness_model_confidence`, and `route_trace`. These are Mars-internal diagnostics; Meridian ignores them.
 
 ### `execution_policy` key fields
 
@@ -127,15 +139,17 @@ sides; Meridian projects both sides per harness.
 
 ## Scaffold Slots
 
-Mars emits placeholder markers into the assembled system prompt so Meridian can
-inject per-spawn content at the correct positions:
+Mars emits a six-slot scaffold under `scaffold_slots`; each slot value is
+`###SLOT###`. Meridian fills these slots with per-spawn dynamic content.
 
-| Slot | Placeholder | Content injected by Meridian |
+| v2 slot key | Placeholder value | Content Meridian injects |
 |------|------------|------------------------------|
-| Prompt | `__MERIDIAN_PROMPT__` | Prompt file content (user/delegator work instruction) |
-| Context files | `__MERIDIAN_CONTEXT_FILES__` | `-f` files passed at spawn time |
-| Goal | `__MERIDIAN_GOAL__` | `--goal` completion contract text |
-| Prior session | `__MERIDIAN_PRIOR_SESSION__` | Prior session context (`--from`) |
+| `completion_contract` | `###SLOT###` | Goal/completion-contract instruction (`--goal` plus work-goal context when available) |
+| `context_prompt` | `###SLOT###` | Launch context block (inventory/context docs built at launch time) |
+| `user_prompt_file` | `###SLOT###` | User task prompt content for the spawn |
+| `context_files` | `###SLOT###` | Material from `-f` reference files |
+| `prior_session_context` | `###SLOT###` | Prior session/context-ref material (`--from`) |
+| `spawn_metadata` | `###SLOT###` | Spawn metadata/report-contract instructions attached during composition |
 
 Mars never populates these slots — it only marks where they go. Meridian replaces
 each placeholder with actual content or removes it if the slot is unused for a given
@@ -236,8 +250,8 @@ Model context never contains raw harness config.
 
 ## Compatibility
 
-Schema v2 (mars >= 0.5.0) added `routing.harness_model` and is the current required schema.
-Meridian requires schema v2 exactly — older bundles from mars < 0.5.0 are rejected at parse time.
+Schema v2 (mars >= 0.5.0) is the required schema.
+Meridian requires schema version `2` exactly — older bundles from mars < 0.5.0 are rejected at parse time.
 
 `native_config` remains optional and additive — bundles without it remain valid within v2.
 Cursor is an additive harness enum variant.

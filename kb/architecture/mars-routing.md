@@ -94,14 +94,11 @@ had to dig into nested internals to recover the evidence they lost.
 
 ```rust
 enum SelectionKind {
-    Evaluated,   // evaluator picked this candidate
-    Fixed,       // caller explicitly fixed the harness (--harness or fixed API)
+    ... // evaluator-selected vs caller-fixed selection mode
 }
 
 enum MatchEvidence {
-    ExactSlug,
-    PrefixSlug,
-    NoSlug,
+    ... // slug/evidence quality categories
 }
 ```
 
@@ -137,23 +134,22 @@ evaluator independently testable.
 
 **Mars-internal DTO.** This is the public surface for consumers _within_ mars-agents (outside the routing module). Meridian never sees this type — it consumes only the fields in the bundle's `routing` JSON object.
 
-**String labels for all fields:**
+**String labels for diagnostic fields:**
 
 ```rust
 struct RouteDecisionReport {
     harness:         String,   // not HarnessId enum
     model_id:        String,
-    selection_kind:  String,   // "Evaluated" | "Fixed"
-    match_evidence:  String,   // "ExactSlug" | "PrefixSlug" | "NoSlug"
-    rejection:       Option<String>,
+    selection_kind:  String,   // Mars-internal diagnostic label
+    match_evidence:  String,   // Mars-internal diagnostic label
+    ...
 }
 ```
 
-Rationale: JSON keys decoupled from internal enum variants. New evaluator variants
-don't break serialized output. Matches existing `bundle.rs` convention where
-`route_confidence` was already `String` before this refactor.
+Rationale: serialized diagnostics are decoupled from internal enum variants and can
+evolve without changing Meridian's consumed routing contract.
 
-**Mars-internal consumers only:** `build::policy::harness`, `build::policy::runnable`, and `cli::models` are all Mars modules. Meridian's bundle adapter (`bundle_adapter.py`) reads only the `routing` object fields: `model`, `model_token`, `harness`, `harness_model`. Diagnostic fields like `selection_kind`, `match_evidence`, and `rejection` may or may not appear in Mars JSON output; Meridian ignores them regardless.
+**Mars-internal consumers only:** `build::policy::harness`, `build::policy::runnable`, and `cli::models` are all Mars modules. Meridian's bundle adapter (`bundle_adapter.py`) reads only `routing.model`, `routing.model_token`, `routing.harness`, and `routing.harness_model`. Diagnostic routing labels and route traces are Mars-owned instrumentation and are ignored by Meridian.
 
 ---
 
