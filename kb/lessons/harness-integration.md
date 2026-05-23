@@ -152,7 +152,7 @@ checking the bundle's `routing.candidate_slugs` field. No runtime error is raise
 version pin in `mars.toml` and run `meridian mars sync` in the worktree. Verify
 `candidate_slugs` is non-empty in a dry-run spawn before trusting effort projection.
 
-**Rule:** When shipping probe support for a harness across two repos (mars + meridian),
+**The lesson:** When shipping probe support for a harness across two repos (mars + meridian),
 always confirm the worktree binary is the probe-capable version before testing
 projection behavior. The fallback path — blind suffix construction — is indistinguishable
 from correct projection unless you inspect the bundle or command directly.

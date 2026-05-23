@@ -155,6 +155,8 @@ before implementation.
 variant must pass the full slug directly (e.g., `-m gpt-5.5-fast`), which takes
 the exact-match path and bypasses effort projection.
 
+---
+
 ## Priority Order
 
 If resources allow only a few of these to be built, the likely priority:
