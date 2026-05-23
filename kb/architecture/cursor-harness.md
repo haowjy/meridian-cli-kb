@@ -46,8 +46,8 @@ mars-agents. This meant:
 - Users needed explicit aliases with `harness = "cursor"` per model to avoid ambiguity
 
 Cursor exposes `cursor agent --list-models`, which emits the full runtime catalog of
-~100 slugs. Probe-backed routing uses this to confirm model availability and pass the
-slug set to meridian for effort resolution.
+~100 slugs. Probe-backed routing uses this to confirm model availability; mars resolves
+model + effort to the exact slug at bundle-build time via the probe cache.
 
 ---
 
@@ -128,7 +128,7 @@ When routing a model ID against cursor's catalog:
 4. **No probe result** — return `MatchEvidence::Passthrough` (offline or first-run).
 
 `chosen_slug` is always the base model ID (the prefix), never a specific effort
-variant. Effort selection is a projection concern, not a routing concern.
+variant. Effort selection is a bundle-build concern in mars, not a projection concern in meridian.
 
 Mars uses `candidate_slugs` internally for routing confidence but does not thread it to meridian. Meridian receives the already-resolved `harness_model` and passes it through.
 
