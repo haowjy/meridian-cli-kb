@@ -132,6 +132,29 @@ running `meridian mars sync`.
 
 ---
 
+
+## 7. Cursor Fast-Variant Model Routing (mars-agents#256)
+
+**The gap:** Cursor's `--list-models` output includes `-fast` suffixed slugs
+(e.g., `gpt-5.5-fast`, `claude-opus-4-7-thinking-high-fast`). These are
+filtered entirely from the probe result at parse time (`slug.ends_with("-fast")`).
+
+**What's missing:**
+- Fast variants never appear in `mars models list` availability output
+- `meridian spawn -m gpt-5.5 --effort fast` cannot route to the fast variant
+- No `effort = "fast"` handling in the cursor effort projector
+
+**Why deferred:** Fast variants are a cursor-specific feature with unclear semantic
+mapping to the existing effort tier model (`low / medium / high / extra-high`).
+Treating `fast` as an effort tier or as a separate axis both require design work
+before implementation.
+
+**Tracked in:** `haowjy/mars-agents#256`
+
+**Current behavior:** Fast slugs are silently excluded. Users who want a fast
+variant must pass the full slug directly (e.g., `-m gpt-5.5-fast`), which takes
+the exact-match path and bypasses effort projection.
+
 ## Priority Order
 
 If resources allow only a few of these to be built, the likely priority:

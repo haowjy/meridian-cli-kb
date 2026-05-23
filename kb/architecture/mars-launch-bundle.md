@@ -10,6 +10,7 @@ Cross-repo system spanning `mars-agents` (builds the scaffold) and `meridian-cli
 - [../concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept
 - [../decisions/package-management.md](../decisions/package-management.md) — D80–D85 for decisions made during this work
 - [../lessons/mars-launch-bundle-lessons.md](../lessons/mars-launch-bundle-lessons.md) — implementation lessons from the launch-bundle work item
+- [cursor-harness.md](cursor-harness.md) — cursor probe design and `candidate_slugs` threading
 
 ---
 
@@ -94,6 +95,7 @@ Meridian reads the following fields from the `routing` object:
 | `model_token` | string | Selected model token from Mars routing/policy resolution (may differ from `model`) |
 | `harness` | string | Harness identifier (e.g. `"claude"`, `"codex"`, `"opencode"`) |
 | `harness_model` | string \| null | Harness-specific model ID used at harness command-build time when present; otherwise Meridian launches with the canonical resolved model ID |
+| `candidate_slugs` | string[] | All raw catalog slugs from the harness probe that prefix-match the routed model ID (cursor only). Empty for non-cursor harnesses and when offline. Used by the cursor projector for effort resolution. |
 
 Current Mars output also includes diagnostic routing fields such as `selection_kind`, `match_evidence`, `harness_model_source`, `harness_model_confidence`, and `route_trace`. These are Mars-internal diagnostics; Meridian ignores them.
 

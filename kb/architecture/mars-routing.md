@@ -7,6 +7,33 @@ launch bundle `routing` object; it never sees the internal Rust types.
 **Related pages:**
 - [mars-launch-bundle.md](mars-launch-bundle.md) — how routing results land in the bundle `routing` object
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — meridian-side alias resolution and harness selection
+- [cursor-harness.md](cursor-harness.md) — cursor probe design, raw-slug pattern, effort projection
+
+---
+
+## Probe-Backed Harnesses
+
+Some harnesses (cursor, opencode, pi) expose a runtime model catalog via a CLI
+command. Mars probes them before routing to determine which models are available.
+
+**Cursor** is the canonical probe-backed harness for catalog-based routing. The
+cursor probe (`src/models/probes/cursor.rs`) calls `cursor agent --list-models` and
+stores the result as raw slug strings — no structural decomposition, because cursor's
+naming conventions are inconsistent across model families:
+
+```
+gpt-5.5-high                  # base-effort
+claude-opus-4-7-thinking-high # base-thinking-effort
+claude-4.6-opus-high-thinking # base-effort-thinking (reversed in another family)
+gpt-5.5-extra-high            # two-word effort suffix
+```
+
+Routing matches by prefix: `gpt-5.5` matches `gpt-5.5-high`, `gpt-5.5-low`, etc.
+Exact match takes priority. All prefix-matching slugs flow as `candidate_slugs`
+through the launch bundle to meridian for effort resolution in the cursor projector.
+
+See [cursor-harness.md](cursor-harness.md) for the full cursor probe design, effort
+projection algorithm, and `candidate_slugs` threading.
 
 ---
 

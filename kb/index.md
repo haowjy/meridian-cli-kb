@@ -106,6 +106,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/mars-targeting.md](architecture/mars-targeting.md) — Why `.agents/` was eliminated, `.mars/` as Meridian's compiled read surface, native harness dir emission per target
 - [architecture/mars-routing.md](architecture/mars-routing.md) — Mars-internal routing architecture: slug primitive, SelectionKind/MatchEvidence split, acceptance layer, RouteDecisionReport DTO, dependency direction (PR #58).
 - [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md) — Upstream Claude shared-config limitation, isolated overlay mechanism, transcript materialization lifecycle, primary vs child behavior, `--continue` flow
+- [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe design: raw-slug pattern for inconsistent naming, prefix routing, catalog-driven effort projection, `candidate_slugs` threading
 
 ### Chat Pipeline
 

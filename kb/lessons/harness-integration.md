@@ -131,6 +131,36 @@ Two managed extensions ship as package data:
 
 ---
 
+
+## Cursor: Stale Mars Binary Silently Empties candidate_slugs
+
+**The scenario:** When testing cursor effort projection in a worktree, the worktree
+had a stale `mars` binary that predated cursor probe support. Spawns appeared to
+succeed, but `candidate_slugs` was empty on every launch — the old binary didn't
+populate the field.
+
+**The silent failure:** When `candidate_slugs` is empty, `_resolve_cursor_model()`
+falls back to blind suffix construction (`f"{model}-{effort}"`). No warning is
+logged. The subprocess command looked valid (`--model gpt-5.5-high`) but the slug
+was never confirmed against the catalog. For cases where the fallback construction
+happens to produce a valid slug, this degrades silently.
+
+**Detection:** Only observable by inspecting the actual subprocess command line or
+checking the bundle's `routing.candidate_slugs` field. No runtime error is raised.
+
+**Fix:** After cursor probe support ships in mars-agents, bump the mars-agents
+version pin in `mars.toml` and run `meridian mars sync` in the worktree. Verify
+`candidate_slugs` is non-empty in a dry-run spawn before trusting effort projection.
+
+**Rule:** When shipping probe support for a harness across two repos (mars + meridian),
+always confirm the worktree binary is the probe-capable version before testing
+projection behavior. The fallback path — blind suffix construction — is indistinguishable
+from correct projection unless you inspect the bundle or command directly.
+
+**Where this lives:** `src/meridian/lib/harness/projections/project_cursor.py:_resolve_cursor_model()` — fallback at end of function.
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism
@@ -138,3 +168,4 @@ Two managed extensions ship as package data:
 - [architecture/launch-system.md](../architecture/launch-system.md) — four driving adapters and the composition factory
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — the harness abstraction model
 - [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model and extension architecture
+- [architecture/cursor-harness.md](../architecture/cursor-harness.md) — cursor probe design, raw-slug pattern, effort projection
