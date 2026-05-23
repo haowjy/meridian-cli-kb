@@ -163,17 +163,29 @@ slug for the resolved `(model, effort)` pair.
 1. **Exact match** — if `model` appears verbatim in `candidate_slugs` and no effort
    override is specified, return it as-is (user passed a full cursor slug).
 2. **No effort** — return `model` unchanged. Cursor picks its default effort.
-3. **Effort specified** — search `candidate_slugs` for slugs starting with `model`
-   that contain `-{effort}`.
+3. **Effort specified** — search `candidate_slugs` for slugs where
+   `_prefix_matches(slug, model)` (`slug == model or slug.startswith(f"{model}-")`) and
+   either `slug.endswith(f"-{effort}")` (trailing) or `f"-{effort}-" in slug` (infix, for
+   thinking variants like `model-high-thinking`).
    - One match → use it.
-   - Multiple matches → prefer slugs containing `"thinking"` (shortest match).
+   - Multiple matches → prefer slugs containing `"thinking"` (shortest thinking match).
+     If no thinking variant, pick the shortest overall. The length tiebreaker is the
+     real defense against overmatch: `endswith("-high")` matches both `gpt-5.5-high` and
+     `gpt-5.5-extra-high`; `min(key=len)` selects `gpt-5.5-high`.
    - No matches → fall back to `f"{model}-{effort}"` (let cursor reject if invalid).
 
-### Thinking preference
+### Thinking preference and length tiebreaker
 
-When multiple effort candidates exist and any contain `"thinking"`, the shortest
-thinking variant is preferred. This is user-stated policy baked into the projector
-— thinking variants are generally preferred for Claude on cursor.
+When multiple effort candidates exist:
+
+1. **Thinking preferred** — if any candidate contains `"thinking"`, the shortest such
+   slug is returned. This is cursor-harness policy baked into projection.
+2. **Length tiebreaker** — if no thinking variants exist, `min(key=len)` selects the
+   shortest match. This is the mechanism that correctly handles `endswith` overmatch:
+   both `gpt-5.5-high` and `gpt-5.5-extra-high` satisfy `endswith("-high")` when
+   `effort="high"`, but `gpt-5.5-high` is shorter and wins. Note: if the catalog only
+   contains `gpt-5.5-extra-high` and `effort=high` is requested, that slug would be
+   selected — the tiebreaker only helps when a precise match also exists.
 
 ### Behavior table
 
