@@ -11,7 +11,7 @@ catalog-driven effort projection that resolves the correct slug at launch time.
 - [mars-launch-bundle.md](mars-launch-bundle.md) — bundle `routing.harness_model` contract
 - [mars-model-refresh.md](mars-model-refresh.md) — probe cache refresh modes for `build launch-bundle`
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — meridian-side alias resolution
-- [../lessons/harness-integration.md](../lessons/harness-integration.md) — stale mars binary / empty candidate_slugs gotcha
+- [../lessons/harness-integration.md](../lessons/harness-integration.md) — stale mars binary / missing harness_model gotcha
 
 ---
 
@@ -130,8 +130,7 @@ When routing a model ID against cursor's catalog:
 `chosen_slug` is always the base model ID (the prefix), never a specific effort
 variant. Effort selection is a projection concern, not a routing concern.
 
-`candidate_slugs` in the `CandidateAssessment` carries all prefix-matching raw slugs
-forward through the launch bundle for meridian's effort projector to search.
+Mars uses `candidate_slugs` internally for routing confidence but does not thread it to meridian. Meridian receives the already-resolved `harness_model` and passes it through.
 
 ---
 
@@ -170,82 +169,6 @@ Mars classifies cursor model availability using `classify_cursor`:
 (`src/harness/registry.rs`). This is a semantic/documentation change — no runtime
 code branches on this value for behavior.
 
----
-
-## Meridian Effort Projection (Legacy)
-
-When **`routing.harness_model`** is already set by Mars, Meridian uses it directly.
-The sections below describe meridian-cli **`project_cursor.py`** behavior for **older
-Mars binaries** that omit build-time effort resolution or leave `candidate_slugs` as
-the only catalog hint.
-
-**Location:** `src/meridian/lib/harness/projections/project_cursor.py` (meridian-cli)
-
-Mars threads all prefix-matching raw slugs as `candidate_slugs` through the launch
-bundle to meridian's projection layer. The projector searches them to find the best
-slug for the resolved `(model, effort)` pair.
-
-### Algorithm: `_resolve_cursor_model(model, effort, candidate_slugs)`
-
-1. **Exact match** — if `model` appears verbatim in `candidate_slugs` and no effort
-   override is specified, return it as-is (user passed a full cursor slug).
-2. **No effort** — return `model` unchanged. Cursor picks its default effort.
-3. **Effort specified** — search `candidate_slugs` for slugs where
-   `_prefix_matches(slug, model)` (`slug == model or slug.startswith(f"{model}-")`) and
-   either `slug.endswith(f"-{effort}")` (trailing) or `f"-{effort}-" in slug` (infix, for
-   thinking variants like `model-high-thinking`).
-   - One match → use it.
-   - Multiple matches → prefer slugs containing `"thinking"` (shortest thinking match).
-     If no thinking variant, pick the shortest overall. The length tiebreaker is the
-     real defense against overmatch: `endswith("-high")` matches both `gpt-5.5-high` and
-     `gpt-5.5-extra-high`; `min(key=len)` selects `gpt-5.5-high`.
-   - No matches → fall back to `f"{model}-{effort}"` (let cursor reject if invalid).
-
-### Thinking preference and length tiebreaker
-
-When multiple effort candidates exist:
-
-1. **Thinking preferred** — if any candidate contains `"thinking"`, the shortest such
-   slug is returned. This is cursor-harness policy baked into projection.
-2. **Length tiebreaker** — if no thinking variants exist, `min(key=len)` selects the
-   shortest match. This is the mechanism that correctly handles `endswith` overmatch:
-   both `gpt-5.5-high` and `gpt-5.5-extra-high` satisfy `endswith("-high")` when
-   `effort="high"`, but `gpt-5.5-high` is shorter and wins. Note: if the catalog only
-   contains `gpt-5.5-extra-high` and `effort=high` is requested, that slug would be
-   selected — the tiebreaker only helps when a precise match also exists.
-
-### Behavior table
-
-| `spec.model` | `spec.effort` | Result |
-|---|---|---|
-| `gpt-5.5` | `None` | `gpt-5.5` |
-| `gpt-5.5` | `high` | `gpt-5.5-high` (from catalog) |
-| `claude-opus-4-7` | `high` | `claude-opus-4-7-thinking-high` (thinking preferred) |
-| `claude-4.6-opus` | `high` | `claude-4.6-opus-high-thinking` (thinking preferred) |
-| `claude-opus-4-7-thinking-high` | `None` | `claude-opus-4-7-thinking-high` (exact match) |
-| `gpt-5.5` | `ultra` | `gpt-5.5-ultra` (fallback, no catalog match) |
-| `gpt-5.5` | `high` | `gpt-5.5-high` (fallback, empty candidate_slugs) |
-
-### Field movement
-
-`effort` moved from `_DELEGATED_FIELDS` to `_PROJECTED_FIELDS` in the cursor
-projector. Cursor effort resolution happens in the projector, not by delegation to
-the harness.
-
----
-
-## candidate_slugs (Diagnostic + Legacy Path)
-
-```
-mars routing → candidate_slugs in bundle (diagnostic on current Mars)
-meridian (legacy) → ResolvedLaunchSpec.candidate_slugs → _resolve_cursor_model()
-```
-
-**Current path:** Mars sets `harness_model` at build time; Meridian prefers that field.
-
-**Legacy path:** Empty `harness_model` or pre-probe Mars → Meridian searches
-`candidate_slugs` or blind-suffix fallbacks. See
-[../lessons/harness-integration.md](../lessons/harness-integration.md).
 
 ---
 

@@ -132,32 +132,33 @@ Two managed extensions ship as package data:
 ---
 
 
-## Cursor: Stale Mars Binary Silently Empties candidate_slugs
+## Cursor: Stale Mars Binary Leaves harness_model Unresolved
 
-**The scenario:** When testing cursor effort projection in a worktree, the worktree
-had a stale `mars` binary that predated cursor probe support. Spawns appeared to
-succeed, but `candidate_slugs` was empty on every launch — the old binary didn't
-populate the field.
+**The scenario:** When testing cursor spawns in a worktree, the worktree had a stale
+`mars` binary that predated cursor probe support (mars PR #72). Spawns appeared to
+succeed, but `routing.harness_model` was absent from the launch bundle — the old
+binary had no effort resolution logic and did not set the field.
 
-**The silent failure:** When `candidate_slugs` is empty, `_resolve_cursor_model()`
-falls back to blind suffix construction (`f"{model}-{effort}"`). No warning is
-logged. The subprocess command looked valid (`--model gpt-5.5-high`) but the slug
-was never confirmed against the catalog. For cases where the fallback construction
-happens to produce a valid slug, this degrades silently.
+**The silent failure:** When `harness_model` is absent, meridian falls back to
+passing the raw model string (e.g. `--model gpt-5.5`) to cursor with no effort
+suffix. No warning is logged. Cursor picks its own default effort tier, which may
+not match what was requested. The subprocess command looks plausible but the effort
+is silently wrong.
 
-**Detection:** Only observable by inspecting the actual subprocess command line or
-checking the bundle's `routing.candidate_slugs` field. No runtime error is raised.
+**Detection:** Run `meridian spawn --dry-run` and inspect the `--model` argument in
+the emitted command. Check that `routing.harness_model` is set (non-empty) in the
+launch bundle. If it is absent, the mars binary predates probe support.
 
-**Fix:** After cursor probe support ships in mars-agents, bump the mars-agents
-version pin in `mars.toml` and run `meridian mars sync` in the worktree. Verify
-`candidate_slugs` is non-empty in a dry-run spawn before trusting effort projection.
+**Fix:** Bump the mars-agents version pin in `mars.toml` and run `meridian mars sync`
+in the worktree. Confirm `routing.harness_model` is non-empty in a dry-run spawn
+before trusting effort projection.
 
-**The lesson:** When shipping probe support for a harness across two repos (mars + meridian),
-always confirm the worktree binary is the probe-capable version before testing
-projection behavior. The fallback path — blind suffix construction — is indistinguishable
-from correct projection unless you inspect the bundle or command directly.
+**The lesson:** When shipping effort resolution for a harness across two repos (mars +
+meridian), always confirm the worktree binary is the probe-capable version before
+testing. The failure — wrong or missing effort suffix — is invisible unless you
+inspect the bundle or the actual subprocess command directly.
 
-**Where this lives:** `src/meridian/lib/harness/projections/project_cursor.py:_resolve_cursor_model()` — fallback at end of function.
+**Where this lives:** `src/build/policy/runnable.rs:resolve_cursor_effort_slug()` (mars-agents) — sets `routing.harness_model`.
 
 ---
 
