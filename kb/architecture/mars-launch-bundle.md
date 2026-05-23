@@ -7,10 +7,12 @@ Cross-repo system spanning `mars-agents` (builds the scaffold) and `meridian-cli
 **Related pages:**
 - [mars-compiler.md](mars-compiler.md) — compiler internals, config-entry pipeline
 - [mars-targeting.md](mars-targeting.md) — static `.mars/` targeting vs. launch-bundle
+- [mars-model-refresh.md](mars-model-refresh.md) — `ensure_fresh`, `--refresh-models` / `--no-refresh-models` on `build launch-bundle`
+- [mars-routing.md](mars-routing.md) — routing parity, default harness_order, shared evidence
 - [../concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept
 - [../decisions/package-management.md](../decisions/package-management.md) — D80–D85 for decisions made during this work
 - [../lessons/mars-launch-bundle-lessons.md](../lessons/mars-launch-bundle-lessons.md) — implementation lessons from the launch-bundle work item
-- [cursor-harness.md](cursor-harness.md) — cursor probe design and `candidate_slugs` threading
+- [cursor-harness.md](cursor-harness.md) — cursor probe; build-time `harness_model` effort resolution
 
 ---
 
@@ -95,9 +97,16 @@ Meridian reads the following fields from the `routing` object:
 | `model_token` | string | Selected model token from Mars routing/policy resolution (may differ from `model`) |
 | `harness` | string | Harness identifier (e.g. `"claude"`, `"codex"`, `"opencode"`) |
 | `harness_model` | string \| null | Harness-specific model ID used at harness command-build time when present; otherwise Meridian launches with the canonical resolved model ID |
-| `candidate_slugs` | string[] | All raw catalog slugs from the harness probe that prefix-match the routed model ID (cursor only). Empty for non-cursor harnesses and when offline. Used by the cursor projector for effort resolution. |
+| `candidate_slugs` | string[] | Diagnostic: raw probe slugs that matched during routing (mainly Cursor). **Consumers should run `harness_model` verbatim** — Mars resolves Cursor `model` + `effort` into `harness_model` at build time and clears `execution_policy.effort` when applied. Meridian may still read `candidate_slugs` for older Mars binaries; see [cursor-harness.md](cursor-harness.md). |
 
 Current Mars output also includes diagnostic routing fields such as `selection_kind`, `match_evidence`, `harness_model_source`, `harness_model_confidence`, and `route_trace`. These are Mars-internal diagnostics; Meridian ignores them.
+
+### Catalog refresh before build
+
+`mars build launch-bundle` calls **`ensure_fresh`** for the models.dev catalog (default
+`RefreshMode::Auto`: HTTP only when TTL-stale), not a read-only cache load. Probe
+refresh follows **`ProbeRefreshMode`** from the same **`ModelsRefreshControl`** as
+`mars sync` and `mars models list|resolve`. Details: [mars-model-refresh.md](mars-model-refresh.md).
 
 ### `execution_policy` key fields
 

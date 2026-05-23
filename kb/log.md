@@ -4,6 +4,32 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-23 — Mars model refresh and routing parity (PR #72)
+
+### Trigger
+
+Post-ship KB capture for mars-agents PR #72: `ModelsRefreshControl`,
+`--refresh-models` / `--no-refresh-models`, `ensure_fresh` on launch-bundle,
+probe refresh matrix, default `harness_order`, routing parity across models CLI
+and launch-bundle, Cursor build-time `harness_model` effort resolution.
+
+### What changed
+
+- **New:** `architecture/mars-model-refresh.md` — focused catalog + probe refresh page
+- `architecture/mars-routing.md` — Routing Parity (PR #72) section; cross-link refresh page
+- `architecture/mars-launch-bundle.md` — `candidate_slugs` diagnostic; catalog refresh before build
+- `architecture/cursor-harness.md` — build-time effort resolution; legacy Meridian projector labeled
+- `concepts/package-management/sync-model.md` — symmetric `--refresh-models` / `--no-refresh-models` table
+- `concepts/package-management/vocabulary.md` — `ModelsRefreshControl` term
+- `index.md`, `architecture/overview.md` — navigation for launch-bundle, model-refresh pages
+- `open-questions/mars-feature-gaps.md` — gap #7 Meridian refresh-models passthrough stub
+
+### Validation
+
+Run `meridian kg check kb` and `meridian mermaid check kb/architecture/` before committing.
+
+---
+
 ## 2026-05-22 — Launch-bundle schema v2 follow-up (routing/scaffold detail pass)
 
 ### Trigger

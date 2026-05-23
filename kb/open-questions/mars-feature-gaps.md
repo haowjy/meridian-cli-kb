@@ -157,6 +157,24 @@ the exact-match path and bypasses effort projection.
 
 ---
 
+## 7. Meridian CLI: Mars Refresh-Models Passthrough
+
+**The gap:** Mars exposes `--refresh-models` and `--no-refresh-models` on
+`mars models list|resolve`, `mars sync`, and `mars build launch-bundle`
+(see [architecture/mars-model-refresh.md](../architecture/mars-model-refresh.md)).
+Meridian spawn / `meridian mars` does not yet forward these flags to the Mars
+subprocess Meridian uses for bundle resolution.
+
+**Current workaround:** Run `mars build launch-bundle` (or `mars sync`) with the
+desired flags before spawn, or set `MARS_OFFLINE=1` for air-gapped behavior.
+
+**Not planned in Mars KB:** global `mars --refresh-models` at the root CLI.
+
+**Draft follow-up:** Wire refresh flags through Meridian's Mars invocation path
+(`bundle_adapter` / spawn prepare) with the same `ModelsRefreshControl` semantics.
+
+---
+
 ## Priority Order
 
 If resources allow only a few of these to be built, the likely priority:

@@ -13,7 +13,8 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [mars-compiler.md](mars-compiler.md) — Mars compiler module map, config-entry pipeline, collision resolution, and stale cleanup.
 - [mars-targeting.md](mars-targeting.md) — Mars targeting architecture: `.mars/` as Meridian compiled read surface, native harness skill dirs, and conditional native agent emission.
 - [mars-launch-bundle.md](mars-launch-bundle.md) — Cross-repo launch-bundle system: Mars/Meridian ownership, bundle contract, scaffold slots, harness status, static sync vs runtime differences.
-- [mars-routing.md](mars-routing.md) — Mars-internal routing architecture: slug primitive, SelectionKind/MatchEvidence split, acceptance layer, RouteDecisionReport DTO, dependency direction.
+- [mars-routing.md](mars-routing.md) — Mars-internal routing architecture: slug primitive, default harness_order, routing parity, acceptance layer, RouteDecisionReport DTO.
+- [mars-model-refresh.md](mars-model-refresh.md) — Catalog `ensure_fresh` and probe refresh: `ModelsRefreshControl`, CLI flags on sync/models/launch-bundle.
 
 ## Subtrees
 

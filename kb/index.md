@@ -104,9 +104,11 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/app-server.md](architecture/app-server.md) — FastAPI layer: REST endpoints, WebSocket/SSE streaming, MCP stdio server, connection management
 - [architecture/mars-compiler.md](architecture/mars-compiler.md) — Compiler internals: module map, config-entry pipeline, MCP/hook collision resolution, provenance and stale cleanup
 - [architecture/mars-targeting.md](architecture/mars-targeting.md) — Why `.agents/` was eliminated, `.mars/` as Meridian's compiled read surface, native harness dir emission per target
-- [architecture/mars-routing.md](architecture/mars-routing.md) — Mars-internal routing architecture: slug primitive, SelectionKind/MatchEvidence split, acceptance layer, RouteDecisionReport DTO, dependency direction (PR #58).
+- [architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md) — Cross-repo launch-bundle: Mars scaffold, Meridian injection, bundle `routing` contract, schema v2
+- [architecture/mars-routing.md](architecture/mars-routing.md) — Mars-internal routing: slug primitive, default harness_order, routing parity with models CLI, acceptance layer (PR #58 + #72)
+- [architecture/mars-model-refresh.md](architecture/mars-model-refresh.md) — Models.dev catalog `ensure_fresh`, probe `ProbeRefreshMode`, `--refresh-models` / `--no-refresh-models` CLI surfaces
 - [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md) — Upstream Claude shared-config limitation, isolated overlay mechanism, transcript materialization lifecycle, primary vs child behavior, `--continue` flow
-- [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe design: raw-slug pattern for inconsistent naming, prefix routing, catalog-driven effort projection, `candidate_slugs` threading
+- [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe: raw-slug prefix routing, build-time `harness_model` effort resolution, legacy Meridian projector path
 
 ### Chat Pipeline
 

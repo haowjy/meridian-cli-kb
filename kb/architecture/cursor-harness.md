@@ -7,10 +7,32 @@ the probe architecture, the raw-slug pattern that handles inconsistency, and the
 catalog-driven effort projection that resolves the correct slug at launch time.
 
 **Related pages:**
-- [mars-routing.md](mars-routing.md) — routing architecture; probe-backed harness pattern
-- [mars-launch-bundle.md](mars-launch-bundle.md) — launch bundle structure; `candidate_slugs` threading
+- [mars-routing.md](mars-routing.md) — routing architecture; probe-backed harness pattern; prefix boundary rules
+- [mars-launch-bundle.md](mars-launch-bundle.md) — bundle `routing.harness_model` contract
+- [mars-model-refresh.md](mars-model-refresh.md) — probe cache refresh modes for `build launch-bundle`
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — meridian-side alias resolution
 - [../lessons/harness-integration.md](../lessons/harness-integration.md) — stale mars binary / empty candidate_slugs gotcha
+
+---
+
+## Build-Time Effort Resolution (Current)
+
+**Mars** (launch-bundle build, `src/build/policy/runnable.rs`) resolves Cursor
+`model` + `execution_policy.effort` into the exact probe slug via
+`resolve_cursor_effort_slug` and writes it to **`routing.harness_model`**. On success,
+`execution_policy.effort` is cleared (`effort_consumed`) so the harness receives a
+single concrete slug.
+
+Effort tier rules (same function as probe module):
+- **`medium`**, **`none`**, **`auto`**, **`default`** → unsuffixed base slug when the
+  probe lists it (Cursor’s default tier), not `model-medium`.
+- Multiple matches at the same tier → prefer slugs containing **`thinking`** (shortest).
+
+Meridian should pass **`routing.harness_model`** to `cursor agent --model` without
+re-running the effort projector when the bundle was built with a current Mars binary.
+
+**`routing.candidate_slugs`** is diagnostic-only on current Mars; do not treat it as
+the launch authority for effort.
 
 ---
 
@@ -150,7 +172,12 @@ code branches on this value for behavior.
 
 ---
 
-## Effort Projection
+## Meridian Effort Projection (Legacy)
+
+When **`routing.harness_model`** is already set by Mars, Meridian uses it directly.
+The sections below describe meridian-cli **`project_cursor.py`** behavior for **older
+Mars binaries** that omit build-time effort resolution or leave `candidate_slugs` as
+the only catalog hint.
 
 **Location:** `src/meridian/lib/harness/projections/project_cursor.py` (meridian-cli)
 
@@ -207,26 +234,17 @@ the harness.
 
 ---
 
-## candidate_slugs Threading (Two-Repo Flow)
+## candidate_slugs (Diagnostic + Legacy Path)
 
 ```
-mars routing evaluates model prefix against cursor catalog
-    → populates candidate_slugs in CandidateAssessment
-    → included in launch bundle routing object
-
-meridian reads candidate_slugs from launch bundle
-    → populates ResolvedLaunchSpec.candidate_slugs
-    → passed to project_cursor_spec_to_cli_args()
-    → _resolve_cursor_model() searches them for best effort match
+mars routing → candidate_slugs in bundle (diagnostic on current Mars)
+meridian (legacy) → ResolvedLaunchSpec.candidate_slugs → _resolve_cursor_model()
 ```
 
-The launch bundle routing object gained `candidate_slugs` as a new field for cursor.
-When `candidate_slugs` is empty (offline, old mars binary, no probe result), the
-effort projector falls back to blind suffix construction (`f"{model}-{effort}"`).
+**Current path:** Mars sets `harness_model` at build time; Meridian prefers that field.
 
-**Critical dependency:** If the mars binary predates cursor probe support, the
-routing result will not include `candidate_slugs`, and effort projection silently
-falls back to blind construction. See the lesson in
+**Legacy path:** Empty `harness_model` or pre-probe Mars → Meridian searches
+`candidate_slugs` or blind-suffix fallbacks. See
 [../lessons/harness-integration.md](../lessons/harness-integration.md).
 
 ---

@@ -6,8 +6,9 @@ launch bundle `routing` object; it never sees the internal Rust types.
 
 **Related pages:**
 - [mars-launch-bundle.md](mars-launch-bundle.md) — how routing results land in the bundle `routing` object
+- [mars-model-refresh.md](mars-model-refresh.md) — catalog `ensure_fresh`, probe `ProbeRefreshMode`, CLI refresh flags
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — meridian-side alias resolution and harness selection
-- [cursor-harness.md](cursor-harness.md) — cursor probe design, raw-slug pattern, effort projection
+- [cursor-harness.md](cursor-harness.md) — cursor probe design, raw-slug pattern, build-time effort into `harness_model`
 
 ---
 
@@ -32,8 +33,53 @@ Routing matches by prefix: `gpt-5.5` matches `gpt-5.5-high`, `gpt-5.5-low`, etc.
 Exact match takes priority. All prefix-matching slugs flow as `candidate_slugs`
 through the launch bundle to meridian for effort resolution in the cursor projector.
 
-See [cursor-harness.md](cursor-harness.md) for the full cursor probe design, effort
-projection algorithm, and `candidate_slugs` threading.
+See [cursor-harness.md](cursor-harness.md) for cursor probe design and effort slug
+resolution rules (applied at launch-bundle build into `harness_model`).
+
+---
+
+## Routing Parity (PR #72)
+
+`mars models list`, `mars models resolve`, and `mars build launch-bundle` share the
+same routing evidence assembly: models.dev catalog slugs plus cached probe results,
+driven by the same **`ModelsRefreshControl`** (see [mars-model-refresh.md](mars-model-refresh.md)).
+
+### Default harness_order
+
+When `settings.harness_order` is unset, launch-bundle policy uses Mars default order
+(`src/harness/registry.rs`):
+
+`claude` → `pi` → `codex` → `opencode` → `cursor`
+
+Explicit empty or invalid `harness_order` still falls through to provider-based candidate order.
+
+### Native harness catalog matching
+
+**Claude** and **Codex** (native harnesses) now match the requested model id against
+cached models.dev catalog slugs using the same slug primitive as Pi/OpenCode — not
+only alias/provider affinity.
+
+### Prefix boundary (Cursor)
+
+Cursor prefix matching requires an exact slug or a **hyphen boundary** after the model
+prefix (e.g. `gpt-5` does not match `gpt-55-*`).
+
+### Deferred passthrough
+
+Candidates with **`MatchEvidence::Passthrough`** (installed harness, unknown catalog
+evidence) are held aside while later harnesses in the try-order are evaluated. A
+confirmed native catalog match (e.g. Codex for an OpenAI model) wins over an earlier
+universal passthrough harness.
+
+### Linked-harness fallback
+
+When walking linked targets, Mars skips harnesses already rejected in the trace
+(`pi_incompatible`, `no_model_match`, etc.) instead of always picking the first link.
+
+### Bare model token provider inference
+
+Agent model tokens without an explicit provider infer **`provider_for_order`** from
+model id prefixes (e.g. `claude-opus-4-6` → `anthropic`) for harness ordering.
 
 ---
 

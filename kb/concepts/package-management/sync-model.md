@@ -134,13 +134,17 @@ requiring manual edits.
 
 | Flag | Behavior |
 |---|---|
-| (default) | MVS version selection, replay locked commits |
+| (default) | MVS version selection, replay locked commits; models.dev catalog **Auto** + probe **Background** |
 | `--force` | Overwrite locally-modified files |
 | `--diff` | Dry-run: report what would change, no writes |
 | `--frozen` | Do not fetch new versions; fail if lock is insufficient |
-| `--no-refresh-models` | Skip model alias cache refresh |
+| `--refresh-models` | Force models.dev catalog refresh; run harness probes **synchronously** (no background `__refresh-probe` on stale cache) |
+| `--no-refresh-models` | Disk-only catalog (`RefreshMode::Offline`); probe **Skip** (stale probe JSON still used when present) |
 
 `--frozen` is the right mode for CI builds where reproducibility is required.
+
+Model/probe refresh uses the same **`ModelsRefreshControl`** as `mars models list|resolve`
+and `mars build launch-bundle`. Full matrix: [../../architecture/mars-model-refresh.md](../../architecture/mars-model-refresh.md).
 
 ## Filter Pass
 
@@ -190,3 +194,4 @@ sync and released on completion or crash.
 - [targeting.md](targeting.md) — how the apply outputs are projected to harness dirs
 - [resolution-algorithm.md](resolution-algorithm.md) — how the ResolvedState is produced
 - [decisions/package-management.md](../../decisions/package-management.md) — why sync is manual, why the lock extends to config-entry provenance
+- [../../architecture/mars-model-refresh.md](../../architecture/mars-model-refresh.md) — `ensure_fresh`, `ProbeRefreshMode`, refresh flags on sync
