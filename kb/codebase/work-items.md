@@ -31,11 +31,13 @@ Work items can have an associated worktree path — a directory where spawns sco
 
 ### Two Assignment Paths
 
-**Managed** (`WorktreeMetadata.managed = true`): Created by `work start --worktree`. Meridian provisioned the git worktree and owns its lifecycle:
+**Managed** (`WorktreeMetadata.managed = true`): Meridian provisioned the git worktree and owns its lifecycle. Created by `work start --worktree`, `spawn --worktree`, or `work worktree --ensure`.
+- Canonical path is always `<repo>.worktrees/<name>`, enforced by `managed_worktree_path()`. No `--path` override for managed worktrees.
 - Removed on `work done` / `work delete` when not shared with other active work items
 - Renamed if the work item is renamed
+- Once metadata is persisted (`repo_path` + `name`), subsequent ensures reuse it — `--repo` cannot redirect an established managed worktree
 
-**Manual** (`WorktreeMetadata.managed = false`): Assigned by `work set-worktree`. Meridian treats it as read-only:
+**Manual** (`WorktreeMetadata.managed = false`): Assigned by `work set-worktree`. Accepts arbitrary paths. Meridian treats it as read-only:
 - Never deletes the directory
 - `work clear-worktree` removes only the assignment, not the directory
 
@@ -44,15 +46,33 @@ Multiple work items may point to the same `worktree_path`. No uniqueness constra
 ### Commands
 
 ```bash
-meridian work set-worktree <work-item> <path>   # assign existing directory
-meridian work clear-worktree <work-item>         # remove assignment (not directory)
+# Managed worktree lifecycle
+meridian work worktree                            # show active work item's worktree status
+meridian work worktree --ensure                   # ensure managed worktree exists (or create temp if no active work)
+meridian work worktree <work-id>                  # show explicit work item's worktree
+meridian work worktree <work-id> --ensure         # ensure explicit work item's managed worktree
+meridian work worktree --ensure --repo <path>     # select target repo (first ensure only)
+
+# Manual assignment
+meridian work set-worktree <work-item> <path>     # assign existing directory (manual, managed=false)
+meridian work clear-worktree <work-item>          # remove assignment (not directory)
 ```
 
-`set-worktree` validates the path exists and is a directory. Both commands log the change.
+`work start --worktree` is the "provision and assign" path for a new work item (creates a managed git worktree). `work worktree --ensure` is the idempotent ensure path for an existing item. `set-worktree` is the "assign only" path for pre-existing directories.
 
-`work start --worktree` is the "provision and assign" path (creates a git worktree). `set-worktree` is the "assign only" path for pre-existing directories.
+### Temporary Managed Worktrees
+
+When `work worktree --ensure` is invoked with no active or explicit work item, Meridian creates a **session-scoped temporary managed worktree**:
+- Named deterministically from `spawn_id` (in a spawn, e.g. `temp-spawn-p2427`) or `chat_id` (in a primary session, e.g. `temp-chat-c2343`)
+- Canonical path: `<repo>.worktrees/<worktree-name>`
+- Tracked in `~/.meridian/projects/<uuid>/worktree-temp/<key>.json` — separate from work item state
+- Crash-safe: record written with `status=pending` before `git worktree add`; set to `status=ready` on success; cleared (rollback) on failure
+
+The explicit-work-id form (`work worktree <id> --ensure`) does NOT create a temp worktree if the named item is missing — it fails clearly.
 
 ### Effect on Spawns
+
+`spawn --worktree` provisions (or recovers) the canonical managed worktree before launching, then runs the agent in it. This is an ensure operation — it creates the worktree if it does not exist. Implicit `--work <id>` without `--worktree` still falls back to `authority_root` when no worktree is configured.
 
 When a work item has a `worktree_path`, spawns attached to that item run in it:
 - Agent process cwd = `worktree_path` (for PI/OpenCode/Codex)
