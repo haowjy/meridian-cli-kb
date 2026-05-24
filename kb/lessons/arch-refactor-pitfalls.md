@@ -287,6 +287,18 @@ the only path. The bug was latent but inactive.
 
 ---
 
+## Worktree Repo Detection Uses `cwd`, Not `MERIDIAN_PROJECT_DIR` (PR #266)
+
+**The problem:** When invoking `meridian work worktree --ensure` (or `spawn --worktree`) without an explicit `--repo`, Meridian detects the target git repository from the **current working directory** — not from `MERIDIAN_PROJECT_DIR`. If the shell cwd is a feature worktree, the managed worktree is provisioned in that repo, even when `MERIDIAN_PROJECT_DIR` points to a different project root.
+
+**The symptom:** Running `uv run meridian work worktree --ensure` from a feature worktree (e.g., the spawn-worktree-autoprovision worktree) provisions a worktree under the feature worktree's repo root, not the main checkout the user expected.
+
+**The rule:** When the target repo differs from the current cwd, always pass `--repo <path>` explicitly. The `--repo` flag is only consumed on the **first** managed ensure for a work item — subsequent ensures ignore it and reuse persisted metadata.
+
+**Why cwd wins:** `--repo` is an initial configuration hint, not an ongoing override. Repo detection from cwd is intentional — it matches the "you are working here" mental model. `MERIDIAN_PROJECT_DIR` tracks project identity for CLI context resolution, not for worktree provisioning.
+
+---
+
 ## Cross-References
 
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed primary reaper safety boundary
