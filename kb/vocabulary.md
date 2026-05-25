@@ -41,4 +41,5 @@ Domain vocabulary pages cover terms specific to one subsystem. Each page has a b
 | **Telemetry** | [architecture/telemetry/vocabulary.md](architecture/telemetry/vocabulary.md) | Telemetry sinks, envelope format, router, local persistence |
 | **Workspace** | [architecture/workspace/vocabulary.md](architecture/workspace/vocabulary.md) | Workspace entries, multi-repo projection, snapshot merging |
 | **meridian-web** | [ecosystem/meridian-web/vocabulary.md](ecosystem/meridian-web/vocabulary.md) | Extension system, shell architecture, WebSocket protocol, layout, frontend stores |
+| **Pi runtime** | [architecture/pi-runtime/vocab.md](architecture/pi-runtime/vocab.md) | `bash_id`, `bash_manage`, `managed-bash`, `meridian-spawn-watch`, `originating_bash_id`, env-var correlation, quiescence rule |
 | **Codebase** | [codebase/vocabulary.md](codebase/vocabulary.md) | Harness infrastructure, hooks and plugins, safety and permissions, launch system, state management, config loading, platform abstractions |
