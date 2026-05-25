@@ -1,3 +1,11 @@
+> **Partially obsolete (pi-bg-redesign):** This lessons file documents
+> implementation lessons from the original sidecar-based quiescence architecture.
+> Several lessons reference deleted artifacts (`MERIDIAN_PI_LIFECYCLE_EVENT_FILE`,
+> `pi-lifecycle-events.jsonl`, `PiLifecycleEventTailer`, Node `fs.open` sidecar
+> behavior). These lessons remain archived for context; the cross-platform and
+> test-design lessons still apply. See [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md)
+> for the current quiescence design.
+
 # lessons/pi-rpc-quiescence-impl — Pi RPC Quiescence Implementation Lessons
 
 Hard-won patterns from implementing Pi lifecycle quiescence, tracked/detached child jobs, nested stale detection, and getting CI green on all platforms. Each lesson came from a real failure during LLM-driven implementation.
@@ -110,6 +118,12 @@ assert result == "/tmp/pi"  # or use the variable directly
 **The fix:** Use a path through a non-existent parent directory instead. `ENOENT` is universal.
 
 **The lesson:** Filesystem error behavior is platform-specific. "Open a directory for writing fails" is a POSIX assumption. When testing error paths, pick stimuli that fail universally: non-existent paths, permission-denied (with care), or explicitly invalid inputs.
+
+> [!FLAG] **Partially obsolete** — this lesson references `MERIDIAN_PI_LIFECYCLE_EVENT_FILE`,
+> which is deleted in the redesign. The general principle (POSIX filesystem error
+> assumptions don't hold on Windows; use `ENOENT` stimuli instead) still applies to
+> any test that writes to non-existent paths. Preserved for the principle, not the
+> specific artifact.
 
 ---
 

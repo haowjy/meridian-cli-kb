@@ -186,16 +186,20 @@ Pi also introduces **extension injection**: Meridian-owned TypeScript extensions
 are loaded into the Pi process via `-e <path>` flags. Two managed extensions ship
 as package data under `src/meridian/pi_runtime/extensions/`:
 
-- **`managed-bash`** — overrides Pi's bash builtin; tracks background jobs,
-  supports `wait_policy: "tracked" | "detached"`.
-- **`meridian-lifecycle`** — emits lifecycle machine events (child start/end,
-  quiescence signals, notification delivery) to a sidecar JSONL file
-  (`pi-lifecycle-events.jsonl`), not stdout/stderr.
+- **`managed-bash`** (mechanism) — overrides Pi's bash builtin. Registers the
+  `bash` tool (with `background?: boolean` and `timeout_min?: 1-59` parameters)
+  and `bash_manage` ops tool. Owns the b-* bash registry and injects
+  `MERIDIAN_PI_BASH_ID` into every child process's env for spawn correlation.
+  Writes bash records to `pi-bash/<spawn-id>/bash-records.json`.
+- **`meridian-spawn-watch`** (policy) — watches spawn records on disk via a
+  `watchfiles`-based disk watcher. Emits implicit-wait completion notifications
+  to the agent when tracked spawns or tracked bash bg records terminate.
+  Renamed from `meridian-lifecycle` (old name fully deleted; no aliases).
 
-Spawned Pi sessions load both extensions (`--no-extensions -e managed-bash.js -e lifecycle.js`).
-Primary Pi sessions load lifecycle only (`-e lifecycle.js`). See
+Spawned Pi sessions load both extensions (`--no-extensions -e managed-bash.js -e meridian-spawn-watch.js`).
+Primary Pi sessions load meridian-spawn-watch only (`-e meridian-spawn-watch.js`). See
 [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the
-quiescence model built on top of these extensions.
+quiescence model, env-var correlation contract, and new disk-watch mechanism.
 
 ---
 
