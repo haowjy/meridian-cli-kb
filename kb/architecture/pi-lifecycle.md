@@ -35,7 +35,7 @@ Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spaw
 
 ### meridian-spawn-watch (policy extension)
 
-Watches spawn records on disk and manages agent notification for completed spawns. Renamed from `meridian-lifecycle` (legacy name deleted).
+Watches spawn records on disk and manages agent notification for completed spawns. This is the redesign successor to the earlier Pi lifecycle policy extension.
 
 No tool registration.
 
@@ -58,9 +58,10 @@ Slash commands: `/mspawn` (spawn record list, filtered to this session's spawns)
 
 ## Sidecar JSONL Transport
 
-> **Deleted.** The sidecar (`pi-lifecycle-events.jsonl`, `MERIDIAN_PI_LIFECYCLE_EVENT_FILE`, `PiLifecycleEventTailer`) is removed in the redesign. See [Historical: Pre-Redesign Architecture](#historical-pre-redesign-architecture).
->
-> **Replacement:** Python quiescence now uses `watchfiles`-based disk observation of spawn records (`~/.meridian/projects/<proj>/spawns/`) and bash records (`pi-bash/<spawn-id>/bash-records.json`). No sidecar transport.
+> **Legacy only.** The redesign removed the sidecar transport and Python tailer.
+> Current quiescence uses `watchfiles`-based disk observation of spawn records
+> (`~/.meridian/projects/<proj>/spawns/`) and bash records
+> (`pi-bash/<spawn-id>/bash-records.json`).
 
 ---
 
@@ -199,7 +200,7 @@ Never writes orphan state from the nested read path. Surfaces as a synthetic ter
 
 If `sendMessage()` throws after work completion, `meridian-spawn-watch` catches the error internally and logs/retries. The extension handles notification failure as its own local concern.
 
-> [!FLAG] **Needs implementation review** — what happens when sendMessage throws in the new design? Does the spawn fail (legacy behavior: `meridian.notification.failed` → spawn finalizes failed) or does meridian-spawn-watch handle silently and retry? Confirm final error semantics and update this section after implementation.
+> [!FLAG] **Needs implementation review** — what happens when `sendMessage()` throws in the new design? Does the spawn fail, or does `meridian-spawn-watch` handle the error internally and retry? Confirm final error semantics and update this section after implementation.
 
 ---
 

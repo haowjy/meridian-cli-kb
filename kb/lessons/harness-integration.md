@@ -95,21 +95,21 @@ The user sees the normal TUI. Meridian sees all events.
 ---
 
 
-## Why Extension Injection for Pi (Managed-Bash and Lifecycle)
+## Why Extension Injection for Pi (Managed-Bash and Spawn Watch)
 
 **The problem:** Pi's JSONL RPC event stream doesn't surface background job completion or session quiescence. No `job.finished` or `session.idle` event exists. Meridian needs to know when tracked child work completes before declaring a spawn done — and Pi's protocol doesn't provide it.
 
-**The solution:** Meridian injects TypeScript extensions into Pi via `-e <path>` flags. These extensions run inside Pi's process, access Pi's internal event bus and bash execution context, and emit structured machine events through a sidecar file (`pi-lifecycle-events.jsonl`) that Meridian tails from Python.
+**The solution:** Meridian injects TypeScript extensions into Pi via `-e <path>` flags. These extensions run inside Pi's process, access Pi's internal event bus and bash execution context, and coordinate completion by watching spawn and bash records on disk from Python.
 
 Two managed extensions ship as package data:
 - **`managed-bash`** — overrides Pi's bash builtin. Registers `bash` tool (with `background?: boolean` + `timeout_min?: 1-59` parameters) and `bash_manage` ops tool. Returns immediately with `{bash_id, status: "backgrounded"}` for tracked bg transitions; blocks for synchronous calls.
-- **`meridian-spawn-watch`** — watches spawn records and bash records on disk via `watchfiles`. Emits implicit-wait completion notifications (`sendMessage({triggerTurn: true})`) when tracked work terminates. Renamed from `meridian-lifecycle` (old name deleted).
+- **`meridian-spawn-watch`** — watches spawn records and bash records on disk via `watchfiles`. Emits implicit-wait completion notifications (`sendMessage({triggerTurn: true})`) when tracked work terminates.
 
-**Why disk-state observation instead of sidecar:** The redesign replaces the sidecar transport (`pi-lifecycle-events.jsonl`) with direct disk observation. `meridian-spawn-watch` watches `~/.meridian/projects/<proj>/spawns/` and `pi-bash/<spawn-id>/bash-records.json` via `watchfiles`. Disk state is the canonical signal; env-var correlation (`MERIDIAN_PI_BASH_ID` → `originating_bash_id`) bridges bash and spawn observations without command-string parsing.
+**Why disk-state observation instead of sidecar:** The redesign replaces the sidecar transport with direct disk observation. `meridian-spawn-watch` watches `~/.meridian/projects/<proj>/spawns/` and `pi-bash/<spawn-id>/bash-records.json` via `watchfiles`. Disk state is the canonical signal; env-var correlation (`MERIDIAN_PI_BASH_ID` → `originating_bash_id`) bridges bash and spawn observations without command-string parsing.
 
 **The lesson:** When a harness's native protocol doesn't expose enough structure for quiescence detection, extension injection lets Meridian add a code path inside the harness process rather than working around it. The tradeoff is coupling to Pi's extension API: if Pi changes its extension loading mechanism, the extensions may need updates. The compatibility probe (`pi --help` must advertise `--no-extensions` and `-e`) gates the harness before any spawn.
 
-> [!FLAG] **Partially updated for pi-bg-redesign** — the lesson (extension injection principle) still applies. The mechanism details (disk-watch vs sidecar, bash_id vs job_id, meridian-spawn-watch vs meridian-lifecycle) reflect the redesign target. The "Where this lives" paths reference the worktree; update after the redesign merges.
+> [!FLAG] **Partially updated for pi-bg-redesign** — the lesson (extension injection principle) still applies. The mechanism details now reflect the redesign target. The "Where this lives" paths reference the worktree; update after the redesign merges.
 
 **Where this lives:** `src/meridian/pi_runtime/extensions/` (managed-bash + meridian-spawn-watch), `harness/connections/pi_rpc.py`, `harness/pi.py:env_overrides()`
 

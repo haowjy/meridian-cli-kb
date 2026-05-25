@@ -194,7 +194,7 @@ as package data under `src/meridian/pi_runtime/extensions/`:
 - **`meridian-spawn-watch`** (policy) — watches spawn records on disk via a
   `watchfiles`-based disk watcher. Emits implicit-wait completion notifications
   to the agent when tracked spawns or tracked bash bg records terminate.
-  Renamed from `meridian-lifecycle` (old name fully deleted; no aliases).
+  This is the redesign successor to the earlier Pi lifecycle policy extension.
 
 Spawned Pi sessions load both extensions (`--no-extensions -e managed-bash.js -e meridian-spawn-watch.js`).
 Primary Pi sessions load meridian-spawn-watch only (`-e meridian-spawn-watch.js`). See

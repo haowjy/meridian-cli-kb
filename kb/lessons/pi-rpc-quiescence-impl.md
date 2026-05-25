@@ -1,10 +1,8 @@
 > **Partially obsolete (pi-bg-redesign):** This lessons file documents
 > implementation lessons from the original sidecar-based quiescence architecture.
-> Several lessons reference deleted artifacts (`MERIDIAN_PI_LIFECYCLE_EVENT_FILE`,
-> `pi-lifecycle-events.jsonl`, `PiLifecycleEventTailer`, Node `fs.open` sidecar
-> behavior). These lessons remain archived for context; the cross-platform and
-> test-design lessons still apply. See [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md)
-> for the current quiescence design.
+> The cross-platform and test-design lessons still apply. See
+> [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the
+> current quiescence design.
 
 # lessons/pi-rpc-quiescence-impl — Pi RPC Quiescence Implementation Lessons
 
@@ -36,10 +34,10 @@ json.dumps({"type": "session", "cwd": str(some_path)}) + "\n"
 **The fix:** Convert paths to `file://` URLs with `Path.as_uri()`:
 ```python
 # Bad — fails on Windows
-env["MERIDIAN_LIFECYCLE_EXTENSION"] = str(extension_dist_path)
+env["EXTENSION_PATH"] = str(extension_dist_path)
 
 # Good — works everywhere
-env["MERIDIAN_LIFECYCLE_EXTENSION"] = extension_dist_path.as_uri()
+env["EXTENSION_PATH"] = extension_dist_path.as_uri()
 ```
 
 **The lesson:** When passing filesystem paths to Node.js for ESM `import()`, always use `file://` URLs. POSIX paths happen to work without `file://` but Windows paths don't. `Path.as_uri()` handles both.
@@ -113,14 +111,13 @@ assert result == "/tmp/pi"  # or use the variable directly
 
 ## Opening a Directory Fails Differently on Windows
 
-**The bug:** Test set `MERIDIAN_PI_LIFECYCLE_EVENT_FILE` to a directory path, expecting Node's `fs.open()` to fail (`EISDIR` on POSIX). On Windows, some Node/OS combos handle directory opens differently and don't throw.
+**The bug:** Test set an extension-path environment variable to a directory path, expecting Node's `fs.open()` to fail (`EISDIR` on POSIX). On Windows, some Node/OS combos handle directory opens differently and don't throw.
 
 **The fix:** Use a path through a non-existent parent directory instead. `ENOENT` is universal.
 
 **The lesson:** Filesystem error behavior is platform-specific. "Open a directory for writing fails" is a POSIX assumption. When testing error paths, pick stimuli that fail universally: non-existent paths, permission-denied (with care), or explicitly invalid inputs.
 
-> [!FLAG] **Partially obsolete** — this lesson references `MERIDIAN_PI_LIFECYCLE_EVENT_FILE`,
-> which is deleted in the redesign. The general principle (POSIX filesystem error
+> [!FLAG] **Partially obsolete** — the general principle (POSIX filesystem error
 > assumptions don't hold on Windows; use `ENOENT` stimuli instead) still applies to
 > any test that writes to non-existent paths. Preserved for the principle, not the
 > specific artifact.

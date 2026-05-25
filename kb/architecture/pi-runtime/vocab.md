@@ -1,10 +1,10 @@
 # Pi Runtime Vocabulary
 
 > **Status:** Canonical target design. Implementation in progress (worktree:
-> `pi-generic-background-tasks`). Terms here replace the pre-redesign vocabulary
-> from the legacy `managed-bash`/`meridian-lifecycle` extension pair.
+> `pi-generic-background-tasks`). This page defines the current vocabulary for
+> the pi-runtime background-work redesign.
 
-Domain vocabulary for the pi-runtime background-work redesign. This page defines the authoritative terms for the redesigned bash tool, background-task lifecycle, cross-extension coordination, and quiescence rule. Pre-redesign names (`job_id`, `task_id`, `meridian-lifecycle`, `bash_bg_*` tools) are fully retired — see the Removed Terms section of the work-item `vocab.md` for the deletion table.
+Domain vocabulary for the pi-runtime background-work redesign. This page defines the authoritative terms for the redesigned bash tool, background-task lifecycle, cross-extension coordination, and quiescence rule. This page stays current-only.
 
 See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle architecture; [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) for harness and extension concepts.
 
@@ -14,7 +14,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 
 | Term | Definition | See also |
 |---|---|---|
-| **`bash_id`** | The identifier the agent uses to reference a tracked bash record. Prefix `b-`. Returned by the `bash` tool when a command is backgrounded or a fg→bg timeout occurs; accepted by all `bash_manage` actions. Replaces deleted `job_id` and `task_id`. Format: `b-<hex>` (e.g. `b-aXXX`). | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`bash_id`** | The identifier the agent uses to reference a tracked bash record. Prefix `b-`. Returned by the `bash` tool when a command is backgrounded or a fg→bg timeout occurs; accepted by all `bash_manage` actions. Replaces the old tracked-job identifiers used before the redesign. Format: `b-<hex>` (e.g. `b-aXXX`). | [../pi-lifecycle.md](../pi-lifecycle.md) |
 | **`b-*`** | ID prefix for tracked bash records. All bash record IDs begin with `b-`. Owned and assigned by the `managed-bash` extension. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 | **`p-*`** | ID prefix for spawn records. Unchanged from existing Meridian convention. Owned by meridian-cli. | [../../concepts/spawn-lifecycle.md](../../concepts/spawn-lifecycle.md) |
 | **`spawn_id`** | The identifier of a spawn record. Unchanged from existing Meridian convention. Used by `meridian spawn` subcommands, `/mspawn`, and as the value of `parent_id` on child spawns. | [../../concepts/spawn-lifecycle.md](../../concepts/spawn-lifecycle.md) |
@@ -35,7 +35,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 | Term | Definition | See also |
 |---|---|---|
 | **`managed-bash`** | The mechanism extension. Owns: `bash` tool registration, `bash_manage` tool registration, the `b-*` bash registry, and env-var injection of `MERIDIAN_PI_BASH_ID` into child processes. Slash commands: `/ps`, `/ps:b`, `/ps:kill`, `/ps:logs`. Writes `pi-bash/<spawn-id>/bash-records.json`. | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
-| **`meridian-spawn-watch`** | The policy extension. Owns: spawn-record disk watcher, env-var correlation filter, implicit-wait notification dispatch, and ping timer. Slash commands: `/mspawn`, `/mspawn:wait`, `/mspawn:cancel`, `/mspawn:show`, `/mspawn:log`. Registers no tools. Replaces deleted `meridian-lifecycle`. | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
+| **`meridian-spawn-watch`** | The policy extension. Owns: spawn-record disk watcher, env-var correlation filter, implicit-wait notification dispatch, and ping timer. Slash commands: `/mspawn`, `/mspawn:wait`, `/mspawn:cancel`, `/mspawn:show`, `/mspawn:log`. Registers no tools. Successor to the earlier Pi lifecycle policy extension. | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
 
 ---
 
