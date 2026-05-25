@@ -2,48 +2,138 @@
 
 Session operations (`meridian session log`, `session search`, `session export`) read agent conversation transcripts and present them in human-readable form. They're the primary tool for understanding what a spawn or primary session did.
 
-## Compaction Segments
+## Segment Model
 
-Claude compacts its conversation history after it grows beyond a threshold. Each compaction creates a new segment. `history.jsonl` covers the latest segment; earlier segments live in separate files.
+Claude compacts its conversation history when it grows beyond a threshold. Each compaction creates a new **segment**. The transcript is a sequence of segments, each being a self-contained window of conversation history:
 
-`SessionLogInput.compaction` (default 0) selects which segment to read:
-- `0` = latest
-- `1` = one compaction back
-- `2` = two compactions back
+- `history.jsonl` — current (latest) segment
+- `history.compaction.1.jsonl`, `history.compaction.2.jsonl`, … — earlier segments, numbered oldest to newest
 
-`SessionLogOutput` reports `total_compactions`, `has_earlier_segments`, and `has_newer`/`has_older` for pagination. The `--last N` flag returns the last N messages; `--offset N` pages forward.
+Every segment has an **entry 0** — the segment setup slot:
 
-## meridian session log
+- **Segment 0, entry 0**: the session's initial system prompt/prologue. If the harness makes it available, it's extracted and shown. If not, a placeholder is materialized.
+- **Later segment, entry 0**: the compaction handoff or summary that seeded the new segment. If an explicit handoff text is extractable by the provider parser, it's shown. If not, a placeholder is materialized.
 
-Read transcript messages from a session or spawn.
+Entry 0 is always present — the segment always exists whether or not setup text was recoverable. Segment splitting is driven by explicit provider/harness boundary markers, not by whether summary text was found.
 
-- `ref` — spawn ID (e.g. `p101`), chat session ID, `$MERIDIAN_CHAT_ID` for the primary session, or empty for the active primary
-- `-c N` — select compaction segment (default 0 = latest)
-- `--last N` — return last N messages (start narrow, widen as needed)
-- `--offset N` — page forward within a segment
+**Entry 0 extraction is provider-specific.** Generic scraping of arbitrary event keys must not decide what counts as a prologue or handoff. The parser is conservative: it reads known provider-specific fields rather than grepping for anything that looks like a summary. Missing content results in a placeholder, not a fabricated value.
 
-**Usage pattern:** Start with `--last 5`, widen to `--last 20` or `-n 0` (all) as needed.
+The interaction entries (1, 2, 3, …) within a segment are the turn-based conversation: user messages, assistant responses, and tool round-trips grouped into logical entries.
+
+## Default Navigation Model
+
+Bare `meridian session log REF` applies safe defaults: **last 5 interaction entries from the current segment, shown oldest-to-newest (chronological)**. This is the right starting point for agents reading recent context — narrow enough to stay cheap, ordered correctly for understanding flow.
+
+```bash
+meridian session log p107           # last 5 entries, current segment, chronological
+meridian session log $MERIDIAN_CHAT_ID  # same for the primary session
+```
+
+Navigation is **segment-local by default**. Ordinals in `--from`, `--before`, `--around` refer to entry positions within the selected segment. The current/last segment is the default selection.
+
+## Segment Selection
+
+```bash
+meridian session log REF --segment current     # current/latest segment (default)
+meridian session log REF --segment previous    # segment before current
+meridian session log REF --segment 0           # absolute segment index
+meridian session log REF --segment 2           # third segment
+```
+
+Entry 0 is the segment setup slot for every segment. It's included in `--full` and `--global` output, and can be read explicitly:
+
+```bash
+meridian session log REF --segment N --from 0 --limit 1   # just the segment setup entry
+```
+
+## Navigation Flags
+
+All positional selectors are segment-local by default (operate within the selected segment's entries):
+
+| Flag | Behavior |
+|---|---|
+| *(no flags)* | Last 5 entries from current segment, chronological |
+| `--tail` | Last 5 entries (explicit; same as default when no other flags given) |
+| `--tail N` | Last N entries |
+| `--full` | All entries in the selected segment, including entry 0 |
+| `--full --no-truncate` | All entries, full content (no preview truncation) |
+| `--from N --limit M` | M entries starting at entry N (segment-local) |
+| `--before N --limit M` | M entries ending before entry N (segment-local) |
+| `--around N --context M` | 2M+1 entries centered on entry N (segment-local) |
+| `--segment N` | Select segment N (default: current) |
+| `--global` | Cross-segment stream with unique global ordinals starting at 0 |
+
+`--global` includes every segment's entry 0 setup slots with unique global ordinals. Ordinals in `--from`/`--before`/`--around` switch to global scope when `--global` is used. `--global` and `--segment` cannot be combined.
+
+## Content Truncation
+
+By default, oversized entries are preview-truncated (safe for reading in terminals and agents). Use `--no-truncate` to get full content for selected entries. `--no-truncate` combines with any navigation mode.
 
 ## meridian session search
 
-Text search across **all compaction segments** for a session. Iterates segments oldest-to-newest, case-insensitive substring match on content.
+Text search across **all segments** for a session (or a multi-session corpus). Searches both interaction entries and real segment setup content (entry 0 prologue/handoff text). Placeholders are excluded from search — only real extracted content matches.
 
-Each match includes:
-- `segment` — which compaction segment
-- `message_index` — position within that segment
-- `role` — `user`/`assistant`/`tool`
-- `content_preview` — up to 200 chars
-- `nav_command` — `meridian session log <ref> -c <segment> --offset <idx-5> --last 10` for quick navigation
+Search scope flags (optional):
 
-Useful for finding where a specific decision or file path was mentioned across a long session.
+| Flag | Scope |
+|---|---|
+| *(no flag)* | Current project only |
+| `--workspace` | Current project + configured workspace roots that are Meridian projects |
+| `--global` | All Meridian project roots under user home |
+| `--work WORK_ID` | Sessions associated with a specific work item |
+
+Each match includes a deterministic `Open:` command for navigating to the exact location. Open commands are argv-based and platform-aware:
+
+- **Entry 0 hit** → `meridian session log REF --segment N --from 0 --limit 1`
+- **Interaction entry hit** → `meridian session log REF --segment N --around K --context 5`
+
+Open commands use segment-local references and absolute entry ordinals — they stay valid as the session grows.
 
 ## meridian session export
 
 Exports a full session transcript as clean Markdown. Renders all messages as `## [assistant]` / `## [user]` sections. Used for archiving session context before work items are closed, or sharing a transcript with collaborators.
 
+## Common Patterns
+
+```bash
+# Safe recent read — start here
+meridian session log p107
+
+# Explicit tail
+meridian session log p107 --tail
+meridian session log p107 --tail 20
+
+# Read the segment setup (prologue / compaction handoff)
+meridian session log p107 --from 0 --limit 1
+
+# Widen to full current segment
+meridian session log p107 --full
+
+# Full content, no truncation
+meridian session log p107 --full --no-truncate
+
+# Deterministic window around a known entry
+meridian session log p107 --around 12 --context 5
+
+# Previous segment (most recent compaction context)
+meridian session log p107 --segment previous
+
+# Cross-segment global view (all entries including every segment's entry 0)
+meridian session log p107 --global --from 0 --limit 1
+
+# Search this session
+meridian session search "auth middleware" p107
+
+# Search all sessions across the project
+meridian session search "design decision"
+
+# Search across all known Meridian projects
+meridian session search "pattern" --global
+```
+
 ## Related Pages
 
 - [../architecture/state-system.md](../architecture/state-system.md) — spawn directory layout, where history files live
-- [harness-adapters.md](harness-adapters.md) — per-harness transcript format differences
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how Claude session IDs are captured
-- [../concepts/extension-system.md](../concepts/extension-system.md) — ops layer dispatch model
+- [harness-adapters.md](harness-adapters.md) — per-harness transcript format differences; provider-specific prologue/handoff extraction
+- [../concepts/spawn-output-contract.md](../concepts/spawn-output-contract.md) — progressive disclosure: spawn report → session log → no-truncate
