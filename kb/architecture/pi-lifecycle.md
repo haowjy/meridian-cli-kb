@@ -1,7 +1,7 @@
 # Architecture: Pi Lifecycle and Quiescence
 
-> **Status:** Updated for pi-bg-redesign target. Legacy pre-redesign sections
-> moved to the [Historical: Pre-Redesign Architecture](#historical-pre-redesign-architecture)
+> **Status:** Current. Pi-bg-redesign shipped. Legacy pre-redesign sections
+> preserved in the [Historical: Pre-Redesign Architecture](#historical-pre-redesign-architecture)
 > appendix at the bottom.
 
 Pi spawned sessions use a **quiescence-based completion model** — the Pi process stays running to handle follow-up turns (when tracked child work completes). Meridian declares a spawn done only after the quiescence state machine reaches a final state, not when the Pi process exits.
@@ -29,9 +29,9 @@ Registers tools:
 
 Also owns: b-* bash registry, env-var injection (`MERIDIAN_PI_BASH_ID` into every child process's env).
 
-Slash commands: `/ps` (bash record list), `/ps:b` (fg→bg mid-flight), `/ps:kill`, `/ps:logs`.
+Slash commands: `/ps` (bash record list; supports combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background` — fg→bg mid-flight), `/ps:kill`, `/ps:logs`, `/ps:clear` (hide finished rows for this session).
 
-Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn bash records, atomic tmp+rename). Python quiescence checker watches this file.
+Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn bash records, atomic tmp+rename). Python quiescence checker (`PiDiskWatcher` / `PiQuiescenceTracker`) watches this file.
 
 ### meridian-spawn-watch (policy extension)
 
@@ -41,7 +41,7 @@ No tool registration.
 
 Owns: spawn-record disk watcher (`watchfiles`-based, cross-platform), env-var correlation filter, implicit-wait completion notifications, ping timer.
 
-Slash commands: `/mspawn` (spawn record list, filtered to this session's spawns), `/mspawn:wait`, `/mspawn:cancel`, `/mspawn:show`, `/mspawn:log`.
+Slash commands: `/spawn` (spawn record list, filtered to this session's spawns), `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear` (hide finished rows for this session). **Renamed from `/mspawn` — no compatibility alias.**
 
 **Implicit-wait notification:** when a watched spawn or tracked bash bg terminates, `meridian-spawn-watch` fires a `sendMessage({triggerTurn: true})` to the agent — wave-batched for concurrent completions. Covers the failure mode where an agent backgrounds work then forgets to call explicit wait.
 
@@ -50,7 +50,7 @@ Slash commands: `/mspawn` (spawn record list, filtered to this session's spawns)
 | Extension | What it owns | When to load |
 |---|---|---|
 | `managed-bash` | bash/bash_manage tools, b-* registry, `/ps*` slash commands | When agent can background work |
-| `meridian-spawn-watch` | spawn watcher, `/mspawn*` slash commands, implicit-wait | When agent spawns meridian subprocesses |
+| `meridian-spawn-watch` | spawn watcher, `/spawn*` slash commands, implicit-wait | When agent spawns meridian subprocesses |
 | both | full surface | Interactive + most spawned contexts (default) |
 | neither | — | True leaf agents (explorer, simple Q&A) |
 
@@ -59,9 +59,10 @@ Slash commands: `/mspawn` (spawn record list, filtered to this session's spawns)
 ## Sidecar JSONL Transport
 
 > **Legacy only.** The redesign removed the sidecar transport and Python tailer.
-> Current quiescence uses `watchfiles`-based disk observation of spawn records
-> (`~/.meridian/projects/<proj>/spawns/`) and bash records
-> (`pi-bash/<spawn-id>/bash-records.json`).
+> Current quiescence uses `watchfiles`-based disk observation (`PiDiskWatcher`) of:
+> - Spawn records: `runtime_root/spawns/<child>/state.json`
+> - Bash records: `runtime_root/pi-bash/<parent>/bash-records.json`
+> - Notification marker: `runtime_root/pi-bash/<parent>/last-notification.json`
 
 ---
 
@@ -101,11 +102,11 @@ Extension behavior is role-gated via `MERIDIAN_PI_SESSION_ROLE`. The quiescence 
 
 `managed-bash` injects `MERIDIAN_PI_BASH_ID=b-<id>` into every child process's environment. When meridian-cli creates a spawn record, the spawn-store reads this env var and persists it as `originating_bash_id: string` on the spawn record.
 
-`meridian-spawn-watch` reads `originating_bash_id` to filter `/mspawn` rows to spawns originating from the current session's bash invocations.
+`meridian-spawn-watch` reads `originating_bash_id` to filter `/spawn` rows to spawns originating from the current session's bash invocations.
 
 The detection signal is **disk state + env, never argv parsing.** Any wrapper (`uv run meridian spawn`, shell aliases, custom scripts) converges on the same spawn-store write and inherits the parent env. Command-string parsing would need to know every wrapper anyone might invent.
 
-**Cross-reference columns:** when a spawn record's `originating_bash_id` matches a b-* bash record, `/ps` shows a `→ SPAWN` column linking the bash row to its spawn. `/mspawn` shows a `← BASH` column linking back.
+**Cross-reference columns:** when a spawn record's `originating_bash_id` matches a b-* bash record, `/ps` shows a `→ SPAWN` column linking the bash row to its spawn. `/spawn` shows a `← BASH` column linking back.
 
 **Two-row case (no correlation):** only occurs if something runs `meridian spawn` *without* `MERIDIAN_PI_BASH_ID` set — e.g. agent shells out outside the bash tool, or human runs spawn from a separate terminal. Two honest rows, no merge. Acceptable degradation.
 
@@ -135,8 +136,6 @@ stateDiagram-v2
     CleanupStopSent --> [*]: cleanup complete/failed/escalated
 ```
 
-> [!FLAG] **Needs design-lead review** — simplified state machine diagram. The legacy diagram had more phases (WaitingChildren, NotificationPhase, AutoResume). The new diagram collapses them into one `WaitingTrackedWork` state. Verify this matches the final implementation intent.
-
 ### Lifecycle pattern
 
 ```
@@ -151,7 +150,7 @@ agent processes notification → takes turn → agent_end #2
   → check (1)+(2)+(3) → all empty → quiesce → stop(reason=quiescent)
 ```
 
-**Implementation note:** Simplest enforcement of condition 3: policy extension writes `last_notification_ts` marker when it calls `sendMessage({triggerTurn: true})`; Python quiescence check requires `agent_end_ts > last_notification_ts` AND conditions (1)+(2) hold.
+**Implementation note:** The policy extension writes a `last-notification.json` marker file (`pi-bash/<spawn-id>/last-notification.json`) when it calls `sendMessage({triggerTurn: true})`; Python quiescence check (`PiQuiescenceTracker`, fed by `PiDiskWatcher`) requires `agent_end_ts > last_notification_ts` AND conditions (1)+(2) hold. Disk-observed child spawns participate in the child-wave timeout and quiescence check (condition 1). Event reads from the disk watcher are shielded from policy timeouts to avoid false-quiescence under load.
 
 **`spawn wait` returns** once semantic completion is recorded — cleanup is async and does not block the caller.
 
@@ -173,13 +172,12 @@ Visible in `meridian spawn show`:
 |---|---|
 | `waiting_for_first_pi_event_after_prompt` | Waiting for Pi to acknowledge the prompt |
 | `waiting_for_continuation_completion` | Auto-resume in progress after child wave |
-| `pi_notification_timeout:id=...:phase=...:elapsed=...:timeout=...` | Notification delivery in progress |
 | `semantic_completion_recorded` | `agent_end` received; cleanup pending |
 | `cleanup_stop_sent` | `stop(reason=quiescent)` sent to Pi |
 | `cleanup_completed` | Pi exited cleanly |
 | `cleanup_failed` / `cleanup_escalated` | Cleanup error or escalation |
 
-> [!FLAG] **Needs implementation review** — which spawn phases survive the redesign? Phases like `pi_notification_timeout:id=...:phase=...:elapsed=...:timeout=...` were tied to sidecar notification delivery. The new implicit-wait mechanism via `meridian-spawn-watch` may not use the same phase names. Update this table after implementation.
+The `pi_notification_timeout:...` phases from the legacy sidecar delivery path are removed — the redesign's implicit-wait mechanism (`meridian-spawn-watch` → `sendMessage`) does not use phase-string notification tracking.
 
 ---
 
@@ -198,9 +196,11 @@ Never writes orphan state from the nested read path. Surfaces as a synthetic ter
 
 ## Notification Timeout
 
-If `sendMessage()` throws after work completion, `meridian-spawn-watch` catches the error internally and logs/retries. The extension handles notification failure as its own local concern.
+If `sendMessage()` throws after work completion, `meridian-spawn-watch` catches the error internally and logs/retries. The extension handles notification failure as its own local concern — the spawn does not fail due to a notification delivery error.
 
-> [!FLAG] **Needs implementation review** — what happens when `sendMessage()` throws in the new design? Does the spawn fail, or does `meridian-spawn-watch` handle the error internally and retry? Confirm final error semantics and update this section after implementation.
+## Pi Failure Reports
+
+Pi prompt/auth/crash failures persist a human-readable `# Spawn failed` Markdown report rather than the legacy cleanup-only JSON. The report is written to the spawn's `report_output_path` and is visible in `meridian spawn show`. This applies to Pi RPC session failures that occur before or during the agent turn.
 
 ---
 
