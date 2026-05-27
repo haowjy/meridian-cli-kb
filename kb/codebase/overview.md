@@ -10,3 +10,4 @@ Codebase pages orient contributors to where implementation concerns live and whi
 - [tools.md](tools.md) — KG analysis, Mermaid validation, and Markdown extraction.
 - [work-items.md](work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination.
 - [session-operations.md](session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, user-facing command guidance.
+- [session-log-rendering.md](session-log-rendering.md) — Internal rendering pipeline: ToolCall normalization, clean vs raw output, `--raw`/`--no-truncate` flag design, content pipeline order.

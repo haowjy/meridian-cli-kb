@@ -137,3 +137,4 @@ meridian session search "pattern" --global
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how Claude session IDs are captured
 - [harness-adapters.md](harness-adapters.md) — per-harness transcript format differences; provider-specific prologue/handoff extraction
 - [../concepts/spawn-output-contract.md](../concepts/spawn-output-contract.md) — progressive disclosure: spawn report → session log → no-truncate
+- [session-log-rendering.md](session-log-rendering.md) — internal rendering pipeline: ToolCall normalization, clean vs raw output, flag design, content pipeline order
