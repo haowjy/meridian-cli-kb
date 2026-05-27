@@ -149,6 +149,7 @@ High-level orientation for making changes — where to start, what owns what, ho
 - [codebase/tools.md](codebase/tools.md) — `lib/kg/`, `lib/mermaid/`, `lib/markdown/`: KG analysis, Mermaid validation, Markdown extraction exposed via `meridian kg` / `meridian mermaid`
 - [codebase/work-items.md](codebase/work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination
 - [codebase/session-operations.md](codebase/session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, user-facing command guidance
+- [codebase/session-log-rendering.md](codebase/session-log-rendering.md) — Internal rendering pipeline: ToolCall normalization, clean vs raw output, `--raw`/`--no-truncate` flag design, content pipeline order
 
 ---
 
