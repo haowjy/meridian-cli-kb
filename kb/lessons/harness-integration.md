@@ -109,8 +109,6 @@ Two managed extensions ship as package data:
 
 **The lesson:** When a harness's native protocol doesn't expose enough structure for quiescence detection, extension injection lets Meridian add a code path inside the harness process rather than working around it. The tradeoff is coupling to Pi's extension API: if Pi changes its extension loading mechanism, the extensions may need updates. The compatibility probe (`pi --help` must advertise `--no-extensions` and `-e`) gates the harness before any spawn.
 
-> [!FLAG] **Partially updated for pi-bg-redesign** — the lesson (extension injection principle) still applies. The mechanism details now reflect the redesign target. The "Where this lives" paths reference the worktree; update after the redesign merges.
-
 **Where this lives:** `src/meridian/pi_runtime/extensions/` (managed-bash + meridian-spawn-watch), `harness/connections/pi_rpc.py`, `harness/pi.py:env_overrides()`
 
 ---

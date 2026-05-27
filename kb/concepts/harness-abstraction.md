@@ -190,10 +190,14 @@ as package data under `src/meridian/pi_runtime/extensions/`:
   `bash` tool (with `background?: boolean` and `timeout_min?: 1-59` parameters)
   and `bash_manage` ops tool. Owns the b-* bash registry and injects
   `MERIDIAN_PI_BASH_ID` into every child process's env for spawn correlation.
+  Slash commands: `/ps` (with stream filters), `/ps:b` (alias `/ps:background`), `/ps:kill`, `/ps:logs`, `/ps:clear`.
   Writes bash records to `pi-bash/<spawn-id>/bash-records.json`.
-- **`meridian-spawn-watch`** (policy) — watches spawn records on disk via a
-  `watchfiles`-based disk watcher. Emits implicit-wait completion notifications
-  to the agent when tracked spawns or tracked bash bg records terminate.
+- **`meridian-spawn-watch`** (policy) — watches spawn records and bash records on disk
+  via `PiDiskWatcher` (`watchfiles`-based, cross-platform). Emits implicit-wait
+  completion notifications to the agent when tracked spawns or tracked bash bg records
+  terminate. Writes `last-notification.json` marker for Python quiescence tracking.
+  Slash commands: `/spawn`, `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear`.
+  **`/mspawn` was renamed to `/spawn` — no compatibility alias.**
   This is the redesign successor to the earlier Pi lifecycle policy extension.
 
 Spawned Pi sessions load both extensions (`--no-extensions -e managed-bash.js -e meridian-spawn-watch.js`).
