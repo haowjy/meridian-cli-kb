@@ -207,9 +207,27 @@ Concurrent writers need coordination. Meridian uses file-based locking:
 3. Windows fallback: `%USERPROFILE%\AppData\Local\meridian\`
 4. POSIX fallback: `~/.meridian/`
 
-`MERIDIAN_RUNTIME_DIR` overrides the runtime root entirely (useful for testing
-and CI). An absolute path is used directly; a relative path is resolved against
-the repo root.
+### Runtime Root Derivation Chain
+
+The runtime root for any project is derived as:
+
+```
+project root  →  .meridian/id  →  UUID  →  ~/.meridian/projects/<UUID>/
+```
+
+Step by step:
+
+1. **Project root** — resolved by `resolve_project_root()` from the `-C` flag, `MERIDIAN_PROJECT_DIR`, or CWD walk-up (see [config-precedence.md](config-precedence.md#project-root-discovery)).
+2. **Project UUID** — read from `<project_root>/.meridian/id`. Created on first write; gitignored so each checkout has its own identity.
+3. **Runtime root** — `get_user_home() / "projects" / UUID`. All spawn state, session JSONL, and artifact directories live here.
+
+### `MERIDIAN_RUNTIME_DIR` Override
+
+`MERIDIAN_RUNTIME_DIR` short-circuits the derivation chain, replacing step 3 entirely. An absolute path is used directly; a relative path is resolved against the repo root. Useful for testing and CI where you want to isolate state from normal project history.
+
+**Scope is intentionally top-level only.** `MERIDIAN_RUNTIME_DIR` is NOT auto-propagated to child processes. Each nested process derives its own runtime root from its own project identity. Propagating it would force all children to share one parent's runtime directory — breaking isolation for spawns that operate on different projects.
+
+**`-C` unsets `MERIDIAN_RUNTIME_DIR`.** When the `-C` / `--directory` flag is active, `main.py` unsets `MERIDIAN_RUNTIME_DIR` before running the subcommand. The rationale: `-C` changes the project identity, so a stale runtime-dir override that was set for a different project would be silently wrong. Unsetting forces the full derivation chain to run from the new project root. See [decisions/state.md](../decisions/state.md#directory-env-scope-eliminates-meridian_directory_explicit) for the decision record.
 
 ---
 

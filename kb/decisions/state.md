@@ -172,6 +172,27 @@ except Exception:
 
 ---
 
+### `_directory_env_scope` eliminates `MERIDIAN_DIRECTORY_EXPLICIT` {#directory-env-scope-eliminates-meridian_directory_explicit}
+
+**Decision (2026-05, global-directory-flag):** When the `-C` / `--directory` flag is active, `main.py` directly unsets `MERIDIAN_RUNTIME_DIR` via a `_directory_env_scope` context manager, rather than introducing a signal env var (`MERIDIAN_DIRECTORY_EXPLICIT`) that the resolution layer would check to skip `MERIDIAN_RUNTIME_DIR`.
+
+**Alternative eliminated:** A `MERIDIAN_DIRECTORY_EXPLICIT` flag that the resolution layer would check on every project-root read. Problems:
+- Two env vars to coordinate (`MERIDIAN_PROJECT_DIR` + the signal flag).
+- `MERIDIAN_DIRECTORY_EXPLICIT` itself would need cleanup propagation logic identical to what it was trying to avoid.
+- The coalesce function reading both vars would grow complexity with each new override env var added.
+
+**Approach chosen:** `_directory_env_scope` context manager in `main.py`. On entry:
+- Sets `MERIDIAN_PROJECT_DIR` to the `-C` path.
+- If `-C` is active, unsets `MERIDIAN_RUNTIME_DIR` entirely.
+
+On exit: restores the original values of both env vars.
+
+**Governing principle:** "If you can remove the value that would be misread, you don't need a flag saying 'ignore that value'." The signal var, its coalesce function, and all cleanup sites disappear. Generalizes: before adding a "skip/ignore" flag, ask whether the skippable value can simply be absent.
+
+See [../concepts/state-model.md](../concepts/state-model.md#meridian_runtime_dir-override) for the runtime-root derivation context and [../concepts/config-precedence.md](../concepts/config-precedence.md#the--c----directory-flag) for how `-C` works at the CLI boundary.
+
+---
+
 ## Related
 
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor

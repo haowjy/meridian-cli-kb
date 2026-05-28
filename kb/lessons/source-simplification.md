@@ -67,6 +67,28 @@ If reviewers had not caught the over-collapse and it had been detected later, th
 
 ---
 
+## Env Var at CLI Boundary Eliminates Parameter Threading
+
+When a value is set at the CLI entry point (`main.py`) and the resolution layer reads it from `os.environ`, explicit parameter threading through intermediate callsites is redundant ceremony. The env var IS the parameter channel.
+
+**The pattern:** `-C <path>` → `os.environ["MERIDIAN_PROJECT_DIR"] = path` → `resolve_project_root()` reads `os.environ`. No function signatures needed to thread the value down the call stack through 13+ callsites.
+
+**When to apply:**
+- The env var has a defined lifetime (set/restored by a context manager at the CLI boundary).
+- The env var is the documented interface — not a hidden side effect; it is the specified override mechanism.
+- The reading layer already consumes `os.environ` directly.
+
+**When NOT to apply:**
+- Pure functions that must be testable without env mutation.
+- Values that should not affect child processes (env changes propagate to subprocesses).
+- The env var is a leaky implementation detail rather than a documented interface.
+
+**The corollary:** Don't add an explicit parameter alongside the env var "for clarity." That doubles the tracking surface (now two channels can carry the same value, either can be stale), without adding reliability. If the env var is the interface, use it as the interface.
+
+**Canonical example:** The `-C` / `--directory` global flag in `main.py`. See [decisions/state.md](../decisions/state.md#directory-env-scope-eliminates-meridian_directory_explicit) for the full decision record.
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md#14-behavior-tests-over-implementation-pinning-tests) — durable testing principle extracted from Phase 8.6

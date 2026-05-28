@@ -157,12 +157,27 @@ meridian config set/get/reset # operate on meridian.toml, not user config
 
 `MeridianConfig` loads relative to the resolved project root. `resolve_project_root()` in `src/meridian/lib/config/project_root.py` does not require git:
 
-1. Explicit argument
+1. Explicit argument / `-C` flag (see below)
 2. `MERIDIAN_PROJECT_DIR` env var
 3. Ancestor directory containing `.mars/`
 4. Ancestor directory containing legacy `.agents/skills/`
 5. Ancestor directory containing `.git` (boundary heuristic, not a requirement)
 6. Current working directory fallback
+
+### The `-C` / `--directory` Flag
+
+`-C <path>` (alias `--directory`) is the CLI boundary mechanism for explicit project root override. It is a **global flag** — it precedes any subcommand:
+
+```bash
+meridian -C ~/gitrepos/mars-agents spawn list
+meridian -C ~/gitrepos/meridian-cli session log c8
+```
+
+**How it works:** `main.py` sets `MERIDIAN_PROJECT_DIR` to the given path in `os.environ` before any subcommand runs. The resolution layer reads from `os.environ` — no parameter threading through intermediate callsites. The `-C` path IS `MERIDIAN_PROJECT_DIR` for the duration of the command.
+
+**Env cleanup:** When `-C` is active, `main.py` also unsets `MERIDIAN_RUNTIME_DIR` (if set). Because `-C` changes the project identity, a stale runtime-dir override from a different project would be silently wrong. Unsetting it forces the runtime root to be re-derived from the new project identity. See [state-model.md](state-model.md#user-root-resolution) for the full derivation chain and the decision rationale at [decisions/state.md](../decisions/state.md#directory-env-scope-eliminates-meridian_directory_explicit).
+
+**Canonical use case:** Operating on a sibling repo from a different CWD — e.g., running spawn commands against `meridian-cli` while sitting in `mars-agents/`.
 
 File locations derived from project root:
 - `<project_root>/meridian.toml` — committed project config
