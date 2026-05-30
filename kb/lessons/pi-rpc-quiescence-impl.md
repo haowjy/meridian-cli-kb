@@ -1,12 +1,9 @@
-> **Partially obsolete (pi-bg-redesign):** This lessons file documents
-> implementation lessons from the original sidecar-based quiescence architecture.
-> The cross-platform and test-design lessons still apply. See
-> [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the
-> current quiescence design.
-
 # lessons/pi-rpc-quiescence-impl — Pi RPC Quiescence Implementation Lessons
 
-Hard-won patterns from implementing Pi lifecycle quiescence, tracked/detached child jobs, nested stale detection, and getting CI green on all platforms. Each lesson came from a real failure during LLM-driven implementation.
+Hard-won cross-platform and test-design patterns from implementing Pi RPC quiescence
+and getting CI green on all platforms. Current quiescence architecture lives in
+[architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md); this page keeps the
+durable implementation lessons that still apply.
 
 ## Windows Path Escaping in Test Fixtures
 
@@ -117,11 +114,6 @@ assert result == "/tmp/pi"  # or use the variable directly
 
 **The lesson:** Filesystem error behavior is platform-specific. "Open a directory for writing fails" is a POSIX assumption. When testing error paths, pick stimuli that fail universally: non-existent paths, permission-denied (with care), or explicitly invalid inputs.
 
-> [!FLAG] **Partially obsolete** — the general principle (POSIX filesystem error
-> assumptions don't hold on Windows; use `ENOENT` stimuli instead) still applies to
-> any test that writes to non-existent paths. Preserved for the principle, not the
-> specific artifact.
-
 ---
 
 ## Cross-References
@@ -129,4 +121,3 @@ assert result == "/tmp/pi"  # or use the variable directly
 - [harness-integration.md](harness-integration.md) — Claude, Codex, and OpenCode integration patterns
 - [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — quiescence architecture, state machine, and extension model
 - [arch-refactor-pitfalls.md](arch-refactor-pitfalls.md) — Earlier architecture refactor pitfalls including Windows asyncio and process-group cleanup
-> [!FLAG] **Needs human review** — the nested-stale shaping decision is not present in this KB checkout. Re-link it here if the decision exists in another archive, or capture the rationale in a decision page before reintroducing this reference.

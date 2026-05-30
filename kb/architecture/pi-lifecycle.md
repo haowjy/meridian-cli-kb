@@ -1,8 +1,7 @@
 # Architecture: Pi Lifecycle and Quiescence
 
-> **Status:** Current. Pi-bg-redesign shipped. Legacy pre-redesign sections
-> preserved in the [Historical: Pre-Redesign Architecture](#historical-pre-redesign-architecture)
-> appendix at the bottom.
+> **Status:** Current. Pi-bg-redesign shipped; PR #297 tightened disk-backed
+> quiescence correctness and split the streaming implementation.
 
 Pi spawned sessions use a **quiescence-based completion model** — the Pi process stays running to handle follow-up turns (when tracked child work completes). Meridian declares a spawn done only after the quiescence state machine reaches a final state, not when the Pi process exits.
 
@@ -53,16 +52,6 @@ Slash commands: `/spawn` (spawn record list, filtered to this session's spawns),
 | `meridian-spawn-watch` | spawn watcher, `/spawn*` slash commands, implicit-wait | When agent spawns meridian subprocesses |
 | both | full surface | Interactive + most spawned contexts (default) |
 | neither | — | True leaf agents (explorer, simple Q&A) |
-
----
-
-## Sidecar JSONL Transport
-
-> **Legacy only.** The redesign removed the sidecar transport and Python tailer.
-> Current quiescence uses `watchfiles`-based disk observation (`PiDiskWatcher`) of:
-> - Spawn records: `runtime_root/spawns/<child>/state.json`
-> - Bash records: `runtime_root/pi-bash/<parent>/bash-records.json`
-> - Notification marker: `runtime_root/pi-bash/<parent>/last-notification.json`
 
 ---
 
@@ -152,6 +141,26 @@ agent processes notification → takes turn → agent_end #2
 
 **Implementation note:** The policy extension writes a `last-notification.json` marker file (`pi-bash/<spawn-id>/last-notification.json`) when it calls `sendMessage({triggerTurn: true})`; Python quiescence check (`PiQuiescenceTracker`, fed by `PiDiskWatcher`) requires `agent_end_ts > last_notification_ts` AND conditions (1)+(2) hold. Disk-observed child spawns participate in the child-wave timeout and quiescence check (condition 1). Event reads from the disk watcher are shielded from policy timeouts to avoid false-quiescence under load.
 
+### Drain Correctness Constraints
+
+`PiDiskWatcher` wakes the Python drain loop when spawn rows, bash records, or
+notification markers change. Disk-change wakeups must always trigger a fresh
+quiescence evaluation; a parent cannot rely only on stdout events after `agent_end`.
+
+Current safeguards:
+
+- Micro-drain rechecks disk before accepting terminal success, so a just-written
+  child row or bash update cannot be missed.
+- Child-spawn tracking counts only allocated-looking numeric `p*` directories as
+  unresolved stale candidates. Names such as `p-test` or `p-child` are ignored
+  because they cannot be real allocated spawn ids.
+- Child wave state preserves the parent idle epoch across disk wakeups and re-arms
+  when a new child wave appears.
+- Disk watcher failures propagate as drain failures instead of silently allowing
+  false quiescence.
+- Pending child counts sum active child spawns and tracked bash records before
+  finalization decisions.
+
 **`spawn wait` returns** once semantic completion is recorded — cleanup is async and does not block the caller.
 
 ---
@@ -177,7 +186,9 @@ Visible in `meridian spawn show`:
 | `cleanup_completed` | Pi exited cleanly |
 | `cleanup_failed` / `cleanup_escalated` | Cleanup error or escalation |
 
-The `pi_notification_timeout:...` phases from the legacy sidecar delivery path are removed — the redesign's implicit-wait mechanism (`meridian-spawn-watch` → `sendMessage`) does not use phase-string notification tracking.
+`meridian-spawn-watch` owns implicit-wait delivery. The Python drain loop records
+phase names for observation, but notification delivery itself is not a stdout event
+or separate event-file protocol.
 
 ---
 
@@ -188,7 +199,7 @@ For `MERIDIAN_DEPTH > 0` (Pi running inside another Pi spawn), stale detection a
 - Startup grace: ~15 seconds
 - Recent-activity grace: ~120 seconds
 
-The legacy sidecar mtime check is replaced by spawn-record / bash-record mtime heuristics. The grace windows remain unchanged.
+The stale-read heuristic uses spawn-record / bash-record mtime activity. The grace windows remain unchanged.
 
 Never writes orphan state from the nested read path. Surfaces as a synthetic terminal event with `stale_nested_read` code.
 
@@ -212,64 +223,3 @@ Pi prompt/auth/crash failures persist a human-readable `# Spawn failed` Markdown
 - [../lessons/pi-rpc-quiescence-impl.md](../lessons/pi-rpc-quiescence-impl.md) — implementation lessons, Windows path handling, CI pitfalls
 - [launch-system.md](launch-system.md) — Pi dual launch path in the spawn subprocess path
 - [pi-runtime/vocab.md](pi-runtime/vocab.md) — canonical vocabulary for the pi-runtime background-work surface
-
----
-
-## Historical: Pre-Redesign Architecture
-
-> **Note:** The following sections describe the legacy main-branch pi-runtime
-> architecture that was deleted and rebuilt in the `pi-bg-redesign` work item
-> (worktree: `pi-generic-background-tasks`). Preserved for reference only.
-> Do not implement against these contracts.
-
-### Historical: Sidecar JSONL Transport
-
-Lifecycle events were written to a **sidecar file**, not stdout/stderr.
-
-- **File:** `pi-lifecycle-events.jsonl` (path in `MERIDIAN_PI_LIFECYCLE_EVENT_FILE` env var)
-- **Written by:** meridian-lifecycle extension (TypeScript, inside Pi process)
-- **Read by:** `PiLifecycleEventTailer` (Python, Meridian side) — forced catch-up read before any quiescence decision
-
-**Why sidecar, not stdout:** Pi's stdout carries the JSONL RPC protocol. Mixing lifecycle events into stdout would require Pi to multiplex two protocols — which it doesn't support. The sidecar was a write-once-read-many side channel with no RPC interference.
-
-### Historical: meridian-lifecycle Extension
-
-The predecessor to `meridian-spawn-watch`. Read the managed-bash event bus and emitted canonical lifecycle events. Wrote to `pi-lifecycle-events.jsonl` via `fs.writeSync` (append-mode fd).
-
-Events emitted:
-
-| Event type | Meaning |
-|---|---|
-| `meridian.subspawn.start` | Tracked child job started |
-| `meridian.subspawn.end` | Tracked child job completed (with exit code) |
-| `meridian.notification.queued` | Notification to Meridian queued post-child-drain |
-| `meridian.notification.delivered` | Notification delivered via `sendMessage()` |
-| `meridian.notification.failed` | `sendMessage()` threw; spawn finalized failed |
-
-Renamed to `meridian-spawn-watch` in the redesign. The old name `meridian-lifecycle` is fully retired.
-
-### Historical: managed-bash wait_policy Parameter
-
-The legacy `managed-bash` extension accepted a `wait_policy` parameter controlling background behavior.
-
-| `wait_policy` | Behavior |
-|---|---|
-| `"tracked"` (default) | Returns immediately with `state: "running"` + `job_id`. On completion emits `meridian.subspawn.end`. |
-| `"detached"` | Starts job, returns without tracking. No completion event. Does not block quiescence. |
-| synchronous | Blocks, returns `state: "exited"` with exit code. |
-
-**Deleted.** Replaced by `background?: boolean` on the `bash` tool + `bash_manage({action: "detach", bash_id})` for runtime detach. The `tracked` semantic survives as the default state for all `bash({background: true})` calls; `detached` is now a runtime action, not a tool parameter.
-
-### Historical: Legacy Event Types (Deleted)
-
-These event types are fully removed. No compatibility aliases.
-
-| Deleted event | Replaced by |
-|---|---|
-| `meridian.subspawn.start` | Disk-watch on spawn records |
-| `meridian.subspawn.end` | Disk-watch on spawn records |
-| `meridian.notification.queued` | Extension-internal (meridian-spawn-watch) |
-| `meridian.notification.delivered` | Extension-internal |
-| `meridian.notification.failed` | Extension-internal |
-
-Also deleted: `pi-lifecycle-events.jsonl`, `MERIDIAN_PI_LIFECYCLE_EVENT_FILE`, `PiLifecycleEventTailer`, Python-side wave batching, Python-side notification failure/timeout handling.

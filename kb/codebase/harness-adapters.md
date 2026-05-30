@@ -22,10 +22,15 @@
 ## Pi-Specific Notes
 
 **Dual launch path.** Pi is the only harness with fully separate launch configurations per role:
-- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`, lifecycle extension only
-- **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e managed-bash.js -e lifecycle.js`), prompt written to stdin, JSONL events drained from stdout
+- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`, `meridian-spawn-watch` extension only
+- **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e managed-bash.js -e meridian-spawn-watch.js`), prompt written to stdin, JSONL events drained from stdout
 
 The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned.
+
+**Disk-backed quiescence.** Pi RPC stdout is the JSONL protocol stream only. Background
+bash, nested child spawns, and implicit-wait notification markers are observed through
+disk state (`spawns/<child>/state.json`, `pi-bash/<parent>/bash-records.json`,
+`pi-bash/<parent>/last-notification.json`) by the streaming layer.
 
 **Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
 
@@ -44,4 +49,4 @@ See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the q
 - [../concepts/workspace-projection.md](../concepts/workspace-projection.md) — workspace root projection, Codex remote TUI attach, OpenCode env merging
 - [../decisions/launch.md](../decisions/launch.md#d-primary-approval) — D-primary-approval: managed-primary Codex approval routing design
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
-- [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, sidecar JSONL transport
+- [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination

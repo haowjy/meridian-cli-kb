@@ -4,6 +4,33 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-05-30 — Pi quiescence architecture refresh (PR #297)
+
+### Trigger
+
+PR #297 tightened Pi disk-backed quiescence and split the streaming implementation.
+Session review found KB pages still naming retired lifecycle event-file surfaces and stale
+Pi launch examples.
+
+### What changed
+
+- `architecture/pi-lifecycle.md`: current-only Pi extension split, disk-backed
+  quiescence rule, PR #297 drain correctness constraints, removed historical event-file
+  appendix from the live page
+- `codebase/harness-adapters.md`, `architecture/launch-system.md`: Pi launch examples
+  updated to `managed-bash` + `meridian-spawn-watch`
+- `lessons/harness-integration.md`: Pi extension lesson now names disk-state authority,
+  `PiDiskWatcher`, and `PiQuiescenceTracker` correctly
+- `lessons/pi-rpc-quiescence-impl.md`: narrowed to still-current Windows/test-design
+  lessons
+- `architecture/pi-runtime/vocab.md`: current env vars and spawn-watch ownership
+
+### Validation
+
+Run `meridian kg check kb` and `meridian mermaid check kb/architecture/` before committing.
+
+---
+
 ## 2026-05-23 — Mars model refresh and routing parity (PR #72)
 
 ### Trigger

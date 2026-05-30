@@ -34,7 +34,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 | Term | Definition | See also |
 |---|---|---|
 | **`managed-bash`** | The mechanism extension. Owns: `bash` tool registration, `bash_manage` tool registration, the `b-*` bash registry, and env-var injection of `MERIDIAN_PI_BASH_ID` into child processes. Slash commands: `/ps` (with combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background`), `/ps:kill`, `/ps:logs`, `/ps:clear`. Writes `pi-bash/<spawn-id>/bash-records.json`. | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
-| **`meridian-spawn-watch`** | The policy extension. Owns: spawn-record disk watcher (`PiDiskWatcher`), env-var correlation filter, implicit-wait notification dispatch, and ping timer. Slash commands: `/spawn`, `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear`. Registers no tools. Successor to the earlier Pi lifecycle policy extension. **`/mspawn` was renamed to `/spawn` — no compatibility alias.** | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
+| **`meridian-spawn-watch`** | The policy extension. Owns: spawn-record observation, env-var correlation filter, implicit-wait notification dispatch, and `/spawn*` UI. Slash commands: `/spawn`, `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear`. Registers no tools. **No `/mspawn` compatibility alias.** | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
 
 ---
 
@@ -61,15 +61,12 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 | Variable | Definition | See also |
 |---|---|---|
 | **`MERIDIAN_PI_BASH_ID`** | Injected by `managed-bash` into every child process's environment with the value of the launching bash's `bash_id`. Read by meridian-cli's spawn-store at spawn-record creation time and persisted to the spawn record as `originating_bash_id`. The cross-extension correlation bridge. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_TASK_PING_INTERVAL_MIN`** | Cadence in minutes for the 1-shot bg-bash nag notification. Default `20`. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_TASK_PING_TRIGGERS_TURN`** | `0`/`1` flag. Whether the ping notification uses `triggerTurn: true` (interrupting) or `false` (display-only). Default `0` (display-only). | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_TASK_PING_INCLUDES_SPAWNS`** | `0`/`1` flag. Whether spawn rows (`p-*`) also receive pings. Default `0` (no — spawns have their own completion notification path). | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_TASK_MAX_BG_LIFETIME_MIN`** | Optional hard cap on background bash lifetime in minutes. Default unset (no cap). Tasks exceeding the cap are killed and reported as `timed_out`. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_MSPAWN_NOTIFY_ON_COMPLETION`** | `0`/`1` flag. Whether the `meridian-spawn-watch` policy extension fires implicit-wait completion notifications. Default `1`. Disable only for testing. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`MERIDIAN_PI_TASK_PING_INTERVAL_MS`** | Cadence in milliseconds for tracked background-bash ping notifications. Default is 55 minutes. Meridian resolves `timeouts.pi_task_ping_interval_seconds` / `MERIDIAN_PI_TASK_PING_INTERVAL_SECONDS` to this extension env var. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`MERIDIAN_PI_TASK_PING_RESET_ON_ACTIVITY`** | Boolean-ish flag for whether tracked background-bash pings reset on log activity. Default `true`; set to `false` to keep the original ping deadline. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 
 ---
 
-## Spawn Record Fields (New)
+## Spawn Record Fields
 
 | Field | Definition | See also |
 |---|---|---|
