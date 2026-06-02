@@ -207,6 +207,42 @@ quiescence model, env-var correlation contract, and new disk-watch mechanism.
 
 ---
 
+## Claude Native Agent Routing
+
+Claude Code exposes a native `Agent` tool that lets it create subagents outside Meridian's
+coordination model. Meridian applies a two-tier policy:
+
+- **Built-in subagents are always denied.** `Agent(Explore)`, `Agent(Plan)`,
+  `Agent(General-purpose)`, and `Agent(general-purpose)` are injected into
+  `--disallowedTools` unconditionally. No config toggle.
+
+- **Generic `Agent` follows the Mars agent-copy boundary.** Meridian reads `mars.toml`
+  (and `mars.local.toml`) for `[settings.agent_copy]`. When `harnesses = ["claude"]` AND
+  `.claude` is in `targets`, generic `Agent` is allowed — Claude's native agent surface is
+  Meridian-owned through materialized agent copies. Otherwise, generic `Agent` is denied
+  and delegation must route through `meridian spawn`.
+
+The detection (`project_has_claude_agent_copy()` in `permissions.py`) runs in
+`bind_launch_context()`. The result flows into `ResolvedLaunchSpec.claude_native_agents_enabled`,
+which is consumed by `project_claude.py` at projection time. When disabled, the projection
+strips `Agent` and `Agent(...)` from all allowed-tool sources (permission-derived,
+parent-inherited, and passthrough).
+
+**Nested Claude spawns** receive the same boundary. `resolve_nested_claude_permission_request()`
+applies per-spawn deny entries for both `agent` and `task` capabilities. Agent profiles can
+explicitly opt out per-capability via `tools: {agent: allow}` in their frontmatter.
+
+This is a platform policy (harness adapter injection), not a per-agent `tools:` field.
+Agent profiles do not need to carry `agent: deny` — the denial is inherited from the harness
+adapter when agent copy is absent.
+
+See also: the delegation preference guidance injected into the agent inventory prompt
+(`with_agent_inventory_guidance()` in `prompt.py`), which tells primary Claude sessions
+to use `meridian spawn` for subagent work and reserve native `Agent` only for explicit
+Claude-native/model-specific cases.
+
+---
+
 ## Adding a New Harness: Mental Checklist
 
 1. Create `src/meridian/lib/harness/<name>.py` implementing `SubprocessHarness`

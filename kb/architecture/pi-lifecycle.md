@@ -89,11 +89,38 @@ Extension behavior is role-gated via `MERIDIAN_PI_SESSION_ROLE`. The quiescence 
 
 ## Env-Var Correlation: Linking Bash Records to Spawn Records
 
+Correlation uses two channels. Neither depends on argv parsing.
+
+### Channel 1 — Env Propagation
+
 `managed-bash` injects `MERIDIAN_PI_BASH_ID=b-<id>` into every child process's environment. When meridian-cli creates a spawn record, the spawn-store reads this env var and persists it as `originating_bash_id: string` on the spawn record.
 
 `meridian-spawn-watch` reads `originating_bash_id` to filter `/spawn` rows to spawns originating from the current session's bash invocations.
 
-The detection signal is **disk state + env, never argv parsing.** Any wrapper (`uv run meridian spawn`, shell aliases, custom scripts) converges on the same spawn-store write and inherits the parent env. Command-string parsing would need to know every wrapper anyone might invent.
+Any wrapper (`uv run meridian spawn`, shell aliases, custom scripts) converges on the same spawn-store write and inherits the parent env.
+
+### Channel 2 — Sidecar Origin File
+
+A separate sidecar file `pi-bash/<spawn-id>/spawn-origins.json` bridges gaps in the
+env-propagation chain. `managed-bash` calls `rememberSpawnOriginBashIds()` at process
+start to record the bash ID. `meridian-spawn-watch` calls `readSpawnOriginBashIds()`
+to discover bash IDs for correlation, covering cases where:
+
+- A bash process starts before `bash-records.json` is persisted (atomic write timing).
+- Concurrent bash processes write origins simultaneously (serialized via per-file
+  promise chain — no origin is lost).
+- A spawn `state.json` appears on disk before the bash record that launched it
+  (discovery polling discovers the spawn by ID, then the sidecar confirms correlation).
+
+**The two channels are complementary, not redundant.** Env propagation provides the
+primary correlation at spawn-creation time. The sidecar fills in timing gaps that
+env propagation alone cannot cover. Together they ensure `/spawn` filtering and
+quiescence tracking work across concurrent bash and spawn processes.
+
+### Detection Signal Is Disk State
+
+The detection signal is **disk state + env, never argv parsing.** Command-string
+parsing would need to know every wrapper anyone might invent.
 
 **Cross-reference columns:** when a spawn record's `originating_bash_id` matches a b-* bash record, `/ps` shows a `→ SPAWN` column linking the bash row to its spawn. `/spawn` shows a `← BASH` column linking back.
 

@@ -246,6 +246,16 @@ with this frontmatter field set to `false` are excluded from the inventory list
 by `build_agent_inventory_prompt()`. The filter runs at the inventory prompt
 boundary — the catalog scan (`scan_agent_profiles()`) still returns all profiles.
 
+**Delegation preference guidance** is injected by `with_agent_inventory_guidance()`
+immediately after the `# Meridian Agents` heading. The guidance tells Claude-hosted
+primary sessions to use `meridian spawn -a <agent> --prompt-file /tmp/<file>.md` for
+ordinary delegation, and reserve Claude native `Agent` only for explicit
+Claude-native/model-specific cases. This is a prompt-level guardrail parallel to
+the platform-level agent-copy boundary described in
+[Harness Abstraction](harness-abstraction.md#claude-native-agent-routing). The
+guidance is placed adjacent to the agent list so agents read the listed entries as
+Meridian spawn targets, not as harness-native Agent choices.
+
 See [model-resolution/agent-profiles.md](model-resolution/agent-profiles.md#model-invocable-true--false)
 for the field semantics.
 

@@ -19,6 +19,27 @@
 
 `supports_native_skills` is `False` for Pi — Pi has a native skills system but Meridian skill projection into Pi is deferred. Skills are currently delivered via the system prompt channel.
 
+## Claude Native Agent Routing
+
+Claude Code's `Agent` tool is gated by Mars `[settings.agent_copy]`. When `harnesses = ["claude"]`
+and `.claude` is in targets, generic `Agent` is allowed (the native agent surface is
+Meridian-owned). Without agent copy, `Agent` is denied and delegation routes through
+`meridian spawn`. Built-in subagents (`Explore`, `Plan`, `General-purpose`/`general-purpose`)
+are always denied unconditionally.
+
+Detection runs in `bind_launch_context()` via `project_has_claude_agent_copy()` (reads
+`mars.toml` and `mars.local.toml`). The result flows through
+`ResolvedLaunchSpec.claude_native_agents_enabled` to `project_claude.py`, which strips
+`Agent` and `Agent(...)` from all allowed-tool sources when disabled. Parent-inherited
+allowed-tool tails cannot re-add denied agents — the projection layer filters them.
+
+A prompt-level guardrail (`with_agent_inventory_guidance()` in `prompt.py`) injects
+delegation guidance into the `# Meridian Agents` block, telling primary sessions to prefer
+`meridian spawn -a <agent> --prompt-file /tmp/<file>.md` and reserve native `Agent` only
+for explicit Claude-native/model-specific cases.
+
+See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#claude-native-agent-routing) for the full policy.
+
 ## Pi-Specific Notes
 
 **Dual launch path.** Pi is the only harness with fully separate launch configurations per role:

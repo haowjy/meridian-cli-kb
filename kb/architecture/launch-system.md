@@ -294,6 +294,40 @@ Roots are stored in `run_params.projected_roots` / `ResolvedLaunchSpec.projected
 
 These are set by the adapter's `env_overrides()` method and flow through `build_harness_child_env()` alongside other harness-specific overrides.
 
+## Claude Native Agent Permission Injection
+
+For Claude launches, `bind_launch_context()` injects a two-tier Agent permission policy
+before materializing the launch spec:
+
+1. **Built-in denial (unconditional):** `ResolvedLaunchSpec` projection always adds
+   `Agent(Explore)`, `Agent(Plan)`, `Agent(General-purpose)`, and `Agent(general-purpose)`
+   to `--disallowedTools`. No config toggle.
+
+2. **Generic `Agent` gating (Mars agent-copy boundary):** `project_has_claude_agent_copy()`
+   reads `mars.toml` for `[settings.agent_copy] harnesses = ["claude"]` with `.claude` in
+   targets. The result sets `claude_native_agents_enabled` on the spec, which
+   `project_claude.py` uses to either allow or strip `Agent` from all allowed-tool sources
+   (permission-derived, parent-inherited via `CLAUDE_PARENT_ALLOWED_TOOLS_FLAG`, and
+   user passthrough).
+
+For **nested Claude spawns** (SPAWN_PREPARE surface), `resolve_nested_claude_permission_request()`
+applies additional deny entries for `agent` and `task` capabilities. Agent profiles can
+opt out per-capability via `tools: {agent: allow}` in their frontmatter.
+
+The injection runs in `bind_launch_context()`:
+
+```python
+claude_native_agents_enabled = (
+    harness.id == HarnessId.CLAUDE
+    and project_has_claude_agent_copy(project_paths.project_root)
+)
+# ... threaded into resolve_claude_native_agent_permission_request() and
+# resolve_nested_claude_permission_request()
+```
+
+See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#claude-native-agent-routing)
+for the full policy.
+
 ## MERIDIAN_HARNESS Child Env Injection
 
 `build_launch_context()` writes `MERIDIAN_HARNESS = harness.id.value` into the
