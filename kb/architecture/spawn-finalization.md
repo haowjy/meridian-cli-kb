@@ -137,23 +137,27 @@ class StreamingRunConclusion:
     exit_code: int = DEFAULT_INFRA_EXIT_CODE
     failure_reason: str | None = None
     extracted: FinalizeExtraction | None = None
-    terminated_after_completion: bool = False
     final_attempt_terminal_observed: bool = False
+    cancellation_observed: bool = False
     retries_attempted: int = 0
 
     def absorb_attempt(self, attempt: _AttemptRuntime) -> None:
         ...  # merge terminal fields from one attempt
     
-    def resolve_terminal_state(
+    def terminal_facts(
         self, *, received_signal
-    ) -> tuple[SpawnStatus, int, str | None]:
-        ...  # compute final (status, exit_code, error) from all evidence
+    ) -> ExecutionTerminalFacts:
+        ...  # project accumulated evidence into lifecycle terminal facts
 ```
 
-`resolve_terminal_state()` centralizes the logic that was previously scattered across conditionals in `execute_with_streaming()`:
-- Determines `cancelled` from signal + terminal_observed flag combination
+`terminal_facts()` centralizes the logic that was previously scattered across conditionals in `execute_with_streaming()`:
+- Determines `cancellation_observed` from explicit request, signal, or failure reason
 - Checks `has_durable_report_completion()` for report-backed success
-- Delegates to `resolve_execution_terminal_state()` in `core/spawn_lifecycle.py`
+- Produces `ExecutionTerminalFacts` consumed by `resolve_execution_terminal_outcome()`
+
+(The `terminated_after_completion` field and `resolve_terminal_state()` method were
+removed in cleanup commit `c04171c2` — the durable-completion-vs-cancel resolution
+is now handled by `resolve_completion_cancel_precedence()` in `spawn_lifecycle.py`.)
 
 ---
 
