@@ -28,6 +28,43 @@ This lattice is implemented as `decide_terminal_write()` in `state/spawn/termina
 
 ---
 
+## Durable Completion Evidence Classification
+
+Explicit cancel intent normally wins finalization: a cancelled spawn should end
+as `cancelled` with exit `130`, suppress retries, and release process scopes.
+The exception is a **genuine durable completion report** produced before or
+despite a late cancel signal. Because durable completion can override cancel
+intent, Meridian classifies report text before using it as lifecycle evidence.
+
+Classification lives in `core/spawn_lifecycle.py` and is reused by extraction
+fallbacks and terminal-state resolution. The important classes are:
+
+| Class | Meaning | Lifecycle effect |
+| --- | --- | --- |
+| `COMPLETION` | Real assistant/user-visible completion content | May resolve to `succeeded` |
+| `SYNTHETIC_FAILURE` | Runner-generated failure wrappers such as `# Spawn failed` | Never counts as completion |
+| `CONTROL_FRAME` | Structured harness event/control/progress envelopes | Never counts as completion |
+| `ABSENT` | Empty or missing report text | No completion evidence |
+
+Harness adapters can emit structured JSON while a cancelled process is
+unwinding. Those records are valuable diagnostics, not completion reports. The
+classifier rejects these as control frames:
+
+- **Claude**: tool/thinking/user-interrupt/system envelopes, and `result` with
+  `is_error=true` such as `aborted_streaming`.
+- **Codex**: connection-close errors and `thread/*`, `turn/*`, `item/*`,
+  `account/*`, `mcpServer/*`, `remoteControl/*` event namespaces.
+- **OpenCode**: `message.*`, `server.*`, `session.*`, and `sync` envelopes.
+- **Pi/generic**: lifecycle noise, unsuccessful response/error events,
+  `cancelled`/`error` event wrappers, and generated failure markdown.
+
+This rule exists because real cancel regressions showed otherwise: Codex,
+Claude, and OpenCode each emitted non-empty structured output during
+cancellation, and treating that output as a durable report reclassified the
+spawn from `cancelled` to `succeeded`.
+
+---
+
 ## Store-Level Finalization (Under Per-Spawn Lock)
 
 `spawn_store.finalize_spawn()` runs the complete finalization sequence under the per-spawn `state.lock` (v2 format):
