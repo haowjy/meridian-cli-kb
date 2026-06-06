@@ -57,9 +57,9 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 **Why:** `execution_cwd` was overloaded — one field served double duty as both config authority and task directory. When a spawn originates from a nested directory (e.g., `packages/auth/`), these two concerns diverge: the config authority should stay at the repo root (`control_root`) while the agent needs to know it should operate in the subdirectory (`task_cwd`). A single field cannot express both truths simultaneously.
 
-**Behavior:** When `task_cwd` differs from `control_root`, `bind_launch_context()` communicates this to the agent in two ways:
-1. `MERIDIAN_TASK_CWD` env var set to the task_cwd path in the child process environment.
-2. A `# Task Working Directory` system prompt block injected explaining that the process cwd is not the task directory.
+**Behavior (updated 2026-06, PR #318):** When `task_cwd` differs from `control_root`, `bind_launch_context()` communicates this to the agent in two ways:
+1. `MERIDIAN_TASK_DIR` env var set to the task_cwd path in the child process environment.
+2. A `# Source-edit directory` system prompt block injected stating the absolute task dir path, that the shell cwd is the project root (not the task dir), and to `cd` in or use absolute paths.
 
 A `_is_task_cwd_covered_by_projection()` check prevents redundant workspace root additions when the task_cwd is already covered by the projected roots.
 
@@ -415,14 +415,24 @@ scope metadata.
 
 ### D-model-invocable: Filter at inventory prompt boundary, not at catalog scan
 
-**Decision (2026-05, PR #208):** `model-invocable: false` in agent profile frontmatter
-is enforced only inside `build_agent_inventory_prompt()`. The catalog scan
-(`scan_agent_profiles()`) returns all profiles regardless of this field.
+**Decision (2026-05, PR #208; rewritten 2026-06, PR #314):** `model-invocable: false`
+in agent profile frontmatter is enforced by Mars at inventory render time (inside the
+launch-bundle `prompt_surface.inventory_prompt` field). The catalog scan
+(`scan_agent_profiles()`) returns all profiles regardless of this field. Meridian does
+not maintain a Python-side inventory renderer — the bundle is the sole source of truth
+and Meridian embeds the rendered string verbatim.
 
-**Why:** `scan_agent_profiles()` is a neutral scanner with multiple consumers —
-inventory prompt, explicit load, listing commands. Filtering there would conflate
-model-facing visibility with general catalog availability. The inventory prompt is
-the only model-facing boundary, so that is the correct and narrowest seam.
+**Why the rewrite (2026-06):** The original `build_agent_inventory_prompt()` Python
+renderer was deleted in PR #314 when prompt.py was decomposed. Inventory rendering is
+now exclusively Mars-owned — Mars computes the `# Meridian Agents` block (harness-aware
+delegation guidance, native-agent sections, model metadata, `model-invocable` filtering)
+and Meridian passes through the result. This eliminates the dual-renderer risk where
+Python and mars could produce divergent inventory.
+
+**Original Why (still holds):** `scan_agent_profiles()` is a neutral scanner with
+multiple consumers — inventory prompt, explicit load, listing commands. Filtering there
+would conflate model-facing visibility with general catalog availability. The inventory
+prompt is the only model-facing boundary, so that is the correct and narrowest seam.
 
 **Rejected alternative:** Add `model_invocable_only=True` parameter to
 `scan_agent_profiles()`. Rejected because it pushes visibility policy into the
@@ -436,9 +446,10 @@ without any migration.
 
 ### D-model-invocable-vs-user-invocable: Two separate visibility surfaces
 
-**Decision (2026-05, PR #208):** `model-invocable` controls only the model-facing
-agent inventory prompt. It does not restrict explicit user invocation via
-`meridian spawn -a <name>`. These are separate surfaces with different consumers.
+**Decision (2026-05, PR #208; updated 2026-06, PR #314):** `model-invocable` controls
+only the model-facing agent inventory prompt (now Mars-rendered in the launch bundle).
+It does not restrict explicit user invocation via `meridian spawn -a <name>`. These
+are separate surfaces with different consumers.
 
 **Why:** A deprecated or internal agent that shouldn't appear in the model's option
 menu may still be explicitly invoked by a user who knows what they're doing. An
@@ -451,6 +462,85 @@ model-facing prompt injection.
 
 **Explicit invocation ignores the field:** `load_agent_profile()` does not check
 `model_invocable`. If a user explicitly requests an agent by name, it loads.
+
+---
+
+### D-mars-owns-inventory: Mars renders agent inventory; Meridian embeds verbatim
+
+**Decision (2026-06, PR #314):** The agent inventory prompt is bundle-only. Mars renders
+the `prompt_surface.inventory_prompt` field (harness-aware delegate preference guidance,
+native-agent sections, model metadata, `model-invocable` filtering). Meridian parses this
+field from the launch-bundle JSON in `bundle_adapter.py` and embeds it verbatim into the
+composed system prompt. There is no Python fallback renderer.
+
+**Context:** Before PR #314, Meridian maintained a Python-side `build_agent_inventory_prompt()`
+function in `prompt.py` that built the inventory string. When `prompt.py` was decomposed
+into text_utils/resolve/prompt_context during PR #314, this function was deleted. The
+inventory already came from Mars for all active surfaces; the Python renderer was legacy
+fallback code that was no longer exercised in production.
+
+**Why single-owner:** A dual-renderer (Python + Mars) creates a divergence risk — the model
+could see inconsistent inventory depending on which path a spawn took. Mars already owns
+the `.mars/` directory schema, profile scanning, and agent-copy; inventory rendering is a
+natural extension of that ownership. Meridian's job is composition, not rendering.
+
+**Resume/snapshot persistence:** Resume and snapshot replay carry `bundle_inventory_prompt`
+on `LaunchPolicySnapshot` so inventory survives without re-calling mars.
+
+**Rejected alternative:** Keep the Python renderer as a backup — rejected because it
+allows silent divergence when the two renderers drift. The bundle-only contract makes
+divergence impossible.
+
+---
+
+### D-headless-claude-deny: Headless Claude denied by default with 2026-06-15 driver
+
+**Decision (2026-06, PR #314):** Meridian denies headless Claude by default. The
+`[spawn] deny_headless_harnesses = ("claude",)` setting ships in auto-scaffolded
+`meridian.toml`. Users who override with `deny_headless_harnesses = []` receive a
+startup warning. The driver is Anthropic's announced 2026-06-15 deprecation of
+headless Claude — Meridian preempts this by denying headless proactively rather than
+waiting for `claude -p` to start returning errors.
+
+**Startup warning:** When `deny_headless_harnesses` is empty (user overriden), the
+primary CLI path emits a config warning: headless Claude will stop working on
+2026-06-15 per Anthropic's deprecation notice. This is informational — Meridian
+does not block the override, but ensures the user is aware.
+
+**Why deny-by-default:** Headless Claude `-p` is an Anthropic API surface, not a
+local tool. Anthropic controls its lifecycle. Meridian cannot fix a broken headless
+path — only warn and route users to alternatives. The deny default ensures users
+encounter a clear Meridian error ("headless Claude is denied") rather than an opaque
+Anthropic API rejection.
+
+**Rejected alternative:** Allow headless Claude until Anthropic actually removes it —
+rejected because the opaque error users would encounter gives no path to recovery.
+Meridian's deny message tells users which harnesses are available and why Claude is
+denied.
+
+---
+
+### D-agent-copy-key: Mars `settings.meridian.agent_copy` key renamed; auto-scaffolded
+
+**Decision (2026-06, PR #314):** The Mars config key for Claude agent copy was renamed to
+`[settings.meridian.agent_copy] harnesses = ["claude"]` (was `[settings.agent_copy]`). On
+init, `mars.toml` is auto-scaffolded with the new key structure. Meridian reads
+this key via `project_has_claude_agent_copy()` in `permissions.py` — the reader was
+updated to match the new key path.
+
+**Why explicit key:** Agent copy is a Meridian concept (not a generic mars feature),
+so it belongs under `settings.meridian.agent_copy`. The old `settings.agent_copy` key
+was ambiguous — it didn't name which platform owned the copy boundary.
+
+**Auto-scaffold:** New projects get `[settings.meridian.agent_copy] harnesses = ["claude"]`
+written into the initial `mars.toml`. Existing projects with the old key continue to
+work through mars backwards-compat reading, but Meridian only reads the new key path.
+
+**Why init scaffold is `["claude"]`:** Claude is the only harness that currently supports
+agent copy. The scaffolded list is the common case and avoids configuration ceremony.
+
+**Rejected alternative:** Support both old and new key paths in Meridian — rejected
+because dual-read creates ambiguity about which key is authoritative when both exist;
 
 ---
 

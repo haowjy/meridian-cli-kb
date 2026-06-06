@@ -33,10 +33,9 @@ Detection runs in `bind_launch_context()` via `project_has_claude_agent_copy()` 
 `Agent` and `Agent(...)` from all allowed-tool sources when disabled. Parent-inherited
 allowed-tool tails cannot re-add denied agents — the projection layer filters them.
 
-A prompt-level guardrail (`with_agent_inventory_guidance()` in `prompt.py`) injects
-delegation guidance into the `# Meridian Agents` block, telling primary sessions to prefer
-`meridian spawn -a <agent> --prompt-file /tmp/<file>.md` and reserve native `Agent` only
-for explicit Claude-native/model-specific cases.
+Delegation guidance is rendered by Mars into the `prompt_surface.inventory_prompt` bundle
+field alongside the `# Meridian Agents` block. Meridian embeds the Mars-rendered string
+verbatim — there is no Python-side guidance renderer.
 
 See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#claude-native-agent-routing) for the full policy.
 

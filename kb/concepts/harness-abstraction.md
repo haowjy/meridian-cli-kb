@@ -236,9 +236,9 @@ This is a platform policy (harness adapter injection), not a per-agent `tools:` 
 Agent profiles do not need to carry `agent: deny` — the denial is inherited from the harness
 adapter when agent copy is absent.
 
-See also: the delegation preference guidance injected into the agent inventory prompt
-(`with_agent_inventory_guidance()` in `prompt.py`), which tells primary Claude sessions
-to use `meridian spawn` for subagent work and reserve native `Agent` only for explicit
+Delegation preference guidance is rendered by Mars into the `prompt_surface.inventory_prompt`
+bundle field, which Meridian embeds verbatim. It tells primary Claude sessions to use
+`meridian spawn` for subagent work and reserve native `Agent` only for explicit
 Claude-native/model-specific cases.
 
 ---

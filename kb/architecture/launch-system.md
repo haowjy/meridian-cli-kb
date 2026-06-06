@@ -60,8 +60,8 @@ The primary CLI path is the canonical example of prepare-once/bind-twice: `prepa
 The split captures the divergence between *where project config lives* and *where the task should be done*.
 
 **`bind_launch_context()` behavior when `task_cwd` is set:**
-1. Sets `MERIDIAN_TASK_CWD` in the child process's environment to the `task_cwd` value.
-2. Appends a `# Task Working Directory` block to the agent's system prompt when actual process cwd cannot be set to task_cwd (`LaunchDirectoryContext.requires_task_cwd_instruction`).
+1. Sets `MERIDIAN_TASK_DIR` in the child process's environment to the `task_cwd` value.
+2. Appends a `# Source-edit directory` block to the agent's system prompt when actual process cwd cannot be set to task_cwd (`LaunchDirectoryContext.requires_task_cwd_instruction`).
 3. Runs `_is_task_cwd_covered_by_projection()` before adding task_cwd as a workspace root to avoid redundant projection.
 
 **Spawn and session records** persist both fields: `control_root` (config authority) and `task_cwd` (nullable, task directory intent). `execution_cwd` remains as a legacy alias for the actual process cwd (`child_cwd`).
@@ -98,17 +98,17 @@ graph TD
 
 ### task_cwd Resolution Priority
 
-Priority chain (highest wins):
+Resolution priority (see `resolve_task_cwd()` in `cwd.py`):
 
 | Priority | Source | task_cwd |
 |----------|--------|----------|
-| 1 | `--no-worktree` flag | `control_root` (forced) |
-| 2 | `--worktree` flag | work item's `worktree_path` (error if none) |
-| 3 | `--work <item>` (explicit — hard boundary) | item's `worktree_path` if set; else `control_root`. Ambient work NOT consulted. |
-| 4 | Ambient session work attachment | item's `worktree_path` if set |
-| 5 | Default | `control_root` |
+| 1 | explicit task-dir override | validated task directory |
+| 2 | explicit work item `--work <id>` | item's `worktree_path` if set; else `control_root`. Ambient work NOT consulted. |
+| 3 | ambient work item attachment | item's `worktree_path` if set; else `control_root` |
+| 3.5 | caller cwd outside the project tree (ambient-cwd) | caller cwd |
+| 4 | default | `control_root` |
 
-**Stale worktree_path** (path no longer exists on disk) → hard error. NOT silent fallback to control_root. Only `--no-worktree` bypasses this.
+**Stale worktree_path** (path no longer exists on disk) → hard error. NOT silent fallback to control_root.
 
 **Explicit `--work` is a hard selection boundary.** When the user specifies `--work <item>`, only that item is consulted. If it has no worktree_path, task_cwd = control_root — the ambient session work attachment is NOT used as a fallback.
 

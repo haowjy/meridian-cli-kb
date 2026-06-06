@@ -4,6 +4,64 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-06-06 — Post-#314/#317/#318 knowledge currency refresh
+
+### Trigger
+
+Batch of merged PRs (#314 prompt.py decomposition, #316 mars-agents 0.8.1/v3-only
+bundle schema, #317 Codex thread-aware drain, #318 ambient-cwd task_cwd resolution)
+left inline docs and KB pages stale. kb-lead reconciliation pass.
+
+### What changed
+
+**Inline docs (meridian worktree, `refactor/promptpy-decomposition`):**
+- `launch/.context/CONTEXT.md`: resolution priority list rewritten to match
+  `cwd.py` docstring exactly (steps 1, 2, 3, 3.5, 4); removed "or authority root
+  fallback" per-step qualifiers that confused with-priority fallback vs
+  separate priority level.
+
+**KB — decisions:**
+- `decisions/launch.md`: D-model-invocable + D-model-invocable-vs-user-invocable
+  rewritten for current truth — Mars owns inventory rendering (bundle
+  `prompt_surface.inventory_prompt`), Meridian embeds verbatim, Python-side
+  `build_agent_inventory_prompt()` was deleted in #314.
+- `decisions/launch.md`: **new** D-mars-owns-inventory — bundle-only inventory
+  contract, no Python fallback.
+- `decisions/launch.md`: **new** D-headless-claude-deny — headless Claude denied
+  by default with 2026-06-15 driver, startup warning on override.
+- `decisions/launch.md`: **new** D-agent-copy-key — `settings.meridian.agent_copy`
+  key rename, auto-scaffold on init.
+- `decisions/launch.md`: D-control-root-task-cwd-split env var updated
+  (`MERIDIAN_TASK_CWD` → `MERIDIAN_TASK_DIR`) and system prompt block heading
+  (`# Task Working Directory` → `# Source-edit directory`).
+- `decisions.md`: summary entries updated for deleted `build_agent_inventory_prompt()`
+  and new PR #314 decisions.
+
+**KB — concepts/codebase/architecture:**
+- `codebase/vocabulary.md`: "Delegation preference guidance" entry — removed
+  reference to deleted `with_agent_inventory_guidance()`; now describes Mars-rendered
+  bundle inventory.
+- `codebase/harness-adapters.md`: removed `with_agent_inventory_guidance()` reference;
+  replaced with Mars-rendered bundle paragraph.
+- `concepts/harness-abstraction.md`: removed `with_agent_inventory_guidance()` reference;
+  replaced with Mars-rendered bundle paragraph.
+- `architecture/launch-system.md`: task_cwd resolution table rewritten — removed
+  `--no-worktree`/`--worktree` flag rows, added ambient-cwd priority (step 3.5);
+  updated `MERIDIAN_TASK_CWD` → `MERIDIAN_TASK_DIR`; updated `# Task Working Directory`
+  → `# Source-edit directory`.
+- `architecture/spawn-finalization.md`: `MERIDIAN_TASK_CWD` → `MERIDIAN_TASK_DIR`;
+  system prompt heading updated.
+
+### Already-current items verified
+- Task CWD instruction injection paragraph in `launch/.context/CONTEXT.md` already
+  described #318 contract (MERIDIAN_TASK_DIR, shell cwd is project root, cd or
+  absolute paths).
+- Codex thread-aware drain already documented in both `harness/AGENTS.md` and
+  `harness/.context/CONTEXT.md`.
+- v4 `launch_actions` removal already described in `architecture/mars-launch-bundle.md`.
+
+---
+
 ## 2026-05-30 — Pi quiescence architecture refresh (PR #297)
 
 ### Trigger
