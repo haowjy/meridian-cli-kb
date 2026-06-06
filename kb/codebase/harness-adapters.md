@@ -21,11 +21,11 @@
 
 ## Claude Native Agent Routing
 
-Claude Code's `Agent` tool is gated by Mars `[settings.agent_copy]`. When `harnesses = ["claude"]`
-and `.claude` is in targets, generic `Agent` is allowed (the native agent surface is
-Meridian-owned). Without agent copy, `Agent` is denied and delegation routes through
-`meridian spawn`. Built-in subagents (`Explore`, `Plan`, `General-purpose`/`general-purpose`)
-are always denied unconditionally.
+Claude Code's `Agent` tool is gated by Mars `[settings.meridian.agent_copy]`. When
+`harnesses = ["claude"]` and `.claude` is in targets, generic `Agent` is allowed
+(the native agent surface is Meridian-owned). Without agent copy, `Agent` is denied
+and delegation routes through `meridian spawn`. Built-in subagents (`Explore`,
+`Plan`, `General-purpose`/`general-purpose`) are always denied unconditionally.
 
 Detection runs in `bind_launch_context()` via `project_has_claude_agent_copy()` (reads
 `mars.toml` and `mars.local.toml`). The result flows through

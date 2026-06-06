@@ -304,8 +304,8 @@ before materializing the launch spec:
    to `--disallowedTools`. No config toggle.
 
 2. **Generic `Agent` gating (Mars agent-copy boundary):** `project_has_claude_agent_copy()`
-   reads `mars.toml` for `[settings.agent_copy] harnesses = ["claude"]` with `.claude` in
-   targets. The result sets `claude_native_agents_enabled` on the spec, which
+   reads `mars.toml` / `mars.local.toml` for `[settings.meridian.agent_copy] harnesses = ["claude"]`
+   with `.claude` in targets. The result sets `claude_native_agents_enabled` on the spec, which
    `project_claude.py` uses to either allow or strip `Agent` from all allowed-tool sources
    (permission-derived, parent-inherited via `CLAUDE_PARENT_ALLOWED_TOOLS_FLAG`, and
    user passthrough).

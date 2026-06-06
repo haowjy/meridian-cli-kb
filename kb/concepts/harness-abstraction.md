@@ -217,10 +217,10 @@ coordination model. Meridian applies a two-tier policy:
   `--disallowedTools` unconditionally. No config toggle.
 
 - **Generic `Agent` follows the Mars agent-copy boundary.** Meridian reads `mars.toml`
-  (and `mars.local.toml`) for `[settings.agent_copy]`. When `harnesses = ["claude"]` AND
-  `.claude` is in `targets`, generic `Agent` is allowed — Claude's native agent surface is
-  Meridian-owned through materialized agent copies. Otherwise, generic `Agent` is denied
-  and delegation must route through `meridian spawn`.
+  (and `mars.local.toml`) for `[settings.meridian.agent_copy]`. When
+  `harnesses = ["claude"]` AND `.claude` is in `targets`, generic `Agent` is allowed —
+  Claude's native agent surface is Meridian-owned through materialized agent copies.
+  Otherwise, generic `Agent` is denied and delegation must route through `meridian spawn`.
 
 The detection (`project_has_claude_agent_copy()` in `permissions.py`) runs in
 `bind_launch_context()`. The result flows into `ResolvedLaunchSpec.claude_native_agents_enabled`,

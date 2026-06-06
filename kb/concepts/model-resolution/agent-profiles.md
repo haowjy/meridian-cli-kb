@@ -82,17 +82,18 @@ Controls whether this agent appears in the model-facing agent inventory prompt
   it in the menu. Explicit invocation via `meridian spawn -a <name>` still works;
   this field does not restrict CLI users.
 
-The filter runs in `build_agent_inventory_prompt()`, not in `scan_agent_profiles()`.
-The catalog scanner returns all profiles regardless of this field; only the
-inventory prompt consumer applies the visibility rule.
+The filter runs when Mars renders the launch-bundle
+`prompt_surface.inventory_prompt`, not in `scan_agent_profiles()`. The catalog
+scanner returns all profiles regardless of this field; only the model-facing
+inventory renderer applies the visibility rule. Meridian embeds the Mars-rendered
+inventory string verbatim and has no Python fallback renderer.
 
 Use `model-invocable: false` for internal orchestration agents, deprecated agents,
 or any agent that should not appear in the model's awareness.
 
-> **Mars contract gap:** Mars currently does not parse `model-invocable` for agent
-> profile files (it does for skills). Until resolved (tracked in mars-agents#40),
-> Mars must preserve this frontmatter field verbatim when compiling source packages
-> into `.mars/agents/`. It currently does so, but this is not formally specified.
+The rendered inventory is persisted on the launch policy snapshot as
+`bundle_inventory_prompt` so resume/replay keeps the same model-facing menu without
+re-calling Mars.
 
 See [decisions/launch.md](../../decisions/launch.md#d-model-invocable-filter-at-inventory-prompt-boundary-not-at-catalog-scan)
 for the rationale behind the filter-seam choice.

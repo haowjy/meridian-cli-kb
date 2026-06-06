@@ -60,19 +60,20 @@ inject per-spawn content before assembling the final system prompt.
 
 ## Bundle Structure
 
-Top-level fields in the full Mars JSON schema (version 2, mars >= 0.5.0):
+Top-level fields in the full Mars JSON schema (version 3, mars-agents pinned at
+0.8.1 in Meridian):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `version` | integer | Schema version (currently `2`) |
+| `version` | integer | Schema version (currently `3`) |
 | `agent` | string \| null | Resolved agent name (`null` for ad-hoc mode) |
 | `agent_body` | string \| null | Agent body markdown when an agent is provided; omitted/null in ad-hoc mode |
 | `routing` | object | Routing result + Mars diagnostics (`model`, `model_token`, `harness`, `harness_model`, diagnostic fields) |
 | `execution_policy` | object | Portable execution settings + `native_config` |
-| `prompt_surface` | object | System instruction + supplemental documents |
+| `prompt_surface` | object | System instruction, supplemental documents, and Mars-rendered `inventory_prompt` |
 | `scaffold_slots` | object | Placeholder positions for Meridian injection |
 | `tools` | object | Resolved portable tool policy (`allowed`, `disallowed`, `mcp`) |
-| `skills_metadata` | object | Skill loading metadata |
+| `skills` | object | Skill loading metadata (`loaded`, `available`) |
 | `provenance` | object | Source attribution for each resolved field |
 | `warnings` | string[] | User-visible warnings emitted during build |
 
@@ -81,7 +82,7 @@ Meridian consumes a subset of this schema. It parses:
 - `execution_policy` fields
 - `prompt_surface`
 - `tools`
-- `skills_metadata`
+- `skills.loaded`, `skills.available`
 - `provenance`
 - `warnings`
 
@@ -153,7 +154,7 @@ sides; Meridian projects both sides per harness.
 Mars emits a six-slot scaffold under `scaffold_slots`; each slot value is
 `###SLOT###`. Meridian fills these slots with per-spawn dynamic content.
 
-| v2 slot key | Placeholder value | Content Meridian injects |
+| Slot key | Placeholder value | Content Meridian injects |
 |------|------------|------------------------------|
 | `completion_contract` | `###SLOT###` | Goal/completion-contract instruction (`--goal` plus work-goal context when available) |
 | `context_prompt` | `###SLOT###` | Launch context block (inventory/context docs built at launch time) |
@@ -261,15 +262,19 @@ Model context never contains raw harness config.
 
 ## Compatibility
 
-Schema v2 (mars >= 0.5.0) is the required schema.
-Meridian requires schema version `2` exactly — older bundles from mars < 0.5.0 are rejected at parse time.
+Schema v3 is the required schema. Meridian supports exactly `(3,)`; schema v4
+`launch_actions` compatibility was removed because Meridian never consumed that
+experimental shape and mars-agents reverted it before the pinned 0.8.1 release.
+Bundles from older mars versions are rejected at parse time.
 
-`native_config` remains optional and additive — bundles without it remain valid within v2.
-Cursor is an additive harness enum variant.
+`native_config` remains optional and additive — bundles without it remain valid within v3.
 
 Meridian validates the version field at consumption time:
 
 ```python
-if version != _SUPPORTED_BUNDLE_SCHEMA_VERSION:
-    raise RuntimeError(f"Mars launch-bundle schema version {version} is unsupported. Expected {_SUPPORTED_BUNDLE_SCHEMA_VERSION}.")
+if version not in _SUPPORTED_BUNDLE_SCHEMA_VERSIONS:
+    raise RuntimeError(
+        f"Mars launch-bundle schema version {version} is unsupported. "
+        f"Expected one of {_SUPPORTED_BUNDLE_SCHEMA_VERSIONS}."
+    )
 ```

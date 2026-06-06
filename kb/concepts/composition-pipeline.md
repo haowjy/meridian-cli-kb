@@ -237,24 +237,24 @@ for the decision rationale.
 
 ## Agent Inventory Prompt
 
-The `inventory_prompt` field in `ComposedLaunchContent` is populated only for
-the `PRIMARY` surface (not for `SPAWN_PREPARE`). It contains the `# Meridian Agents`
-block listing installed agents.
+The `inventory_prompt` field in `ComposedLaunchContent` is populated from the Mars
+launch-bundle `prompt_surface.inventory_prompt` field. Mars owns rendering of the
+`# Meridian Agents` block, including harness-aware delegation guidance, native-agent
+sections, model metadata, and `model-invocable` filtering. Meridian does not rebuild
+or patch the inventory string in Python; `bundle_adapter.py` parses the field and
+launch composition embeds it verbatim.
 
-**`model-invocable: false` filters agents before this block is built.** Agents
-with this frontmatter field set to `false` are excluded from the inventory list
-by `build_agent_inventory_prompt()`. The filter runs at the inventory prompt
-boundary — the catalog scan (`scan_agent_profiles()`) still returns all profiles.
+The inventory still appears only on the `PRIMARY` surface. `SPAWN_PREPARE` gets an
+empty inventory block so subagents are not handed the top-level delegation menu.
 
-**Delegation preference guidance** is injected by `with_agent_inventory_guidance()`
-immediately after the `# Meridian Agents` heading. The guidance tells Claude-hosted
-primary sessions to use `meridian spawn -a <agent> --prompt-file /tmp/<file>.md` for
-ordinary delegation, and reserve Claude native `Agent` only for explicit
-Claude-native/model-specific cases. This is a prompt-level guardrail parallel to
-the platform-level agent-copy boundary described in
-[Harness Abstraction](harness-abstraction.md#claude-native-agent-routing). The
-guidance is placed adjacent to the agent list so agents read the listed entries as
-Meridian spawn targets, not as harness-native Agent choices.
+Catalog scanning remains neutral: `scan_agent_profiles()` and `load_agent_profile()`
+return profiles regardless of `model-invocable`. The model-facing visibility rule is
+owned by Mars at inventory render time, while explicit CLI invocation via
+`meridian spawn -a <agent>` remains available.
+
+Resume and snapshot replay carry the rendered bundle inventory on the launch policy
+snapshot (`bundle_inventory_prompt`) so a resumed session uses the same inventory text
+without re-rendering it.
 
 See [model-resolution/agent-profiles.md](model-resolution/agent-profiles.md#model-invocable-true--false)
 for the field semantics.
