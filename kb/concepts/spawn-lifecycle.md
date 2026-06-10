@@ -129,12 +129,28 @@ the process exits.
 
 When the harness exits, the runner calls `mark_finalizing()` — a
 compare-and-swap that transitions `running → finalizing` only if the current
-status is exactly `running`. This atomic step tells the reaper: "I know the
+status is exactly `running`. This atomic step tells reconciliation: "I know the
 process is done, I'm doing post-exit work, don't treat this as an orphan yet."
 
 If `mark_finalizing()` fails (the spawn was already cancelled or finalized by
 something else), the runner logs it and proceeds to `finalize_spawn()` anyway —
 the projection authority rule handles the resulting race.
+
+### Resident Turn Boundaries
+
+For Codex and OpenCode managed backends, a successful turn can be a **turn boundary**
+rather than the spawn's terminal state. If the spawn still has active Meridian
+descendants, `ResidentDrainCoordinator` keeps the backend alive, marks it
+`awaiting_done`, and waits for descendant work to drain. The parent finalizes when:
+
+- the descendant tree becomes terminal;
+- `meridian spawn done` writes the done signal;
+- the resident deadline expires, producing terminal `timed_out` and cancelling
+  active descendants through the same cancel pipeline as explicit cancellation.
+
+`meridian spawn rearm` opts the resident backend into another wait window and enables
+periodic advisory poll messages. These signals are files under the spawn's state
+directory, so they do not require a live control-socket connection.
 
 ---
 
@@ -148,7 +164,7 @@ repair commands can converge it durably.
 
 The runner touches `spawns/<id>/heartbeat` every 30 seconds while a spawn is
 active (both `running` and `finalizing`). This file's modification timestamp is
-the reaper's primary liveness signal.
+the reconciler's primary liveness signal.
 
 ### Read-Time Projection vs Explicit Repair
 
@@ -216,15 +232,15 @@ during report extraction.
 
 ## Projection Authority Rule
 
-Multiple writers can attempt to finalize a spawn (the runner, the reaper, a
+Multiple writers can attempt to finalize a spawn (the runner, the reconciler, a
 cancel operation). Meridian resolves races by classifying writers:
 
 - **Authoritative** origins: `runner`, `launcher`, `launch_failure`, `cancel`
-- **Reconciler** origins: `reconciler` (the reaper)
+- **Reconciler** origins: `reconciler` (explicit repair)
 
 The first authoritative finalize wins. A later authoritative write cannot
 overwrite an earlier authoritative write. However: **authoritative always
-overrides reconciler**. If the reaper stamps a spawn as `orphan_run` but the
+overrides reconciler**. If repair stamps a spawn as `orphan_run` but the
 runner then reports success (it was briefly network-partitioned), the runner's
 write wins — it is strictly more informed.
 

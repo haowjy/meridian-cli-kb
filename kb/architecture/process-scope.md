@@ -174,12 +174,23 @@ frontend lease rules.
 
 ### POSIX: setsid / process-group
 
-Harness root processes are launched in a new session (`setsid()`) or process group.
-On teardown, `os.killpg(pgid, SIGTERM)` kills the entire group. If descendants survive
-the grace period, `os.killpg(pgid, SIGKILL)` follows.
+Harness root processes that Meridian captures or observes are launched in a new
+session (`setsid()`) or process group when possible. On teardown, `os.killpg(pgid,
+SIGTERM)` kills the entire group. If descendants survive the grace period,
+`os.killpg(pgid, SIGKILL)` follows.
 
 Group kill is strictly stronger than single-PID kill: descendants that have reparented
 to PID 1 are still in the original group and receive the signal.
+
+Group kill is only used when the recorded scope root is the process-group leader
+(`pgid == root_pid`). If a launch inherited the parent process group, signalling that
+PGID could kill the parent agent or test runner. Those non-isolated scopes degrade to
+PID-tree cleanup, and native-inherit TUI paths fall back to signalling only the child
+process for the same reason.
+
+Pipe-captured subprocess launches and Claude/Pi observer backends are isolated into
+their own POSIX sessions so later scope cleanup targets the child group, not the
+launching Meridian process group.
 
 ### Windows: Job Object
 
@@ -338,6 +349,9 @@ containment model.
 - **PROC-007:** fully closing the remaining metadata-only lifecycle edge now tracks
   whether any path can still launch without `process_scopes.json`; if such a path
   exists, cleanup falls back to `worker_pid`.
+- **PROC-008:** Windows parent-death linkage uses a live Job Object handle, but
+  durable sync cleanup cannot use a persisted handle; those paths degrade to PID-tree
+  cleanup.
 
 ---
 

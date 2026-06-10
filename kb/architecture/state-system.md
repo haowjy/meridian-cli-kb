@@ -35,6 +35,7 @@ State divides across two roots keyed by project UUID:
       history.jsonl                 — primary output artifact (seq-enveloped harness events)
       output.jsonl                  — legacy fallback (absent on new spawns)
       stderr.log · params.json · tokens.json
+      process_scopes.json           — recorded process containment scopes + released IDs
       inbound.jsonl                 — injected user messages
       control.sock                  — active-session control socket
       debug.jsonl                   — MERIDIAN_DEBUG=1 only
@@ -93,6 +94,10 @@ V2 distinguishes two write tiers based on who is writing and under what lock:
 Other processes — the reaper, cancel command, `update_spawn()` callers (e.g. session-bleed-isolation writing `claude_config_dir`) — acquire `spawns/<id>/state.lock`, read the current `state.json`, apply a mutator function, and write the result atomically. This pattern appears in `write_state_locked()` in `state/spawn/repository.py`.
 
 The distinction matters: `update_spawn(claude_config_dir=...)` is always a tier-2 external write because it may be called from any process. The runner's own finalization path is tier-1.
+
+This split is a convention the call sites must respect, not a runtime capability
+check. An external writer that bypasses `state.lock` can race the runner's unlocked
+write-through path.
 
 ### Migration: ensure_v2_format()
 

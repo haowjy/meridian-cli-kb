@@ -13,6 +13,13 @@ Streaming adapters expose two optional facts on `HarnessConnection`:
   attach reads this snapshot instead of reconstructing containment from raw PID
   fields.
 
+Managed Codex/OpenCode backends launch through `launch_managed_backend()`, which
+records the backend scope and links the detached backend to the worker lifetime where
+the platform can enforce it (Linux parent-death signal, Windows Job Object; other
+POSIX platforms degrade to isolated-session containment plus recorded scope cleanup).
+Adapter code should expose the resulting `scope_snapshot`, not write a separate
+backend lifecycle sidecar.
+
 `BackendLivenessPolicy` is shared by managed Codex/OpenCode connections and owns the
 classification of quiet streams, active turns, in-flight requests, dead backend PIDs,
 and intentionally suppressed waits. Adapter code feeds it signals; callers consume

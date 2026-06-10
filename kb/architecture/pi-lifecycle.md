@@ -5,7 +5,12 @@
 
 Pi spawned sessions use a **quiescence-based completion model** — the Pi process stays running to handle follow-up turns (when tracked child work completes). Meridian declares a spawn done only after the quiescence state machine reaches a final state, not when the Pi process exits.
 
-This pattern is unique to Pi among Meridian harnesses. Claude, Codex, and OpenCode complete when their process exits. Pi's completion involves semantic completion, tracked-work draining, and implicit-wait notification delivery before quiescence.
+Pi still has the deepest quiescence machinery because it must combine semantic
+completion, disk-backed background work, and implicit-wait notification delivery
+before shutdown. Codex and OpenCode now have a narrower resident-done path for
+Meridian-tracked descendant spawns, but they do not use Pi's bash-record or
+notification-marker machinery. Claude/plain streaming harnesses complete from the
+ordinary terminal-event / connection-close path.
 
 ---
 
@@ -211,6 +216,19 @@ when the idle parent needs to observe completed work.
 
 The nudge is a progress aid, not the authority. Disk state (`state.json`,
 `bash-records.json`, notification markers) remains the completion authority.
+
+## Child Cleanup
+
+When Pi exits or times out with active tracked work, `PiDrainCoordinator` first
+cancels active Meridian descendant spawns through the shared `cancel_descendants`
+pipeline. That path sets cancel intent, drives each child through normal cancellation
+or forced convergence, and lets recorded spawn scopes reap child runner trees. Pi's
+tracked-process cleanup then excludes descendants already reaped through that
+canonical path and focuses on Pi-internal background work.
+
+This keeps Pi child-spawn teardown aligned with the Codex/OpenCode resident-deadline
+model: Meridian-spawn children are cancelled as spawns, while Pi-specific process
+metadata remains a fallback for non-spawn background work.
 
 ## Pi-Specific Spawn Phases
 

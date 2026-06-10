@@ -42,14 +42,25 @@ model:
    or the resident backend requested re-arming.
 2. The coordinator emits a turn boundary, marks the backend as `awaiting_done`, and
    polls descendant state through read-only reconciliation (`peek_reconciled_active_spawn`).
-3. When descendants finish, a resident `done` signal arrives, or the deadline expires,
+3. `meridian spawn done` and `meridian spawn rearm` are file signals consumed by the
+   coordinator. `done` records the pending success immediately; `rearm` opts the
+   backend into explicit residency with a fresh deadline and advisory poll messages.
+4. When descendants finish, a resident `done` signal arrives, or the deadline expires,
    the coordinator records the pending terminal outcome or a timeout/failure.
-4. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
+5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
    correctness does not depend on the nudge succeeding.
 
 Selection is capability-driven through `connection.resident_backend`, not harness-id
 branching. See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md)
 for the connection seam.
+
+For resident drains, `raw_terminal_frames_authoritative=False`: a terminal harness
+frame is a turn boundary candidate, not finalization authority by itself. The
+coordinator owns terminal finalization while resident. If the resident deadline
+expires, it finalizes the parent as `timed_out` with
+`resident_deadline_expired` and cancels active descendants through the normal cancel
+pipeline, so children converge to terminal `cancelled` instead of surviving as
+orphaned backend launches.
 
 ---
 

@@ -3,10 +3,10 @@
 Managed primaries are interactive Codex/OpenCode sessions where Meridian owns a
 small launcher wrapper and a local backend while the user interacts through the
 harness TUI. They are not the same lifecycle shape as Claude primaries or child
-spawns, so reaper and cleanup policy must treat them differently.
+spawns, so reconciliation and cleanup policy must treat them differently.
 
 Related pages:
-- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — generic spawn status machine and reaper model
+- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — generic spawn status machine and reconciliation model
 - [architecture/spawn-finalization.md](spawn-finalization.md) — finalization authority lattice
 - [architecture/process-scope.md](process-scope.md) — process-scope ownership model; spawn_owned vs session_owned split for managed primaries
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — Codex/OpenCode adapter notes and approval routing
@@ -54,7 +54,8 @@ The launcher is expected to:
 
 1. Start the backend / observer connection.
 2. Launch the TUI attached to that backend.
-3. Persist primary metadata and connection events.
+3. Persist primary metadata and connection events, including exact birth epochs for
+   launcher/backend/TUI PIDs.
 4. Wait for the TUI to exit.
 5. Enter finalization / teardown and stop the backend.
 
@@ -64,25 +65,41 @@ into a hard user-visible crash. Future diagnostics should preserve evidence
 about why the launcher died rather than using launcher death as an automatic
 runtime-child termination trigger.
 
+The inverse failure is also handled at the launcher boundary: if the observed event
+stream dies during managed-primary attach, launch fails and tears down the TUI/backend
+instead of leaving a disconnected frontend session running.
+
 ---
 
-## Passive Reconciliation Boundary
+## Reconciliation Boundary
 
-Meridian's reaper runs during read/query operations such as `meridian work`,
-`spawn list`, `spawn show`, `spawn wait`, and `session log`. Those paths may
-finalize stale spawn rows. The safety rule is:
+Managed-primary cleanup is tied to explicit reconciliation, not ordinary reads.
+`meridian work`, `spawn list`, `spawn show`, `spawn wait`, and `session log` may
+project a stale managed-primary row for display, but they do not send process
+signals or write terminal state. Mutating repair runs from `meridian doctor
+--kill-orphans` and from the primary-launch background repair path.
+
+The safety rule is:
 
 - **Skip decisions** (runner alive, recent activity, startup grace) → no process
   signals of any kind.
 - **Finalize-as-failed decisions** → row is written terminal AND runtime children
   are terminated as a cleanup safety net.
 
-The finalize-as-failed path calls `terminate_managed_primary_processes()` with
-`include_launcher=False, include_runtime_children=True` to clean up tracked
-backend and TUI processes (using PID-reuse guards). This safety net prevents
-orphaned backend/TUI processes from accumulating after a launcher crash.
+The finalize-as-failed path first cleans recorded `process_scopes.json` scopes, then
+uses `terminate_managed_primary_processes()` when readable `primary_meta.json`
+identifies launcher/backend/TUI PIDs. This safety net prevents orphaned backend/TUI
+processes from accumulating after a launcher crash while keeping pure read surfaces
+non-destructive.
 
-**Passive reconciliation may:**
+Managed-primary PID cleanup uses exact per-PID birth epochs persisted in
+`primary_meta.json` (`launcher_birth_epoch`, `backend_birth_epoch`,
+`tui_birth_epoch`). Before any signal, Meridian compares the live process birth time
+against the recorded value with a one-second tolerance. Confirmed PID reuse or
+unverifiable birth fails closed; recorded scope cleanup or a later repair pass can
+try again without risking an unrelated process.
+
+**Mutating reconciliation may:**
 
 - Observe `primary_meta.json` and process liveness.
 - Mark the spawn row terminal when the launcher is dead and no recent activity
@@ -90,9 +107,16 @@ orphaned backend/TUI processes from accumulating after a launcher crash.
 - Write `status: failed`, `error: orphan_primary`, `origin: reconciler` for a
   managed primary whose launcher died outside finalization.
 - Log diagnostics including launcher/backend/TUI PIDs and liveness.
-- Terminate runtime children when it finalizes a spawn as failed (safety net).
+- Terminate recorded scopes and metadata-identified runtime children when it
+  finalizes a spawn as failed (safety net).
 
-**Passive reconciliation must not:**
+**Read-time projection must not:**
+
+- Send `SIGTERM` to `backend_pid` or `tui_pid`.
+- Mark `process_scopes.json` entries released.
+- Write the terminal row.
+
+**Mutating reconciliation must not:**
 
 - Send `SIGTERM` to `backend_pid` or `tui_pid` when it would Skip the spawn.
 - Treat missing/corrupt `primary_meta.json` as permission to fall back to
@@ -105,8 +129,8 @@ This boundary applies even when `primary_meta.json` is missing or corrupt. A
 `kind == "primary"` spawn with harness `codex` or `opencode` is a conservative
 managed-primary candidate. If generic reconciliation would otherwise produce
 `missing_runner_pid` or `orphan_run`, Meridian records `orphan_primary` instead
-and skips worker termination (no metadata → cannot identify which PIDs to target
-safely).
+and skips metadata-derived PID targeting. Recorded scope cleanup may still run
+because those scopes carry their own PID-reuse guards.
 
 ---
 
@@ -118,32 +142,34 @@ side effect of reading state. `spawn cancel <id>` owns this cleanup path.
 When canceling an active managed primary, Meridian terminates tracked managed
 processes through `terminate_managed_primary_processes()` according to whether
 the launcher is still alive. When canceling a terminal spawn that was already
-passively reconciled to `failed/orphan_primary`, `SpawnApplicationService.cancel()`
+reconciled to `failed/orphan_primary`, `SpawnApplicationService.cancel()`
 still performs best-effort orphan cleanup before returning the already-terminal
 outcome.
 
 The terminal-orphan cleanup path:
 
 1. Reads recorded `process_scopes.json` and `primary_meta.json` when available and `managed_backend` is true.
-2. Applies PID-reuse guards using the spawn `started_at` timestamp.
-3. Sends `SIGTERM` to backend/TUI children, not as part of passive reaping but
+2. Applies PID-reuse guards using exact primary metadata birth epochs when available
+   and recorded scope birth epochs for process-scope cleanup.
+3. Sends `SIGTERM` to backend/TUI children, not as part of read-time projection but
    because the user explicitly asked to cancel/clean up the spawn.
 4. Falls back to the recorded worker PID only for conservative managed-primary
    candidates when metadata is missing; this fallback is in the explicit cancel
-   path, not passive reconciliation.
+   path, not read-time projection.
 
 ---
 
 ## Finalization Cases
 
-| Condition | Passive reaper decision | Signal behavior |
+| Condition | Mutating reconciliation decision | Signal behavior |
 |---|---|---|
 | Launcher alive | `Skip(reason="primary_launcher_alive")` | None |
 | Launcher dead, metadata activity `finalizing`, recent activity | `Skip(reason="recent_activity")` | None |
 | Launcher dead, metadata activity `finalizing`, durable report completion | `succeeded` from report | None |
-| Launcher dead, metadata activity `finalizing`, no report/activity | `failed/orphan_finalization` | `terminate_managed_primary_processes()` safety net (runtime children only) |
-| Launcher dead before finalizing | `failed/orphan_primary` | `terminate_managed_primary_processes()` safety net (runtime children only) |
-| Missing/corrupt metadata for Codex/OpenCode primary candidate | `failed/orphan_primary` instead of generic orphan worker cleanup | None (cannot identify PIDs without metadata) |
+| Launcher dead, cancel intent present and no durable completion | `cancelled` using the shared cancel precedence rule | None from reconciliation; the cancel pipeline owns cleanup |
+| Launcher dead, metadata activity `finalizing`, no report/activity | `failed/orphan_finalization` | Recorded scope cleanup plus `terminate_managed_primary_processes()` safety net |
+| Launcher dead before finalizing | `failed/orphan_primary` | Recorded scope cleanup plus `terminate_managed_primary_processes()` safety net |
+| Missing/corrupt metadata for Codex/OpenCode primary candidate | `failed/orphan_primary` instead of generic orphan worker cleanup | Recorded scope cleanup only; no metadata-derived PID targeting |
 | User runs `spawn cancel` on active or terminal `orphan_primary` | terminal/cancel outcome after best-effort cleanup | Explicit managed-process termination |
 
 ---
@@ -153,7 +179,7 @@ The terminal-orphan cleanup path:
 | File | Role |
 |---|---|
 | `src/meridian/lib/state/managed_primary.py` | Managed-primary snapshot, reconciliation strategy, process termination helper |
-| `src/meridian/lib/state/reaper.py` | Passive reconciliation dispatcher, conservative candidate handling, orphan diagnostics |
+| `src/meridian/lib/state/reaper.py` | Reconciliation dispatcher, conservative candidate handling, orphan diagnostics |
 | `src/meridian/lib/core/spawn_service.py` | `cancel()` explicit cleanup path, including terminal `orphan_primary` cleanup |
 | `src/meridian/lib/state/primary_meta.py` | `primary_meta.json` persistence and parsing |
 | `src/meridian/lib/harness/connections/managed_backend.py` | Shared managed-backend launch helper that records backend `ProcessScopeSnapshot` |
@@ -163,23 +189,22 @@ The terminal-orphan cleanup path:
 
 ## Design Rationale
 
-Managed primaries violate the generic reaper assumption that a dead runner PID
+Managed primaries violate the generic reconciliation assumption that a dead runner PID
 means the harness process is gone. In Codex/OpenCode managed-primary mode, the
-launcher is a wrapper around separately tracked backend and TUI processes. The
-reaper distinguishes between *observing that a spawn is dead* and *killing processes
-the user may still be using*.
+launcher is a wrapper around separately tracked backend and TUI processes.
+Reconciliation distinguishes between *observing that a spawn is dead* and *killing
+processes the user may still be using*.
 
 The skip/finalize distinction is load-bearing:
-- **Skip** decisions mean the reaper cannot prove the spawn is dead — recent
+- **Skip** decisions mean reconciliation cannot prove the spawn is dead — recent
   activity or a live runner PID means the session may still be active. No signals.
-- **Finalize-as-failed** decisions mean the reaper has determined the spawn is
+- **Finalize-as-failed** decisions mean reconciliation has determined the spawn is
   orphaned. At that point, leaving backend/TUI processes running is actively
-  harmful — they accumulate and consume resources. The PR #184 refinement added
-  `terminate_managed_primary_processes()` as a safety net here: once we've
-  decided to write `failed/orphan_primary`, we also clean up the tracked runtime
-  children.
+  harmful — they accumulate and consume resources. Recorded process scopes are
+  cleaned first; metadata-based PID cleanup is the safety net when `primary_meta.json`
+  is readable.
 
-The explicit `spawn cancel` path remains for cases where passive reconciliation
+The explicit `spawn cancel` path remains for cases where mutating reconciliation
 cannot safely identify PIDs (missing metadata) or where the user wants explicit
 control over the cleanup sequence. `--kill-orphans` on `meridian doctor` triggers
 the same managed-process cleanup for any spawns the reconciler marks orphaned

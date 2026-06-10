@@ -5,5 +5,5 @@ Open-question pages track unresolved gaps, deferred work, and known future clean
 ## Pages
 
 - [future-work.md](future-work.md) — Deferred items organized by domain: chat backend, state/spawn, routing, telemetry, app server, codebase, and ecosystem.
-- [process-scope.md](process-scope.md) — Process-scope cleanup follow-ups: dead-wrapper/live-child escapes and metadata-only lifecycle scope projection.
+- [process-scope.md](process-scope.md) — Process-scope cleanup follow-ups: dead-wrapper/live-child escapes, metadata-only lifecycle scope projection, and Windows Job handle threading.
 - [mars-feature-gaps.md](mars-feature-gaps.md) — Known Mars package-manager gaps around permissions, tools, MCP integration, and hooks.

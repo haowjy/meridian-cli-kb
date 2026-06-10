@@ -131,6 +131,38 @@ Two managed extensions ship as package data:
 
 ---
 
+## Resident Completion Needs a Harness Control Seam
+
+**The bug:** Codex/OpenCode spawns could finish a turn while Meridian-tracked
+`--bg` child work was still active. Treating the successful turn frame as finalization
+closed the parent early; if a child was still launching or retrying a managed backend,
+the backend could survive as an orphan.
+
+**The tempting fix:** Teach the generic drain loop to keep every successful terminal
+frame open until descendants drain. That would have mixed child-tree policy into the
+plain streaming path and made harness terminal frames ambiguous everywhere.
+
+**The solution:** Keep the generic path plain and add a narrow resident seam.
+Connections that can keep a backend alive expose `resident_backend`; `SpawnManager`
+selects `ResidentDrainCoordinator` only for those connections. A successful turn becomes
+a turn boundary while descendants are active. The coordinator consumes file signals
+(`meridian spawn done` / `rearm`), starts follow-up turns through
+`ResidentBackendControl.begin_followup_turn()`, and uses a deadline backstop that
+finalizes the parent `timed_out` while cancelling active descendants through the normal
+cancel pipeline.
+
+**The lesson:** Completion authority is not always the same thing as "the harness
+emitted a terminal-looking frame." When a harness can stay resident, model the extra
+control as a capability seam and keep absence of that seam as the ordinary path.
+Do not create a no-op coordinator just to make the generic loop look uniform.
+
+**Where this lives:** `src/meridian/lib/streaming/drain_coordinator.py`,
+`src/meridian/lib/streaming/resident_drain.py`,
+`src/meridian/lib/streaming/spawn_manager.py`,
+`src/meridian/lib/harness/connections/resident_backend.py`
+
+---
+
 
 ## Cursor: Stale Mars Binary Leaves harness_model Unresolved
 
