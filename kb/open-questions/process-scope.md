@@ -39,23 +39,24 @@ and [architecture/process-scope.md](../architecture/process-scope.md)
 
 ---
 
-### PROC-007: Metadata-Only Lifecycle Spawns Not Covered by Scope Projection
+### PROC-007: Audit Remaining Metadata-Only Lifecycle Edges
 
 **Where:** `src/meridian/lib/state/process_scope_projection.py`, background worker launch paths
 
-**The issue:** Background-worker spawns that use only lifecycle events (no spawn-state
-`process_scopes` field) are not covered by the scope projection. The reaper still uses
-`worker_pid` single-PID termination for these spawns. They do not benefit from group
-kill or Job Object cleanup.
+**The issue:** Current managed backend and primary-attach paths record
+`ProcessScopeSnapshot` entries in `process_scopes.json`, and `backend_lifecycle.json`
+was removed. The remaining uncertainty is narrower: whether any background-worker or
+metadata-only lifecycle path can still launch a long-lived process without recording a
+scope sidecar. If such a path exists, cleanup falls back to recorded PIDs rather than
+containment.
 
-**What's needed:** Teach the worker launch path (the path that emits only lifecycle
-events, not a full `state.json`) to emit scope events before starting the subprocess.
-This requires threading a scope snapshot into the lifecycle event emitter and persisting
-it before the subprocess starts.
+**What's needed:** Audit launch paths that do not go through `launch_managed_backend()`
+or `PrimaryAttachLauncher` scope recording. Any path that can own a process tree should
+record a `ProcessScopeSnapshot` before exposing the process.
 
-**Why deferred:** These spawns are typically short-lived background workers whose cleanup
-is less critical. The risk is lower than for harness-launched subtrees with tool children.
-Deferred until the worker launch path is refactored for other reasons.
+**Why deferred:** The known managed-backend leak was fixed by centralizing launch and
+recording scope snapshots. This item is now a coverage audit, not the primary cleanup
+mechanism gap.
 
 **Decision context:** [architecture/process-scope.md](../architecture/process-scope.md)
 

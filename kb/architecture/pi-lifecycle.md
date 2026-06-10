@@ -200,6 +200,18 @@ Wave batching is internal to `meridian-spawn-watch` extension. The extension deb
 
 ---
 
+## Idle Done Nudge
+
+Pi spawned sessions use the same narrowed drain seam as other streaming paths, but
+`PiDrainCoordinator` owns Pi-specific completion policy. When the parent Pi session
+is idle while disk-backed child/background work remains, the coordinator may send an
+advisory done nudge through `SendPiDoneNudge`. The nudge differentiates between
+spawn children and Pi-managed background processes so it can ask Pi to resume only
+when the idle parent needs to observe completed work.
+
+The nudge is a progress aid, not the authority. Disk state (`state.json`,
+`bash-records.json`, notification markers) remains the completion authority.
+
 ## Pi-Specific Spawn Phases
 
 Visible in `meridian spawn show`:

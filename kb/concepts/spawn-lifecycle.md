@@ -44,19 +44,23 @@ stateDiagram-v2
     queued --> cancelled : cancelled before start
     queued --> succeeded : fast-path completion
     queued --> failed : launch failure
+    queued --> timed_out : timeout before start
 
     running --> finalizing : harness exits, runner begins post-exit work
     running --> succeeded : direct terminal (rare)
     running --> failed : error or crash
     running --> cancelled : user cancels
+    running --> timed_out : runtime deadline exceeded
 
     finalizing --> succeeded : report extracted, finalized cleanly
     finalizing --> failed : crash during drain (orphan_finalization)
     finalizing --> cancelled : cancelled during drain
+    finalizing --> timed_out : deadline resolved during finalization
 
     succeeded --> [*]
     failed --> [*]
     cancelled --> [*]
+    timed_out --> [*]
 ```
 
 ### Active Statuses
@@ -78,9 +82,9 @@ stateDiagram-v2
 - **`failed`** — Work failed. Check `error` field and `stderr.log` for details.
   See [failure error codes](#failure-error-codes) below.
 - **`cancelled`** — Spawn was cancelled before or during execution.
-
-There is **no `timeout` status**. Timeouts produce `failed` with a
-timeout-related error message.
+- **`timed_out`** — Spawn exceeded its runtime deadline. It is terminal and counts
+  as a failure class, but it is not folded into generic `failed`; list/status/stats
+  surfaces can distinguish timeouts from other failures.
 
 ### Allowed Transitions
 
@@ -112,7 +116,7 @@ sequenceDiagram
     Runner->>SpawnStore: exited event (informational only)
     Runner->>SpawnStore: mark_finalizing() CAS (running→finalizing)
     Runner->>Runner: extract report, usage, session ID
-    Runner->>SpawnStore: finalize event (status=succeeded/failed)
+    Runner->>SpawnStore: finalize event (status=succeeded/failed/cancelled/timed_out)
 ```
 
 The `exited` event is **informational only** — it records the raw process exit
@@ -158,9 +162,11 @@ that sees an active spawn checks whether it looks alive:
 4. Recent activity (any artifact touched in last 120s) → skip (still running)
 
 **For `finalizing` spawns:**
-1. Recent heartbeat activity (last 120s) → skip (still draining)
-2. Stale heartbeat + durable report found → finalize as succeeded
-3. Stale heartbeat + no report → `orphan_finalization`
+1. Recent heartbeat/activity (last 120s) → skip (still draining)
+2. Durable report found → prefer completion evidence
+3. Recorded `runner_exit_status` present → use the runner's terminal tuple
+4. Cancel intent without completion → finalize as cancelled
+5. None of the above → `orphan_finalization`
 
 The reaper **never runs inside a spawn** (it checks `MERIDIAN_DEPTH`). A spawn
 calling `meridian spawn list` won't reap its own parent.

@@ -2,6 +2,22 @@
 
 `lib/harness/` is the mechanism side of the policy/mechanism split. Adapters translate a typed `SpawnParams` struct into a runnable subprocess and extract results back. Adding a harness touches only the adapter file and registry — no shared code.
 
+## Connection-Level Resident and Scope Facts
+
+Streaming adapters expose two optional facts on `HarnessConnection`:
+
+- `resident_backend`: the resident follow-up seam used by `ResidentDrainCoordinator`.
+  Codex/OpenCode return a `ResidentBackendControl`; Claude, Cursor, and Pi spawned
+  RPC return `None`.
+- `scope_snapshot`: process-scope facts for a managed backend subprocess. Primary
+  attach reads this snapshot instead of reconstructing containment from raw PID
+  fields.
+
+`BackendLivenessPolicy` is shared by managed Codex/OpenCode connections and owns the
+classification of quiet streams, active turns, in-flight requests, dead backend PIDs,
+and intentionally suppressed waits. Adapter code feeds it signals; callers consume
+its decisions.
+
 ## Capability Matrix
 
 | Capability | Claude | Codex | OpenCode | Pi | Direct |

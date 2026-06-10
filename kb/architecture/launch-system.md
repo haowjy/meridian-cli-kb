@@ -140,6 +140,20 @@ When `task_cwd` is outside `control_root`, it must be included in workspace proj
 See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for rationale on all design decisions.
 
 
+## Managed Backend Launch Helper
+
+Codex/OpenCode managed backends launch through one helper:
+`harness/connections/managed_backend.py:launch_managed_backend()`. The helper starts
+the backend subprocess, captures birth time for PID-reuse guards, determines
+containment (`posix_pgid`, `windows_job`, or fallback), links child lifetime to the
+parent when the platform supports it, builds a `ProcessScopeSnapshot`, records
+`process_scopes.json`, and returns a `ManagedBackendHandle`.
+
+Adapters no longer own per-harness backend launch blocks. They provide command/env/cwd
+inputs and then expose the helper's `scope_snapshot` through the connection. Managed
+primary attach upgrades that same concrete backend scope from provisional
+`spawn_owned` to `session_owned` once a harness session id is known.
+
 ## Four Driving Adapters
 
 ```mermaid

@@ -1,8 +1,55 @@
 # Architecture: Spawn Finalization Subsystem
 
-The spawn finalization subsystem owns the transition from an active spawn to a terminal state (`succeeded`, `failed`, or `cancelled`). Multiple concurrent writers can attempt finalization — the runner, the reaper, a cancel operation, a launch failure handler. The subsystem's job is to ensure exactly one terminal outcome wins while preserving diagnostic metadata from all writers.
+The spawn finalization subsystem owns the transition from an active spawn to a terminal state (`succeeded`, `failed`, `cancelled`, or `timed_out`). Multiple concurrent writers can attempt finalization — the runner, the reaper, a cancel operation, a launch failure handler. The subsystem's job is to ensure exactly one terminal outcome wins while preserving diagnostic metadata from all writers.
 
 This page covers the 2026-05 Phase 1 structural refactor of this subsystem. For background on the spawn lifecycle itself, see [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md). For the full status machine and projection authority model, see [architecture/state-system.md](state-system.md).
+
+---
+
+## DrainPlan and the Narrow Coordinator Seam
+
+PR #320 made drain-loop selection explicit. `SpawnManager._select_drain_plan()` now
+returns a `DrainPlan` that carries the whole drain-loop configuration for one active
+spawn:
+
+- `coordinator: DrainCoordinator | None` — optional harness-specific completion
+  policy object.
+- `policy: DrainPolicy | None` — terminal-event behavior (`SingleTurnDrainPolicy`
+  by default).
+- `raw_terminal_frames_authoritative` and `on_policy_selected` — constant loop
+  configuration.
+- `aux_wake` / `handle_aux_wake` — non-event wake sources such as Pi disk changes.
+- `finalizer` — post-finalization side effects.
+
+The plain streaming path is intentionally `DrainPlan(coordinator=None)`. There is no
+public no-op coordinator. Absence of a coordinator means the generic drain loop handles
+events with the selected `DrainPolicy` and finalizes from harness terminal frames or
+connection close.
+
+`DrainCoordinator` is narrow: start/stop, timeout selection, event observation,
+terminal-event handling, timeout handling, after-event checks, close classification,
+and stream-exit handling. Constant configuration moved out of coordinator methods
+into `DrainPlan`, so the loop owns wiring and the coordinator owns only live
+completion decisions.
+
+## Resident Done Model
+
+Codex and OpenCode managed backends can stay resident after a successful turn while
+descendant Meridian spawns are still running. `ResidentDrainCoordinator` owns that
+model:
+
+1. A successful terminal turn does not immediately finalize if descendant work exists
+   or the resident backend requested re-arming.
+2. The coordinator emits a turn boundary, marks the backend as `awaiting_done`, and
+   polls descendant state through read-only reconciliation (`peek_reconciled_active_spawn`).
+3. When descendants finish, a resident `done` signal arrives, or the deadline expires,
+   the coordinator records the pending terminal outcome or a timeout/failure.
+4. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
+   correctness does not depend on the nudge succeeding.
+
+Selection is capability-driven through `connection.resident_backend`, not harness-id
+branching. See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md)
+for the connection seam.
 
 ---
 
@@ -277,7 +324,7 @@ Renamed from `process_exit_code` / `exited_at`. Same write path (`record_exited`
 
 | Field | Type | Semantics |
 |-------|------|-----------|
-| `runner_exit_status` | `str \| None` | `"succeeded"` \| `"failed"` \| `"cancelled"` |
+| `runner_exit_status` | `str \| None` | `"succeeded"` \| `"failed"` \| `"cancelled"` \| `"timed_out"` |
 | `runner_exit_code` | `int \| None` | Resolved exit code from the runner |
 | `runner_exit_error` | `str \| None` | e.g. `"guardrail_failed"`, `"timeout"`, `"budget_exceeded"` |
 | `runner_exit_at` | `str \| None` | ISO timestamp when the runner resolved its outcome |

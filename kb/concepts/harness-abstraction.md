@@ -160,6 +160,26 @@ Adding a harness = one adapter file + one `register()` call. No other changes.
 
 ---
 
+## Resident Backend Control Seam
+
+`HarnessConnection.resident_backend -> ResidentBackendControl | None` is the public
+control seam for resident-until-done backends. Codex and OpenCode expose it; transports
+without resident follow-up semantics return `None`. The drain layer uses presence of
+this seam to select `ResidentDrainCoordinator`.
+
+`ResidentBackendControl` is intentionally smaller than the connection:
+
+- `health_status()` returns structured liveness (`continue`, `suppress`,
+  `backend_dead`, `stream_stalled`).
+- `set_awaiting_done(bool)` tells backend liveness that Meridian is intentionally
+  waiting for descendant work.
+- `begin_followup_turn(message)` starts an advisory idle turn on an already-resident
+  backend.
+
+Connection-level `inject_turn()`, `managed_backend`, and liveness shims are not part
+of the contract. Managed-backend alive decisions live in `BackendLivenessPolicy`;
+resident follow-up turns go through `ResidentBackendControl.begin_followup_turn()`.
+
 ## Connections: Bidirectional Mode
 
 Beyond one-shot CLI invocations, some harnesses support **bidirectional

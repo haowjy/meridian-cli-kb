@@ -116,13 +116,19 @@ This makes preservation an explicit durable policy, not an absence of cleanup ru
 
 ## Durable State Shape
 
-Process-scope ownership is projected into each spawn's `state.json` via the existing
-lifecycle event stream. No second authoritative sidecar (e.g. `process-scopes.json`) is
-introduced for ordinary child-spawn cleanup.
+Process-scope ownership is persisted as cleanup metadata in
+`spawns/<spawn-id>/process_scopes.json`. The sidecar is **not** spawn-state
+authority — `state.json` still owns lifecycle status, terminal origin, and user
+visible spawn facts. The sidecar exists so cleanup paths can recover containment
+facts after a crash without re-deriving them from PIDs.
+
+`backend_lifecycle.json` no longer exists. The parent-death and containment facts
+that used to need a separate backend lifecycle sidecar now live on
+`ProcessScopeSnapshot` and are serialized into `process_scopes.json`.
 
 ```json
 {
-  "process_scopes": [
+  "scopes": [
     {
       "scope_id": "backend",
       "owner_policy": "spawn_owned",
@@ -134,23 +140,29 @@ introduced for ordinary child-spawn cleanup.
       "pgid": 123,
       "job_name": null,
       "degraded_reason": null,
-      "released_at": null
+      "parent_death_linked": true,
+      "release_id": "backend:..."
     }
-  ]
+  ],
+  "released": ["backend:..."]
 }
 ```
 
 Key fields:
 
 - **`containment`** — `posix_pgid | windows_job | pid_tree_fallback`. Records which
-  mechanism was actually established (not which was attempted).
-- **`root_created_at_epoch`** — required for PID-reuse guarding. Before any signal,
-  the current process birth-time is compared against this value. If the PID was reused,
-  the kill is skipped.
-- **`degraded_reason`** — non-null when containment setup failed and the fallback was
-  used instead (e.g. Job Object assignment denied by parent job).
-- **`released_at`** — set when the scope is cleanly torn down during normal teardown,
-  so the reaper doesn't attempt a second kill.
+  mechanism was actually established.
+- **`root_created_at_epoch`** — PID-reuse guard. Before any signal, the current
+  process birth time is compared against this value. Confirmed reuse skips the kill.
+- **`parent_death_linked`** — true when platform support linked the scope root to the
+  launcher lifetime. It is a mechanism fact, not a cleanup decision.
+- **`release_id`** — stable identity for one concrete scope release. Re-recording the
+  same release upgrades ownership in place; distinct releases with the same label are
+  preserved.
+- **`released`** — sidecar list of release IDs already cleaned up. This replaces the
+  older inline `released_at` idea and prevents duplicate cleanup on later reaper runs.
+- **`degraded_reason`** — non-null when containment setup fell back from the preferred
+  mechanism.
 
 Managed-primary lease and session facts stay in `primary_meta.json` and session leases.
 The scope record carries mechanism facts only — no `chat_id`, no TUI semantics, no
@@ -256,10 +268,11 @@ Three sync cleanup paths exist. All route through `terminate_scope_sync()`.
 
 ### Reaper
 
-The reaper (`state/reaper.py`) runs on Meridian startup and periodically for stale
-spawns. Consults scope projections before falling back to legacy PID termination:
+The reaper (`state/reaper.py`) runs on read paths that reconcile stale active
+spawns. Cleanup policy consults `process_scopes.json` before falling back to legacy
+PID termination:
 
-1. Read the spawn's `state.json` scope projection.
+1. Read the spawn's `process_scopes.json` cleanup sidecar.
 2. For each `spawn_owned` scope whose owner is dead: call `terminate_scope_sync()`.
 3. For `session_owned` scopes: check the lease store. Terminate only if the lease
    is absent or stale, and the root process is dead.
@@ -271,7 +284,7 @@ cleanup path.
 
 ### Cancel path (`signal_canceller.py`)
 
-The cancel path manages scope cleanup inline — reads scope sidecars, calls
+The cancel path manages scope cleanup inline — reads `process_scopes.json`, calls
 `terminate_scope_sync()`, marks scopes released. It does not delegate to
 `core/process_cleanup.py`.
 
@@ -281,9 +294,9 @@ called from the reaper. Keeping cancel self-contained preserves the
 `signal_canceller → platform/ + state/` dependency direction without requiring an
 upward dep on `core/`.
 
-Legacy (pre-scope-metadata) spawns are handled by a fallback inside the cancel path:
-use `runner_pid` + `terminate_tree_sync()`. Both paths are live — the fallback handles
-the transition period and any corrupt/missing scope records.
+Spawns with corrupt/missing scope records are handled by a fallback inside the
+cancel path: use `runner_pid` + `terminate_tree_sync()`. Both paths are live — the
+fallback handles failed scope recording and older state left on disk.
 
 ### Session-exit reclamation
 
@@ -307,8 +320,9 @@ containment model.
 
 - **PROC-004:** dead wrapper / live reparented child can escape group kill when
   the child starts a new process group before scope snapshot.
-- **PROC-007:** metadata-only lifecycle spawns do not yet emit persistent scope
-  snapshots, so the reaper still uses degraded `worker_pid` cleanup.
+- **PROC-007:** fully closing the remaining metadata-only lifecycle edge now tracks
+  whether any path can still launch without `process_scopes.json`; if such a path
+  exists, cleanup falls back to `worker_pid`.
 
 ---
 
@@ -317,7 +331,7 @@ containment model.
 | Phase | Exit gate |
 |---|---|
 | Phase 1: shared mechanism, no policy expansion | Normal completion/cancel/timeouts stop Codex app-server and tool-child trees on POSIX and Windows |
-| Phase 2: durable scope store + reaper integration | Crash a runner; reaper converges to terminal state; no owned subtree survives |
+| Phase 2: durable scope sidecar + reaper integration | Crash a runner; reaper converges to terminal state; no owned subtree survives |
 | Phase 3: managed-primary ownership split | Launcher death with active lease preserves runtime; without lease reclaims runtime |
 | Phase 4: simplification pass | Remove duplicated tree-kill helpers; narrow log messages to policy outcomes |
 

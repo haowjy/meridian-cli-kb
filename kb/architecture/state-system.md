@@ -59,7 +59,7 @@ Since 2026-05 (spawn-state-v2 migration), spawn state lives in individual `state
 
 ### Spawn Status Machine
 
-Status progression is unchanged from v1:
+Status progression is v2 per-spawn state plus the current terminal set:
 
 ```mermaid
 stateDiagram-v2
@@ -68,11 +68,15 @@ stateDiagram-v2
     running --> finalizing: mark_finalizing() CAS
     finalizing --> succeeded: finalize_spawn(succeeded)
     finalizing --> failed: finalize_spawn(failed)
+    finalizing --> timed_out: finalize_spawn(timed_out)
     running --> failed: orphan reap
+    running --> timed_out: timeout
     running --> cancelled: cancel()
     finalizing --> cancelled: cancel() (rare)
     finalizing --> failed: orphan_finalization reap
 ```
+
+Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `timed_out` is a failure class distinct from generic `failed`, so user-facing filters and statistics can separate deadline failures from other errors.
 
 **Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. See [spawn-finalization.md](spawn-finalization.md) for the full authority lattice.
 
@@ -156,15 +160,19 @@ graph TD
     C -->|Yes| D{Heartbeat age less than 120s?}
     D -->|Yes — recently alive| DONE3[Skip — spawn is running]
     D -->|No — stale heartbeat| E{Status = finalizing?}
-    E -->|Yes| F{Durable report exists?}
-    F -->|Yes| G[Mark succeeded — report proves completion]
-    F -->|No| H[Mark failed — orphan_finalization]
+    E -->|Yes| F{Completion, cancel, or runner-exit tuple?}
+    F -->|Completion| G[Mark succeeded — report proves completion]
+    F -->|Runner tuple| G2[Use recorded terminal status]
+    F -->|Cancel intent| G3[Mark cancelled]
+    F -->|None| H[Mark failed — orphan_finalization]
     E -->|No running or queued| I{runner_pid alive?}
     I -->|Alive| DONE4[Skip — process still running]
-    I -->|Dead or not found| J[Mark failed — orphan_run]
+    I -->|Dead or not found| J{Completion/cancel/runner tuple?}
+    J -->|Yes| K[Use resolved terminal tuple]
+    J -->|No| L[Mark failed — orphan_run]
 ```
 
-PID reuse guard: the runner records `runner_pid` at spawn creation time. If `psutil` finds a process with that PID but a different start time than recorded, it's a different process — treat as dead.
+PID reuse guard: the runner records `runner_pid` and `runner_created_at_epoch`. If `psutil` finds a process with that PID but a different birth time, it is a different process — treat the original runner as dead.
 
 `has_durable_report_completion(report_text)` returns True for non-empty report that is not a terminal control frame (`cancelled`/`error` JSON). Used by both reaper and runner to determine if a report artifact proves success.
 

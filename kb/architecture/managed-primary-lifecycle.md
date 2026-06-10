@@ -34,7 +34,7 @@ flowchart TD
 | Role | Owner | Responsibility | Expected exit relationship |
 |---|---|---|---|
 | `launcher_pid` | Meridian wrapper process | Start backend, launch TUI, write `primary_meta.json`, persist events, stop backend during normal teardown | Should outlive the TUI and exit after normal teardown |
-| `backend_pid` | Meridian-managed app-server / connection runtime | Maintain the remote protocol connection and event stream | May be alive while TUI is alive; can outlive a crashed launcher |
+| `backend_pid` | Meridian-managed app-server / connection runtime launched by `launch_managed_backend()` | Maintain the remote protocol connection and event stream; expose `scope_snapshot` | May be alive while TUI is alive; can outlive a crashed launcher |
 | `tui_pid` | Harness TUI process | User-facing interactive session | User interacts here directly |
 
 Claude primaries are different: Claude is a single black-box harness process.
@@ -124,7 +124,7 @@ outcome.
 
 The terminal-orphan cleanup path:
 
-1. Reads `primary_meta.json` when available and `managed_backend` is true.
+1. Reads recorded `process_scopes.json` and `primary_meta.json` when available and `managed_backend` is true.
 2. Applies PID-reuse guards using the spawn `started_at` timestamp.
 3. Sends `SIGTERM` to backend/TUI children, not as part of passive reaping but
    because the user explicitly asked to cancel/clean up the spawn.
@@ -156,6 +156,8 @@ The terminal-orphan cleanup path:
 | `src/meridian/lib/state/reaper.py` | Passive reconciliation dispatcher, conservative candidate handling, orphan diagnostics |
 | `src/meridian/lib/core/spawn_service.py` | `cancel()` explicit cleanup path, including terminal `orphan_primary` cleanup |
 | `src/meridian/lib/state/primary_meta.py` | `primary_meta.json` persistence and parsing |
+| `src/meridian/lib/harness/connections/managed_backend.py` | Shared managed-backend launch helper that records backend `ProcessScopeSnapshot` |
+| `src/meridian/lib/launch/process/primary_attach.py` | Reads `connection.scope_snapshot`, upgrades backend ownership, and records TUI scope |
 
 ---
 
