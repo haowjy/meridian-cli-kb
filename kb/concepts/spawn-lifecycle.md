@@ -138,10 +138,11 @@ the projection authority rule handles the resulting race.
 
 ---
 
-## Crash Recovery: Heartbeat, Reaper, Reconciliation
+## Crash Recovery: Heartbeat, Projection, Repair
 
 Meridian uses a **crash-only design**: there is no graceful shutdown path. If a
-runner process dies mid-flight, recovery happens at the next read.
+runner process dies mid-flight, readers can recognize the stale state from disk and
+repair commands can converge it durably.
 
 ### The Heartbeat
 
@@ -149,11 +150,19 @@ The runner touches `spawns/<id>/heartbeat` every 30 seconds while a spawn is
 active (both `running` and `finalizing`). This file's modification timestamp is
 the reaper's primary liveness signal.
 
-### The Reaper
+### Read-Time Projection vs Explicit Repair
 
-The reaper runs on **every read path** — `spawn list`, `spawn show`, `spawn
-wait`, dashboard. It never runs as a background daemon. Instead, any reader
-that sees an active spawn checks whether it looks alive:
+Ordinary read surfaces — `spawn list`, `spawn show`, `spawn wait`, dashboard — call
+read-time reconciliation. They may show a stale active spawn as terminal in the
+returned view, but they do not write `state.json`, mark process scopes released, or
+send process signals.
+
+Durable orphan repair is explicit. `meridian doctor --kill-orphans` and the
+primary-launch background repair path call the mutating reconciliation entry point,
+which can finalize stale rows and clean recorded process scopes. Nested processes
+still fail closed: a spawn calling `meridian spawn list` cannot reap its own parent.
+
+Both paths use the same liveness decision rules:
 
 **For `running` spawns:**
 1. If `runner_pid` is absent and we're outside the 15-second startup grace → orphan
@@ -168,9 +177,6 @@ that sees an active spawn checks whether it looks alive:
 4. Cancel intent without completion → finalize as cancelled
 5. None of the above → `orphan_finalization`
 
-The reaper **never runs inside a spawn** (it checks `MERIDIAN_DEPTH`). A spawn
-calling `meridian spawn list` won't reap its own parent.
-
 ### Managed Primary Reconciliation
 
 Codex and OpenCode managed primaries have a different process topology from
@@ -178,7 +184,7 @@ normal child spawns. The launcher wrapper, backend, and TUI have separate PIDs.
 For those spawns, a dead launcher means the Meridian wrapper is unhealthy, but
 it does not prove the backend or TUI are dead.
 
-The passive reaper may finalize such a spawn as `failed` with
+The mutating repair path may finalize such a spawn as `failed` with
 `error="orphan_primary"`. The safety boundary is the **skip/finalize**
 decision:
 
@@ -187,10 +193,10 @@ decision:
 - **Finalize-as-failed** decisions may terminate tracked backend/TUI runtime
   children as a cleanup safety net, using metadata and PID-reuse guards.
 
-If metadata is missing or corrupt, the reaper records `orphan_primary` but does
-not terminate runtime children because it cannot identify safe PIDs. Explicit
-commands such as `spawn cancel <id>` and `meridian doctor --kill-orphans` remain
-the cleanup path when passive reconciliation cannot safely target processes.
+If metadata is missing or corrupt, repair records `orphan_primary` but does not
+terminate runtime children beyond any recorded process scopes it can safely clean.
+Explicit commands such as `spawn cancel <id>` remain the cleanup path when repair
+cannot safely identify runtime-child PIDs.
 See [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md).
 
 ### Failure Error Codes
@@ -200,7 +206,7 @@ See [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-
 | `orphan_run` | Runner PID dead, no recent activity, no durable report. Hard kill or OOM. |
 | `orphan_finalization` | Spawn was finalizing; heartbeat went stale, no durable report. Crash during post-exit work. |
 | `missing_runner_pid` | No `runner_pid` recorded, outside startup grace. PID never committed. |
-| `orphan_primary` | Managed Codex/OpenCode primary launcher died or metadata was missing/corrupt for a managed-primary candidate. Passive reaper records failure; if metadata safely identifies runtime children, finalize-as-failed cleanup may terminate them. |
+| `orphan_primary` | Managed Codex/OpenCode primary launcher died or metadata was missing/corrupt for a managed-primary candidate. Explicit repair records failure; if metadata or recorded scopes safely identify runtime children, finalize-as-failed cleanup may terminate them. |
 
 `orphan_finalization` is more likely to have useful work product than
 `orphan_run` — the agent may have produced output even if the runner crashed
@@ -256,11 +262,11 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 1. A spawn state record exists before the harness process launches.
 2. The `exited` event is informational — status transitions require `finalize`.
 3. `queued → finalizing` is not a valid transition.
-4. The reaper only runs at root depth (`MERIDIAN_DEPTH` absent, empty, or `0`).
+4. Mutating orphan repair only runs at root depth (`MERIDIAN_DEPTH` absent, empty, or `0`); read-time projection has no process side effects.
 5. Recent artifact activity (120s window) always suppresses reaping, regardless
    of PID status.
 6. Runner-origin finalization supersedes reconciler-origin finalization.
-7. Passive reconciliation only signals managed-primary backend/TUI/runtime children after a finalize-as-failed decision and only when metadata safely identifies them.
+7. Reconciliation only signals managed-primary backend/TUI/runtime children from explicit repair/control paths, after a finalize-as-failed decision, and only when metadata or recorded scopes safely identify them.
 
 ---
 

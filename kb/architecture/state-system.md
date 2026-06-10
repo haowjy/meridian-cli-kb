@@ -1,6 +1,6 @@
 # Architecture: State System
 
-Meridian state is files. No database, no service, no hidden in-memory state. The state system enforces this by making writes atomic, reads crash-tolerant, and recovery automatic on every read path.
+Meridian state is files. No database, no service, no hidden in-memory state. The state system enforces this by making writes atomic, reads crash-tolerant, and keeping recovery derivable from disk. Read paths can project a reconciled view without side effects; repair paths make the durable changes.
 
 See [concepts/state-model.md](../concepts/state-model.md) for the mental model. This page explains the mechanics.
 
@@ -102,7 +102,7 @@ The distinction matters: `update_spawn(claude_config_dir=...)` is always a tier-
 2. If no legacy `spawns.jsonl` exists → write marker and return (fresh install, nothing to migrate).
 3. Under `spawns/migration.lock`: replay legacy `spawns.jsonl`, write `state.json` + `starting-prompt.md` for every spawn, write marker, rename legacy files to `spawns.legacy-v1.jsonl`.
 
-**No quiescence gate.** The migration does not wait for active spawns to finish before migrating. Stragglers are handled by the reconciler (reaper), which reads v2 state and finalizes any spawn whose runner died mid-migration. The decision to drop the quiescence gate was deliberate: users always have running spawns, so a gate that requires a quiet runtime would never trigger in practice.
+**No quiescence gate.** The migration does not wait for active spawns to finish before migrating. Stragglers are handled by reconciliation: read surfaces can project a stale runner as terminal, and explicit repair paths can finalize it durably. The decision to drop the quiescence gate was deliberate: users always have running spawns, so a gate that requires a quiet runtime would never trigger in practice.
 
 **Migration lock for process safety.** Multiple processes starting simultaneously converge: second process reads the marker after first writes it and skips migration. The `migration.lock` file prevents double-migration, not quiescence.
 
@@ -143,11 +143,25 @@ Thread-local reentrancy: a thread that already holds the lock can re-enter on th
 
 See `lib/platform/locking.py` for implementation details.
 
-## The Reaper
+## Read-Time Projection and Explicit Reconciliation
 
-The reaper auto-finalizes abandoned spawns on every read path (list, show, wait, dashboard). It runs only at clear root depth — `MERIDIAN_DEPTH` absent, empty, or `"0"`. Nested processes and malformed depth values fail closed (no reap side effects).
+Meridian no longer lets ordinary read surfaces terminate processes as a side effect.
+The state layer has two reconciliation shapes:
 
-**Decision/IO split:** The reaper separates the decision step (pure, no I/O) from the action step (writes terminal event). This makes the decision logic testable without filesystem.
+- **Read-time projection** — `reconcile_spawns()` and
+  `peek_reconciled_active_spawn()` return an in-memory view of stale active spawns
+  for list/show/wait/dashboard and descendant-work checks. They do not write
+  `state.json`, mark scopes released, or send process signals.
+- **Explicit reconciliation repair** — `reconcile_active_spawn()` writes terminal
+  state and runs process-scope cleanup. It is called by `meridian doctor
+  --kill-orphans` and by the primary-launch background repair thread, both gated to
+  root side-effect processes.
+
+Both paths use the same liveness decision rules. Side effects run only from the
+explicit path and only at clear root depth — `MERIDIAN_DEPTH` absent, empty, or
+`"0"`. Nested processes and malformed depth values fail closed.
+
+**Decision/IO split:** Reconciliation separates the decision step (pure, no I/O) from the action step (writes terminal state and cleans scopes). This lets read-time projection reuse the same decision logic without filesystem mutation.
 
 ### Liveness Check Sequence
 
@@ -174,7 +188,7 @@ graph TD
 
 PID reuse guard: the runner records `runner_pid` and `runner_created_at_epoch`. If `psutil` finds a process with that PID but a different birth time, it is a different process — treat the original runner as dead.
 
-`has_durable_report_completion(report_text)` returns True for non-empty report that is not a terminal control frame (`cancelled`/`error` JSON). Used by both reaper and runner to determine if a report artifact proves success.
+`has_durable_report_completion(report_text)` returns True for non-empty report that is not a terminal control frame (`cancelled`/`error` JSON). Used by both reconciliation paths and runner-side terminal resolution to determine if a report artifact proves success.
 
 ## Work Item Store
 

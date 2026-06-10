@@ -88,7 +88,7 @@ flowchart TD
 |---|---|
 | `lib/platform/process_scope/` | **Mechanism only** — how to launch in a new scope and terminate the tree. Four sub-modules: `base.py` (shared types), `posix.py` (setsid/process-group), `windows_job.py` (Job Object), `fallback.py` (psutil tree kill) |
 | `lib/core/process_cleanup.py` | **Policy only** — whether to terminate a scope. Consults spawn record, session lease store, and managed-primary metadata. Never decides how. |
-| `lib/state/process_scope_projection.py` | **Persistence** — read/write scope ownership events through the existing spawn lifecycle state stream. Operations: `record_scope`, `mark_scope_released`, `read_scopes`, tolerant read for legacy spawns. |
+| `lib/state/process_scope_projection.py` | **Persistence** — read/write process-scope sidecars at `spawns/<spawn-id>/process_scopes.json`. Operations: `record_scope`, `mark_scope_released`, `read_scopes_from_disk`, tolerant read for legacy spawns. |
 
 The mechanism/policy split is load-bearing. Adding a new platform is one adapter file
 in `platform/process_scope/`. Changing cleanup rules is one edit to `core/process_cleanup.py`.
@@ -183,15 +183,19 @@ to PID 1 are still in the original group and receive the signal.
 
 ### Windows: Job Object
 
-Spawn-owned Windows scopes use a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`.
-This provides crash-only cleanup: if the owning Meridian process dies without explicitly
-terminating the job, the kernel closes the job handle and kills all assigned processes.
+Managed backend parent-death linkage on Windows uses a Job Object with
+`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. `launch_managed_backend()` keeps the returned
+handle alive with the connection, so a worker crash closes the handle and kills the
+detached backend.
 
 `CREATE_NEW_PROCESS_GROUP` is kept only where console signal semantics are needed. It
 is not treated as an ownership boundary.
 
-If Job Object assignment fails (e.g. the process is already in a non-nested job in an
-older Windows environment), `degraded_reason` is set and the fallback activates.
+Durable scope cleanup cannot persist an OS handle across processes. A recorded
+`ProcessScopeSnapshot` may say `containment="windows_job"` and carry the job name, but
+sync cleanup paths (`reconcile_active_spawn`, cancel, session exit) fall back to
+PID-tree termination unless they still hold a live handle. This is recorded as a
+degraded cleanup result, not as proof that the scope was uncontained during launch.
 
 ### Degraded fallback: psutil tree kill
 
@@ -264,13 +268,21 @@ without protecting anything — the root is already gone.
 
 ## Cleanup Triggers
 
-Three sync cleanup paths exist. All route through `terminate_scope_sync()`.
+Cleanup is side-effectful, so Meridian separates **read-time projection** from
+**explicit repair/control paths**. Status/list/wait/dashboard calls use
+`reconcile_spawns()` / `peek_reconciled_active_spawn()` to return a reconciled view
+without writing terminal state or terminating processes. Recorded scope cleanup runs
+only from paths that intentionally repair or control lifecycle.
 
-### Reaper
+Three sync cleanup paths exist. All route through `terminate_scope_sync()` when a
+`ProcessScopeSnapshot` is available.
 
-The reaper (`state/reaper.py`) runs on read paths that reconcile stale active
-spawns. Cleanup policy consults `process_scopes.json` before falling back to legacy
-PID termination:
+### Orphan reconciliation repair
+
+`state/reaper.py:reconcile_active_spawn()` is the mutating repair path. It is used by
+`meridian doctor --kill-orphans` and by the primary-launch background repair thread,
+not by ordinary read-only status surfaces. Cleanup policy consults
+`process_scopes.json` before falling back to legacy PID termination:
 
 1. Read the spawn's `process_scopes.json` cleanup sidecar.
 2. For each `spawn_owned` scope whose owner is dead: call `terminate_scope_sync()`.
@@ -280,7 +292,8 @@ PID termination:
    termination (degraded path, not primary).
 
 Raw `worker_pid` / `runner_pid` termination is a degraded fallback, not the primary
-cleanup path.
+cleanup path. The read-only projection path can still *show* a spawn as terminal for
+observation, but it does not mark scopes released or send signals.
 
 ### Cancel path (`signal_canceller.py`)
 
@@ -318,8 +331,10 @@ Detailed deferred-work notes live in [open-questions/process-scope.md](../open-q
 This page keeps only the architectural summary needed to understand the current
 containment model.
 
-- **PROC-004:** dead wrapper / live reparented child can escape group kill when
-  the child starts a new process group before scope snapshot.
+- **PROC-004:** POSIX cleanup now attempts a degraded full-process-table PGID sweep
+  when the recorded root is already dead and the original group appears dissolved.
+  The remaining gap is narrower: a child that starts a new process group before the
+  scope snapshot can still escape that PGID-based cleanup.
 - **PROC-007:** fully closing the remaining metadata-only lifecycle edge now tracks
   whether any path can still launch without `process_scopes.json`; if such a path
   exists, cleanup falls back to `worker_pid`.
