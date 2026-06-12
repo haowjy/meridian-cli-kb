@@ -2,6 +2,29 @@
 
 Session operations (`meridian session log`, `session search`, `session export`) read agent conversation transcripts and present them in human-readable form. They're the primary tool for understanding what a spawn or primary session did.
 
+## Transcript Source Resolution
+
+`session_target.py` resolves a user ref into an ordered `SessionLogTarget.sources` plan.
+`session_transcript.py` then parses sources in that order and uses the first one with
+usable user/assistant interaction content. Fallback is source-list iteration, not
+recursive target resolution.
+
+OpenCode completed-session precedence is:
+
+1. OpenCode SQLite (`opencode.db`) when a matching `session.id` exists;
+2. harness-native transcript file (legacy `storage/session_diff/...` JSON) when present;
+3. Meridian spawn `history.jsonl` as fallback/debug/live output.
+
+Non-file sources are modeled explicitly (`TranscriptSource(kind="opencode_db", path=None)`);
+Meridian does not fabricate a session file path just to satisfy file-oriented code.
+Spawn history remains a fallback, not the preferred transcript for completed OpenCode
+sessions.
+
+Test coverage is split along the same seams: target/source ordering and DB-backed
+rendering live in session-log integration/unit tests, resident drain scope behavior
+lives with streaming tests, and reusable OpenCode SQLite fixtures live in
+`tests/support/opencode_db.py`.
+
 ## Segment Model
 
 Claude compacts its conversation history when it grows beyond a threshold. Each compaction creates a new **segment**. The transcript is a sequence of segments, each being a self-contained window of conversation history:

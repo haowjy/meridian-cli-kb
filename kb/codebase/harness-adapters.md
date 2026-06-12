@@ -20,13 +20,18 @@ Streaming adapters expose three optional facts on `HarnessConnection`:
 Primary event scope is a classification boundary, not an event filter. Child Codex
 thread events and child OpenCode task-session events are still persisted to
 `history.jsonl` and visible through `meridian session log`; they just cannot complete,
-fail, or clear signals for the parent spawn. OpenCode report extraction uses the same
+fail, or clear signals for the parent spawn. `PrimaryEventScope` is the single drain
+contract for this behavior; semantic helpers and coordinators should not grow
+harness-specific compatibility parameters. OpenCode report extraction uses the same
 boundary so child assistant text cannot become the parent `report.md`.
 
 The unscoped fallback is harness-specific. Codex keeps the legacy conservative behavior:
 an unscoped `turn/completed` still counts when the main thread is known. OpenCode does
 not treat unscoped `session.idle` / `session.error` as parent events once the parent
 session is known, because OpenCode's global SSE stream can include child task sessions.
+OpenCode session-id and report artifact parsing is centralized in
+`harness/opencode_report.py`; the extractor delegates there rather than duplicating
+OpenCode event-shape logic in generic helpers.
 
 Managed Codex/OpenCode backends launch through `launch_managed_backend()`, which
 records the backend scope and links the detached backend to the worker lifetime where
