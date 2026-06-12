@@ -4,14 +4,29 @@
 
 ## Connection-Level Resident and Scope Facts
 
-Streaming adapters expose two optional facts on `HarnessConnection`:
+Streaming adapters expose three optional facts on `HarnessConnection`:
 
 - `resident_backend`: the resident follow-up seam used by `ResidentDrainCoordinator`.
   Codex/OpenCode return a `ResidentBackendControl`; Claude, Cursor, and Pi spawned
   RPC return `None`.
+- `primary_event_scope`: the parent-conversation identity used when one event stream
+  can include both parent and child work. Codex returns the main turn `threadId`;
+  OpenCode returns the launched parent `sessionID`. The drain loop passes this scope
+  to `terminal_outcome()`, `activity_transition()`, and `clears_signal()`.
 - `scope_snapshot`: process-scope facts for a managed backend subprocess. Primary
   attach reads this snapshot instead of reconstructing containment from raw PID
   fields.
+
+Primary event scope is a classification boundary, not an event filter. Child Codex
+thread events and child OpenCode task-session events are still persisted to
+`history.jsonl` and visible through `meridian session log`; they just cannot complete,
+fail, or clear signals for the parent spawn. OpenCode report extraction uses the same
+boundary so child assistant text cannot become the parent `report.md`.
+
+The unscoped fallback is harness-specific. Codex keeps the legacy conservative behavior:
+an unscoped `turn/completed` still counts when the main thread is known. OpenCode does
+not treat unscoped `session.idle` / `session.error` as parent events once the parent
+session is known, because OpenCode's global SSE stream can include child task sessions.
 
 Managed Codex/OpenCode backends launch through `launch_managed_backend()`, which
 records the backend scope and links the detached backend to the worker lifetime where
