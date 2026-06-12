@@ -5,7 +5,7 @@ Codebase pages orient contributors to where implementation concerns live and whi
 ## Pages
 
 - [guide.md](guide.md) — Where to start for common change types and subsystem ownership.
-- [harness-adapters.md](harness-adapters.md) — Harness capability matrix and cross-harness comparison.
+- [harness-adapters.md](harness-adapters.md) — Harness capability matrix, primary event scope, and cross-harness comparison.
 - [observability.md](observability.md) — Telemetry spine framing and relationship to durable state log.
 - [tools.md](tools.md) — KG analysis, Mermaid validation, and Markdown extraction.
 - [work-items.md](work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination.

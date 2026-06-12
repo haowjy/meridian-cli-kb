@@ -180,6 +180,29 @@ Connection-level `inject_turn()`, `managed_backend`, and liveness shims are not 
 of the contract. Managed-backend alive decisions live in `BackendLivenessPolicy`;
 resident follow-up turns go through `ResidentBackendControl.begin_followup_turn()`.
 
+## Primary Event Scope
+
+`HarnessConnection.primary_event_scope -> PrimaryEventScope | None` is the public
+classification seam for streams that multiplex parent and child activity. It identifies
+which harness-native scope belongs to the parent spawn:
+
+| Harness | Parent scope | Child activity that must not finish the parent |
+|---|---|---|
+| Codex | Main turn `threadId` | Subagent-thread `turn/completed` |
+| OpenCode | Launched parent `sessionID` | Child task `session.idle` / `session.error` |
+
+The scope is passed into `terminal_outcome()`, `activity_transition()`, and
+`clears_signal()`. It also guides OpenCode report extraction. This keeps the harness
+mechanism honest without hiding information: child events remain in the persisted
+history and session log, but parent lifecycle and report selection only use parent
+events.
+
+Codex and OpenCode intentionally differ on unscoped events. Codex treats unscoped
+`turn/completed` as parent completion for legacy safety. OpenCode does not treat
+unscoped `session.idle` / `session.error` as parent events after the parent session is
+known, because its SSE stream is global enough for child task sessions to look terminal
+if only the event name is considered.
+
 ## Connections: Bidirectional Mode
 
 Beyond one-shot CLI invocations, some harnesses support **bidirectional

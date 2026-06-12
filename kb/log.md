@@ -4,6 +4,36 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-06-12 — OpenCode parent-session scope capture
+
+### Trigger
+
+Commit `2621f68c` generalized Codex main-thread protection into a shared primary event
+scope and applied it to OpenCode's global event stream. Child OpenCode task sessions
+remain visible in session logs but no longer complete, fail, clear signals for, or
+supply reports for the parent spawn.
+
+### What changed
+
+- `concepts/harness-abstraction.md`: added the Primary Event Scope concept under the
+  connection model.
+- `codebase/vocabulary.md`: added the Primary event scope term.
+- `index.md`, `codebase/overview.md`: refreshed the harness-adapters summary.
+
+### Already-current items verified
+
+- `codebase/harness-adapters.md` already documents `HarnessConnection.primary_event_scope`,
+  Codex `threadId` vs OpenCode parent `sessionID`, the child-event persistence rule,
+  and the Codex/OpenCode unscoped fallback difference.
+
+### Related inline docs
+
+The meridian-cli worktree capture updated `src/meridian/lib/harness/`,
+`src/meridian/lib/streaming/`, and `docs/harness-integration.md` to replace the old
+Codex-only wording with the shared parent-scope contract.
+
+---
+
 ## 2026-06-06 — Post-#314/#317/#318 knowledge currency refresh
 
 ### Trigger

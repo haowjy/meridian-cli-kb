@@ -144,7 +144,7 @@ High-level orientation for making changes — where to start, what owns what, ho
 
 - [codebase/overview.md](codebase/overview.md) — Codebase domain overview and ownership map
 - [codebase/guide.md](codebase/guide.md) — How to navigate the codebase, where to start reading, how to add new subsystems
-- [codebase/harness-adapters.md](codebase/harness-adapters.md) — `lib/harness/`: capability matrix and cross-harness comparison
+- [codebase/harness-adapters.md](codebase/harness-adapters.md) — `lib/harness/`: capability matrix, primary event scope, and cross-harness comparison
 - [codebase/observability.md](codebase/observability.md) — Telemetry spine framing and relationship to durable state log
 - [codebase/tools.md](codebase/tools.md) — `lib/kg/`, `lib/mermaid/`, `lib/markdown/`: KG analysis, Mermaid validation, Markdown extraction exposed via `meridian kg` / `meridian mermaid`
 - [codebase/work-items.md](codebase/work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination
