@@ -51,6 +51,20 @@ This principle drives the classification:
 - `meridian doctor` without flags must stay cheap and per-project
 - Cross-project cleanup is valid, but only when the user asks explicitly with `--global`
 
+## Context-Root Existence Filtering
+
+Meridian projects context roots (work, work_archive, kb, and extra context dirs) into the harness sandbox as environment variables (`MERIDIAN_CONTEXT_WORK_DIR`, etc.) and as sandbox-visible filesystem paths. Before projection, `_collect_context_projection_roots()` filters out roots that don't exist on disk.
+
+**Why this is load-bearing:** Codex (bubblewrap) bind-mounts every projected root at exec time. If a source path is missing, `bwrap` aborts the **entire exec namespace** — every command in the worker fails, not just operations targeting the missing path. A not-yet-created context dir (commonly `work_archive` before the first archive) would silently break all command execution while the spawn still reported `succeeded` (see [terminal status semantics](../concepts/harness-abstraction.md#terminal-status-semantics)).
+
+Critically, a sandbox-broken worker cannot run **any** Meridian command either — including `meridian spawn done` — so it cannot self-report the failure. Only the harness-written report survives (Codex `-o` flag), with the blocker described in prose.
+
+**Implementation:** Missing context roots are skipped at debug log level, not warning. A missing context dir is the normal pre-archive state — it must not pollute stderr on every launch.
+
+**Git clone roots are unaffected:** `_collect_git_context_clone_roots` returns configured clone roots for git-backed context entries. These are intentionally still projected even when the clone hasn't happened yet — they exist on disk by launch time after `mars sync`.
+
+**Other harnesses:** opencode uses `external_directory` allow-lists (missing entry is harmless — just not in the allow-list). Claude `--add-dir` to a missing path is non-fatal (Claude warns but continues). Codex is the only hard-affected harness.
+
 ## Gap-by-Gap Behavior
 
 ### Gap 1: Doctor Cache (Deleted)

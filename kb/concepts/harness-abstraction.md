@@ -105,6 +105,43 @@ content via the system prompt channel instead.
 
 ---
 
+---
+
+## Terminal Status Semantics
+
+`harness/semantics.py::terminal_outcome()` classifies harness events to determine spawn terminal status. The classification is **harness-specific** — `event_type` is not globally unique. `turn/completed` is Codex; OpenCode uses `session.idle` for the same semantic.
+
+### What `succeeded` means — per harness
+
+| Harness | Terminal event | `succeeded` means | Failure paths |
+|---------|---------------|-------------------|---------------|
+| **Codex** | `turn/completed` | The agent finished its turn and terminated cleanly | `error/connectionClosed` (only failure path) |
+| **Claude** | `result` | `is_error=False`, subtype `"success"` or `""`, terminal_reason `"completed"` or `""` | `is_error=True`, or non-success subtype/terminal_reason |
+| **Cursor** | `result` | Same logic as Claude: `is_error=False`, subtype `"success"` or `""` | `is_error=True`, or non-success subtype |
+| **OpenCode** | `session.idle` | Session reached idle state cleanly | `session.error` |
+| **Pi** | `agent_end` | Last assistant message `stopReason != "error"` and not abort/cancel | `stopReason="error"`, or `response` with `success=False` |
+
+### Codex: `succeeded` = turn-completion, NOT work-correctness
+
+Codex has the leanest terminal-outcome signal of all harnesses: `turn/completed` → `succeeded`, `error/connectionClosed` → `failed`. There is no `result.is_error`, no subtype inspection, no `stopReason`. This means **Codex `succeeded` means the agent finished its turn and terminated cleanly** — it does NOT mean the work is correct.
+
+This is intentional, not a gap. Meridian is a coordination layer; judging work quality is the orchestrator's/reviewer's job (read the report + diff). Other harnesses have richer signals incidentally, not by design requirement — Claude's `is_error` and OpenCode's `session.error` reflect their own internal error taxonomy, not a cross-harness work-correctness standard.
+
+**Rejected: `meridian spawn done --error`** — would have required making the user's done signal an outcome override, replacing the harness-written status. "Succeeded = finished cleanly" is the right altitude for the status field; the report is where correctness lives.
+
+### Primary event scope
+
+When a harness event stream multiplexes parent and child activity (Codex subagent threads, OpenCode child task sessions), `primary_event_scope` identifies which harness-native scope belongs to the parent spawn. Child events stay in history and session logs but cannot complete/fail the parent or supply the parent's report.
+
+| Harness | Parent scope | Child activity that must not finish the parent |
+|---|---|---|
+| Codex | Main turn `threadId` | Subagent-thread `turn/completed` |
+| OpenCode | Launched parent `sessionID` | Child task `session.idle` / `session.error` |
+
+See [codebase/harness-adapters.md](../codebase/harness-adapters.md) for the per-harness connection-level scope and unscoped fallback differences.
+
+---
+
 ## Command Assembly: The Strategy Map
 
 Each adapter defines a `STRATEGIES` dict mapping every `SpawnParams` field

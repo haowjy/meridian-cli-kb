@@ -2,17 +2,19 @@
 
 **meridian-base** is the foundation package that turns a bare Meridian install into a functional multi-agent coordination system. It provides the orchestrator, subagent, KB agents, and the core skills that every other package builds on.
 
-**Package version:** 0.2.2  
+**Package version:** 0.2.2 (profiles removed in v0.7.20, may be re-added with proper subagent rosters)  
 **Source:** `../prompts/meridian-base/`  
 **Key dependency:** `meridian-prompter` (provides `prompt-principles`)
 
 ## Agents
 
+> **v0.7.20 (2026-06):** `meridian-default-orchestrator` and `meridian-subagent` were removed. The orchestrator was the one spawn-capable agent with an empty `subagents` roster — after spawn capability gating (see [launch decisions](../../decisions/launch.md#d-spawn-capability-gate)), it would have shipped a spawn contract with an empty inventory. The profiles may be re-added with proper subagent rosters.
+
 ### Coordination
 
-**`meridian-default-orchestrator`** — minimal orchestrator for planning, delegating, and evaluating subagent work. Uses `meridian spawn` for all delegation (never built-in Agent tools). Keeps output at coordination altitude — breaks work into focused subtasks, fans out reviewers for high-risk work, evaluates results before proceeding. Skills: `meridian-spawn`, `meridian-work-coordination`, `meridian-privilege-escalation`, `shared-workspace`.
+~~**`meridian-default-orchestrator`**~~ *(removed in v0.7.20)* — was the minimal orchestrator for planning, delegating, and evaluating subagent work.
 
-**`meridian-subagent`** — default execution agent for scoped repo-local tasks. Model: `gpt-5.3-codex`. Executes the described task directly, verifies its own work, avoids touching files outside scope. Skills: `shared-workspace`.
+~~**`meridian-subagent`**~~ *(removed in v0.7.20)* — was the default execution agent for scoped repo-local tasks.
 
 ### Knowledge Base
 

@@ -4,6 +4,40 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-06-13 — Spawn lifecycle / reliability KB capture (PR #328)
+
+### Trigger
+
+PR #328 (`feature/spawn-capability-injection`) shipped six concurrent spawn-lifecycle
+improvements: capability-gated spawn injection, reserve-before-prep crash recovery,
+codex terminal semantics clarification, resident-done contract, sandbox bind-mount
+context-root fix, and meridian-base v0.7.20 profile removal.
+
+### What changed
+
+- `decisions/launch.md`: added D-spawn-capability-gate and D-reserve-before-prep decisions.
+- `concepts/spawn-lifecycle.md`: added Spawn Capability Gating section, Reserve-Before-Prep
+  Crash Window section, clarified Resident Turn Boundaries (done = residency control, not
+  status source), updated invariants.
+- `concepts/harness-abstraction.md`: added Terminal Status Semantics section — per-harness
+  terminal_outcome table, Codex `succeeded` = turn-completion doctrine.
+- `architecture/sandbox-projection.md`: added Context-Root Existence Filtering section —
+  codex bwrap missing-path abort, debug-only logging, git clone root exemption.
+- `ecosystem/prompt-packages/meridian-base.md`: noted v0.7.20 removal of default
+  orchestrator and subagent profiles.
+- `decisions.md`, `index.md`: updated cross-references.
+
+### Related inline docs
+
+- `src/meridian/lib/launch/spawn_guidance.py` — capability gate + harness-templated contracts
+- `src/meridian/lib/launch/context.py` — `_collect_context_projection_roots` existence filter
+- `src/meridian/lib/harness/semantics.py` — `terminal_outcome()` per-harness classification
+- `src/meridian/lib/streaming/resident_drain.py` — ResidentDrainCoordinator
+- `src/meridian/lib/streaming/completion_nudge.py` — 270s completion nudge
+- `src/meridian/lib/state/spawn_signals.py` — crash-only done/rearm signal files
+
+---
+
 ## 2026-06-12 — OpenCode parent-session scope capture
 
 ### Trigger

@@ -94,6 +94,25 @@ allowed. A queued spawn cancelled before the process starts goes directly to
 
 ---
 
+## Spawn Capability Gating
+
+Not every agent receives spawn instructions in its system prompt. Meridian gates spawn knowledge injection on whether the agent profile has a non-empty `subagents` roster:
+
+- If `profile.subagents` is non-empty → the agent receives the agent inventory block **and** the harness-templated spawn usage contract. This is automatic — no profile field to enable it.
+- If `profile.subagents` is empty or the profile is absent → neither block is injected. The agent is a leaf worker; spawn instructions would waste context.
+- Opt-out: `meridian-capabilities: {spawn: false}` suppresses injection even when `subagents` is non-empty.
+- There is intentionally **no positive `spawn: true` override** — having `subagents` IS the capability. Two sources of truth (`subagents` roster AND a boolean flag) would invite drift.
+
+The spawn contract is a first-class composition block (`spawn_contract_prompt` in `ComposedLaunchContent`), not appended to the inventory string. This ensures continue/fork re-applies it exactly once — snapshot→replay→recompose doesn't duplicate or drop it.
+
+The policy lives in `launch/spawn_guidance.py`. Contracts are harness-templated: Claude gets a contract naming Claude's `run_in_background`; all other harnesses get a generic contract referencing "your harness's background execution."
+
+**Why always-injected:** The safety-critical spawn contract was previously only in the opt-in `meridian-spawn` skill. Across three separate incidents the model never loaded it — models hit the double-backgrounding footgun, background-wrap timeout, and lost spawn tracking.
+
+See [decisions/launch.md](../decisions/launch.md#d-spawn-capability-gate-capability-gated-spawn-knowledge-injection-pr-328-2026-06).
+
+---
+
 ## From Request to Terminal State
 
 The journey of a typical foreground spawn:
@@ -136,6 +155,22 @@ If `mark_finalizing()` fails (the spawn was already cancelled or finalized by
 something else), the runner logs it and proceeds to `finalize_spawn()` anyway —
 the projection authority rule handles the resulting race.
 
+### Reserve-Before-Prep Crash Window
+
+Background spawns use a two-phase reserve/announce pattern to close a crash window:
+
+1. **Reserve** — `lifecycle.start(dispatch_events=False)` writes only the spawn row (status `queued`). No work item, no lifecycle/telemetry/subrun events.
+2. **Prepare** — model/harness resolution, prompt composition, workspace projection, permission pipeline. If preparation fails, the reserved row is cleaned up via `spawn_store.remove_spawn_events()` — graceful prep failures are side-effect-free.
+3. **Announce** — `lifecycle.announce_started()` + subrun event emit runs only after preparation succeeds. Creates the work item, emits lifecycle/telemetry/subrun events.
+
+The detached background worker uses `Popen` with `start_new_session=True` (POSIX) / `DETACHED_PROCESS` (Windows), so it survives the launcher being killed. The irreducible window (row written, Popen not yet called) is covered by the reserved `queued` row — the existing reaper reconciles it to `failed`/`missing_runner_pid`.
+
+**Rejected: detach-first reorder.** The original implementation moved Popen before row creation (~9ms gain). This was rejected because work-item creation and start events leaked on graceful preparation failure — the earlier setup steps had already run. The two-phase split (reserve → announce) fixes both: reserve creates nothing but the row; announce emits everything only on confirmed prep success.
+
+No new states, no reaper changes, no schema changes. The existing `missing_runner_pid` path covers the reserved-but-unclaimed row.
+
+See [decisions/launch.md](../decisions/launch.md#d-reserve-before-prep-reserve-spawn-row-before-preparation-for-crash-recovery-c2076-pr-328-2026-06).
+
 ### Resident Turn Boundaries
 
 For Codex and OpenCode managed backends, a successful turn can be a **turn boundary**
@@ -151,6 +186,13 @@ descendants, `ResidentDrainCoordinator` keeps the backend alive, marks it
 `meridian spawn rearm` opts the resident backend into another wait window and enables
 periodic advisory poll messages. These signals are files under the spawn's state
 directory, so they do not require a live control-socket connection.
+
+**`meridian spawn done` is a residency control, NOT a status source.** For resident spawns,
+`resident_drain.py` consumes the `done` signal to decide terminate-now vs stay-resident.
+It does NOT set the spawn's terminal status — status stays the `turn/completed` outcome
+written by the harness event. The completion nudge ("ping" every 270s,
+`completion_nudge.py`) prompts the model to run `meridian spawn done` / `rearm`.
+A non-resident leaf spawn ends on `turn/completed` and never waits for `done`.
 
 ---
 
@@ -276,13 +318,15 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 ## Key Invariants
 
 1. A spawn state record exists before the harness process launches.
-2. The `exited` event is informational — status transitions require `finalize`.
-3. `queued → finalizing` is not a valid transition.
-4. Mutating orphan repair only runs at root depth (`MERIDIAN_DEPTH` absent, empty, or `0`); read-time projection has no process side effects.
-5. Recent artifact activity (120s window) always suppresses reaping, regardless
+2. For background spawns, the row is reserved (`queued`) before preparation; announcement (work item + events) only after prep succeeds. Graceful prep failures are side-effect-free.
+3. The `exited` event is informational — status transitions require `finalize`.
+4. `queued → finalizing` is not a valid transition.
+5. Mutating orphan repair only runs at root depth (`MERIDIAN_DEPTH` absent, empty, or `0`); read-time projection has no process side effects.
+6. Recent artifact activity (120s window) always suppresses reaping, regardless
    of PID status.
-6. Runner-origin finalization supersedes reconciler-origin finalization.
-7. Reconciliation only signals managed-primary backend/TUI/runtime children from explicit repair/control paths, after a finalize-as-failed decision, and only when metadata or recorded scopes safely identify them.
+7. Runner-origin finalization supersedes reconciler-origin finalization.
+8. Reconciliation only signals managed-primary backend/TUI/runtime children from explicit repair/control paths, after a finalize-as-failed decision, and only when metadata or recorded scopes safely identify them.
+9. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.
 
 ---
 
@@ -296,3 +340,4 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 - [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — finalization subsystem: policy function, store-level flock, arbitration, conclude accumulator
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary process roles and reaper/cancel boundary
 - [spawn-output-contract.md](spawn-output-contract.md) — what a caller sees after a spawn completes: report-first default, transcript pointer, progressive disclosure flags
+- [harness-abstraction.md](harness-abstraction.md) — terminal status semantics per harness (`succeeded` = turn-completion, not work-correctness)

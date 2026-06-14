@@ -657,6 +657,55 @@ See also [decisions/model-resolution.md](model-resolution.md) for the model rout
 
 ---
 
+### D-spawn-capability-gate: Capability-gated spawn knowledge injection (PR #328, 2026-06)
+
+**Decision:** Spawn knowledge (agent inventory + harness-templated spawn usage contract) is injected into the system prompt, gated on the agent profile's `subagents` field. Opt-out via `meridian-capabilities: {spawn: false}`. There is intentionally **no positive `spawn: true` override** — having `subagents` IS the capability.
+
+**Why:** The safety-critical spawn usage contract (`meridian spawn --bg` rules, double-backgrounding warning, `spawn wait` workflow) was previously only in the opt-in `meridian-spawn` skill. Across three separate incidents, the model never loaded that skill — it skipped skill discovery when the prompt surface was saturated or context prioritization buried obscure skills. The consequence was models hitting the double-backgrounding footgun, background-wrap timeout, and lost spawn tracking.
+
+Making the contract always-injected when the agent is spawn-capable eliminates the opt-in gap. The gate on `subagents` ensures leaf agents (which have no spawn delegation to do) don't waste context on spawn instructions they can't use.
+
+**Contract as first-class composition block:** The spawn contract is delivered as `spawn_contract_prompt` — a first-class block in `ComposedLaunchContent`, rendered separately from the inventory string. This ensures continue/fork re-applies it exactly once. If it were appended to the inventory string, snapshot→replay→recompose could duplicate or drop it.
+
+**Harness-templated contracts:** Claude gets a harness-specific contract referencing Claude's `run_in_background`; all other harnesses get a generic contract referencing "your harness's background execution." Policy lives in `launch/spawn_guidance.py`.
+
+**meridian-base v0.7.20:** Removed the default orchestrator and subagent profiles. The orchestrator was the one spawn-capable agent with an empty `subagents` roster, so post-gating it would have shipped a spawn contract with an empty inventory — confusing and wasteful. The profiles may be re-added with proper subagent rosters later.
+
+**Alternatives rejected:**
+- Keep spawn contract in the skill only — three real incidents proved the model won't load it reliably.
+- Add a positive `spawn: true` override in `meridian-capabilities` — rejected because it creates two sources of truth (`subagents` roster AND a boolean flag). `subagents` already captures the intent: if you list subagents, you can spawn.
+- Append contract to inventory string — rejected because snapshot round-trip would duplicate/drop it.
+
+See [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md#spawn-capability-gating).
+
+---
+
+### D-reserve-before-prep: Reserve spawn row before preparation for crash recovery (c2076, PR #328, 2026-06)
+
+**Decision:** Background spawns write a durable `queued` row **before** preparation (model/harness resolution, prompt composition, workspace projection). Preparation succeeds → announce the row (create work item, emit lifecycle/telemetry/subrun events). Preparation fails gracefully → nothing to clean up (no work item, no events).
+
+**The crash window being closed:** A launcher SIGKILLed during preparation — after work-item creation but before the spawn row was written — left a forever-invisible spawn. The work item existed but `spawn list` showed nothing; the agent never knew it launched. By reserving the row first, even a mid-prep kill leaves a reconcilable `queued` row that the existing reaper handles via `missing_runner_pid`.
+
+**Two-phase reserve/announce:**
+1. **Reserve** — `lifecycle.start(dispatch_events=False)` writes only the spawn row (status `queued`). No work item, no events, no telemetry.
+2. **Announce** — `lifecycle.announce_started()` + `_emit_spawn_start_subrun_event()` runs only after preparation succeeds. Creates the work item and emits lifecycle/telemetry/subrun events.
+
+If preparation fails anywhere, the reserved row is cleaned up via `spawn_store.remove_spawn_events()` (rmtree of the spawn directory) before returning the failure — graceful prep failures are side-effect-free: no leaked work items, no phantom start events.
+
+**The rejected "detach-first" reorder:** The original implementation reordered `Popen` before row creation (~9ms theoretical gain, as preparation typically completes before the detached worker process starts). This was rejected for two correctness regressions:
+1. Work-item creation and start events leaked on graceful preparation failure — the earlier setup steps had already run.
+2. The `announce=False` sentinel couldn't retroactively suppress already-emitted events.
+
+The two-phase split (reserve → announce) fixes both: reserve creates *nothing* but the row; announce emits everything only on confirmed prep success.
+
+**Detached worker survivability:** The background worker uses `Popen` with `start_new_session=True` (POSIX) / `DETACHED_PROCESS` (Windows), so it survives the launcher being killed. The only irreducible window is between row write and Popen — if killed exactly there, the row exists but no worker will claim it. The reaper resolves this via `missing_runner_pid`.
+
+**Reconciler behavior unchanged:** No new states, no reaper changes, no schema changes. The existing `missing_runner_pid` path covers the reserved-but-unclaimed row.
+
+See [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md#reserve-before-prep-crash-window).
+
+---
+
 ## Spawn Wait Barrier
 
 ### `spawn wait` no-arg discovers pending spawns by MERIDIAN_CHAT_ID lineage

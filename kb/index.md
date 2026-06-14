@@ -55,11 +55,11 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 Mental models for key abstractions. Read before diving into architecture or code.
 
 - [concepts/overview.md](concepts/overview.md) — Concepts domain overview and reading map
-- [concepts/spawn-lifecycle.md](concepts/spawn-lifecycle.md) — What a spawn is, the full status machine from `queued` to terminal, heartbeat and reaper mechanics, cancel-all subtree scoping
+- [concepts/spawn-lifecycle.md](concepts/spawn-lifecycle.md) — What a spawn is, the full status machine from `queued` to terminal, spawn capability gating, reserve-before-prep crash window, resident turn boundaries, heartbeat and reaper mechanics, cancel-all subtree scoping
 - [concepts/spawn-wait-barrier.md](concepts/spawn-wait-barrier.md) — `meridian spawn wait` semantics: chat lineage scoping, descendant-scoping for nested spawns, wait-set display, yield-checkpoint, harness-aware yield defaults
 - [concepts/spawn-output-contract.md](concepts/spawn-output-contract.md) — Report-first default output, transcript pointer as primary result, `--metadata` vs `--verbose` split, progressive disclosure hierarchy, agent-mode text default
 - [concepts/state-model.md](concepts/state-model.md) — Dual-root state split (repo + user), event sourcing via JSONL, crash-only as a state property, UUID keying
-- [concepts/harness-abstraction.md](concepts/harness-abstraction.md) — Policy/mechanism split, adapter contract, capability flags, why harness-agnostic is load-bearing
+- [concepts/harness-abstraction.md](concepts/harness-abstraction.md) — Policy/mechanism split, adapter contract, capability flags, terminal status semantics per harness, why harness-agnostic is load-bearing
 - [concepts/composition-pipeline.md](concepts/composition-pipeline.md) — Semantic IR → adapter projection: how `ComposedLaunchContent` becomes harness-specific argv and env
 - [concepts/hooks-and-plugins.md](concepts/hooks-and-plugins.md) — Lifecycle hook system, built-in hooks (git-autosync), shell hooks, plugin API boundary, `ignore_env` for CWD-relative root resolution in hooks
 - [concepts/extension-system.md](concepts/extension-system.md) — Unified command definition, extension registry, surface membership (CLI/MCP/HTTP), single dispatcher
@@ -100,7 +100,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/spawn-finalization.md](architecture/spawn-finalization.md) — terminal write policy (authority lattice), store-level finalization under flock, TerminalArbitrator, StreamingRunConclusion, PreparedExecutionHandoff, failure_policy consolidation
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode primary process roles, passive reconciliation safety, explicit cleanup boundary, and `orphan_primary` diagnosis
 - [architecture/process-scope.md](architecture/process-scope.md) — Process-scope ownership and cleanup: Option D design decision, spawn_owned vs session_owned, platform adapters (POSIX/Windows/psutil), module boundary map, reaper behavior, and known gaps (PROC-004, PROC-007)
-- [architecture/sandbox-projection.md](architecture/sandbox-projection.md) — Sandbox permission projection policy: fixed constraint (no global user home projection), path classification framework, gap-by-gap behavior
+- [architecture/sandbox-projection.md](architecture/sandbox-projection.md) — Sandbox permission projection policy: fixed constraint (no global user home projection), path classification framework, context-root existence filtering (codex bwrap safety), gap-by-gap behavior
 - [architecture/app-server.md](architecture/app-server.md) — FastAPI layer: REST endpoints, WebSocket/SSE streaming, MCP stdio server, connection management
 - [architecture/mars-compiler.md](architecture/mars-compiler.md) — Compiler internals: module map, config-entry pipeline, MCP/hook collision resolution, provenance and stale cleanup
 - [architecture/mars-targeting.md](architecture/mars-targeting.md) — Why `.agents/` was eliminated, `.mars/` as Meridian's compiled read surface, native harness dir emission per target
