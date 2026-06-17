@@ -6,13 +6,19 @@ How to navigate the Meridian codebase, where to start reading, and how to add ne
 
 ```
 src/meridian/
-  cli/            CLI entry point (cyclopts), command groups, ext_cmd.py, ext_registration.py
+  cli/            CLI entry point (cyclopts), command groups, agent_help.py, bootstrap.py
+                  command_groups.py — authoritative registry (CommandGroupSpec), single source
+                    for root help, curated agent help, app lookup, and command registration
+                  mode.py — RenderMode (agent|human) resolution, replaces scattered detection
+                  help_content.py — re-exports command_groups for import-cheap help access
+                  agent_help.py — mode-aware help rendering, tiered --advanced, leaf scope
   server/         MCP stdio server (FastMCP) — extension_list_commands + extension_invoke
   lib/
     extensions/   Unified command system: ExtensionCommandSpec, registry, dispatcher
     ops/          Operation handler implementations + commands.py
     harness/      Subprocess adapters: Claude, Codex, OpenCode, Direct + connections/
-    state/        JSONL event stores, work items, path resolution, reaper, atomic writes
+    state/        JSONL event stores, work items, WorkScope (named vs ambient), path
+                  resolution, reaper, atomic writes
     catalog/      Model resolution, agent/skill loading, default agent policy
     launch/       Spawn lifecycle: build_launch_context() + four driving adapters
     config/       Settings model, precedence chain, TOML read/write, workspace config loader
@@ -39,9 +45,11 @@ src/meridian/
 
 **Understanding command routing:** start with `ops/commands.py` (all operations declared), then `cli/ext_registration.py` (how CLI commands are generated), then `lib/extensions/registry.py` (the registry).
 
-**Understanding state:** start with `lib/state/paths.py` (path resolution), then `lib/state/spawn_store.py` (event store), then `lib/state/reaper.py` (reconciliation).
+**Understanding state:** start with `lib/state/paths.py` (path resolution), then `lib/state/spawn_store.py` (event store), then `lib/state/reaper.py` (reconciliation). For work scope: `lib/state/work_scope.py` — WorkScope model (named work_item vs ambient_spawn), `resolve_bound_work_scope()`, artifact counting.
 
-**Understanding harness integration:** start with `lib/harness/adapter.py` (protocols), then one adapter (e.g., `lib/harness/claude.py`), then `lib/harness/common.py` (shared command assembly). See [harness-adapters.md](harness-adapters.md) for the capability matrix.
+**Understanding harness integration:** start with `lib/harness/adapter.py` (protocols, `SpawnUsageContractVariants`), then one adapter (e.g., `lib/harness/claude.py`), then `lib/harness/common.py` (shared command assembly). See [harness-adapters.md](harness-adapters.md) for the capability matrix and adapter-owned spawn contract.
+
+**Understanding CLI help system:** start with `cli/command_groups.py` (`CommandGroupSpec` registry — single source for help/registration/lookup), then `cli/mode.py` (`RenderMode` resolution), then `cli/agent_help.py` (mode-aware rendering, tiered `--advanced`).
 
 **Understanding active spawn runtime:** start with `lib/streaming/spawn_manager.py` (connection registry, drain loop), then `lib/streaming/drain_policy.py` (when to stop), then `lib/streaming/control_socket.py` (inject endpoint).
 
@@ -51,7 +59,14 @@ src/meridian/
 
 ## How to Add Things
 
-### A new CLI command
+### A new CLI command group
+
+1. Add a `GroupHelp` entry in `cli/command_groups.py` under `_GROUP_HELP`
+2. Add a `CommandGroupSpec` entry in `COMMAND_GROUP_SPECS` with help, ordering, and registration bucket
+3. If it needs agent visibility: set `agent_root=True`, add `agent_root_description`, `agent_subcommands`
+4. Derived maps (`AGENT_ROOT_COMMANDS`, `HUMAN_ROOT_ORDER`, `COMMAND_REGISTRATION`, etc.) are auto-generated from `COMMAND_GROUP_SPECS`
+
+### A new CLI command (within an existing group)
 
 1. Define a handler function in the appropriate `ops/` module
 2. Add an `ExtensionCommandSpec` entry in `ops/commands.py` via `ExtensionCommandSpec.from_op()`

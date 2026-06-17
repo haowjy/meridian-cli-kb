@@ -45,6 +45,27 @@ classification of quiet streams, active turns, in-flight requests, dead backend 
 and intentionally suppressed waits. Adapter code feeds it signals; callers consume
 its decisions.
 
+## Adapter-Owned Spawn Contract
+
+Each harness adapter declares its spawn-usage-contract phrasing variants via
+`RunPromptPolicy.spawn_usage_contract_variants()` returning a `SpawnUsageContractVariants`.
+This is the adapter's *semantic interface* — it tells `build_guidance_blocks()` how
+to phrase harness-specific spawn instructions (e.g., Claude's `run_in_background` vs
+a generic "your harness's background execution").
+
+The contract variants carry:
+- `intro_line` — how the harness launches background work
+- `double_wrap_bullet` — warning about double-backgrounding (harness-specific)
+- `timeout_bullet` — timeout behavior phrasing
+
+`build_guidance_blocks()` composes the caller-supplied contract with no `HarnessId`
+conditional — it receives a pre-built contract string and places it as a first-class
+composition block (`spawn-contract`, `GuidancePhase.GUIDANCE`, ordinal 10). The policy
+(`has_spawn_capability()`) gates whether the contract is injected; the adapter owns
+the phrasing.
+
+See [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md#spawn-capability-gating).
+
 ## Capability Matrix
 
 | Capability | Claude | Codex | OpenCode | Pi | Direct |

@@ -2,6 +2,33 @@
 
 Work items are lightweight labels that group spawns and scratch directories. They're the mechanism behind `meridian work start/done/reopen` and the `MERIDIAN_CONTEXT_WORK_*_DIR` env vars surfaced to agents.
 
+## WorkScope: Named vs Ambient
+
+Work items have two scope kinds, modeled explicitly by the `WorkScope` dataclass (`lib/state/work_scope.py`):
+
+| Kind | `identifier` | `root` | Durability |
+|------|-------------|--------|------------|
+| `work_item` | work slug (e.g., `fix-auth`) | repo scratch dir | Durable — survives across sessions |
+| `ambient_spawn` | spawn ID (e.g., `p1234`) | child spawn ambient dir | Ephemeral — lives with the spawn |
+
+### Resolution at Bind Time
+
+`resolve_bound_work_scope()` — two paths:
+- **Named work item** (`requested_work_id` is set) → `resolve_work_scratch_dir_for_project()` → normal repo scratch path
+- **Ambient (no work ID)** → `resolve_ambient_work_dir()` → `spawns/p<child>/work/` under the child spawn directory
+
+### Resolution from Context Parts
+
+`resolve_work_scope_from_parts()` resolves after context parts are already derived. Used by dashboards, `work current`, and env-var-based resolution. Respects work_id provenance: a `work_id` from an in-session switch is trusted; a `bound_work_dir` from `MERIDIAN_ACTIVE_WORK_DIR` is treated skeptically when there's no matching `work_id` provenance.
+
+### Leave-Scope Warning
+
+When an agent `cd`s out of the work scope root, a warning is emitted. The warning wording is in the ops layer (not the state layer), keeping `WorkScope` a pure value object. The warning uses the scope kind to phrase appropriately: "left work item directory" vs "left spawn working directory."
+
+### Session Work-Switch Precedence
+
+A same-process `work start`/`switch` sets `RuntimeContext.work_id` — this takes precedence over the launch-bound `MERIDIAN_ACTIVE_WORK_DIR`. The work_id provenance gates which source is trusted: an in-session active work_id wins over a bound-dir that may be stale. Child-spawn binding (`MERIDIAN_ACTIVE_WORK_DIR` propagation to child processes) is preserved — this fix only affects the same-process case.
+
 ## Cross-Module Work Attachment
 
 The "current" work item for a session is tracked in two places:
