@@ -193,6 +193,24 @@ See [../concepts/state-model.md](../concepts/state-model.md#meridian_runtime_dir
 
 ---
 
+### D-WorkScope: Explicit WorkScope model over implicit path-or-None (PR #328, 2026-06)
+
+**Decision:** Work scope is modeled as an explicit `WorkScope` frozen dataclass with two kinds — `work_item` (named, durable, repo scratch dir) and `ambient_spawn` (ephemeral, child spawn dir). Resolution is explicit (`resolve_bound_work_scope()` at bind time, `resolve_work_scope_from_parts()` from already-derived context). The raw-`Path` overload (fake-scope fabrication from a bare directory) is removed.
+
+**Why:** Before this, work scope was implicit — a `Path | None` that could be a named work item directory, an ambient spawn directory, or a bare path with no semantic tag. Code that needed to know *what kind* of scope it was had to infer from directory structure or env vars. The explicit model makes:
+- Leave-scope warnings properly worded by kind ("left work item directory" vs "left spawn working directory")
+- Dashboard grouping by kind unambiguous
+- Artifact counting bounded (excluded top-level names per kind)
+- Bind-time scope resolution a single function call, not scattered path-construction
+
+**WorkScope is a pure value object:** Warning wording and display logic live in the ops layer, not in `WorkScope` itself. The state layer provides the canonical scope facts; the ops layer decides what to say.
+
+**Session work-switch precedence fix (same PR):** A same-process `work start`/`switch` sets `RuntimeContext.work_id` — this takes precedence over the launch-bound `MERIDIAN_ACTIVE_WORK_DIR`. The `work_id` provenance gates which source is trusted: an in-session active work_id wins over a bound-dir that may be stale. Child-spawn binding is preserved.
+
+See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-named-vs-ambient).
+
+---
+
 ## Related
 
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor

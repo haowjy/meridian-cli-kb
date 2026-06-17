@@ -371,6 +371,22 @@ return float(config.wait_yield_seconds_for_harness(parent_harness))
 See [../concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md) —
 Harness-Aware Yield Defaults for the full yield logic.
 
+## Context-Env Block: Typed Prepare→Bind Flow (PR #328)
+
+Bind refresh (re-projection after composition) uses a single prompt IR:
+`PreparedLaunchContent` carries the `ComposedLaunchContent` and bind reprojection
+is a single `dataclasses.replace`. The `ContextEnvRefreshPlan` mirror struct is
+deleted.
+
+`ChildEnvContext` is a projection of `ResolvedContext` — not a second
+scope-precedence engine. `ChildEnvContext.from_resolved_context()` derives the
+child env block from the parent's resolved context, applying spawn-local
+overrides (spawn ID, work scope) without re-deriving scope precedence.
+
+This eliminates the pre-PR #328 risk of two scope engines diverging —
+`ResolvedContext` is the single scope authority; `ChildEnvContext` is a
+read-only projection for child-process env construction.
+
 ## Module Map
 
 ```
