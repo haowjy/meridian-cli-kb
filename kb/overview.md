@@ -40,7 +40,6 @@ graph TD
 
     subgraph Web ["meridian-web (Frontend)"]
         SHELL[Shell + extension system]
-        CHAT[Chat extension]
         WS[WebSocket transport]
     end
 
@@ -93,9 +92,8 @@ Meridian invokes it via `meridian mars ...`. Source: `mars-agents/src/`
 
 ### meridian-web
 
-A React 19 + TypeScript frontend for live chat sessions. It:
+A React 19 + TypeScript frontend for agent interaction. It:
 - Connects to the meridian-cli REST/WebSocket backend
-- Renders a timeline of backend events as chat UI
 - Uses a shell + extension architecture where every UI surface is a manifest-driven extension
 - Reconstructs state by replaying the backend event log, not from ephemeral socket state
 

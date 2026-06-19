@@ -39,7 +39,6 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) — Why descriptor-driven startup, doctor tiering, and sandbox projection policy work the way they do
 - [decisions/state-and-launch.md](decisions/state-and-launch.md) — Compatibility map for the previous combined state/launch decision page
-- [decisions/chat-backend.md](decisions/chat-backend.md) — 29+ decisions on chat pipeline architecture: acquisition seams, event families, command dispatch, persistence order, recovery contract
 - [decisions/dev-frontend.md](decisions/dev-frontend.md) — Dev frontend decisions DF-D1 through DF-D7: portless default, explicit exposure, PORTLESS env scrub, allowed-hosts, launcher strategy
 - [decisions/model-resolution.md](decisions/model-resolution.md) — Why Mars owns alias authority, routing architecture, profile schema, policy matching, harness derivation from model, and candidate-chain semantics
 - [decisions/package-management.md](decisions/package-management.md) — Why `.mars/` replaced `.agents/`, targeting design, compiler pipeline choices, universal skill schema, bootstrap doc model, upgrades-available direct-deps fix
@@ -109,18 +108,6 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/mars-model-refresh.md](architecture/mars-model-refresh.md) — Models.dev catalog `ensure_fresh`, probe `ProbeRefreshMode`, `--refresh-models` / `--no-refresh-models` CLI surfaces
 - [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md) — Upstream Claude shared-config limitation, isolated overlay mechanism, transcript materialization lifecycle, primary vs child behavior, `--continue` flow
 - [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe: raw-slug prefix routing, build-time `harness_model` effort resolution, legacy Meridian projector path
-
-### Chat Pipeline
-
-- [architecture/chat/overview.md](architecture/chat/overview.md) — Five-layer chat pipeline model: wire events → normalized stream → persisted log → broadcast → client
-- [architecture/chat/runtime-and-sessions.md](architecture/chat/runtime-and-sessions.md) — `ChatRuntime` registry/lifecycle/close postwork; `ChatSessionService` per-chat state machine and turn serialization
-- [architecture/chat/backend-acquisition.md](architecture/chat/backend-acquisition.md) — `BackendAcquisition` protocol boundary, `ColdSpawnAcquisition` implementation, deferred acquisition pattern
-- [architecture/chat/event-pipeline.md](architecture/chat/event-pipeline.md) — Persistence-first event ordering, `ChatEventLog`, `ChatEventIndex`, observer registration, broadcast delivery
-- [architecture/chat/normalization.md](architecture/chat/normalization.md) — Per-harness normalizers in `chat/normalization/`, `HarnessEvent → list[ChatEvent]` contract, normalizer registry
-- [architecture/chat/command-system.md](architecture/chat/command-system.md) — Single dispatch via `ChatCommandHandler`, `ChatCommand` type, bidirectional WebSocket framing
-- [architecture/chat/recovery.md](architecture/chat/recovery.md) — Crash recovery on startup (scan all event logs) and runtime recovery (serve disk state for off-memory chats)
-- [architecture/chat/dev-frontend.md](architecture/chat/dev-frontend.md) — `meridian chat --dev`: portless vs raw-Vite strategy pattern, `FrontendLauncher`, PORTLESS env scrub, stale route handling
-- [architecture/chat/extensibility.md](architecture/chat/extensibility.md) — Nine extension points (new harness, acquisition strategy, event type/family, command, consumer, observer, HITL policy) with zero-touch guarantees
 
 ### Telemetry
 
@@ -223,7 +210,6 @@ The broader Meridian ecosystem: companion repos, their roles, and how they compo
 
 - [ecosystem/meridian-web/overview.md](ecosystem/meridian-web/overview.md) — Browser-based agent frontend: React 19 + Vite + TypeScript + shadcn/ui, shell architecture, extension model
 - [ecosystem/meridian-web/extension-system.md](ecosystem/meridian-web/extension-system.md) — Manifest-driven extension registry, `ExtensionManager`, contribution types (views, rail items, status bar), activation policies
-- [ecosystem/meridian-web/chat-extension.md](ecosystem/meridian-web/chat-extension.md) — First-party chat extension: timeline rendering, user input, backend event → UI item translation
 - [ecosystem/meridian-web/connection-protocol.md](ecosystem/meridian-web/connection-protocol.md) — WebSocket transport, `CommandQueue` reliability, `TokenBatcher` delta coalescing, reconnect behavior
 
 ### Prompt Packages
