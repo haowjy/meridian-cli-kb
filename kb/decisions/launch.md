@@ -1063,3 +1063,40 @@ See [../concepts/session-initiation.md](../concepts/session-initiation.md) — f
 - [../concepts/session-initiation.md](../concepts/session-initiation.md) — four-mode session initiation model
 - [../concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md) — wait mechanism
 - [state-and-launch.md](state-and-launch.md) — compatibility map for the previous combined decision page
+
+---
+
+## Claude TUI Trampoline Session-ID Reconciliation (2026-06)
+
+**Decision:** Repair Claude TUI trampoline session IDs at finalization time via
+file-based `history.jsonl` evidence rather than an interactive `claude
+--resume` probe.
+
+Claude's new TUI creates a transient trampoline session when entering `/tui
+fullscreen`, then writes the durable transcript under a different session ID.
+Meridian may record the trampoline ID during launch. The fix checks
+`~/.claude/history.jsonl` at finalization: find the `/tui fullscreen` marker,
+identify the successor same-project prompt, verify the successor transcript's
+first user message matches, and update records to the durable ID.
+
+**Why file-based over probe:** A `claude --resume <real-id> --print
+--output-format json 'Reply: RESUME_PROBE_OK'` was tested and rejected. It
+performs model work that hits the configured budget cap, making it
+non-deterministic and inappropriate for finalization-time reconciliation.
+
+**Why adapter override over generic finalization:** The trampoline pattern is
+specific to Claude's new TUI and depends on Claude's `history.jsonl` format and
+`projects/<slug>/` transcript layout. Embedding this in `ClaudeAdapter` keeps
+trampoline-specific helpers alongside the existing transcript-path utilities
+they depend on. Codex, OpenCode, and Pi do not have this pattern and need no
+changes.
+
+**Conservative fallback:** When evidence is insufficient (no trampoline marker,
+no unique successor, transcript mismatch), the recorded ID is preserved
+unchanged. This means existing behavior is preserved — the system fails or
+succeeds on the recorded ID rather than guessing.
+
+**Implementation:** `reconcile_tui_trampoline_session_id()` in
+`src/meridian/lib/harness/claude.py`, wired into
+`ClaudeAdapter.observe_session_id()`. Called by `runner.py` during primary
+finalization. See [../architecture/claude-session-isolation.md#tui-trampoline-session-id-reconciliation](../architecture/claude-session-isolation.md#tui-trampoline-session-id-reconciliation).

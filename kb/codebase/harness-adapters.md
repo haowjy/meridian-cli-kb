@@ -124,6 +124,23 @@ disk state (`spawns/<child>/state.json`, `pi-bash/<parent>/bash-records.json`,
 
 See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the quiescence model.
 
+## Claude TUI Trampoline Session Reconciliation
+
+Claude adapter overrides `observe_session_id()` with trampoline-aware
+reconciliation. Claude's new TUI creates a transient session when entering
+`/tui fullscreen`, then writes the durable transcript under a different session
+ID. The override checks `~/.claude/history.jsonl` for the `/tui fullscreen`
+marker, finds the successor same-project prompt, and verifies the successor
+transcript's first user message matches. If the recorded ID already has a
+transcript, it is preserved unchanged.
+
+The reconciliation is file-based only — no interactive `claude --resume` probe
+is used. The probe was tested and found to perform model work that hits budget
+limits, making it inappropriate for deterministic finalization.
+
+Codex, OpenCode, and Pi do not override `observe_session_id()` — they use the
+base implementation's priority chain without modification.
+
 ## Related Pages
 
 - [../architecture/launch-system.md](../architecture/launch-system.md) — how adapters plug into the launch factory

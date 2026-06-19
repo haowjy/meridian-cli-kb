@@ -271,3 +271,56 @@ in the canonical location must be cleaned up through Claude's own tooling.
 durable canonical/materialization root into spawn/session
 `source_claude_config_dir` metadata. Canonical fallback remains in place for
 pre-repair records and partial-failure paths where convergence did not happen.
+
+---
+
+## TUI Trampoline Session-ID Reconciliation
+
+When Claude is launched via its new TUI, entering `/tui fullscreen` creates a
+transient trampoline session with its own session ID. The actual conversation
+continues under a new, different session ID — the durable transcript.
+
+If Meridian records the trampoline session ID during launch (e.g., via PTY
+capture or `--session-id` in args), later operations (`meridian session log`,
+prior-run context injection) will fail: the trampoline ID has no transcript
+file under `~/.claude/projects/<slug>/`.
+
+**Reconciliation at finalization.** `ClaudeAdapter.observe_session_id()`
+overrides the base implementation to detect and repair this case:
+
+1. If the recorded session ID already has a transcript file → preserve it
+   (most launches are unaffected).
+2. If no transcript exists → scan `~/.claude/history.jsonl` for the recorded
+   ID with `display: "/tui fullscreen"`.
+3. Find the next same-project prompt entry with a different session ID.
+4. Verify the successor has a transcript whose first user message matches the
+   history display.
+5. If all checks pass → update session and spawn records to the real ID.
+6. If any check fails → fall back to the recorded ID (no guessing).
+
+This runs during primary finalization in `runner.py`, after the harness exits.
+It is Claude-specific — Codex, OpenCode, and Pi do not have a `/tui fullscreen`
+trampoline pattern.
+
+**Constraints that shaped the design:**
+
+- **File-based only.** A `claude --resume` probe was tested and rejected: it
+  performs model work that hits budget limits and is not deterministic.
+  Reconciliation stays entirely within file reads.
+- **Adapter override, not generic finalization.** The reconciliation is an
+  `observe_session_id()` override in `ClaudeAdapter`, not a shared finalization
+  step. This keeps trampoline-specific logic in the Claude module where
+  transcript-path and `history.jsonl` helpers already live.
+- **Conservative fallback.** When evidence is insufficient (no trampoline
+  marker in history, successor transcript doesn't match, multiple candidates),
+  the recorded ID is preserved. The system behaves exactly as before — fails or
+  succeeds based on the recorded ID — rather than guessing.
+
+**Related code:**
+- `src/meridian/lib/harness/claude.py` — `reconcile_tui_trampoline_session_id()`,
+  `_find_tui_trampoline_successor_session_id()`, `ClaudeAdapter.observe_session_id()`
+- `src/meridian/lib/launch/process/runner.py` — calls `observe_session_id()` during
+  primary finalization
+- `tests/integration/harness/test_adapter_ownership.py` — reconciliation unit tests
+- `tests/integration/launch/test_launch_process_claude_session.py` — end-to-end
+  trampoline reconciliation test
