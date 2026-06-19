@@ -203,14 +203,8 @@ Tracked uncertainties, deferred work, and known future cleanup.
 
 The broader Meridian ecosystem: companion repos, their roles, and how they compose.
 
-- [ecosystem/overview.md](ecosystem/overview.md) — Ecosystem repo map: meridian-cli, mars-agents, meridian-web, prompt packages, domain packages, and their relationships
+- [ecosystem/overview.md](ecosystem/overview.md) — Ecosystem repo map: meridian-cli, mars-agents, prompt packages, domain packages, and their relationships
 - [ecosystem/domain-packages.md](ecosystem/domain-packages.md) — Domain-specific packages (creative-writing-skills, microct-analysis, mouse-ct): purpose, ownership, interface rules
-
-### meridian-web
-
-- [ecosystem/meridian-web/overview.md](ecosystem/meridian-web/overview.md) — Browser-based agent frontend: React 19 + Vite + TypeScript + shadcn/ui, shell architecture, extension model
-- [ecosystem/meridian-web/extension-system.md](ecosystem/meridian-web/extension-system.md) — Manifest-driven extension registry, `ExtensionManager`, contribution types (views, rail items, status bar), activation policies
-- [ecosystem/meridian-web/connection-protocol.md](ecosystem/meridian-web/connection-protocol.md) — WebSocket transport, `CommandQueue` reliability, `TokenBatcher` delta coalescing, reconnect behavior
 
 ### Prompt Packages
 

@@ -38,11 +38,6 @@ graph TD
         TARGETS[Native target dirs<br/>.claude/ .codex/ .opencode/]
     end
 
-    subgraph Web ["meridian-web (Frontend)"]
-        SHELL[Shell + extension system]
-        WS[WebSocket transport]
-    end
-
     subgraph Prompts ["Prompt packages"]
         BASE[meridian-base<br/>agents + skills]
         DEV[meridian-dev-workflow<br/>dev orchestration]
@@ -65,7 +60,6 @@ graph TD
     DEV --> Prompts
     PROMPTER --> Prompts
     Prompts --> TARGETS
-    WS --> CLI
 ```
 
 ### meridian-cli
@@ -89,15 +83,6 @@ A Rust package manager for agent prompt files. It:
 - Maintains `mars.lock` for reproducible resolution
 
 Meridian invokes it via `meridian mars ...`. Source: `mars-agents/src/`
-
-### meridian-web
-
-A React 19 + TypeScript frontend for agent interaction. It:
-- Connects to the meridian-cli REST/WebSocket backend
-- Uses a shell + extension architecture where every UI surface is a manifest-driven extension
-- Reconstructs state by replaying the backend event log, not from ephemeral socket state
-
-Source: `meridian-web/src/`
 
 ### Prompt packages
 
