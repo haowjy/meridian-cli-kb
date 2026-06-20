@@ -4,6 +4,30 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-06-20 — Knowledge-layers KB guidance refresh
+
+### Trigger
+
+meridian-base commit `6fa9cc6` updated the `knowledge-layers` skill with four corrected conventions:
+KB structure guidance now says read the local KB `AGENTS.md`; current-truth guidance
+now distinguishes concept/architecture/operations pages from decision records;
+vocabulary guidance no longer hardcodes a filename; ingest guidance now says update
+log only for structural/major changes when the KB guide asks for it.
+
+### What changed
+
+- `research/llm-wiki-pattern.md`: replaced stale `kb-writer` agent references with
+  `kb-lead`; reworked "When to Archive" → "When to Remove" section with the
+  current-truth/page-type distinction; updated "When to Revise" to explain the
+  decision-record exception; cross-referenced `AGENTS.md` for the full KB
+  maintenance guide.
+
+### Validation
+
+`meridian kg check .` → 0 errors. `meridian mermaid check research/llm-wiki-pattern.md` → 1 block valid.
+
+---
+
 ## 2026-06-20 — Mars `models prompting` canonical policy resolution (commit `1859a16`)
 
 ### Trigger

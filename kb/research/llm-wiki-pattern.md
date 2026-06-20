@@ -36,7 +36,7 @@ With the LLM wiki pattern applied:
 
 ```mermaid
 flowchart LR
-    WORK[Work session\nConversation transcript\nImplementation artifacts] --> INGEST[kb-writer agent\nExtracts durable knowledge]
+    WORK[Work session\nConversation transcript\nImplementation artifacts] --> INGEST[kb-lead agent\nExtracts durable knowledge]
     INGEST --> KB[KB pages\nDecisions, concepts,\narchitecture, lessons]
     KB --> ORIENT[Next session\nAgent reads index.md\norients from KB]
     ORIENT --> WORK
@@ -52,8 +52,8 @@ flowchart LR
 - `kb/decisions.md` — decision index with dates and links to rationale
 
 **Ingest workflow:**
-- `kb-writer` agent — specialized for extracting durable knowledge from session transcripts
-- `kb-maintainer` agent — structural health checks, reorganization, splitting oversized docs
+- `kb-lead` agent — the KB's writer: extracts durable knowledge, reconciles against canonical decisions, writes pages inline, then hands structure to kb-maintainer. See [AGENTS.md](../AGENTS.md) for the full KB maintenance guide.
+- `kb-maintainer` agent — structural health: splits/merges/renames pages, fixes cross-references, flags contradictions. Pass exactly one writable documentation tree per spawn.
 - Invoked at work-item boundaries, after research sessions, after significant decisions
 
 **Query workflow:**
@@ -78,13 +78,15 @@ flowchart LR
 ### When to Revise
 
 - When implementation diverges from the documented architecture (the doc is wrong, or the code is wrong — either way, update the doc to reflect truth)
-- When a decision is superseded (reference the old decision, don't delete it)
 - When vocabulary drifts — code starts using a term differently than the KB defines it
 
-### When to Archive
+**When content is superseded:** the treatment depends on the page type. Concept, architecture, and operations pages hold current truth — remove or rewrite the stale claim rather than layering corrections. Decision records are the exception: preserve superseded decisions when they explain why the system changed, mark them as superseded, and link to the replacement.
+
+### When to Remove
 
 - When a concept no longer applies (a subsystem was removed, a pattern abandoned)
-- Move to `archive/` rather than delete — historical context may be valuable
+- Remove the page and update all inbound links. For concept, architecture, and operations pages, the KB holds current truth — dead pages don't belong.
+- Decision records that are no longer the canonical choice are preserved (marked superseded, linked to replacement) rather than removed, because they explain the system's evolution.
 
 ### What Does NOT Go in the KB
 
