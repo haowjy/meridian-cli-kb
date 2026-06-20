@@ -330,7 +330,7 @@ transform fires) and also neutralizes the legacy `models:` compatibility overrid
 
 ---
 
-### D79: `mars models prompting` — canonical command name and agent-first resolution
+### D86: `mars models prompting` — canonical command name and agent-first resolution
 
 **Decision:** `mars models prompting <ref>` is the canonical command surface for
 retrieving model prompting guidance. The name `prompting` (not `prompt`) was chosen
