@@ -78,7 +78,7 @@ Defined in `mars.toml`, available to all agents in packages that depend on `meri
 
 > **`sonnet` alias removed (v0.7.26+).** The `sonnet` model alias was deleted — no agents still referenced it after migrating `session-explorer` → `session-miner` to `deepseekflash` and `kb-writer` → `kb-lead` to `deepseek`.
 
-> **`gpt55` prompting guidance (v0.7.26+).** `gpt55` is the only alias with a `prompting` field: "Very literal executor. Before handing off, step back and write the complete technical plan: goal, relevant files, constraints, acceptance criteria, desired style/shape, and verification. Specify the exact outcome; sparse context will be followed literally." See `mars models prompting gpt55`.
+> **`gpt55` prompting guidance (v0.7.26+).** `gpt55` is the only alias with a `prompting` field: "Outcome-first executor. Brief it with the north-star goal, success criteria, relevant high-level context, constraints, expected output shape, and concrete verification: how to prove the goal is met and what evidence to report. Avoid process-heavy step lists unless the path itself matters." See `mars models prompting gpt55`.
 
 ## Package Composition Patterns
 
