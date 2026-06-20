@@ -339,17 +339,30 @@ with a potential `mars models prompt` command (which could be read as
 generate-a-prompt, not lookup-prompting-guidance).
 
 **Resolution algorithm:** agent-first — interprets the ref as an agent name
-before falling back to a model alias.
+before falling back to a model alias. Agent matches use the canonical launch
+policy resolution path (`build::policy::resolve_policy` with `PolicyInput`),
+not a shallow duplicate of model-token precedence.
 
 1. Try the ref as an agent name (with or without `@` prefix — equivalent).
+   File-stem matches beat profile-name matches, consistent with launch-bundle
+   agent resolution semantics.
 2. If no agent matches, try the ref as a model alias in the merged alias table.
 3. If both an agent and model alias share the same name, the agent wins.
-4. For agent matches: resolve the agent's effective model (profile `model:` →
-   project-level agent overlay → config `default_model`), and return that model's
-   `prompting` text.
-5. Unknown refs exit non-zero with `found: false`.
-6. Known refs without `prompting` guidance exit zero with a hint showing how to
+4. For agent matches: resolve through the canonical launch policy pipeline.
+   This applies model-policies, agent overlays, config defaults, harness
+   routing, and alias resolution — the same path used for real agent execution.
+   The prompting guidance returned describes the final resolved runnable model
+   after all routing decisions have been applied.
+5. If launch resolution clears or omits a model (harness-only routing, model
+   clearing via probe, or no matching candidate), the command returns no
+   prompting guidance — it does not invent guidance from a pre-routing token.
+6. Unknown refs exit non-zero with `found: false`.
+7. Known refs without `prompting` guidance exit zero with a hint showing how to
    add a `prompting` field to the alias in `mars.toml`.
+
+**CLI flags:** `--refresh-models` / `--no-refresh-models` control catalog
+refresh during launch-policy resolution (for agent refs) and model name
+resolution (for direct model alias refs).
 
 JSON output identifies what was resolved: `ref`, `ref_kind` (`agent` or
 `model`), `agent_name`, `model_alias`, `model_name`, `found`, and `prompting`.
@@ -358,6 +371,15 @@ JSON output identifies what was resolved: `ref`, `ref_kind` (`agent` or
 explorer, what do I need to know about its model?" not "what's gpt55's
 prompting style?" Agent-first lets the caller use the same name they'd use with
 `meridian spawn -a explorer`.
+
+**Why canonical launch policy over a shallow resolver (2026-06-20 correction):**
+The initial agent resolution (commit `ab3fe73`) reimplemented overlay/profile/default
+precedence without model-policies, harness routing, model clearing/rerouting, or
+catalog-backed alias resolution. This produced prompting guidance for a model
+token that could differ from the actual runnable model — misleading callers when
+model-policy fallbacks, routing decisions, or model clearing changed which model
+would execute. The fix (commit `1859a16`) reuses `resolve_policy()` with
+`PolicyInput` so the prompting output matches the real launch outcome.
 
 **Alternatives rejected:**
 - `mars models prompt <ref>` — cleaner verb, but conflicts with the reading
@@ -368,8 +390,10 @@ prompting style?" Agent-first lets the caller use the same name they'd use with
 - Embedding prompting guidance in the spawn system prompt — adds token cost to
   every launch for guidance that's only useful when the caller is composing
   the prompt. Call-on-demand is lower token cost on average.
+- Keeping the shallow duplicate resolver — produces wrong answers when
+  model-policies, fallbacks, or routing change the runnable model.
 
-Source: `src/cli/models.rs:run_prompting()` in mars-agents.
+Source: `src/cli/models.rs:run_prompting()` and `src/build/policy/mod.rs:resolve_policy()` in mars-agents.
 
 ---
 

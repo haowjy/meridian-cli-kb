@@ -43,6 +43,7 @@ parser for `--refresh-models` / `--no-refresh-models` on all supported subcomman
 |---------|-------------------|----------------------|------------------------------------------|
 | `mars models list` | Yes | Yes | Catalog **Auto**, probes **Background** |
 | `mars models resolve` | Yes | Yes | Same |
+| `mars models prompting` | Yes | Yes | Same |
 | `mars sync` | Yes | Yes | Same |
 | `mars build launch-bundle` | Yes | Yes | Same |
 
@@ -122,8 +123,9 @@ Probe TTL: `MARS_PROBE_CACHE_TTL_SECS` (default 60s). Cache paths under
 The same **`ModelsRefreshControl`** flows into:
 
 1. **`mars models list|resolve`** — `cli/models.rs` + shared routing evidence assembly
-2. **`mars sync`** — alias refresh at end of sync (`sync/mod.rs`)
-3. **`mars build launch-bundle`** — `PolicyInput.models_refresh` before harness routing
+2. **`mars models prompting`** — `cli/models.rs` — agent resolution uses `PolicyInput.models_refresh` for launch-policy-backed model resolution; direct model alias resolution uses it for catalog-backed model name lookup
+3. **`mars sync`** — alias refresh at end of sync (`sync/mod.rs`)
+4. **`mars build launch-bundle`** — `PolicyInput.models_refresh` before harness routing
 
 Routing evidence (catalog slugs + probe results) is aligned across these entry points
 so `mars models resolve` and launch-bundle see the same native/prefix match behavior.

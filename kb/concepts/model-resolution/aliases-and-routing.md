@@ -200,15 +200,26 @@ it's purely a caller-facing reference field retrieved on demand.
 ### Retrieval: `mars models prompting <ref>`
 
 Prompting guidance is retrieved via the `mars models prompting` command, which
-exists in mars-agents (not Meridian itself). The command uses **agent-first
-resolution**:
+exists in mars-agents (not Meridian itself). The command accepts
+`--refresh-models` / `--no-refresh-models` to control catalog refresh during
+resolution.
+
+The command uses **agent-first resolution**:
 
 1. Try the ref as an agent name (with or without `@` prefix — equivalent).
-2. If no agent matches, treat the ref as a model alias.
+   File-stem agent matches beat profile-name matches — consistent with
+   launch-bundle agent resolution semantics.
+2. If no agent matches, treat the ref as a model alias (catalog-backed).
 3. If both an agent and model alias share the same name, the agent wins.
-4. If an agent matches, resolve its effective model (from profile `model:`,
-   project-level agent overlay, or config default), and return that model's
-   `prompting` text.
+4. For agent matches: resolve through the canonical launch policy pipeline
+   (`build::policy::resolve_policy` with `PolicyInput`). This applies
+   model-policies, agent overlays, config defaults, harness routing, and alias
+   resolution — the same path used for real agent execution. The returned
+   `model_alias`, `model_name`, and `prompting` describe the final resolved
+   runnable model after all routing decisions.
+5. If launch resolution clears or omits a model (harness-only routing, model
+   clearing via probe, or no matching candidate), the command returns no
+   prompting guidance from a pre-routing token.
 
 JSON output identifies the resolution path: `ref_kind` (`agent` or `model`),
 `agent_name`, `model_alias`, `model_name`, `found`, and `prompting`.
@@ -216,7 +227,8 @@ JSON output identifies the resolution path: `ref_kind` (`agent` or `model`),
 Known refs without `prompting` guidance exit 0 with a message showing how to
 add a `prompting` field. Unknown refs exit non-zero.
 
-Source: `src/cli/models.rs:run_prompting()` in mars-agents.
+Source: `src/cli/models.rs:run_prompting()` and `src/build/policy/mod.rs:resolve_policy()`
+in mars-agents.
 
 The spawn guidance block injected into agent system prompts points at this
 command: `meridian mars models prompting <agent-or-model>`.
