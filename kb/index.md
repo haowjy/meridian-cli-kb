@@ -76,6 +76,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/model-resolution/aliases-and-routing.md](concepts/model-resolution/aliases-and-routing.md) — Mars alias entries, pattern fallback, identity/routing split, harness selection priority cascade; `mars models prompting` agent-first lookup via canonical launch policy
 - [concepts/model-resolution/agent-profiles.md](concepts/model-resolution/agent-profiles.md) — Profile loading from `.mars/agents/`, frontmatter fields, skill attachment, runtime fallback chain
 - [concepts/model-resolution/model-policies.md](concepts/model-resolution/model-policies.md) — `model-policies` typed selector rules, visibility flags, superseded models, candidate-chain transform semantics
+- [concepts/model-resolution/vocabulary.md](concepts/model-resolution/vocabulary.md) — Model resolution glossary: aliases, policies, prompting guidance, agent-first resolution
 
 ### Package Management
 

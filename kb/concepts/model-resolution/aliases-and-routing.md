@@ -243,6 +243,11 @@ add a `prompting` field. Unknown refs exit non-zero.
 Source: `src/cli/models.rs:run_prompting()` and `src/build/policy/mod.rs:resolve_policy()`
 in mars-agents.
 
+See [decisions/model-resolution.md#d86-mars-models-prompting](../../decisions/model-resolution.md#d86-mars-models-prompting)
+for the decision record and
+[mars-model-refresh.md](../../architecture/mars-model-refresh.md) for catalog/probe
+refresh behavior.
+
 The spawn guidance block injected into agent system prompts points at this
 command: `meridian mars models prompting <agent-or-model>`.
 Source: `src/meridian/lib/launch/spawn_guidance.py:_SPAWN_PROMPTING`.
@@ -271,8 +276,13 @@ is tracked in [decisions/model-resolution.md](../../decisions/model-resolution.m
   harness per selected model and declare fallback candidates
 - [agent-profiles.md](agent-profiles.md) — how model-policies are declared in
   profile frontmatter
+- [vocabulary.md](vocabulary.md) — glossary for model-resolution terms
+- [../../decisions/model-resolution.md#d86-mars-models-prompting](../../decisions/model-resolution.md#d86-mars-models-prompting) —
+  decision record for `mars models prompting`
 - [architecture/launch-system.md](../../architecture/launch-system.md) — where
   these functions sit in the launch factory
 - [architecture/mars-launch-bundle.md](../../architecture/mars-launch-bundle.md) —
   Mars launch-bundle schema, bundle request fields, and response structure
 - [architecture/mars-routing.md](../../architecture/mars-routing.md) — mars-agents internal routing: slug primitive, SelectionKind/MatchEvidence split, acceptance layer, RouteDecisionReport DTO
+- [architecture/mars-model-refresh.md](../../architecture/mars-model-refresh.md) —
+  catalog and probe refresh control (`--refresh-models` / `--no-refresh-models`)
