@@ -330,6 +330,49 @@ transform fires) and also neutralizes the legacy `models:` compatibility overrid
 
 ---
 
+### D79: `mars models prompting` — canonical command name and agent-first resolution
+
+**Decision:** `mars models prompting <ref>` is the canonical command surface for
+retrieving model prompting guidance. The name `prompting` (not `prompt`) was chosen
+to align with the `prompting` field name on `ModelAlias` and to avoid ambiguity
+with a potential `mars models prompt` command (which could be read as
+generate-a-prompt, not lookup-prompting-guidance).
+
+**Resolution algorithm:** agent-first — interprets the ref as an agent name
+before falling back to a model alias.
+
+1. Try the ref as an agent name (with or without `@` prefix — equivalent).
+2. If no agent matches, try the ref as a model alias in the merged alias table.
+3. If both an agent and model alias share the same name, the agent wins.
+4. For agent matches: resolve the agent's effective model (profile `model:` →
+   project-level agent overlay → config `default_model`), and return that model's
+   `prompting` text.
+5. Unknown refs exit non-zero with `found: false`.
+6. Known refs without `prompting` guidance exit zero with a hint showing how to
+   add a `prompting` field to the alias in `mars.toml`.
+
+JSON output identifies what was resolved: `ref`, `ref_kind` (`agent` or
+`model`), `agent_name`, `model_alias`, `model_name`, `found`, and `prompting`.
+
+**Why agent-first:** callers typically think in terms of "I'm spawning
+explorer, what do I need to know about its model?" not "what's gpt55's
+prompting style?" Agent-first lets the caller use the same name they'd use with
+`meridian spawn -a explorer`.
+
+**Alternatives rejected:**
+- `mars models prompt <ref>` — cleaner verb, but conflicts with the reading
+  "generate a prompt for this model" vs the lookup semantics of "show me
+  prompting guidance for this model."
+- Model-alias-only lookup — forces callers to know the agent's effective model
+  before getting guidance, defeating the purpose of a convenience command.
+- Embedding prompting guidance in the spawn system prompt — adds token cost to
+  every launch for guidance that's only useful when the caller is composing
+  the prompt. Call-on-demand is lower token cost on average.
+
+Source: `src/cli/models.rs:run_prompting()` in mars-agents.
+
+---
+
 ## Related
 
 - [launch.md](launch.md) — harness identity env var decisions (D32, D33, D57, D63); background worker resolution refactor

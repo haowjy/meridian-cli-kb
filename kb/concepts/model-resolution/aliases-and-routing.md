@@ -178,6 +178,59 @@ The bundle response includes:
 
 Source: `src/meridian/lib/launch/bundle_adapter.py`, `src/meridian/lib/launch/policies.py:_resolve_policy_from_bundle()`
 
+## Model Prompting Guidance
+
+Each `[models.<alias>]` entry in `mars.toml` can carry an optional `prompting`
+field — a string of caller-facing advice for how to prompt the resolved model
+effectively. This is **not** a model description (what the model is, its
+price/capability tier) — it's operational prompting guidance (how to brief it,
+what style of instructions it responds to, what to emphasize or avoid).
+
+```toml
+[models.gpt55]
+harness = "codex"
+model = "gpt-5.5"
+prompting = "Very literal executor. Before handing off, step back and write the complete technical plan..."
+```
+
+The `prompting` field is stored on `ModelAlias.prompting` in mars-agents and
+serialized into the merged alias table. It is not used during spawn launch —
+it's purely a caller-facing reference field retrieved on demand.
+
+### Retrieval: `mars models prompting <ref>`
+
+Prompting guidance is retrieved via the `mars models prompting` command, which
+exists in mars-agents (not Meridian itself). The command uses **agent-first
+resolution**:
+
+1. Try the ref as an agent name (with or without `@` prefix — equivalent).
+2. If no agent matches, treat the ref as a model alias.
+3. If both an agent and model alias share the same name, the agent wins.
+4. If an agent matches, resolve its effective model (from profile `model:`,
+   project-level agent overlay, or config default), and return that model's
+   `prompting` text.
+
+JSON output identifies the resolution path: `ref_kind` (`agent` or `model`),
+`agent_name`, `model_alias`, `model_name`, `found`, and `prompting`.
+
+Known refs without `prompting` guidance exit 0 with a message showing how to
+add a `prompting` field. Unknown refs exit non-zero.
+
+Source: `src/cli/models.rs:run_prompting()` in mars-agents.
+
+The spawn guidance block injected into agent system prompts points at this
+command: `meridian mars models prompting <agent-or-model>`.
+Source: `src/meridian/lib/launch/spawn_guidance.py:_SPAWN_PROMPTING`.
+
+### Canonical command name
+
+The canonical command spelling is `models prompting` (not `models prompt`).
+The original design requirement called for `models prompt` because "the command
+name should match how humans ask for prompt help: `prompt`, not `prompting`",
+but the shipped version chose `prompting` to align with the field name and
+avoid ambiguity with the `mars models prompt` command surface that could be
+confused with a prompt-generation feature.
+
 ## Known Limitation
 
 `MERIDIAN_HARNESS` env var is **not** a `RuntimeOverrides.from_env()` policy

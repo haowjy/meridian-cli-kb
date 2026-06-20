@@ -85,7 +85,7 @@ for OpenCode) diverge here. See [aliases-and-routing.md](aliases-and-routing.md#
   they feed into the bundle request
 - [model-policies.md](model-policies.md) — typed selector rules, visibility
   filtering, and candidate-chain transform semantics
-- [vocabulary.md](vocabulary.md) — glossary for model-resolution terms
+- [vocabulary.md](vocabulary.md) — glossary for model-resolution terms including prompting guidance and agent-first resolution
 - [concepts/config-precedence.md](../config-precedence.md) — how execution
   policy layers (CLI → bundle → profile → config) interact
 - [decisions/model-resolution.md](../../decisions/model-resolution.md) — why

@@ -2,13 +2,11 @@
 
 **meridian-base** is the foundation package that turns a bare Meridian install into a functional multi-agent coordination system. It provides the orchestrator, subagent, KB agents, and the core skills that every other package builds on.
 
-**Package version:** 0.2.2 (profiles removed in v0.7.20, may be re-added with proper subagent rosters)  
+**Package version:** 0.7.26  
 **Source:** `../prompts/meridian-base/`  
 **Key dependency:** `meridian-prompter` (provides `prompt-principles`)
 
 ## Agents
-
-> **v0.7.20 (2026-06):** `meridian-default-orchestrator` and `meridian-subagent` were removed. The orchestrator was the one spawn-capable agent with an empty `subagents` roster — after spawn capability gating (see [launch decisions](../../decisions/launch.md#d-spawn-capability-gate)), it would have shipped a spawn contract with an empty inventory. The profiles may be re-added with proper subagent rosters.
 
 ### Coordination
 
@@ -18,17 +16,17 @@
 
 ### Knowledge Base
 
-**`kb-writer`** — captures durable knowledge into the KB after work ships, research lands, or decisions are made. Model: `claude-sonnet-4-6`. Spawn with `--from` for conversation context, `-f` for source material. Resolves KB path via `meridian context kb`, reads `index.md` first, integrates into existing pages, mines conversation history for decisions, runs `meridian kg check` and `meridian mermaid check` before committing.  
+**`kb-lead`** — captures durable knowledge into the KB after work ships, research lands, or decisions are made. Model: `deepseek`. Spawn with `--from` for conversation context, `-f` for source material. Resolves KB path via `meridian context kb`, reads `index.md` first, integrates into existing pages, mines conversation history for decisions, runs `meridian kg check` and `meridian mermaid check` before committing.  
 Skills: `meridian-spawn`, `kb-conventions`, `md-validation`, `session-mining`, `decision-log`, `shared-workspace`, `llm-writing`, `intent-modeling`.
 
-**`kb-maintainer`** — structural health agent for document trees. Model: `gpt-5.5`. Treats docs like code: splits oversized docs, merges thin docs, creates folder structure, fixes cross-references, flags staleness. Defaults to the KB (`meridian context kb`) or accepts an explicit `-f` target.  
+**`kb-maintainer`** — structural health agent for document trees. Model: `deepseekflash`. Treats docs like code: splits oversized docs, merges thin docs, creates folder structure, fixes cross-references, flags staleness. Defaults to the KB (`meridian context kb`) or accepts an explicit `-f` target.  
 Skills: `meridian-spawn`, `kb-conventions`, `md-validation`, `shared-workspace`.
 
 ### Exploration and History
 
-**`explorer`** — cheap, fast, read-only codebase exploration. Model: `gpt-5.4-mini`. Uses `rg`, `cat`, `find`, `git show`, `git log`. Reports facts with file/line references. Does not edit. Not for conversation history — use `session-explorer` for that.
+**`explorer`** — cheap, fast, read-only codebase exploration. Model: `deepseekflash`. Uses `rg`, `cat`, `find`, `git show`, `git log`. Reports facts with file/line references. Does not edit.
 
-**`session-explorer`** — mines conversation transcripts for decisions, rejected alternatives, intent, and constraints. Model: `sonnet`. Passes `--from <spawn-id>` or `--from $MERIDIAN_CHAT_ID` to target a session. Reports substance, not transcript noise. Structures findings by type (decisions, rejected alternatives, constraints, open questions).  
+**`session-miner`** — mines conversation transcripts for decisions, rejected alternatives, intent, and constraints. Model: `deepseekflash`. Passes `--from <spawn-id>` or `--from $MERIDIAN_CHAT_ID` to target a session. Reports substance, not transcript noise. Structures findings by type (decisions, rejected alternatives, constraints, open questions).  
 Skills: `session-mining`, `intent-modeling`, `llm-writing`.
 
 ## Skills
@@ -51,7 +49,7 @@ Skills: `session-mining`, `intent-modeling`, `llm-writing`.
 
 **`decision-log`** — captures decisions while reasoning is fresh. Records: human intent, derived goal, choice made, rejected alternatives. Rejected alternatives are usually the most valuable part. Skips boilerplate. Depends on `/intent-modeling`.
 
-**`session-mining`** — recovers decisions and constraints from conversation history. Starts from `$MERIDIAN_CHAT_ID`, delegates bulk reading to `@session-explorer`, lists all sessions for a work item. Skips when artifacts already hold the rationale.
+**`session-mining`** — recovers decisions and constraints from conversation history. Starts from `$MERIDIAN_CHAT_ID`, delegates bulk reading to `@session-miner`, lists all sessions for a work item. Skips when artifacts already hold the rationale.
 
 **`llm-writing`** — guards against common LLM writing failure modes: fluent-but-purpose-free prose, label-summaries without explanation, evidence-free conclusions, smoothing uncertainty, conversational register in documents. Depends on `/intent-modeling`.
 
@@ -65,13 +63,22 @@ Defined in `mars.toml`, available to all agents in packages that depend on `meri
 
 | Alias | Model | Harness | Character |
 |---|---|---|---|
-| `gpt55` | gpt-5.5 | codex | Action-oriented, fast; weak at nuanced judgment |
-| `opus47` | claude-opus-4-7 | claude | Strongest benchmarks; needs prompt migration from 4.6 |
-| `opus` | claude-opus-4-6 | claude | Orchestration, frontend, creative work |
-| `sonnet` | claude-sonnet (latest) | claude | Balanced reasoning, good writing |
-| `gptmini` | gpt-5.x-mini | codex | Bulk exploration, simple tasks |
-| `codex` | gpt-codex | codex | Backend implementation, faithful execution |
-| `gpt` | gpt-5.4 | codex | Strongest generalist judgment, review, architecture |
+| `composer` | composer-2.5 | cursor | Strong, cheap coding model |
+| `deepseek` | deepseek-v4-pro | — | Cheap, good text coder for constrained tasks |
+| `deepseekflash` | deepseek-v4-flash | — | Cheapest for mechanical tasks; fast, low cost |
+| `opus46` | claude-opus-4-6 | claude | Best at inferring human intent; preferred for interactive primaries |
+| `opus47` | claude-opus-4-7 | claude | Strong agentic coder and UI/UX design |
+| `opus48` | claude-opus-4-8 | claude | Best at long-horizon orchestration and managing large numbers of subagents |
+| `gpt55` | gpt-5.5 | codex | Strongest executor; literal instruction-following. Has `prompting` guidance. |
+| `gpt54` | gpt-5.4 | — | Good all-around; especially thorough reviewer |
+| `gptmini` | gpt-5.x-mini | — | Fast and cheap; bulk exploration and simple tasks |
+| `gpt` | gpt-5* (match) | — | Strong coding model family (leaf models, not orchestrators) |
+| `fable` | claude*fable* (match) | claude | Most capable for complex tasks |
+| `opus` | claude*opus* (match) | claude | Latest opus catch-all; prefer pinned versions |
+
+> **`sonnet` alias removed (v0.7.26+).** The `sonnet` model alias was deleted — no agents still referenced it after migrating `session-explorer` → `session-miner` to `deepseekflash` and `kb-writer` → `kb-lead` to `deepseek`.
+
+> **`gpt55` prompting guidance (v0.7.26+).** `gpt55` is the only alias with a `prompting` field: "Very literal executor. Before handing off, step back and write the complete technical plan: goal, relevant files, constraints, acceptance criteria, desired style/shape, and verification. Specify the exact outcome; sparse context will be followed literally." See `mars models prompting gpt55`.
 
 ## Package Composition Patterns
 
@@ -82,7 +89,7 @@ The package's composition logic, inferred from skill assignments:
 | Orchestrator | `meridian-spawn` + `meridian-work-coordination` + `agent-management` + `shared-workspace` |
 | Subagent | `shared-workspace` |
 | KB agents | `kb-conventions` + `md-validation` + `decision-log` + `intent-modeling` + `llm-writing` |
-| Session explorer | `session-mining` + `intent-modeling` + `llm-writing` |
+| Session miner | `session-mining` + `intent-modeling` + `llm-writing` |
 | Explorer | none (thin shell) |
 
 ## Related
