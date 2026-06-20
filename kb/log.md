@@ -4,6 +4,22 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-06-20 — Mars `models prompting` canonical policy resolution (commit `1859a16`)
+
+### Trigger
+Post-ship KB capture for mars-agents commit `1859a16`: `mars models prompting` agent resolution now uses canonical launch policy path (`resolve_policy` with `PolicyInput`) instead of shallow overlay/profile/default token triage. Output reflects final `policy.routing` after model-policies, harness routing, and model clearing. Adds `--refresh-models` / `--no-refresh-models`; direct model-alias refs keep catalog-backed name resolution.
+
+### What changed
+- `decisions/model-resolution.md` — D86 expanded with canonical-policy rationale, shallow-resolver rejection, and `1859a16` correction note
+- `concepts/model-resolution/aliases-and-routing.md` — retrieval section updated for launch-policy path, refresh flags, and `policy.routing` output semantics
+- `concepts/model-resolution/vocabulary.md` — agent-first resolution term updated
+- `architecture/mars-model-refresh.md` — `models prompting` listed as refresh consumer
+
+### Validation
+Run `meridian kg check kb` and `meridian mermaid check kb/concepts/model-resolution/` before committing.
+
+---
+
 ## 2026-06-13 — Spawn lifecycle / reliability KB capture (PR #328)
 
 ### Trigger

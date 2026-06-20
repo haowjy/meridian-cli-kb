@@ -332,6 +332,8 @@ transform fires) and also neutralizes the legacy `models:` compatibility overrid
 
 ### D86: `mars models prompting` — canonical command name and agent-first resolution
 
+> [!FLAG] **Needs human review** — D86 ID collision with [package-management.md](package-management.md) routing-parity D86 (`mars models resolve` / `mars build launch-bundle` share `routing::evaluate_candidates()`). Renumber or cross-link one decision before treating either as authoritative by ID alone. Flagged 2026-06-20.
+
 **Decision:** `mars models prompting <ref>` is the canonical command surface for
 retrieving model prompting guidance. The name `prompting` (not `prompt`) was chosen
 to align with the `prompting` field name on `ModelAlias` and to avoid ambiguity

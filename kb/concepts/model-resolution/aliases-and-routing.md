@@ -221,8 +221,21 @@ The command uses **agent-first resolution**:
    clearing via probe, or no matching candidate), the command returns no
    prompting guidance from a pre-routing token.
 
-JSON output identifies the resolution path: `ref_kind` (`agent` or `model`),
-`agent_name`, `model_alias`, `model_name`, `found`, and `prompting`.
+### Output from policy.routing
+
+For agent refs, `model_alias`, `model_name`, and `prompting` in JSON output are
+derived from the final `policy.routing` after canonical launch-policy resolution
+—not from pre-routing overlay/profile/default tokens. Direct model-alias refs
+bypass launch policy and read from the merged alias table plus catalog cache.
+
+| Output field | Agent path (`resolve_policy`) | Direct model-alias path |
+|---|---|---|
+| `model_alias` | `routing.model_token` when non-empty and the token is a key in the merged alias table; otherwise omitted | Input alias name |
+| `model_name` | `routing.harness_model` when non-empty, else `routing.model`; omitted when both are empty (model cleared) | Catalog-backed concrete model ID via `resolve_model_id_for_alias` and the models cache |
+| `prompting` | `prompting` field from the alias entry keyed by `model_alias`; omitted when no alias key or alias has no `prompting` | `prompting` on the matched `ModelAlias` in the merged table |
+
+JSON also includes `ref`, `ref_kind` (`agent` or `model`), `agent_name` (agent
+path only), and `found`.
 
 Known refs without `prompting` guidance exit 0 with a message showing how to
 add a `prompting` field. Unknown refs exit non-zero.
