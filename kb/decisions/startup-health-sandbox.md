@@ -128,6 +128,34 @@ See [architecture/startup-pipeline.md](../architecture/startup-pipeline.md).
 
 ---
 
+### Rootless commands: tool-level linters and config inspection run without a project (2026-06)
+
+**Decision (#338):** Commands that operate on a path, CWD, or user-level config are classified as `StartupClass.READ_ROOTLESS` with `StateRequirement.NONE`. They run anywhere — no established project required. Commands re-tiered: `kg check`, `kg graph`, `qi`, `qi check`, `qi list`, `mermaid check`, `config show`, `config get`, `ext list`, `ext commands`, `doctor`.
+
+**Why:** These commands were formerly classified as `READ_PROJECT` or `READ_RUNTIME`. In a clean no-project shell (no walk-up to find an ancestor project), dispatch hard-failed with "No Meridian project found" (exit 1) — even though the commands operate on file paths or user-level config and don't need a project. Walk-up (removed in #335) used to mask this by always finding *some* ancestor project, often the wrong one.
+
+**Catalog helper:** `_read_rootless()` in `catalog.py` creates descriptors with `StateRequirement.NONE` while preserving the appropriate startup class (`READ_ROOTLESS`) and telemetry mode.
+
+**`config get` / `config show`:** These degrade to user/builtin config layers when no project is established — they don't error, they show what's available.
+
+### Established project: canonical resolver replaces scattered resolution + footgun (2026-06)
+
+**Decision (#338):** Three near-duplicate project-root resolvers (`require_established_project_root`, `optional_cli_project_root_posix`, and the implicit resolution in `maybe_bootstrap_runtime_state`) were unified into one canonical resolver: `resolve_cli_project_root() -> CliProjectRoot` (typed, never raises). The old names became thin adapters.
+
+**Why:**
+
+1. **Single source of truth.** Three functions implementing slightly different policies created divergence risk. One canonical resolver with typed output eliminates the divergence.
+
+2. **Footgun kill.** `require_established_project_root` raised `SystemExit` (a `BaseException`) directly. `maybe_bootstrap_runtime_state()` in `cli/bootstrap.py` wrapped the bootstrap in `except Exception`, which silently swallowed the `SystemExit` — causing confusing downstream crashes instead of "No Meridian project found." The fix: `resolve_cli_project_root()` never raises; the no-project exit is an explicit, intentional decision *outside* the `except Exception` guard.
+
+3. **`exit_no_established_project()`** is the single CLI-edge `SystemExit(1)` — centralized so the exit message never diverges across call sites.
+
+**Established-project predicate:** `cwd_has_project_id(cwd)` checks whether the literal CWD contains `.meridian/id` — **no ancestor walk**. This restores correct behavior when run from inside a project directory without `-C` / `MERIDIAN_PROJECT_DIR` (a pre-existing #335 over-correction had dropped the literal-cwd check). The predicate is intentionally one function; #341 will broaden it to `meridian.toml` / `mars.toml`.
+
+**Not an established project:** CWD resolution where `cwd_has_project_id()` returns `False` — project-required commands still exit 1; rootless commands exit 0.
+
+---
+
 ## Sandbox Projection Policy
 
 ### Fixed constraint: no `~/.meridian/` root projection into child sandboxes

@@ -155,14 +155,11 @@ meridian config set/get/reset # operate on meridian.toml, not user config
 
 ## Project Root Discovery
 
-`MeridianConfig` loads relative to the resolved project root. `resolve_project_root()` in `src/meridian/lib/config/project_root.py` does not require git:
+`MeridianConfig` loads relative to the resolved project root. `resolve_project_root_resolution()` in `src/meridian/lib/config/project_root.py` resolves in three tiers (no ancestor walk):
 
 1. Explicit argument / `-C` flag (see below)
 2. `MERIDIAN_PROJECT_DIR` env var
-3. Ancestor directory containing `.mars/`
-4. Ancestor directory containing legacy `.agents/skills/`
-5. Ancestor directory containing `.git` (boundary heuristic, not a requirement)
-6. Current working directory fallback
+3. Current working directory (literal CWD — no walk-up)
 
 ### The `-C` / `--directory` Flag
 

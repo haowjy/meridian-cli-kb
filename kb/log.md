@@ -4,6 +4,26 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-06-21 — Rootless commands, established project, test determinism capture
+
+### Trigger
+
+meridian-cli PRs #338 (rootless commands + startup model refactor) and #339 (test de-flake infrastructure). Cross-cutting capture from the session that designed and shipped these changes.
+
+### What changed
+
+- `architecture/startup-pipeline.md`: added `READ_ROOTLESS` to invocation class table; new section "Rootless Commands and Established Project" documenting `resolve_cli_project_root()`, `cwd_has_project_id()`, `exit_no_established_project()`, and the SystemExit-through-except-Exception footgun fix.
+- `concepts/state-model.md`: new "Established Project" section with the established-project predicate, `cwd_has_project_id()`, and link to #341 migration direction (`.meridian/id` → `meridian.toml`).
+- `concepts/config-precedence.md`: fixed stale project-root discovery description (removed ancestor walk-up steps 3-5 from #335; now correctly describes explicit / env / literal-CWD).
+- `decisions/startup-health-sandbox.md`: new sections "Rootless commands" and "Established Project Detection" with decision rationale for #338.
+- `codebase/test-determinism.md`: **new page** capturing the test-determinism infrastructure (`AsyncDeterminism` + `FakeClock`, `process_race.py`, advance-past-boundary principle, behavioral vs safety-bound timeout distinction, windows-gate flake pattern).
+
+### Validation
+
+`meridian kg check kb/` → pending (need kg in a project context).
+
+---
+
 ## 2026-06-20 — Knowledge-layers KB guidance refresh
 
 ### Trigger

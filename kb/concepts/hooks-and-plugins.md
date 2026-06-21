@@ -279,7 +279,7 @@ Set `failure_policy = "fail"` if the hook's success is required.
 
 Hook processes run inside meridian spawn processes, which inherit the spawning session's `MERIDIAN_PROJECT_DIR` environment variable. Without special handling, a post-commit hook would resolve its project root from that inherited env var — which may point to a different checkout or worktree — rather than from the actual current working directory.
 
-**The fix:** Use `resolve_project_root(ignore_env=True)` for any hook command that must operate relative to the actual working directory. With `ignore_env=True`, root discovery falls back to CWD-relative heuristics (`.mars/` presence, `.agents/skills/` legacy marker, `.git/`), bypassing the inherited `MERIDIAN_PROJECT_DIR`.
+**The fix:** Use `resolve_project_root_resolution(ignore_env=True)` for any hook command that must operate relative to the actual working directory. With `ignore_env=True`, root discovery uses the literal CWD (no ancestor walk), bypassing the inherited `MERIDIAN_PROJECT_DIR`.
 
 **When to use `ignore_env=True`:**
 

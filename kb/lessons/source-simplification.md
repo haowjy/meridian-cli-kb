@@ -71,7 +71,7 @@ If reviewers had not caught the over-collapse and it had been detected later, th
 
 When a value is set at the CLI entry point (`main.py`) and the resolution layer reads it from `os.environ`, explicit parameter threading through intermediate callsites is redundant ceremony. The env var IS the parameter channel.
 
-**The pattern:** `-C <path>` → `os.environ["MERIDIAN_PROJECT_DIR"] = path` → `resolve_project_root()` reads `os.environ`. No function signatures needed to thread the value down the call stack through 13+ callsites.
+**The pattern:** `-C <path>` → `os.environ["MERIDIAN_PROJECT_DIR"] = path` → `resolve_project_root_resolution()` reads `os.environ`. No function signatures needed to thread the value down the call stack through 13+ callsites.
 
 **When to apply:**
 - The env var has a defined lifetime (set/restored by a context manager at the CLI boundary).

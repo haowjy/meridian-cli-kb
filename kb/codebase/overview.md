@@ -11,3 +11,4 @@ Codebase pages orient contributors to where implementation concerns live and whi
 - [work-items.md](work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination.
 - [session-operations.md](session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, user-facing command guidance.
 - [session-log-rendering.md](session-log-rendering.md) — Internal rendering pipeline: ToolCall normalization, clean vs raw output, `--raw`/`--no-truncate` flag design, content pipeline order.
+- [test-determinism.md](test-determinism.md) — Test determinism infrastructure: `AsyncDeterminism` + `FakeClock`, `process_race.py` cross-process harness, advance-past-boundary principle, behavioral vs safety-bound timeouts.

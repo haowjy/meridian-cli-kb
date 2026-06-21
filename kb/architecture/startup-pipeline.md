@@ -43,16 +43,62 @@ The classifier maps argv to one of these classes before any heavy imports:
 | Class | Examples | State requirement | Telemetry |
 |---|---|---|---|
 | `TRIVIAL` | root `--help`, `--version` | none | none |
-| `READ_PROJECT` | `config show`, `context`, `work current` | project-read | none |
+| `READ_PROJECT` | `context`, `work current`, `hooks list`, `workspace list` | project-read | none |
 | `READ_RUNTIME` | `spawn list`, `spawn show`, `session log` | runtime-read | none |
 | `WRITE_PROJECT` | `config init`, `workspace migrate` | project-write | optional segment |
 | `WRITE_RUNTIME` | `spawn create`, `work start`, `doctor --prune` | runtime-write | segment |
 | `PRIMARY_LAUNCH` | bare `meridian`, `--continue`, `--fork` | runtime-write | segment |
+| `READ_ROOTLESS` | `doctor`, `kg check/graph`, `qi check/list`, `mermaid check`, `config show/get`, `ext list/commands` | none | none |
 | `SERVICE_ROOTLESS` | `serve` | none | stderr |
 | `SERVICE_RUNTIME` | `chat` (interactive) | runtime-write | segment |
 | `CLIENT_READ` | `chat ls`, `chat show`, `chat log` | runtime-read | none |
 
-Read-only classes (`READ_PROJECT`, `READ_RUNTIME`, `CLIENT_READ`, `TRIVIAL`) install no telemetry, spawn no writer thread, create no UUID, and make no filesystem mutations.
+Read-only classes (`READ_ROOTLESS`, `READ_PROJECT`, `READ_RUNTIME`, `CLIENT_READ`, `TRIVIAL`) install no telemetry, spawn no writer thread, create no UUID, and make no filesystem mutations.
+
+## Rootless Commands and Established Project
+
+Some commands operate on a path, current working directory, or user-level config — they do not require a Meridian project at all. These are classified as `StartupClass.READ_ROOTLESS` with `StateRequirement.NONE`:
+
+- **Tool-level linters:** `kg check`, `kg graph`, `qi`, `qi check`, `qi list`, `mermaid check`
+- **Config inspection:** `config show`, `config get` (degrade to user/builtin layers without a project)
+- **Extension introspection:** `ext list`, `ext commands`
+- **Doctor:** `doctor` (runs global/user-level checks)
+
+In contrast, project-scoped commands (spawn, work, telemetry, session) require an **established project**. An established project is one where:
+
+1. **Explicit targeting:** `-C <path>` or `MERIDIAN_PROJECT_DIR` is set, OR
+2. **Literal-cwd marker:** the current working directory contains its own `.meridian/id` file (`cwd_has_project_id(cwd)` — NO ancestor walk)
+
+### Canonical Resolver: `resolve_cli_project_root()`
+
+The single source of truth for project resolution in the CLI layer is `resolve_cli_project_root()` in `src/meridian/cli/utils.py`. It returns a typed `CliProjectRoot` (never raises):
+
+```python
+@dataclass(frozen=True)
+class CliProjectRoot:
+    project_root: Path | None   # None when not established
+    source: ProjectRootSource    # "explicit" | "env" | "cwd"
+    established: bool            # True when the project is usable
+```
+
+Two thin adapters consume this result:
+
+- `require_established_project_root()` — returns `Path` or calls `exit_no_established_project()` (SystemExit(1))
+- `optional_cli_project_root_posix()` — returns `str | None` for callers that degrade gracefully
+
+`exit_no_established_project()` is the **single CLI-edge SystemExit** — centralized so the exit message and code never diverge across call sites.
+
+### Established-Project Predicate: `cwd_has_project_id()`
+
+`cwd_has_project_id(cwd)` in `src/meridian/lib/config/project_root.py` checks whether the literal `cwd` contains `.meridian/id` — **no ancestor walk**. This is the deliberate design from #335 (removing walk-up) and #338 (restoring literal-cwd's-own-id detection as an intentional predicate).
+
+The predicate is intentionally one function; issue #341 will broaden it to `meridian.toml` / `mars.toml` as part of deprecating repo-local `.meridian/`.
+
+### Footgun Killed: SystemExit Through `except Exception`
+
+Before #338, `require_established_project_root` raised `SystemExit` (a `BaseException`) directly. `maybe_bootstrap_runtime_state()` in `cli/bootstrap.py` wrapped bootstrap in `except Exception`, which silently swallowed the `SystemExit` — causing confusing downstream crashes instead of the intended "No Meridian project found" message.
+
+The fix: `resolve_cli_project_root()` never raises. The no-project exit is now an explicit, intentional decision *outside* the `except Exception` guard in `maybe_bootstrap_runtime_state()`.
 
 ## Bootstrap Service Split
 
@@ -183,5 +229,6 @@ Cyclopts remains the argument and help engine. Meridian uses it only as a mechan
 - [launch-system.md](launch-system.md) — composition seam and harness launch (downstream of startup)
 - [../architecture/sandbox-projection.md](sandbox-projection.md) — sandbox permission projection (complements startup sandbox correctness)
 - [../concepts/extension-system.md](../concepts/extension-system.md) — extension registry as lazy layer over descriptors
-- [../decisions/startup-health-sandbox.md](../decisions/startup-health-sandbox.md#startup-pipeline) — startup pipeline design decisions
+- [../concepts/state-model.md](../concepts/state-model.md) — project identity model and `.meridian/id`
+- [../decisions/startup-health-sandbox.md](../decisions/startup-health-sandbox.md#startup-pipeline) — startup pipeline design decisions including rootless commands and established-project detection
 - [../operations/health-checks.md](../operations/health-checks.md) — background per-project repairs on PRIMARY_LAUNCH

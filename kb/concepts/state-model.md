@@ -217,7 +217,7 @@ project root  →  .meridian/id  →  UUID  →  ~/.meridian/projects/<UUID>/
 
 Step by step:
 
-1. **Project root** — resolved by `resolve_project_root()` from the `-C` flag, `MERIDIAN_PROJECT_DIR`, or CWD walk-up (see [config-precedence.md](config-precedence.md#project-root-discovery)).
+1. **Project root** — resolved by `resolve_project_root_resolution()` from the `-C` flag, `MERIDIAN_PROJECT_DIR`, or literal CWD (no ancestor walk; see [config-precedence.md](config-precedence.md#project-root-discovery)).
 2. **Project UUID** — read from `<project_root>/.meridian/id`. Created on first write; gitignored so each checkout has its own identity.
 3. **Runtime root** — `get_user_home() / "projects" / UUID`. All spawn state, session JSONL, and artifact directories live here.
 
@@ -231,9 +231,27 @@ Step by step:
 
 ---
 
+## Established Project
+
+The CLI distinguishes between commands that require a Meridian project and those that don't. Tool-level linters (`kg check`, `qi`, `mermaid check`), config inspection (`config show`, `config get`), and extension introspection (`ext list`) are **rootless** — they run anywhere without a project.
+
+Commands that do require a project (spawn, work, telemetry) need an **established project**:
+
+1. **Explicit targeting:** `-C <path>` or `MERIDIAN_PROJECT_DIR`, OR
+2. **Literal-cwd marker:** the CWD contains its own `.meridian/id` file — **no ancestor walk**
+
+The predicate is `cwd_has_project_id(cwd)` in `src/meridian/lib/config/project_root.py`. It checks the literal CWD only; ancestor walk-up was removed in #335.
+
+At the CLI edge, `resolve_cli_project_root()` in `src/meridian/cli/utils.py` is the single canonical resolver. It returns a typed `CliProjectRoot` (never raises). `exit_no_established_project()` is the single `SystemExit(1)` translation point. See [architecture/startup-pipeline.md](../architecture/startup-pipeline.md#rootless-commands-and-established-project) for the full resolver design.
+
+### Future: `.meridian/id` → `meridian.toml`
+
+Issue [#341](https://github.com/haowjy/meridian-cli/issues/341) tracks moving project identity from the committed `.meridian/id` file into `meridian.toml`. This will deprecate the repo-local `.meridian/` directory as the identity holder, making `meridian.toml` the single project-configuration entry point. The `cwd_has_project_id` predicate is intentionally one function so the marker check can be broadened to `meridian.toml` / `mars.toml` in one place.
+
 ## Related Pages
 
 - [Spawn Lifecycle](spawn-lifecycle.md) — how spawn state maps to status
   transitions and crash recovery
 - [../architecture/state-system.md](../architecture/state-system.md) — implementation detail: path resolvers,
   flock strategy, reaper logic
+- [../architecture/startup-pipeline.md](../architecture/startup-pipeline.md) — rootless commands and established-project detection
