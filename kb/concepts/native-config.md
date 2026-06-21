@@ -1,49 +1,47 @@
-# Native Config Passthrough
+# Harness Override Passthrough
 
-**Canonical term:** native config passthrough. **Field name:** `native-config`.
+**Canonical term:** harness override passthrough. **Field path:** `harness-overrides.<harness>`.
 
-`native-config` is a structured escape hatch in agent profiles for raw target-harness
-configuration that is NOT portable Meridian semantics. It lives under
-`harness-overrides.<target>.native-config`.
+`harness-overrides.<harness>` is a target-native passthrough block in agent profiles. It is not portable Meridian semantics. Mars selects the block for the resolved harness and carries it as `execution_policy.native_config` in the launch bundle.
 
 **Related pages:**
 - [../architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — launch-bundle system and projection architecture
 - [skill-schema.md](skill-schema.md) — universal skill frontmatter and harness lowering
-- [../decisions/package-management.md](../decisions/package-management.md) — D82 decision rationale
+- [../decisions/package-management.md](../decisions/package-management.md) — decision rationale
 
 ---
 
 ## What It Is
 
-Some harnesses expose config knobs that have no cross-harness equivalent. Rather than
-requiring Mars/Meridian to claim portable semantics for every harness option, `native-config`
-provides a pass-through channel:
+Some harnesses expose config knobs that have no cross-harness equivalent. Rather than requiring Mars/Meridian to claim portable semantics for every harness option, `harness-overrides.<harness>` provides a pass-through channel:
 
 ```yaml
+effort: low
+skills: [planning]
+tools: [ask_user]
+
 harness-overrides:
   codex:
-    sandbox: workspace-write        # portable Meridian semantics
-    native-config:
-      sandbox_workspace_write.network_access: true   # raw Codex config
+    effort: high                  # target-native key; does not replace top-level effort
+    skills: [codex-only-skill]     # target-native key; does not replace top-level skills
+    sandbox_workspace_write.network_access: true
 ```
 
-The motivating case: Codex network access under `workspace-write` sandboxing. No
-portable equivalent exists across harnesses.
+For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, and `tools` remain the Mars semantic controls.
 
 ---
 
 ## Structural Separation from Portable Policy
 
-`native-config` and portable tool policy (`tools`, `disallowed-tools`, `mcp-tools`)
-are independent concerns:
+Harness passthrough and portable policy are independent concerns:
 
 | Concern | Schema location | Mars role | Meridian role | Portable? |
 |---------|----------------|-----------|---------------|-----------|
-| Tool policy | `tools`, `disallowed-tools`, `mcp-tools` at root or `harness-overrides.<target>` | Parse, validate, resolve into bundle `tools` field | Project per harness to CLI flags / config | Yes |
-| Native config | `native-config` under `harness-overrides.<target>` | Validate shape only | Project per harness at launch time | No |
+| Tool policy | top-level `tools`, `disallowed-tools`, `mcp-tools` | Parse, validate, resolve into bundle `tools` field | Project per harness to CLI flags / config | Yes |
+| Execution policy | top-level `effort`, `approval`, `sandbox`, `autocompact*` | Parse, validate, resolve into bundle `execution_policy` fields | Project per harness at launch time | Yes |
+| Harness passthrough | `harness-overrides.<harness>` | Validate outer mapping and serializability only | Interpret/project per resolved harness | No |
 
-They appear as independent fields in the launch bundle and go through independent
-projection paths. A profile may have both; the bundle carries both.
+A key inside `harness-overrides.<harness>` does not replace the top-level field with the same name. If a profile has both top-level `tools` and `harness-overrides.codex.tools`, the top-level value controls `bundle.tools`; the override value is preserved in `execution_policy.native_config.tools` for the Codex adapter/runtime to interpret.
 
 ---
 
@@ -54,215 +52,97 @@ projection paths. A profile may have both; the bundle carries both.
 ```yaml
 harness-overrides:
   <harness-id>:
-    # existing portable fields
-    sandbox: workspace-write
-    approval: auto
-    tools:
-      bash: allow
-
-    # native-config — raw harness passthrough
-    native-config:
-      <string-key>: <serializable-value>
+    <target-native-key>: <serializable-value>
+    <another-target-native-key>:
+      nested: values
 ```
 
 ### Value constraints
 
 | Property | Constraint |
 |----------|-----------|
-| Keys | Strings only. No interpretation by Mars. |
-| Values | YAML/TOML-serializable: booleans, integers, floats, strings, arrays, maps. No functions, no YAML anchors, no YAML tags. |
+| Harness keys | Known keys: `claude`, `codex`, `opencode`, `cursor`, `pi`. Unknown keys warn and are preserved for forward compatibility. |
+| Target keys | Strings only. No interpretation by Mars. |
+| Values | YAML/TOML/JSON-serializable: booleans, integers, floats, strings, arrays, maps. No null values. |
 | Nesting | Arbitrary depth for map values. |
-| Empty | `native-config: {}` is valid and equivalent to omitting. |
+| Empty | Empty harness block is valid and equivalent to omitting for launch-bundle native config. |
 
 ### Validation (Mars)
 
-Mars validates **shape only**: string keys, serializable values. Mars does NOT
-interpret key names or enforce key semantics.
-
-If a `native-config` key matches a known portable field name (`sandbox`, `approval`,
-`effort`, `autocompact`, `autocompact_pct`, `skills`, `tools`, `disallowed-tools`,
-`mcp-tools`), Mars emits a warning. The portable field takes precedence for Meridian
-semantics; the `native-config` entry is preserved for native projection but flagged.
+Mars validates shape and serializability only. Mars does not interpret key names, enforce key semantics, or warn when a target-native key happens to match a portable Mars field name.
 
 ### Harness scoping
 
-`native-config` under `harness-overrides.codex` applies only when the resolved target
-harness is Codex. Mars selects the matching harness block and discards others. No
-cross-harness merge.
-
-### Precedence
-
-CLI `--native-config` flag (future, not current slice) would take precedence over
-profile. Within a profile, only the block matching the resolved harness contributes.
-When multiple precedence layers provide `native-config` for the same harness, merge
-is shallow replace at the top level (higher-precedence map replaces the lower
-entirely). Deep merge of individual keys is deferred to avoid key-path conflict
-semantics.
+Mars selects the block matching the resolved launch harness and ignores other blocks for `execution_policy.native_config`. The source profile still preserves the full `harness-overrides` table.
 
 ---
 
 ## Bundle Field
 
-`execution_policy.native_config` in the launch bundle:
+`execution_policy.native_config` in the launch bundle contains the matching block exactly:
 
 ```json
 {
   "execution_policy": {
-    "sandbox": "workspace-write",
+    "effort": "low",
     "native_config": {
+      "effort": "high",
+      "skills": ["codex-only-skill"],
       "sandbox_workspace_write.network_access": true
     }
   }
 }
 ```
 
-Omitted from JSON when null (`skip_serializing_if = "Option::is_none"`). Only the
-entries from the resolved target harness block are included.
+Omitted from JSON when null (`skip_serializing_if = "Option::is_none"`).
 
 ---
 
 ## Per-Harness Projection Strategies
 
-Meridian's harness adapter layer owns projection. Each harness declares its own
-strategy — do not assume all harnesses have Codex-style dotted CLI overrides.
+Meridian's harness adapter layer owns projection. Each harness declares its own strategy; do not assume all harnesses have Codex-style dotted CLI overrides.
 
 ### Codex
 
-**Strategy:** Repeated `-c <key>=<toml-value>` CLI flags.
+**Strategy:** Repeated `-c <key>=<toml-value>` CLI flags where supported by the Codex adapter.
 
-Dotted notation for nested Codex config. Nested YAML map values at the top level
-are not auto-flattened — the projector emits a warning and skips:
-`"Codex -c does not support nested values; use dotted key notation instead."`
+Dotted notation can represent nested Codex config. Nested map values may require harness-adapter-specific handling.
 
 ```yaml
-native-config:
-  sandbox_workspace_write.network_access: true
+harness-overrides:
+  codex:
+    sandbox_workspace_write.network_access: true
 ```
 
-Projected: `codex ... -c sandbox_workspace_write.network_access=true`
-
-Value serialization:
-
-| TOML type | Serialization |
-|-----------|--------------|
-| Boolean | `true` / `false` |
-| Integer | decimal string |
-| Float | decimal string |
-| String | TOML-quoted if special chars, bare otherwise |
-| Array | TOML inline array |
-| Table (top-level) | Warning + skip — use dotted notation |
+Projected conceptually: `codex ... -c sandbox_workspace_write.network_access=true`
 
 ### Claude
 
-**Strategy:** Temporary settings JSON file, passed via `--settings <path>`.
-
-Keys may be nested objects (merged directly) or dot-notation (expanded to nested
-path). Meridian writes the JSON file, passes the path as `--settings`, and cleans
-up after the harness process exits.
-
-Does NOT merge with the user's `~/.claude/settings.json`. Claude's `--settings` flag
-loads a standalone settings overlay per-session — user base settings remain untouched.
+**Strategy:** Temporary settings JSON file or CLI flags owned by the Claude adapter.
 
 ```yaml
-native-config:
-  permissions:
-    allow:
-      - "Bash(*)"
-      - "Read(*)"
-  env:
-    CLAUDE_CODE_MAX_TURNS: "50"
+harness-overrides:
+  claude:
+    permissions:
+      allow:
+        - "Bash(*)"
+        - "Read(*)"
+    env:
+      CLAUDE_CODE_MAX_TURNS: "50"
 ```
-
-Temp file (`/tmp/meridian-claude-settings-<uuid>.json`):
-```json
-{
-  "env": {"CLAUDE_CODE_MAX_TURNS": "50"},
-  "permissions": {"allow": ["Bash(*)", "Read(*)"]}
-}
-```
-
-Projected: `claude ... --settings /tmp/meridian-claude-settings-a1b2c3d4.json`
 
 ### OpenCode
 
-**Strategy:** Deep-merged into `OPENCODE_CONFIG_CONTENT` env var JSON.
-
-Meridian already uses `OPENCODE_CONFIG_CONTENT` to inject workspace-root
-permissions. Native-config generalizes this mechanism. Ordering:
-
-1. Parent `OPENCODE_CONFIG_CONTENT` (inherited env)
-2. Workspace root permissions (existing behavior)
-3. `native-config` entries (highest precedence, native-config takes over workspace on overlap)
-
-**No `-c` flag.** The OpenCode CLI does not expose a Codex-style `-c key=value`
-override. All native config goes through `OPENCODE_CONFIG_CONTENT` or static config
-files. Do not design around a `-c` flag.
+**Strategy:** Deep-merged into `OPENCODE_CONFIG_CONTENT` env var JSON where supported.
 
 ```yaml
-native-config:
-  permission:
-    external_directory:
-      "/data/**": "allow"
-      "/models/**": "allow"
-  context:
-    max_tokens: 200000
+harness-overrides:
+  opencode:
+    permission:
+      external_directory:
+        "/data/**": "allow"
+        "/models/**": "allow"
+    context:
+      max_tokens: 200000
 ```
 
-Parent `OPENCODE_CONFIG_CONTENT` (from workspace projection):
-```json
-{"permission":{"external_directory":{"/workspace/**":"allow"}}}
-```
-
-Merged result:
-```json
-{"context":{"max_tokens":200000},"permission":{"external_directory":{"/data/**":"allow","/models/**":"allow","/workspace/**":"allow"}}}
-```
-
-### Cursor (Experimental)
-
-**Strategy:** Only the `mcp` key has a known projection surface (`.cursor/mcp.json`).
-Unknown keys warn rather than silently drop — fail-clear semantics.
-
-```yaml
-native-config:
-  mcp:
-    servers:
-      context7:
-        command: npx
-        args: ["-y", "@context7/mcp"]
-  experimental_feature: true   # unknown key
-```
-
-Result:
-- `mcp.servers.context7` → `.cursor/mcp.json`
-- Warning: `native-config key 'experimental_feature' has no known Cursor projection surface; skipped`
-
-### Pi (Future)
-
-Not yet defined. Part of the future Pi contract.
-
----
-
-## Risks
-
-**R1: Schema drift.** Harness renames a config key → profile breaks silently. No automated
-detection. Profile authors must track harness config changes.
-
-**R2: Secrets in native-config.** Profiles are source artifacts that may be committed
-to git. Guidance: use env vars for secrets, not profile YAML. Temp files (Claude `--settings`)
-use restrictive permissions (`0600`). Mars does not scan values for secrets.
-
-**R7: Accidental leakage into model prompt.** Enforced structurally — separate code paths
-for native-config extraction and prompt composition. Tested with prompt-surface
-isolation invariant.
-
----
-
-## Promotion Path
-
-If a native knob proves universally valuable across harnesses, it may be promoted
-to a first-class portable field in a future schema revision. The escape hatch does
-not block future standardization — it is the staging ground for it.
-
-Known portable fields that went through this path are already first-class:
-`sandbox`, `approval`, `effort`, `autocompact`, `autocompact_pct`.

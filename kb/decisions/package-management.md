@@ -257,12 +257,12 @@ let upgrades_available = if request.options.frozen {
 ## Launch-Bundle System
 
 Decisions about the `mars build launch-bundle` flow: Mars/Meridian ownership split,
-native-config passthrough, portable tool-policy preservation, and harness target
+harness override passthrough, portable tool-policy preservation, and harness target
 status.
 
 For mechanism, see:
 - [architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — cross-repo launch-bundle system, bundle contract, scaffold slots
-- [concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept and per-harness projection
+- [concepts/native-config.md](../concepts/native-config.md) — harness override passthrough concept and per-harness projection
 
 ---
 
@@ -299,19 +299,20 @@ the Mars agent profile parser/lowerer.
 
 ---
 
-### D82: `native-config` — shape-validated passthrough, not portable semantics
+### D82: `harness-overrides.<target>` — exact passthrough, not portable semantics
 
-**Decision:** `native-config` under `harness-overrides.<target>` is raw harness config
-passthrough. Mars validates shape only (string keys, serializable values). Mars does NOT
-interpret key names or enforce key semantics. The bundle carries `native-config` in
+**Decision:** The entire `harness-overrides.<target>` block is raw target-native
+passthrough. Mars validates only the outer mapping shape and serializability. Mars does
+NOT interpret key names, enforce key semantics, or use nested keys to replace top-level
+Mars fields. The matching block is carried in launch-bundle
 `execution_policy.native_config`; Meridian's harness adapter projects it at launch time.
 
 **Why:** Making Mars understand every harness's config surface would require Mars to track
 every harness version's config schema — unsustainable. The escape hatch gives profile
 authors direct access to the harness surface for cases with no portable equivalent. If a
-knob proves universally useful, promote it to a first-class field later.
+knob proves universally useful, promote it to a first-class top-level field later.
 
-**Rejected alternative:** Mars validates specific known `native-config` key names per
+**Rejected alternative:** Mars validates specific known passthrough key names per
 harness. Rejected: would require Mars to track every harness version's config schema,
 coupling Mars to harness implementation details.
 
@@ -331,8 +332,8 @@ allowlist. Fix: emit `--allowedTools` whenever `tools.allowed` is non-empty; emi
 `--disallowedTools` whenever `tools.disallowed` is non-empty. No dependency between the
 two decisions.
 
-**Why separate from native-config:** Tool policy is portable (Claude, OpenCode have
-allow/deny surfaces). Encoding tool policy as `native-config` would require per-harness
+**Why separate from harness passthrough:** Tool policy is portable (Claude, OpenCode have
+allow/deny surfaces). Encoding portable tool policy as target-native passthrough would require per-harness
 duplication and lose portability.
 
 ---
@@ -347,7 +348,7 @@ duplication and lose portability.
   developed. Not part of the launch-bundle first slice. Tool policy should be part
   of the future Pi contract.
 - **Gemini:** Not a current Mars/Meridian target. Excluded from launch-bundle and
-  native-config requirements.
+  harness passthrough requirements.
 
 **Why Cursor experimental vs first-class:** Cursor's config surfaces are actively
 evolving. Committing to a stable projection contract prematurely creates maintenance
@@ -359,12 +360,12 @@ debt.
 
 **Decision:** `mars sync` produces harness-native static artifacts; `mars build launch-bundle`
 produces a runtime JSON scaffold for Meridian. These are different build products for
-different consumers. `native-config` is dropped from static native artifacts
+different consumers. Harness passthrough is dropped from static native artifacts
 (meridian-only in lossiness matrix) but preserved in the launch-bundle for runtime
 projection. This divergence is intentional.
 
 **Why:** Static native artifacts are for harness-native agent discovery (e.g., Claude Code
-sidebar). They don't carry `native-config` because the harness would need to know how to
+sidebar). They don't carry harness passthrough because the harness would need to know how to
 apply it — that's Meridian's job. The launch-bundle is Meridian's runtime surface; it
 carries everything Meridian needs.
 
@@ -406,4 +407,4 @@ to claude with high confidence, the launch bundle will route to claude. No silen
 - [architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — launch-bundle system
 - [concepts/skill-schema.md](../concepts/skill-schema.md) — skill schema and variant lowering
 - [concepts/bootstrap-docs.md](../concepts/bootstrap-docs.md) — bootstrap doc discovery mechanism
-- [concepts/native-config.md](../concepts/native-config.md) — native-config passthrough concept
+- [concepts/native-config.md](../concepts/native-config.md) — harness override passthrough concept
