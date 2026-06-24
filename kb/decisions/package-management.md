@@ -254,6 +254,20 @@ let upgrades_available = if request.options.frozen {
 
 ---
 
+### D87: Convention-based source discovery and explicit hidden foreign import
+
+**Decision:** Mars discovers package items with one bounded convention walk. The walk starts at the rooted package directory, descends only through non-hidden directories up to `MAX_DISCOVERY_WALK_DEPTH = 5`, and recognizes directories named `agents`, `skills`, and `bootstrap`. A package-root `SKILL.md` remains the flat-skill fallback. After scanning, Mars grounds the result to the shallowest discovered package layer across all item kinds. Any duplicate `(kind, name)` discovered inside one source raises `DiscoveryCollision`, whether the duplicate came from convention scanning, manifest declarations, or both.
+
+**Why:** Package import should be predictable from package conventions, not from a harness-specific guess about where a tool might store generated output. A single bounded walk lets real packages live below monorepo subdirectories without turning every nested fixture, example, or vendored package into importable content. Shallowest-layer grounding keeps a package's own layer authoritative when examples or vendored layouts also contain `agents/` or `skills/` folders.
+
+**Hidden directories are not default sources:** Dot-prefixed directories such as `.claude/`, `.codex/`, `.cursor/`, `.opencode/`, `.git/`, and `.mars/` are local execution, cache, control, or generated output surfaces. The walk skips them by rule rather than carrying a per-harness blocklist. A foreign hidden layout is still importable, but only by rooting the dependency there explicitly, for example `subpath = ".claude"` with `dialect = "claude"`.
+
+**Rejected alternative:** Auto-scan hidden harness containers such as `.claude/agents` and `.claude/skills` from the source root. Rejected because it treats generated/local harness state as source, imports output from packages that never opted into Mars packaging, and requires a growing harness-container heuristic. That heuristic was removed rather than preserved for backwards compatibility.
+
+**Mechanism reference:** `mars-agents/src/discover/mod.rs` owns the convention walk, layer grounding, dot-dir skip, and `DiscoveryCollision` check. `mars-agents/src/local_source.rs` routes project-local items through the same discovery contract under `.mars-src/`.
+
+---
+
 ## Launch-Bundle System
 
 Decisions about the `mars build launch-bundle` flow: Mars/Meridian ownership split,
