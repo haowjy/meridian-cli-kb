@@ -18,7 +18,7 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 - [bootstrap-docs.md](bootstrap-docs.md) — Two-tier bootstrap document discovery and `meridian bootstrap` launch behavior.
 - [config-precedence.md](config-precedence.md) — Config file merge order and runtime override chain.
 - [context-resolution.md](context-resolution.md) — Work, KB, archive, and strategy path resolution.
-- [session-initiation.md](session-initiation.md) — Four-mode session initiation model: --continue, --fork, --fork-fresh, --from; identity lock; four-layer content composition; bare flag inference.
+- [session-initiation.md](session-initiation.md) — Four-mode session initiation model: --continue, --fork, --fork-fresh, --from; identity lock; continue replay of recorded work/task-dir and launch policy; four-layer content composition; bare flag inference.
 - [workspace-projection.md](workspace-projection.md) — Workspace entries, merge semantics, and snapshot projection.
 
 ## Subtrees

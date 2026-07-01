@@ -278,6 +278,7 @@ boundary.
 ## Related Pages
 
 - [composition-pipeline.md](composition-pipeline.md) — how `ComposedLaunchContent` and `ProjectedContent` work; where the user-turn channel is materialized per harness
+- [../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation](../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation) — why continue replays recorded work/task-dir and cache-shaping launch policy
 - [../decisions/launch.md](../decisions/launch.md) — identity-lock and argv-normalization decision rationale
 - [../architecture/launch-system.md](../architecture/launch-system.md) — `build_launch_context()` as the sole composition seam; `resolve_task_context_inputs` placement
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how `--continue` and `--fork` work at the Claude harness level

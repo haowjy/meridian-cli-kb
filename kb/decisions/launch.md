@@ -1022,6 +1022,8 @@ This is the same rationale as `SpawnStartMetadata` in the spawn-goal work: typed
 
 ## Session Initiation (2026-05, PR #216)
 
+Same-session continue replay was tightened later; see [D-continue-replays-recorded-launch-contract](#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
+
 ### D-fork-identity-lock: `--fork` locks identity; `--fork-fresh` allows changes
 
 **Decision:** `--fork` rejects `-a`, `-m`, and `--skills` at the CLI. `--fork-fresh` is the distinct mode that permits identity overrides. Enforcement is CLI-only — the ops layer (`SpawnForkInput`) handles both modes without a separate field.
