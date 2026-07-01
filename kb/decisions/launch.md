@@ -507,6 +507,12 @@ skills, loaded skill content, execution policy, tool/MCP tool policy, rendered
 inventory prompt, and passthrough args. Legacy tracked sessions without a snapshot
 still preserve recorded work/task context and source harness metadata where present.
 
+An empty snapshot model (`model=""`) is a valid recorded launch contract when Mars
+cleared an incompatible model because a higher-precedence harness override won. It
+means "no managed model override; let the recorded harness use its default." Continue
+must replay that contract for any harness instead of recomputing from current
+config/env or rejecting the snapshot. Empty harness remains invalid.
+
 **Why:** Continue means re-entering the same conversation. Recomputing from current
 CWD/config/env can change the system prompt, projected prompt payload, workspace
 projection, task directory instructions, or prompt-cache key even though the user

@@ -120,18 +120,23 @@ See [launch decisions](launch.md#d57-meridian_harness-is-spawn-local-not-a-user-
 
 ---
 
-### Model is optional — harness alone is sufficient for spawn execution
+### Model is optional — harness alone is sufficient for launch execution
 
-**Decision:** An empty model string is a valid resolved state. Harness adapters handle empty model by omitting `--model` from the launch command and letting the harness use its own default. No layer between the caller and the adapter should reject an empty model string as invalid.
+**Decision:** An empty model string is a valid resolved launch state. Harness adapters handle empty model by omitting the managed model override from the launch command and letting the resolved harness use its own default. No layer between the caller and the adapter should reject an empty model string as invalid.
 
 **Context:** Prior to the 2026-05 spawn resolution refactor, the background worker's inline validation rejected empty model with a terminal event, orphaning `orphan_run` spawns for any profile that intentionally omits a `model:` field (model-optional profiles). These profiles rely entirely on the harness default.
 
+The same representation is also valid when Mars intentionally clears a model during launch-policy resolution. Example: a profile or config supplies a model token that the selected harness cannot run, but a higher-precedence harness override wins. Mars may persist `model=""` in the launch-policy snapshot to mean: the harness choice is recorded, but Meridian must not pass a managed model override.
+
 **What empty model means:**
 - The caller made no model selection, and the profile specifies none
+- Mars cleared an incompatible profile/config model because a stronger harness override won
 - Harness uses its internal default (e.g., Claude Code uses its configured default model)
 - The spawn record stores `""` — this is not a placeholder but the accurate resolved value
 
-**Validation rule (post-refactor):** Pre-launch validation checks `prompt` (must be non-empty) and `harness` (must be non-empty). Model is NOT validated — an empty model is a legitimate configuration, not an error.
+**Validation rule (post-refactor):** Pre-launch and snapshot replay validation check `prompt` where applicable and `harness` (must be non-empty). Model is NOT validated — an empty model is a legitimate configuration, not an error.
+
+**Continue rule:** Same-session continue must replay a recorded `model=""` launch-policy snapshot as `model=None` at adapter materialization time. It must not recompute a model from current config/env, and it must not reject the snapshot. Empty model is harness-agnostic; the only invalid empty launch-policy field is `harness`.
 
 **Relationship to I-7:** I-7 requires "real resolved values" in the spawn row. The `"unknown"` sentinel that previously masked empty model was an I-7 violation — it was a placeholder, not a resolved value. Empty string is the correct representation.
 

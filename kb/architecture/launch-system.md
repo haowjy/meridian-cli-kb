@@ -222,7 +222,7 @@ Three concentric layers, each defined by function scope:
 3. **Surface backstop** (in the calling surface functions): last-resort around the entire post-row section.
 
 **Resolution in the background worker:**  
-The background worker trusts the `BackgroundWorkerLaunchRequest` written by `execute_spawn_background()`. It does NOT re-resolve model or harness from the spawn record — the request is already fully resolved when persisted. Validation checks only `harness` (required) and `prompt` (required); empty model is accepted (model-optional profiles delegate model selection to the harness).
+The background worker trusts the `BackgroundWorkerLaunchRequest` written by `execute_spawn_background()`. It does NOT re-resolve model or harness from the spawn record — the request is already fully resolved when persisted. Validation checks only `harness` (required) and `prompt` (required); empty model is accepted because it means no managed model override, whether from a model-optional profile or from Mars clearing an incompatible model after a stronger harness override won.
 
 `execute_with_streaming()` in `streaming_runner.py` is the async executor: heartbeat every 30s, `mark_finalizing` CAS after harness exits, `enrich_finalize()` for usage/session/report extraction.
 

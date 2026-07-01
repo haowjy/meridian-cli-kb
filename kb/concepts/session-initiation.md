@@ -32,6 +32,11 @@ execution policy, passthrough args, and persisted launch-policy snapshot. It mus
 not silently recompute system-prompt-shaping or prompt-cache-shaping inputs from
 the caller's current CWD, config, or environment.
 
+If the recorded launch-policy snapshot has `model=""`, that empty model is part of
+the same-session contract. It means Meridian should pass no managed model override
+and let the recorded harness use its default, not resolve a replacement from current
+config or environment.
+
 Changing task location, work attachment, identity, or launch policy is a
 divergence, not continuation. Use `--fork`, `--fork-fresh`, `--from`, or a fresh
 session for that. Same-session continue rejects policy-changing overrides such as
