@@ -25,6 +25,18 @@ Resume the same harness session in-place. The harness picks up exactly where it
 left off — same identity, same transcript, same state. No new Meridian-rendered
 content. The next turn comes from interactive input or the next spawn task.
 
+Continuation also preserves the recorded Meridian launch contract. For tracked
+sessions and spawns, `--continue` reuses the source work item, task directory
+(`MERIDIAN_TASK_DIR` / task cwd), harness identity, model, agent, skills,
+execution policy, passthrough args, and persisted launch-policy snapshot. It must
+not silently recompute system-prompt-shaping or prompt-cache-shaping inputs from
+the caller's current CWD, config, or environment.
+
+Changing task location, work attachment, identity, or launch policy is a
+divergence, not continuation. Use `--fork`, `--fork-fresh`, `--from`, or a fresh
+session for that. Same-session continue rejects policy-changing overrides such as
+`--work`, `--task-dir`, `--model`, `--agent`, `--skills`, and passthrough args.
+
 Use when: resuming interrupted work on the same session.
 
 ### `--fork [REF]`

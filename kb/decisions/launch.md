@@ -493,6 +493,40 @@ divergence impossible.
 
 ---
 
+### D-continue-replays-recorded-launch-contract: same-session continue is not live policy recomputation
+
+**Decision (2026-07, work:continue-inherits-task-dir):** Primary `meridian --continue <ref>`
+and spawn `meridian spawn --continue <id>` replay the recorded launch contract for
+tracked source sessions/spawns instead of resolving a new launch from the caller's
+current CWD, environment, or config.
+
+**Behavior:** Continue inherits the source work attachment and task directory
+(`task_cwd`, surfaced as `MERIDIAN_TASK_DIR`) when Meridian recorded them. When a
+`LaunchPolicySnapshot` exists, continue reuses the snapshot's model, harness, agent,
+skills, loaded skill content, execution policy, tool/MCP tool policy, rendered
+inventory prompt, and passthrough args. Legacy tracked sessions without a snapshot
+still preserve recorded work/task context and source harness metadata where present.
+
+**Why:** Continue means re-entering the same conversation. Recomputing from current
+CWD/config/env can change the system prompt, projected prompt payload, workspace
+projection, task directory instructions, or prompt-cache key even though the user
+asked for same-session behavior. That breaks cache locality and can send the agent
+to the wrong checkout or worktree.
+
+**Override boundary:** Policy-changing options are rejected on continue: model,
+agent, skills, harness, execution policy, passthrough args, environment overrides,
+`--work`, and `--task-dir`. Changing work location or launch identity belongs to a
+divergent mode: `--fork`, `--fork-fresh`, `--from`, or a fresh session.
+
+**Non-goal:** Untracked raw harness sessions with no Meridian metadata may still
+fall back to current launch context; there is no compatibility shim for metadata
+Meridian never recorded.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) and
+[../architecture/launch-system.md](../architecture/launch-system.md#control_root--task_cwd-split).
+
+---
+
 ### D-headless-claude-deny: Headless Claude denied by default with 2026-06-15 driver
 
 **Decision (2026-06, PR #314):** Meridian denies headless Claude by default. The
