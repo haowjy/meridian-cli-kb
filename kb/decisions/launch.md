@@ -512,6 +512,7 @@ cleared an incompatible model because a higher-precedence harness override won. 
 means "no managed model override; let the recorded harness use its default." Continue
 must replay that contract for any harness instead of recomputing from current
 config/env or rejecting the snapshot. Empty harness remains invalid.
+See [model-resolution: model optional](model-resolution.md#model-optional-empty-model).
 
 **Why:** Continue means re-entering the same conversation. Recomputing from current
 CWD/config/env can change the system prompt, projected prompt payload, workspace

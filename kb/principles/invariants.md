@@ -20,7 +20,7 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 **I-6 — Resolve before persist (REST and streaming-serve paths).** `build_launch_context()` is called before the spawn row is created. A resolution failure (bad model, missing profile) produces no spawn row — no phantom active spawns.
 
-**I-7 — Resolved values in the row.** The spawn row stores real resolved model/agent/harness, never placeholder strings like `"unknown"`. Empty string (`""`) is a valid resolved model value (model-optional profile; harness uses its own default). `"unknown"` is not a valid resolved value — it is a placeholder and an I-7 violation. See [decisions/model-resolution.md](../decisions/model-resolution.md) for the model-optionality decision.
+**I-7 — Resolved values in the row.** The spawn row stores real resolved model/agent/harness, never placeholder strings like `"unknown"`. Empty string (`""`) is a valid resolved model value: it can come from a model-optional profile or from Mars clearing an incompatible model after a stronger harness override won. In both cases, the harness uses its own default. `"unknown"` is not a valid resolved value — it is a placeholder and an I-7 violation. See [model-resolution: model optional](../decisions/model-resolution.md#model-optional-empty-model) for the model-optionality decision.
 
 **I-8 — Environment overrides from context.** `ConnectionConfig.env_overrides` is populated from `LaunchContext.env_overrides`. Harness subprocesses inherit the correct `MERIDIAN_*` env from the composed context, not from ambient environment.
 
