@@ -28,9 +28,11 @@ content. The next turn comes from interactive input or the next spawn task.
 Continuation also preserves the recorded Meridian launch contract. For tracked
 sessions and spawns, `--continue` reuses the source work item, task directory
 (`MERIDIAN_TASK_DIR` / task cwd), harness identity, model, agent, skills,
-execution policy, passthrough args, and persisted launch-policy snapshot. It must
-not silently recompute system-prompt-shaping or prompt-cache-shaping inputs from
-the caller's current CWD, config, or environment.
+execution policy, passthrough args, and persisted launch-policy snapshot. If the
+source had no work item, that absence is also part of the contract: continue must
+not attach the caller's ambient work item. It must not silently recompute
+system-prompt-shaping or prompt-cache-shaping inputs from the caller's current
+CWD, config, or environment.
 
 If the recorded launch-policy snapshot has `model=""`, that empty model is part of
 the same-session contract. It means Meridian should pass no managed model override
@@ -41,6 +43,9 @@ Changing task location, work attachment, identity, or launch policy is a
 divergence, not continuation. Use `--fork`, `--fork-fresh`, `--from`, or a fresh
 session for that. Same-session continue rejects policy-changing overrides such as
 `--work`, `--task-dir`, `--model`, `--agent`, `--skills`, and passthrough args.
+When the source was launched with explicit agent opt-out, continue preserves that
+opt-out and must not reintroduce a configured default agent through routing
+fallback. Without opt-out, snapshot replay preserves the source agent identity.
 
 Use when: resuming interrupted work on the same session.
 

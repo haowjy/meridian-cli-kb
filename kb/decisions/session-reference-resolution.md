@@ -39,6 +39,12 @@ The first three are authoritative enough for `--continue`/`--fork`. `DETECTED_UN
 | `--continue` / `--fork` | `authoritative_harness_session_id` | No |
 | `--from` | `effective_harness_session_id` (best-effort) | Yes (omitted if unavailable) |
 
+`--continue` and `--fork` treat authoritative recovery as launch authority, not
+diagnostic metadata. If the source row lacks a raw harness session ID but recovery
+finds one from session records, the spawn row, or primary metadata, the follow-up
+launch uses that recovered ID. `DETECTED_UNVERIFIED` remains excluded because a
+same-session operation must not resume or fork against a guessed session.
+
 ## Quit Message
 
 `PrimaryLaunchOutput` now carries `continue_chat_id` separately from `continue_ref`. The resume command prefers the chat ID:

@@ -501,11 +501,19 @@ tracked source sessions/spawns instead of resolving a new launch from the caller
 current CWD, environment, or config.
 
 **Behavior:** Continue inherits the source work attachment and task directory
-(`task_cwd`, surfaced as `MERIDIAN_TASK_DIR`) when Meridian recorded them. When a
-`LaunchPolicySnapshot` exists, continue reuses the snapshot's model, harness, agent,
-skills, loaded skill content, execution policy, tool/MCP tool policy, rendered
-inventory prompt, and passthrough args. Legacy tracked sessions without a snapshot
-still preserve recorded work/task context and source harness metadata where present.
+(`task_cwd`, surfaced as `MERIDIAN_TASK_DIR`) when Meridian recorded them. The
+absence of source work is also recorded state: exact continue suppresses the
+caller's ambient `MERIDIAN_ACTIVE_WORK_*` instead of attaching it implicitly. When
+a `LaunchPolicySnapshot` exists, continue reuses the snapshot's model, harness,
+agent, skills, loaded skill content, execution policy, tool/MCP tool policy,
+rendered inventory prompt, and passthrough args. Legacy tracked sessions without a
+snapshot still preserve recorded work/task context and source harness metadata
+where present.
+
+Explicit agent opt-out is authoritative. If the source launch opted out of an
+agent, replay must keep `agent=None` and avoid falling back to configured default
+agents. When there is no opt-out, snapshot replay preserves the source agent
+identity even if current config or environment would select a different default.
 
 An empty snapshot model (`model=""`) is a valid recorded launch contract when Mars
 cleared an incompatible model because a higher-precedence harness override won. It
@@ -524,6 +532,12 @@ to the wrong checkout or worktree.
 agent, skills, harness, execution policy, passthrough args, environment overrides,
 `--work`, and `--task-dir`. Changing work location or launch identity belongs to a
 divergent mode: `--fork`, `--fork-fresh`, `--from`, or a fresh session.
+
+**Session ID authority:** Continue/fork consume
+`ResolvedSessionReference.authoritative_harness_session_id`, not only the raw value
+stored on the source row. Authoritative recovery from session records, spawn rows,
+or primary metadata is valid launch input; unverified detected IDs are not. See
+[session-reference-resolution.md](session-reference-resolution.md).
 
 **Non-goal:** Untracked raw harness sessions with no Meridian metadata may still
 fall back to current launch context; there is no compatibility shim for metadata
