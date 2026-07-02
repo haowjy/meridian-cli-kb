@@ -10,8 +10,8 @@ The startup pipeline is policy-driven by a **command catalog** of `CommandDescri
 
 - `command_path` — tuple, supports arbitrary nesting (`("spawn", "report", "show")`)
 - `lazy_target` — import path string for the Cyclopts handler (not imported at startup)
-- `startup_class` — `TRIVIAL | READ_PROJECT | READ_RUNTIME | WRITE_PROJECT | WRITE_RUNTIME | PRIMARY_LAUNCH | SERVICE_ROOTLESS | SERVICE_RUNTIME | CLIENT_READ`
-- `state_requirement` — what bootstrap the command needs
+- `startup_class` — `TRIVIAL | READ_ROOTLESS | READ_PROJECT | READ_RUNTIME | WRITE_PROJECT | WRITE_RUNTIME | PRIMARY_LAUNCH | SERVICE_ROOTLESS | SERVICE_RUNTIME`
+- `bootstrap_plan` — the pre-dispatch filesystem policy: state preparation plus cwd auto-init
 - `telemetry_mode` — `none | stderr | segment`
 - `default_output_mode` — replaces the old extension-registry lookup for agent-default formats
 - `redirect` — optional redirect policy (e.g. `models list` → `mars models list`)
@@ -28,7 +28,7 @@ flowchart TD
     B -- no --> D[startup.classify\nselect CommandDescriptor]
     D --> E[startup.context\nresolve global options + mode]
     E --> F[startup.pipeline\nplan bootstrap requirements]
-    F --> G[BootstrapFacade\nprepare state per descriptor class]
+    F --> G[BootstrapFacade\nprepare state per BootstrapPlan]
     F --> H[TelemetryBootstrap.install\none process-seam call]
     G --> I[cyclopts_app\nlazy command import + dispatch]
     I --> J[command handler]
@@ -40,20 +40,19 @@ flowchart TD
 
 The classifier maps argv to one of these classes before any heavy imports:
 
-| Class | Examples | State requirement | Telemetry |
+| Class | Examples | Bootstrap plan | Telemetry |
 |---|---|---|---|
 | `TRIVIAL` | root `--help`, `--version` | none | none |
-| `READ_PROJECT` | `context`, `work current`, `hooks list`, `workspace list` | project-read | none |
-| `READ_RUNTIME` | `spawn list`, `spawn show`, `session log` | runtime-read | none |
-| `WRITE_PROJECT` | `config init`, `workspace migrate` | project-write | optional segment |
-| `WRITE_RUNTIME` | `spawn create`, `work start`, `doctor --prune` | runtime-write | segment |
-| `PRIMARY_LAUNCH` | bare `meridian`, `--continue`, `--fork` | runtime-write | segment |
 | `READ_ROOTLESS` | `doctor`, `kg check/graph`, `qi check/list`, `mermaid check`, `config show/get`, `ext list/commands` | none | none |
+| `READ_PROJECT` | `context`, `hooks list`, `workspace list` | project-read | none |
+| `READ_RUNTIME` | `spawn list`, `spawn show`, `session log`, `work current` | runtime-read | none |
+| `WRITE_PROJECT` | `config set`, `workspace init`, `hooks run` | project-write, optionally cwd auto-init | optional segment |
+| `WRITE_RUNTIME` | `spawn create`, `work start`, `bootstrap` | runtime-write, optionally cwd auto-init | segment |
+| `PRIMARY_LAUNCH` | bare `meridian`, `--continue`, `--fork` | runtime-write, cwd auto-init | segment |
 | `SERVICE_ROOTLESS` | `serve` | none | stderr |
-| `SERVICE_RUNTIME` | `chat` (interactive) | runtime-write | segment |
-| `CLIENT_READ` | `chat ls`, `chat show`, `chat log` | runtime-read | none |
+| `SERVICE_RUNTIME` | `streaming serve` | runtime-write | segment |
 
-Read-only classes (`READ_ROOTLESS`, `READ_PROJECT`, `READ_RUNTIME`, `CLIENT_READ`, `TRIVIAL`) install no telemetry, spawn no writer thread, create no UUID, and make no filesystem mutations.
+Read-only classes (`READ_ROOTLESS`, `READ_PROJECT`, `READ_RUNTIME`, `TRIVIAL`) install no telemetry, spawn no writer thread, create no UUID, and make no filesystem mutations.
 
 ## Rootless Commands and Established Project
 
@@ -64,7 +63,7 @@ Some commands operate on a path, current working directory, or user-level config
 - **Extension introspection:** `ext list`, `ext commands`
 - **Doctor:** `doctor` (runs global/user-level checks)
 
-In contrast, project-scoped commands (spawn, work, telemetry, session) require an **established project**. An established project is one where:
+In contrast, project-scoped read commands and existing-state mutations require an **established project**. Creation/bootstrap commands can opt into cwd auto-init through their `BootstrapPlan`. An established project is one where:
 
 1. **Explicit targeting:** `-C <path>` or `MERIDIAN_PROJECT_DIR` is set, OR
 2. **Literal-cwd marker:** the current working directory contains its own `.meridian/id` file (`cwd_has_project_id(cwd)` — NO ancestor walk)
@@ -92,7 +91,7 @@ Two thin adapters consume this result:
 
 `cwd_has_project_id(cwd)` in `src/meridian/lib/config/project_root.py` checks whether the literal `cwd` contains `.meridian/id` — **no ancestor walk**. This is the deliberate design from #335 (removing walk-up) and #338 (restoring literal-cwd's-own-id detection as an intentional predicate).
 
-The predicate is intentionally one function; issue #341 will broaden it to `meridian.toml` / `mars.toml` as part of deprecating repo-local `.meridian/`.
+The predicate is intentionally one function. Commands whose `BootstrapPlan.auto_init_cwd` is true are the exception: when the literal cwd is not established, they scaffold `meridian.toml`, create `.meridian/id`, and then run the normal write bootstrap path. This belongs only on creation/bootstrap commands (`meridian`, `spawn create`, `work start`, `config set`, `workspace init`, `bootstrap`), not reads or existing-state mutations (`spawn cancel`, `work switch`, `config reset`).
 
 ### Footgun Killed: SystemExit Through `except Exception`
 
@@ -115,11 +114,11 @@ Before this redesign, `resolve_*` helpers silently created directories and UUIDs
 
 **Runtime-write:** everything in project-read, plus create UUID if missing, resolve user runtime root, create runtime directories.
 
-The `BootstrapFacade` orchestrates the right sequence based on the descriptor's `state_requirement`. Command handlers receive a prepared context rather than calling bootstrap helpers themselves.
+The pre-dispatch path orchestrates the right sequence from the descriptor's `BootstrapPlan`. Command handlers receive a prepared context rather than calling bootstrap helpers themselves, except for post-parse root commands whose target path comes from parsed arguments.
 
 ### Post-Parse Bootstrap
 
-Commands whose target root comes from parsed arguments (e.g. `init [path]`) declare `root_source: "argv"` in their descriptor. The pipeline defers bootstrap until after Cyclopts dispatch. These commands call the `BootstrapFacade` with the argument-derived root rather than the cwd-derived default.
+Commands whose target root comes from parsed arguments (e.g. `init [path]`, `config init`) declare `root_source: "argv"` in their descriptor. Catalog construction maps these descriptors to `BootstrapPlan(state_requirement=none)`, so pre-dispatch bootstrap cannot reject an uninitialized cwd before the handler parses the target. The handler then calls the project/config bootstrap operation with the argument-derived root rather than the cwd-derived default.
 
 ## Telemetry: Process-Seam Install
 
