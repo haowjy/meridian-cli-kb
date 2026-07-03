@@ -122,24 +122,34 @@ See [launch decisions](launch.md#d57-meridian_harness-is-spawn-local-not-a-user-
 
 ### Model is optional — harness alone is sufficient for launch execution {#model-optional-empty-model}
 
-**Decision:** An empty model string is a valid resolved launch state. Harness adapters handle empty model by omitting the managed model override from the launch command and letting the resolved harness use its own default. No layer between the caller and the adapter should reject an empty model string as invalid.
+**Decision:** An absent managed model override is a valid resolved launch state.
+Harness adapters omit the managed model override from the launch command and let
+the resolved harness use its own default. No layer between the caller and the
+adapter should reject model absence as invalid.
 
 **Context:** Prior to the 2026-05 spawn resolution refactor, the background worker's inline validation rejected empty model with a terminal event, orphaning `orphan_run` spawns for any profile that intentionally omits a `model:` field (model-optional profiles). These profiles rely entirely on the harness default.
 
-The same representation is also valid when Mars intentionally clears a model during launch-policy resolution. Example: a profile or config supplies a model token that the selected harness cannot run, but a higher-precedence harness override wins. Mars may persist `model=""` in the launch-policy snapshot to mean: the harness choice is recorded, but Meridian must not pass a managed model override.
+The persisted representation for this state is legacy JSON `model=""`. Mars may
+write that value in a launch-policy snapshot when it intentionally clears a model
+during launch-policy resolution. Example: a profile or config supplies a model
+token that the selected harness cannot run, but a higher-precedence harness
+override wins. The harness choice is recorded, but Meridian must not pass a
+managed model override.
 
 **What empty model means:**
 - The caller made no model selection, and the profile specifies none
 - Mars cleared an incompatible profile/config model because a stronger harness override won
 - Harness uses its internal default (e.g., Claude Code uses its configured default model)
-- The spawn record stores `""` — this is not a placeholder but the accurate resolved value
+- Persisted snapshots/spawn records may store `""` — this is not a placeholder but
+  the durable JSON representation for harness-default model
 
 Do not persist a fake model token such as `"none"` for this state. That would
 make downstream launch binding treat the token as a Meridian-managed model
-override. The empty string is the durable representation for "no
-Meridian-managed model override; let the recorded harness choose its default."
+override. In new in-memory replay code, normalize persisted `""` to `None` so
+absence is explicit. The durable JSON compatibility representation remains the
+empty string.
 
-**Validation rule (post-refactor):** Pre-launch and snapshot replay validation check `prompt` where applicable and `harness` (must be non-empty). Model is NOT validated — an empty model is a legitimate harness-agnostic configuration, not an error. The same-session continue replay rule lives in [launch decisions](launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
+**Validation rule (post-refactor):** Pre-launch and snapshot replay validation check `prompt` where applicable and `harness` (must be non-empty). Model is NOT validated — model absence is a legitimate harness-agnostic configuration, not an error. Snapshot model normalization belongs to policy snapshot replay; same-session continue consumes the normalized result through [launch decisions](launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
 
 **Relationship to I-7:** I-7 requires "real resolved values" in the spawn row. The `"unknown"` sentinel that previously masked empty model was an I-7 violation — it was a placeholder, not a resolved value. Empty string is the correct representation.
 

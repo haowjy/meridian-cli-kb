@@ -68,7 +68,12 @@ The split captures the divergence between *where project config lives* and *wher
 
 **continue/fork authority:** `resolve_session_reference()` uses `source_control_root` from persisted spawn records. Legacy refs that predate PR #210 fall back to the current launch `control_root`.
 
-**continue replay:** Same-session continue reuses recorded `task_cwd`, work attachment, and cache-shaping launch policy instead of recomputing from the caller's current CWD/config/env. See [D-continue-replays-recorded-launch-contract](../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
+**continue replay:** Same-session continue enters launch through `continue_replay.py`.
+`ContinueReplayContract` is the shared internal seam for primary and spawn
+continue: it carries the source harness session, work/task context, replayed
+launch identity, passthrough args, and persisted launch-policy snapshot instead of
+letting callers recompute from current CWD/config/env. See
+[D-continue-replays-recorded-launch-contract](../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
 
 See [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split) for the rationale.
 

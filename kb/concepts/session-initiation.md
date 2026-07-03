@@ -26,26 +26,30 @@ left off — same identity, same transcript, same state. No new Meridian-rendere
 content. The next turn comes from interactive input or the next spawn task.
 
 Continuation also preserves the recorded Meridian launch contract. For tracked
-sessions and spawns, `--continue` reuses the source work item, task directory
+sessions and spawns, both primary and spawn continue build a launch-owned
+`ContinueReplayContract` from the source reference plus its persisted
+`LaunchPolicySnapshot`. The contract reuses the source work item, task directory
 (`MERIDIAN_TASK_DIR` / task cwd), harness identity, model, agent, skills,
-execution policy, passthrough args, and persisted launch-policy snapshot. If the
-source had no work item, that absence is also part of the contract: continue must
-not attach the caller's ambient work item. It must not silently recompute
-system-prompt-shaping or prompt-cache-shaping inputs from the caller's current
-CWD, config, or environment.
+execution policy, env, passthrough args, and snapshot metadata. If the source had
+no work item or task directory, that absence is also part of the contract:
+continue must not attach the caller's ambient work item or inherited task cwd. It
+must not silently recompute system-prompt-shaping or prompt-cache-shaping inputs
+from the caller's current CWD, config, or environment.
 
-If the recorded launch-policy snapshot has `model=""`, that empty model is part of
-the same-session contract. It means Meridian should pass no managed model override
-and let the recorded harness use its default, not resolve a replacement from current
-config or environment. See [model-resolution: model optional](../decisions/model-resolution.md#model-optional-empty-model).
+If the recorded launch-policy snapshot has `model=""`, that empty model is legacy
+persisted JSON for the same-session contract. Policy snapshot replay normalizes it
+to in-memory `model=None`: Meridian should pass no managed model override and let
+the recorded harness use its default, not resolve a replacement from current config
+or environment. See [model-resolution: model optional](../decisions/model-resolution.md#model-optional-empty-model).
 
 Changing task location, work attachment, identity, or launch policy is a
 divergence, not continuation. Use `--fork`, `--fork-fresh`, `--from`, or a fresh
-session for that. Same-session continue rejects policy-changing overrides such as
-`--work`, `--task-dir`, `--model`, `--agent`, `--skills`, and passthrough args.
-When the source was launched with explicit agent opt-out, continue preserves that
-opt-out and must not reintroduce a configured default agent through routing
-fallback. Without opt-out, snapshot replay preserves the source agent identity.
+session for that. Same-session continue rejects overrides such as `--work`,
+`--task-dir`, `--model`, `--agent`, `--skills`, execution-policy flags, env
+overrides, and passthrough args. Agent opt-out (`--agent ''`) is also a launch
+identity mutation: when the source opted out, continue preserves that opt-out and
+must not reintroduce a configured default agent; when it did not, continue cannot
+opt out during replay.
 
 Use when: resuming interrupted work on the same session.
 

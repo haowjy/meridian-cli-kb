@@ -495,31 +495,37 @@ divergence impossible.
 
 ### D-continue-replays-recorded-launch-contract: same-session continue is not live policy recomputation
 
-**Decision (2026-07, work:continue-inherits-task-dir):** Primary `meridian --continue <ref>`
+**Decision (2026-07, work:continue-replay-contract):** Primary `meridian --continue <ref>`
 and spawn `meridian spawn --continue <id>` replay the recorded launch contract for
 tracked source sessions/spawns instead of resolving a new launch from the caller's
-current CWD, environment, or config.
+current CWD, environment, or config. The replay boundary is launch-owned:
+`continue_replay.py` builds a `ContinueReplayContract` from the resolved source
+reference and its persisted `LaunchPolicySnapshot`; primary and spawn continue
+consume that same normalized contract.
 
 **Behavior:** Continue inherits the source work attachment and task directory
 (`task_cwd`, surfaced as `MERIDIAN_TASK_DIR`) when Meridian recorded them. The
 absence of source work is also recorded state: exact continue suppresses the
 caller's ambient `MERIDIAN_ACTIVE_WORK_*` instead of attaching it implicitly. When
 a `LaunchPolicySnapshot` exists, continue reuses the snapshot's model, harness,
-agent, skills, loaded skill content, execution policy, tool/MCP tool policy,
-rendered inventory prompt, and passthrough args. Legacy tracked sessions without a
-snapshot still preserve recorded work/task context and source harness metadata
-where present.
+agent, agent opt-out, agent profile, skills, skill paths, loaded skill content,
+execution policy, tool/MCP tool policy, terminal surface mode, matched policy rule,
+fallback chain, rendered inventory prompt, env, and passthrough args. Legacy
+tracked sessions without a snapshot still preserve recorded work/task context and
+source harness metadata where present.
 
 Explicit agent opt-out is authoritative. If the source launch opted out of an
 agent, replay must keep `agent=None` and avoid falling back to configured default
 agents. When there is no opt-out, snapshot replay preserves the source agent
 identity even if current config or environment would select a different default.
 
-An empty snapshot model (`model=""`) is a valid recorded launch contract when Mars
+An empty snapshot model (`model=""`) is valid legacy persisted JSON when Mars
 cleared an incompatible model because a higher-precedence harness override won. It
-means "no managed model override; let the recorded harness use its default." Continue
-must replay that contract for any harness instead of recomputing from current
-config/env or rejecting the snapshot. Empty harness remains invalid.
+means "no managed model override; let the recorded harness use its default."
+In-memory replay represents that absence as `None`; normalization belongs to
+policy snapshot replay (`policy_snapshot.py`), not to continue-specific code.
+Continue must replay that contract for any harness instead of recomputing from
+current config/env or rejecting the snapshot. Empty harness remains invalid.
 See [model-resolution: model optional](model-resolution.md#model-optional-empty-model).
 
 **Why:** Continue means re-entering the same conversation. Recomputing from current
@@ -529,9 +535,11 @@ asked for same-session behavior. That breaks cache locality and can send the age
 to the wrong checkout or worktree.
 
 **Override boundary:** Policy-changing options are rejected on continue: model,
-agent, skills, harness, execution policy, passthrough args, environment overrides,
-`--work`, and `--task-dir`. Changing work location or launch identity belongs to a
-divergent mode: `--fork`, `--fork-fresh`, `--from`, or a fresh session.
+agent, agent opt-out, skills, harness, execution policy, passthrough args,
+environment overrides, `--work`, and `--task-dir`. Agent opt-out is a launch
+identity mutation because it changes whether configured default agents can fill in.
+Changing work location or launch identity belongs to a divergent mode: `--fork`,
+`--fork-fresh`, `--from`, or a fresh session.
 
 **Session ID authority:** Continue/fork consume
 `ResolvedSessionReference.authoritative_harness_session_id`, not only the raw value
