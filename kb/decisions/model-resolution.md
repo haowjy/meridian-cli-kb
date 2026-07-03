@@ -134,6 +134,11 @@ The same representation is also valid when Mars intentionally clears a model dur
 - Harness uses its internal default (e.g., Claude Code uses its configured default model)
 - The spawn record stores `""` — this is not a placeholder but the accurate resolved value
 
+Do not persist a fake model token such as `"none"` for this state. That would
+make downstream launch binding treat the token as a Meridian-managed model
+override. The empty string is the durable representation for "no
+Meridian-managed model override; let the recorded harness choose its default."
+
 **Validation rule (post-refactor):** Pre-launch and snapshot replay validation check `prompt` where applicable and `harness` (must be non-empty). Model is NOT validated — an empty model is a legitimate harness-agnostic configuration, not an error. The same-session continue replay rule lives in [launch decisions](launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
 
 **Relationship to I-7:** I-7 requires "real resolved values" in the spawn row. The `"unknown"` sentinel that previously masked empty model was an I-7 violation — it was a placeholder, not a resolved value. Empty string is the correct representation.
