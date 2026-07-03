@@ -541,6 +541,12 @@ identity mutation because it changes whether configured default agents can fill 
 Changing work location or launch identity belongs to a divergent mode: `--fork`,
 `--fork-fresh`, `--from`, or a fresh session.
 
+**Runtime verification:** Probe `spawn:p4871` covered primary continue dry-run,
+ambient model/agent drift, primary and spawn mutation rejection (including
+`--agent ""` as identity mutation), non-continue smoke launches, ambient task-dir
+suppression, and the focused continue regression suite. This verifies the
+documented contract at both CLI and operation seams.
+
 **Session ID authority:** Continue/fork consume
 `ResolvedSessionReference.authoritative_harness_session_id`, not only the raw value
 stored on the source row. Authoritative recovery from session records, spawn rows,
