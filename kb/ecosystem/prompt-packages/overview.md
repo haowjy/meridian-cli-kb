@@ -64,15 +64,16 @@ Skills use **progressive disclosure**:
 
 ## Packages in the Ecosystem
 
-Three packages compose the Meridian agent layer:
+Four packages compose the Meridian agent layer:
 
 | Package | Role | Key dependency |
 |---|---|---|
 | `meridian-base` | Coordination primitives — orchestrator, subagent, KB agents, core skills | `meridian-prompter` |
 | `meridian-dev-workflow` | Dev lifecycle agents — design, planning, implementation, review, QA | `meridian-base`, `meridian-prompter` |
 | `meridian-prompter` | Prompt engineering — `prompt-dev`, `prompt-reviewer`, `prompt-tester`, principles doctrine | `meridian-base` |
+| `meridian-benchmark-agents` | Unattended benchmark agents — verifier-driven orchestration and bounded attempts | `meridian-base`, `meridian-dev-workflow` |
 
-`meridian-base` is the foundation. `meridian-dev-workflow` adds the full dev workflow on top. `meridian-prompter` adds prompt-specific tooling and is a dependency of both.
+`meridian-base` is the foundation. `meridian-dev-workflow` adds the full dev workflow on top. `meridian-prompter` adds prompt-specific tooling and is a dependency of both. `meridian-benchmark-agents` is separate from the dev workflow because benchmark runs optimize for verifier-backed acceptance and comparable run evidence, not product-development polish.
 
 ## Model Aliases
 
@@ -109,5 +110,6 @@ meridian mars sync
 - [meridian-base.md](meridian-base.md) — core agent and skill inventory
 - [meridian-dev-workflow.md](meridian-dev-workflow.md) — dev orchestration topology
 - [meridian-prompter.md](meridian-prompter.md) — prompt engineering cycle
+- [meridian-benchmark-agents.md](meridian-benchmark-agents.md) — unattended benchmark workflow agents
 - [prompt-principles.md](prompt-principles.md) — 4-level prompt doctrine
 - [../../concepts/package-management/overview.md](../../concepts/package-management/overview.md) — package manager concepts

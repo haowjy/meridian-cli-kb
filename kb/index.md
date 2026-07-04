@@ -214,6 +214,7 @@ The broader Meridian ecosystem: companion repos, their roles, and how they compo
 - [ecosystem/prompt-packages/meridian-base.md](ecosystem/prompt-packages/meridian-base.md) — Core package: orchestrator, subagent, KB agents, and foundation skills that all other packages build on
 - [ecosystem/prompt-packages/meridian-dev-workflow.md](ecosystem/prompt-packages/meridian-dev-workflow.md) — Dev workflow package: design leads, planners, coders, reviewers, testers, documentation writers
 - [ecosystem/prompt-packages/meridian-prompter.md](ecosystem/prompt-packages/meridian-prompter.md) — Prompt engineering package: prompt writers, reviewers, testers; dependency of both base and dev-workflow
+- [ecosystem/prompt-packages/meridian-benchmark-agents.md](ecosystem/prompt-packages/meridian-benchmark-agents.md) — Benchmark package: unattended verifier-driven benchmark orchestration, bounded attempts, Claude-native subagent materialization, and reporting guardrails
 - [ecosystem/prompt-packages/prompt-principles.md](ecosystem/prompt-packages/prompt-principles.md) — Core prompt-engineering doctrine: four levels of principles tied to research evidence, not stated as preferences
 
 ### Jupyter Workbench
