@@ -409,6 +409,45 @@ to claude with high confidence, the launch bundle will route to claude. No silen
 
 ---
 
+### D88: Cross-source naming collisions auto-rename both colliders
+
+**Decision:** When two dependency sources install an agent or skill to the same destination path, both colliders are suffixed with `__{source_name}` instead of one winning or the sync failing. Explicit `rename` in mars.toml takes priority over auto-rename.
+
+**Why:** Multi-package installs commonly share item names (e.g. `meridian-dev-workflow` and `creative-writing-skills` both defining `agents/web-researcher.md`). Hard-erroring blocks legitimate use; first-wins creates an ordering dependency on mars.toml declaration order for collision outcomes. Rename-both is unambiguous — the user always knows which package an item came from — and needs no precedence rule for the collision itself.
+
+**Gating:** Auto-rename applies only to same-kind (Agent|Skill) groups where every collider has a distinct source. Same-source collisions, mixed-kind groups, and hook/MCP/bootstrap collisions remain hard errors. Hooks use a separate first-wins policy at the target-lowering layer (D36).
+
+**Frontmatter rewriting:** After rename, one unified `RenameIndex` + `apply_renames` pass rewrites each agent's `skills:` and `subagents:` frontmatter in a single content update. Resolution: same-source copy wins; if the agent's source still owns an unrenamed copy, the ref is left alone (no retargeting); otherwise fall back to mars.toml declaration order. This replaced two separate passes (`rewrite_skill_refs` + `rewrite_collision_refs`) that could rewrite an agent's content twice.
+
+**Prune-before-rewrite:** Unmanaged-collision pruning runs before the rewrite pass so ref resolution sees post-prune state. Without this, `source_has_unrenamed_item` evaluated against pre-prune items and produced dangling refs when an unrenamed item was later removed.
+
+**Regression history:** Auto-rename-both was the original behavior. Commit `ac12ea4` (subpath source refactor) incidentally removed it; the hard error blocked multi-package installs. PR #125 restored it with the unified pass and prune-before-rewrite ordering.
+
+**Alternatives rejected:**
+- Hard error on cross-source collision → blocks legitimate multi-package installs sharing item names
+- First-wins by declaration order → creates an ordering dependency for collision outcomes; the losing package silently disappears
+- Merge collisions → agents/skills are atomic units; merging two `agents/web-researcher.md` files is semantically meaningless
+
+---
+
+### D89: Config-rename-dangle diagnostic for renamed-away config references
+
+**Decision:** After any rename (explicit or collision auto-rename), sync checks config-side name references against installed names and warns when a referenced name was renamed away and no installed item still carries it. The warning code is `config-rename-dangle`.
+
+**What it checks:** `[settings.meridian.fanout].agents` entries, `[agents.<name>]` overlay keys (from config + local), and `[skills.<name>]` overlay keys. One `warn_config_dangles_after_rename` function covers all three, driven by both rename sources against the post-prune installed set.
+
+**Why:** A rename can leave config references silently dangling. Without the diagnostic, `[settings.meridian.fanout].agents = ["web-researcher"]` would silently stop firing after a collision renames the agent to `web-researcher__pkga`. The warning lists the new installed names so the user can update the config reference.
+
+**Fires only when the original name is gone:** If another source still provides the unrenamed name, the reference is left alone — the fanout/overlay still has a valid target. This avoids false positives when one source's rename doesn't affect the whole installed set.
+
+**Alternatives rejected:**
+- Auto-rewrite the config references → config is user-authored; mars shouldn't mutate it silently
+- Hard error → too strict; a dangling config reference is a warning, not a corrupt state
+- No diagnostic → silent breakage; the user discovers it when the fanout silently stops working
+
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution

@@ -123,12 +123,27 @@ at read time and re-written as v2 (`load_with_diagnostics()` in
 `LockIndex` (`src/lock/mod.rs` lines 127–176) is a fast lookup overlay for
 repeated dest-path queries during the diff phase.
 
-## Skill Rewrite Pass
+## Rename and Rewrite Pass
 
-After applying file operations, `sync/rewrite.rs` rewrites agent frontmatter
-`skills:` references when collision-driven skill renames have changed a skill
-name. This keeps profiles internally consistent after rename resolution without
-requiring manual edits.
+After unmanaged-collision pruning, `sync/rewrite.rs` builds one `RenameIndex`
+from explicit config renames and automatic collision renames, then applies a
+single rewrite pass per agent. Each agent's `skills:` and `subagents:`
+frontmatter is rewritten in one content update — no double-rewrite.
+
+Resolution for which renamed variant to wire into an agent:
+1. Same-source copy wins (the agent's own source)
+2. If the agent's source still owns an unrenamed copy, the ref is left alone
+3. Otherwise fall back to mars.toml declaration order (not `graph.order`,
+   which is alphabetical)
+
+After rewriting, `sync/validate.rs` checks config-side name references
+(`[settings.meridian.fanout].agents`, `[agents.<name>]`, `[skills.<name>]`)
+against installed names and emits a `config-rename-dangle` warning when a
+referenced name was renamed away. See
+[decisions/package-management.md#D88](../../decisions/package-management.md)
+and
+[#D89](../../decisions/package-management.md)
+for the policy rationale.
 
 ## Sync Modes
 
