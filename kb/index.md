@@ -173,6 +173,7 @@ Synthesized external research with implications for Meridian's design and KB str
 - [research/llm-wiki-pattern.md](research/llm-wiki-pattern.md) — Karpathy's LLM wiki concept: what it means for how this KB should be structured and maintained
 - [research/t3-code-reference.md](research/t3-code-reference.md) — T3 Code architecture analysis: what was taken (single dispatch, event taxonomy, invariant library) vs. rejected (CQRS, AG-UI/ACP, Vercel AI SDK)
 - [research/vite-portless-funnel.md](research/vite-portless-funnel.md) — Vite host-check CVE (CVE-2025-24010), portless v0.12.0 `--force` behavior and `PORTLESS_*` env catalog, Tailscale Funnel prerequisites
+- [research/tailscale-serve-semantics.md](research/tailscale-serve-semantics.md) — `tailscale serve`/`funnel` routing and teardown behavior: set-path forwards the full path (no prefix strip), portless 443 does not route local handlers on some nodes, per-path surgical teardown (never bare port off / reset), MagicDNS lookup
 
 ---
 

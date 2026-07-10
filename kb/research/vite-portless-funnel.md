@@ -104,3 +104,6 @@ needed in portless mode.
 - [architecture/chat/dev-frontend.md](../architecture/chat/dev-frontend.md) — Full design
   incorporating these findings
 - [decisions/dev-frontend.md](../decisions/dev-frontend.md) — DF-D1–DF-D7 with rationale
+- [tailscale-serve-semantics.md](tailscale-serve-semantics.md) — `tailscale serve`/`funnel`
+  routing and teardown behavior (set-path prefix forwarding, portless-443 no-route,
+  per-path teardown, MagicDNS lookup) verified during the artifact-serve work
