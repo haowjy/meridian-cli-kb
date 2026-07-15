@@ -1,9 +1,11 @@
 # Completion drain converges through composition
 
-Meridian will use one completion coordinator for Pi and resident drains, while
-keeping evidence, profile policy, and cleanup in three injected collaborators.
-This is settled target architecture, not the current checkout: resident and Pi
-still have separate coordinators and different descendant sources.
+One completion coordinator is the settled architecture for Pi and resident
+drains, with evidence, profile policy, and cleanup kept in three injected
+collaborators. The checkout is partway through that convergence: resident now
+uses `CompletionCoordinator` behind its compatibility wrapper, while Pi still
+uses `PiDrainCoordinator`. Their descendant sources also remain different until
+the Phase 2 authority cutover.
 
 ```mermaid
 flowchart LR
@@ -25,6 +27,13 @@ profile-selected terminal outcome. An assessment is `ready`, `blocked`, or
 `unknown`; an evidence failure produces `unknown` and cannot be interpreted as
 an empty work set. Events, file notifications, and polling only wake assessment.
 They are never completion evidence themselves.
+
+Stabilization is generation-aware but not generation-only. An unchanged ready
+assessment after an early poll or auxiliary wake keeps the existing window. A
+profile may explicitly restart that window after persisted activity even when
+the evidence generation has not changed, because new activity invalidates the
+elapsed quiet time. This distinction is profile policy rather than generic
+event interpretation.
 
 The collaborators are deep boundaries rather than callback collections:
 
@@ -111,3 +120,9 @@ it; do not infer a universal policy from the shared mechanism.
 - `work:drain-convergence`
 - `spawn:p5086`
 - `spawn:p5096`
+
+## Related Pages
+
+- [spawn-finalization.md](spawn-finalization.md) — drain-plan seam and resident finalization behavior.
+- [pi-lifecycle.md](pi-lifecycle.md) — current Pi quiescence implementation before the authority cutover.
+- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — lifecycle-level resident turn-boundary model.

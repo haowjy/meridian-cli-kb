@@ -179,7 +179,8 @@ descendants, `ResidentDrainCoordinator` keeps the backend alive, marks it
 `awaiting_done`, and waits for descendant work to drain. The parent finalizes when:
 
 - the descendant tree becomes terminal;
-- `meridian spawn done` writes the done signal;
+- `meridian spawn done` writes the done signal and fresh completion evidence is
+  known (an evidence-read failure remains fail-closed);
 - the resident deadline expires, producing terminal `timed_out` and cancelling
   active descendants through the same cancel pipeline as explicit cancellation.
 
@@ -190,7 +191,8 @@ directory, so they do not require a live control-socket connection.
 **`meridian spawn done` is a residency control, NOT a status source.** For resident spawns,
 `resident_drain.py` consumes the `done` signal to decide terminate-now vs stay-resident.
 It does NOT set the spawn's terminal status — status stays the `turn/completed` outcome
-written by the harness event. The completion nudge ("ping" every 270s,
+written by the harness event. Done intent is latched across an `unknown` assessment,
+but cannot publish success until a later fresh assessment is known. The completion nudge ("ping" every 270s,
 `completion_nudge.py`) prompts the model to run `meridian spawn done` / `rearm`.
 A non-resident leaf spawn ends on `turn/completed` and never waits for `done`.
 
@@ -338,6 +340,7 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
   actually is
 - [architecture/state-system.md](../architecture/state-system.md) — implementation details of the spawn store and reaper
 - [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — finalization subsystem: policy function, store-level flock, arbitration, conclude accumulator
+- [architecture/completion-drain-coordination.md](../architecture/completion-drain-coordination.md) — shared Pi/resident completion target and evidence boundary
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary process roles and reaper/cancel boundary
 - [spawn-output-contract.md](spawn-output-contract.md) — what a caller sees after a spawn completes: report-first default, transcript pointer, progressive disclosure flags
 - [harness-abstraction.md](harness-abstraction.md) — terminal status semantics per harness (`succeeded` = turn-completion, not work-correctness)

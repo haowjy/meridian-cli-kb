@@ -43,8 +43,10 @@ model:
 2. The coordinator emits a turn boundary, marks the backend as `awaiting_done`, and
    polls descendant state through read-only reconciliation (`peek_reconciled_active_spawn`).
 3. `meridian spawn done` and `meridian spawn rearm` are file signals consumed by the
-   coordinator. `done` records the pending success immediately; `rearm` opts the
-   backend into explicit residency with a fresh deadline and advisory poll messages.
+   coordinator. `done` latches intent to accept the pending success and overrides
+   ordinary blockers, but a fresh `unknown` evidence assessment still blocks success
+   until evidence becomes known. `rearm` opts the backend into explicit residency
+   with a fresh deadline and advisory poll messages.
 4. When descendants finish, a resident `done` signal arrives, or the deadline expires,
    the coordinator records the pending terminal outcome or a timeout/failure.
 5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
@@ -454,6 +456,7 @@ spawn-exit-schema-split pass.
 ## Related Pages
 
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — projection authority model and status machine
+- [completion-drain-coordination.md](completion-drain-coordination.md) — shared Pi/resident completion target, evidence boundary, and cutover plan
 - [architecture/state-system.md](state-system.md) — JSONL store, atomic writes, flock locking
 - [decisions/state.md](../decisions/state.md) — design decisions for this subsystem
 - [principles/invariants.md](../principles/invariants.md) — projection authority rule as invariant
