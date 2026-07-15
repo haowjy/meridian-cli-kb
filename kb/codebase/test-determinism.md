@@ -74,6 +74,15 @@ gate.open()  # release
 
 Yields one event-loop tick (`asyncio.sleep(0)` via the real asyncio) without advancing fake time. Use when you need to let pending callbacks run without changing the clock.
 
+## Thread Coordination: Observe State, Not Elapsed Time
+
+Threaded tests synchronize on `threading.Event` or another explicit state
+transition. Wait for the worker to report that it entered the operation, trigger
+the action under test, then wait for the worker's completion event. Assert the
+resulting thread and resource state directly; do not infer prompt cancellation
+or non-blocking behavior from an elapsed-time threshold. Event wait timeouts are
+hang guards, not behavioral assertions.
+
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 
 Runs N worker processes under `multiprocessing.get_context("spawn")` with a ready barrier — every child arms before any is released, maximizing real contention.

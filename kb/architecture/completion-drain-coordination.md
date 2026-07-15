@@ -72,19 +72,18 @@ deadline is revoked before cleanup is awaited. Cleanup is attempted once;
 cleanup failure is recorded but cannot arm another work wave or replace the
 policy-owned terminal outcome.
 
-This rule includes a known Pi correctness fix. In the current checkout, a
-cleanup exception escapes before the child-wave deadline is cleared, permits a
-second cleanup call, and turns the drain into a generic failure instead of the
-Pi child-wave timeout. The migration must characterize the old path, then make
-the one-deadline rule true; it is not parity-only refactoring.
+For a Pi child-wave deadline, the policy-owned outcome is `failed` /
+`pi_child_wave_timeout`. Ordinary cleanup and timeout-phase emission failures
+are diagnostic; neither replaces the outcome nor resumes waiting-phase
+emission. Cancellation is different: tracker finalization still runs, then
+cancellation propagates.
 
 ## Persistence is the notification gate
 
 The drain loop contract is `persist → observer dispatch → fan-out`.
-`note_event_persisted` is also post-persistence. The current recoverable
-history-write path violates that contract by notifying downstream consumers
-after a failed write. Correcting this gate is a prerequisite to shared evidence,
-not a new completion policy.
+`note_event_persisted` is also post-persistence. A failed history write reaches
+none of those downstream consumers. The tenth consecutive failure aborts the
+drain with a failed outcome without delivering the rejected event.
 
 ## Migration preserves rollback seams
 
