@@ -9,6 +9,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [state-system.md](state-system.md) — JSONL event stores, atomic writes, locking, reaper reconciliation, and migrations.
 - [spawn-finalization.md](spawn-finalization.md) — Terminal write policy, authority lattice, and finalization races.
 - [completion-drain-coordination.md](completion-drain-coordination.md) — Settled composition-first convergence for Pi/resident completion, authority boundaries, cleanup invariant, and phased cutover.
+- [pi-lifecycle.md](pi-lifecycle.md) — Current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior.
 - [atomic-child-row-publication.md](atomic-child-row-publication.md) — Nested-stage directory publication protocol, POSIX evidence, and remaining platform gates.
 - [managed-primary-lifecycle.md](managed-primary-lifecycle.md) — Codex/OpenCode managed-primary process roles, passive reaper safety, and explicit cleanup boundary.
 - [app-server.md](app-server.md) — REST, WebSocket/SSE streaming, MCP stdio server, and connection management.
@@ -23,6 +24,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [chat/](chat/) — Chat runtime, event pipeline, normalizers, acquisition, recovery, commands, dev frontend, and extensibility.
 - [telemetry/](telemetry/) — Three-layer observability spine: local persistence, event catalog, reader and query.
 - [workspace/](workspace/) — Workspace config schema, resolution, merge semantics, and migration.
+- [pi-runtime/](pi-runtime/) — Pi runtime vocabulary for background work and extension coordination.
 
 ## Reading Paths
 

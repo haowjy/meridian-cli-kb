@@ -202,6 +202,16 @@ Current safeguards:
 - Pending child counts sum active child spawns and tracked bash records before
   finalization decisions.
 
+### Child-wave timeout is terminal
+
+Once the child-wave deadline expires, Pi returns `failed` /
+`pi_child_wave_timeout` exactly once. The deadline and cleanup latch are settled
+before the single tracked-child cleanup attempt. An ordinary cleanup error is
+recorded, and timeout-phase emission is best-effort; neither may replace the
+timeout outcome, retry the wave, or announce continued waiting. Cancellation
+still propagates after tracker state is finalized. This is the Pi instance of
+the [one-deadline completion rule](completion-drain-coordination.md).
+
 **`spawn wait` returns** once semantic completion is recorded — cleanup is async and does not block the caller.
 
 ---
@@ -241,16 +251,12 @@ metadata remains a fallback for non-spawn background work.
 
 ## Pi-Specific Spawn Phases
 
-Visible in `meridian spawn show`:
-
-| Phase | Meaning |
-|---|---|
-| `waiting_for_first_pi_event_after_prompt` | Waiting for Pi to acknowledge the prompt |
-| `waiting_for_continuation_completion` | Auto-resume in progress after child wave |
-| `semantic_completion_recorded` | `agent_end` received; cleanup pending |
-| `cleanup_stop_sent` | `stop(reason=quiescent)` sent to Pi |
-| `cleanup_completed` | Pi exited cleanly |
-| `cleanup_failed` / `cleanup_escalated` | Cleanup error or escalation |
+Visible phase events in `meridian spawn show` cover connection startup and first
+response, drain and session observation, tracked-child/notification waits,
+micro-drain, timeout, finalization, and connection cleanup. The cleanup phases
+are `cleanup_running`, `cleanup_completed`, `cleanup_failed`, and
+`cleanup_escalated`. Timeout is terminal: `pi_child_wave_timeout` is not followed
+by another `waiting_for_tracked_children` phase from the timeout path.
 
 `meridian-spawn-watch` owns implicit-wait delivery. The Python drain loop records
 phase names for observation, but notification delivery itself is not a stdout event
