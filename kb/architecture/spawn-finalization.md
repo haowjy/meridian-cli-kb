@@ -47,8 +47,9 @@ model:
    ordinary blockers, but a fresh `unknown` evidence assessment still blocks success
    until evidence becomes known. `rearm` opts the backend into explicit residency
    with a fresh deadline and advisory poll messages.
-4. When descendants finish, a resident `done` signal arrives, or the deadline expires,
-   the coordinator records the pending terminal outcome or a timeout/failure.
+4. When descendants finish, a latched `done` directive is accepted after a known
+   assessment, or the deadline expires, the coordinator records the pending terminal
+   outcome or a timeout/failure.
 5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
    correctness does not depend on the nudge succeeding.
 
