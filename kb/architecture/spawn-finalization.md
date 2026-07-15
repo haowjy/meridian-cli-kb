@@ -44,12 +44,14 @@ model:
    polls descendant state through read-only reconciliation (`peek_reconciled_active_spawn`).
 3. `meridian spawn done` and `meridian spawn rearm` are file signals consumed by the
    coordinator. `done` latches intent to accept the pending success and overrides
-   ordinary blockers, but a fresh `unknown` evidence assessment still blocks success
-   until evidence becomes known. `rearm` opts the backend into explicit residency
+   ordinary blockers and an `unknown` evidence assessment alike; only an
+   evidence-driven (non-`done`) success requires a fresh known `ready` assessment.
+   `rearm` opts the backend into explicit residency
    with a fresh deadline and advisory poll messages.
-4. When descendants finish, a latched `done` directive is accepted after a known
-   assessment, or the deadline expires, the coordinator records the pending terminal
-   outcome or a timeout/failure.
+4. When descendants finish, a resident `done` signal is consumed (finalizing the
+   pending success even with descendant evidence outstanding or unreadable), or the
+   deadline expires, the coordinator records the pending terminal outcome or a
+   timeout/failure.
 5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
    correctness does not depend on the nudge succeeding.
 
