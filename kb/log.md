@@ -4,6 +4,30 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-15 — Completion drain convergence design capture
+
+### Trigger
+
+The `work:drain-convergence` design phase settled the shared Pi/resident
+completion architecture and completed a Linux/POSIX crash/concurrency probe for
+child-row publication.
+
+### What changed
+
+- `architecture/completion-drain-coordination.md`: new cross-cutting target
+  architecture covering composition, evidence authority, Pi-private work,
+  cleanup and persistence invariants, current divergences, and reversible phases.
+- `architecture/atomic-child-row-publication.md`: new publication protocol and
+  bounded evidence, including the unsafe sibling-stage layout and untested gates.
+- `architecture/pi-lifecycle.md`: explicitly scoped as current checkout behavior,
+  linked to the target, and updated for shipped unresolved-candidate tombstones.
+- `decisions.md`, `architecture/overview.md`, and `index.md`: indexed the settled
+  decision and new pages.
+
+### Validation
+
+Run `meridian kg check .` and `meridian mermaid check .` before committing.
+
 ## 2026-06-21 — Rootless commands, established project, test determinism capture
 
 ### Trigger

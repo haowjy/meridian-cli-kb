@@ -12,6 +12,12 @@ Meridian-tracked descendant spawns, but they do not use Pi's bash-record or
 notification-marker machinery. Claude/plain streaming harnesses complete from the
 ordinary terminal-event / connection-close path.
 
+This page describes the current checkout. The settled
+[completion-drain target](completion-drain-coordination.md) converges Pi and
+resident mechanism through composition and moves Pi's persisted-spawn authority
+to the reconciled transitive tree. That authority change is not implemented yet;
+the direct-child quiescence rule below remains current until its gated cutover.
+
 ---
 
 ## Extension Architecture
@@ -186,6 +192,9 @@ Current safeguards:
 - Child-spawn tracking counts only allocated-looking numeric `p*` directories as
   unresolved stale candidates. Names such as `p-test` or `p-child` are ignored
   because they cannot be real allocated spawn ids.
+- Unresolved candidates expire after 30 seconds. Expired and wrong-parent
+  candidates become rejected tombstones, so they neither block quiescence nor
+  re-enter repeated disk reads.
 - Child wave state preserves the parent idle epoch across disk wakeups and re-arms
   when a new child wave appears.
 - Disk watcher failures propagate as drain failures instead of silently allowing
