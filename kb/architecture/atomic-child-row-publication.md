@@ -1,11 +1,9 @@
 # Child rows publish as complete directories
 
-The target publication point for a new spawn row is one same-filesystem
-directory replacement: build the complete row beneath
-`spawns/.staging/<unique>/`, sync it, then replace that directory into
-`spawns/pN/`. The protocol has been proven against process crashes and concurrent
-publishers on the tested Linux/POSIX filesystem, but it is not implemented in
-the current checkout and is not yet a cross-platform guarantee.
+A new spawn row becomes visible through one same-filesystem directory
+replacement. The publisher builds the complete row beneath
+`spawns/.staging/<unique>/`, syncs it, then replaces that directory into
+`spawns/pN/`.
 
 ```mermaid
 flowchart LR
@@ -17,47 +15,40 @@ flowchart LR
     X --> F[Fsync spawns directory]
 ```
 
-Readers must see either no final row or the complete prompt/state pair. A stage
-directory directly beneath `spawns/` is unsafe: current canonical and Pi readers
-can admit a state-bearing sibling regardless of its staging-looking name. The
-non-row `.staging/` container is therefore part of the protocol, not a naming
-preference.
+Readers see either no final row or the complete prompt/state pair. A stage
+directory directly beneath `spawns/` would be unsafe because row scanners could
+admit it; the non-row `.staging/` container is part of the protocol, not a
+naming preference.
 
-## Evidence and current divergence
+Publication runs under the spawn allocation/publication lock. Stage names are
+unique, stage and destination share a filesystem, and collision checks occur
+before replacement. Runtime-write startup garbage-collects abandoned
+`.staging/*` entries under the same lock, so a crash before publication leaves
+recoverable private debris rather than a partial row.
 
-Crash injection stopped and killed the publisher after stage creation, prompt
-write, state write, and final replace. Before replace, neither canonical
-`scan_spawn_ids()` nor a real `PiDiskWatcher` admitted the nested stage. After
-replace, both observed a complete typed row.
+## Consequence for descendant evidence
 
-Eight concurrent publishers racing both readers produced no partial final row,
-no admitted staging name, and no unresolved Pi candidate across 2,832 samples.
-The current `start_spawn()` order—create the final directory, write the prompt,
-then write state—produced 1,738 observations of a final `pN/` without
-`state.json`. Pi's bounded allocation uncertainty exists to prevent early
-completion during that window; it can be removed only after publication changes
-and a zero-divergence soak.
+Only a valid, published row with a reconciled `parent_id` relationship can
+become a persisted-descendant blocker. Pi no longer scans raw spawn directories,
+infers parentage from newer numeric IDs, or carries an allocation-uncertainty
+barrier. `ReconciledDescendantEvidence` is the sole persisted-descendant
+authority.
 
-## Cutover requirements
+Atomic publication removes the partial-row visibility window; it does not make
+every storage failure look like an empty tree. Store-wide read failure still
+produces typed `unknown` and blocks completion.
 
-The publisher must use collision-safe ID allocation and unique stage names,
-sync each file and the stage/publication directories, keep stage and destination
-on the same filesystem, and make abandoned `.staging/*` recovery explicit.
-Readers must continue to treat allocation uncertainty as fail-closed until the
-new protocol is active and compared in production.
+## Durability boundary
 
-The existing evidence does **not** establish:
+The protocol and crash/concurrency probes establish the complete-row visibility
+contract on the supported implementation path. Its fsync steps are deliberate:
+file contents, the stage directory, and the publication directory must reach
+their respective durability boundaries in order.
 
-- Windows same-volume directory replacement or open-handle behavior;
-- survival under real power loss or every filesystem/storage stack;
-- same-destination publication collision behavior.
-
-These are release gates, not reasons to weaken the nested-stage target. If a
-platform cannot support the replacement contract, it needs an explicit
-parent-scoped allocation-intent record with bounded resolution; permanent
-newer-directory inference is not the fallback design.
+Platform filesystem semantics still matter. A platform that cannot provide
+same-volume atomic directory replacement needs an explicit publication design;
+raw newer-directory inference is not a fallback authority.
 
 ## Provenance
 
 - `work:drain-convergence`
-- `spawn:p5096`

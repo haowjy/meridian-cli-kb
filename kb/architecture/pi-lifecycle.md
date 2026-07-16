@@ -1,8 +1,5 @@
 # Architecture: Pi Lifecycle and Quiescence
 
-> **Status:** Current. Pi-bg-redesign shipped; PR #297 tightened disk-backed
-> quiescence correctness and split the streaming implementation.
-
 Pi spawned sessions use a **quiescence-based completion model** — the Pi process stays running to handle follow-up turns (when tracked child work completes). Meridian declares a spawn done only after the quiescence state machine reaches a final state, not when the Pi process exits.
 
 Pi still has the deepest quiescence machinery because it must combine semantic
@@ -12,11 +9,10 @@ Meridian-tracked descendant spawns, but they do not use Pi's bash-record or
 notification-marker machinery. Claude/plain streaming harnesses complete from the
 ordinary terminal-event / connection-close path.
 
-This page describes the current checkout. The settled
-[completion-drain target](completion-drain-coordination.md) converges Pi and
-resident mechanism through composition and moves Pi's persisted-spawn authority
-to the reconciled transitive tree. That authority change is not implemented yet;
-the direct-child quiescence rule below remains current until its gated cutover.
+Pi and resident completion share the
+[`CompletionCoordinator`](completion-drain-coordination.md). Pi supplies its own
+profile and private-work evidence while both profiles use the same reconciled
+transitive spawn tree for persisted descendants.
 
 ---
 
@@ -145,9 +141,12 @@ parsing would need to know every wrapper anyone might invent.
 
 A pi spawn is finished when, AFTER the most recent `agent_end`:
 
-1. No spawn records with `parent_id == current_spawn_id` in non-terminal state, AND
-2. No **tracked** bash bg records (b-*) for this session in non-terminal state, AND
-3. No **pending implicit-wait notifications** — every `sendMessage({triggerTurn: true})` queued by `meridian-spawn-watch` has been delivered AND the agent has responded with a fresh `agent_end`.
+1. No active **transitive persisted descendants** remain in the cycle-safe
+   reconciled spawn tree, AND
+2. No **tracked** bash bg records (b-*) for this session remain non-terminal, AND
+3. No **pending implicit-wait notifications** remain — every
+   `sendMessage({triggerTurn: true})` queued by `meridian-spawn-watch` has been
+   delivered AND the agent has responded with a fresh `agent_end`.
 
 The "after the most recent `agent_end`" qualifier is what condition 3 captures: if a notification fires AFTER `agent_end #1`, that doesn't quiesce. Wait for `agent_end #2` (which the notification's `triggerTurn: true` produces).
 
@@ -177,40 +176,45 @@ agent processes notification → takes turn → agent_end #2
   → check (1)+(2)+(3) → all empty → quiesce → stop(reason=quiescent)
 ```
 
-**Implementation note:** The policy extension writes a `last-notification.json` marker file (`pi-bash/<spawn-id>/last-notification.json`) when it calls `sendMessage({triggerTurn: true})`; Python quiescence check (`PiQuiescenceTracker`, fed by `PiDiskWatcher`) requires `agent_end_ts > last_notification_ts` AND conditions (1)+(2) hold. Disk-observed child spawns participate in the child-wave timeout and quiescence check (condition 1). Event reads from the disk watcher are shielded from policy timeouts to avoid false-quiescence under load.
+**Implementation note:** The policy extension writes a
+`last-notification.json` marker file
+(`pi-bash/<spawn-id>/last-notification.json`) when it calls
+`sendMessage({triggerTurn: true})`. `PiPrivateWorkLedger`, fed by
+`PiDiskWatcher`, requires `agent_end_ts > last_notification_ts` and no tracked
+bash work. Persisted descendants come only from
+`ReconciledDescendantEvidence`; a bounded poll reassesses that tree while
+completion is pending.
 
 ### Drain Correctness Constraints
 
-`PiDiskWatcher` wakes the Python drain loop when spawn rows, bash records, or
-notification markers change. Disk-change wakeups must always trigger a fresh
-quiescence evaluation; a parent cannot rely only on stdout events after `agent_end`.
+`PiDiskWatcher` wakes the Python drain loop when Pi-private bash records or
+notification markers change. Those wakeups trigger a fresh assessment; a parent
+cannot rely only on stdout events after `agent_end`. Tree reassessment is driven
+by a bounded poll rather than watcher authority.
 
 Current safeguards:
 
-- Micro-drain rechecks disk before accepting terminal success, so a just-written
-  child row or bash update cannot be missed.
-- Child-spawn tracking counts only allocated-looking numeric `p*` directories as
-  unresolved stale candidates. Names such as `p-test` or `p-child` are ignored
-  because they cannot be real allocated spawn ids.
-- Unresolved candidates expire after 30 seconds. Expired and wrong-parent
-  candidates become rejected tombstones, so they neither block quiescence nor
-  re-enter repeated disk reads.
+- Micro-drain rechecks both reconciled tree and private-work evidence before
+  accepting terminal success.
+- Spawn rows publish atomically as complete directories built beneath
+  `spawns/.staging/<unique>/`; only valid reconciled parent links create
+  descendant blockers.
 - Child wave state preserves the parent idle epoch across disk wakeups and re-arms
   when a new child wave appears.
-- Disk watcher failures propagate as drain failures instead of silently allowing
-  false quiescence.
-- Pending child counts sum active child spawns and tracked bash records before
-  finalization decisions.
+- Store and private-file read failures surface as typed `unknown` instead of
+  silently allowing false quiescence.
+- Blockers retain their categories: persisted descendants, rowless subspawns,
+  tracked bash, and pending notification are not all called “children.”
 
 ### Child-wave timeout is terminal
 
-Once the child-wave deadline expires, Pi returns `failed` /
+Once the child-wave deadline expires, Pi publishes `failed` /
 `pi_child_wave_timeout` exactly once. The deadline and cleanup latch are settled
-before the single tracked-child cleanup attempt. An ordinary cleanup error is
-recorded, and timeout-phase emission is best-effort; neither may replace the
-timeout outcome, retry the wave, or announce continued waiting. Cancellation
-still propagates after tracker state is finalized. This is the Pi instance of
-the [one-deadline completion rule](completion-drain-coordination.md).
+before publication; the single tracked-work cleanup runs afterward,
+asynchronously and best-effort. An ordinary cleanup error is telemetry; it
+cannot replace the outcome, retry the wave, or announce continued waiting.
+This is the Pi instance of the
+[one-deadline completion rule](completion-drain-coordination.md).
 
 **`spawn wait` returns** once semantic completion is recorded — cleanup is async and does not block the caller.
 
@@ -238,11 +242,12 @@ The nudge is a progress aid, not the authority. Disk state (`state.json`,
 
 ## Child Cleanup
 
-When Pi exits or times out with active tracked work, `PiDrainCoordinator` first
-cancels active Meridian descendant spawns through the shared `cancel_descendants`
-pipeline. That path sets cancel intent, drives each child through normal cancellation
-or forced convergence, and lets recorded spawn scopes reap child runner trees. Pi's
-tracked-process cleanup then excludes descendants already reaped through that
+When Pi exits or times out with active tracked work, the completion cycle first
+publishes its terminal outcome. Async teardown then cancels active Meridian
+descendants through the shared `cancel_descendants` pipeline. That path sets
+cancel intent, drives each child through normal cancellation or forced
+convergence, and lets recorded spawn scopes reap child runner trees. Pi
+tracked-process cleanup excludes only descendants proved reaped through that
 canonical path and focuses on Pi-internal background work.
 
 This keeps Pi child-spawn teardown aligned with the Codex/OpenCode resident-deadline
@@ -279,7 +284,9 @@ Never writes orphan state from the nested read path. Surfaces as a synthetic ter
 
 ## Notification Timeout
 
-If `sendMessage()` throws after work completion, `meridian-spawn-watch` catches the error internally and logs/retries. The extension handles notification failure as its own local concern — the spawn does not fail due to a notification delivery error.
+The extension may retry a transient `sendMessage()` error locally. If the
+notification protocol remains failed or times out, the Pi completion profile
+fails the parent; notification integrity is part of quiescence evidence.
 
 ## Pi Failure Reports
 

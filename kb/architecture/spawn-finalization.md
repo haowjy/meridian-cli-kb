@@ -2,15 +2,17 @@
 
 The spawn finalization subsystem owns the transition from an active spawn to a terminal state (`succeeded`, `failed`, `cancelled`, or `timed_out`). Multiple concurrent writers can attempt finalization — the runner, the reaper, a cancel operation, a launch failure handler. The subsystem's job is to ensure exactly one terminal outcome wins while preserving diagnostic metadata from all writers.
 
-This page covers the 2026-05 Phase 1 structural refactor of this subsystem. For background on the spawn lifecycle itself, see [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md). For the full status machine and projection authority model, see [architecture/state-system.md](state-system.md).
+For the spawn lifecycle itself, see
+[concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md). For the full
+status machine and projection authority model, see
+[architecture/state-system.md](state-system.md).
 
 ---
 
 ## DrainPlan and the Narrow Coordinator Seam
 
-PR #320 made drain-loop selection explicit. `SpawnManager._select_drain_plan()` now
-returns a `DrainPlan` that carries the whole drain-loop configuration for one active
-spawn:
+`drain_plan_factory.build_drain_plan()` returns the complete `DrainPlan` for one
+active spawn:
 
 - `coordinator: DrainCoordinator | None` — optional harness-specific completion
   policy object.
@@ -19,7 +21,8 @@ spawn:
 - `raw_terminal_frames_authoritative` and `on_policy_selected` — constant loop
   configuration.
 - `aux_wake` / `handle_aux_wake` — non-event wake sources such as Pi disk changes.
-- `finalizer` — post-finalization side effects.
+- `finalizer` — synchronous finalization effects;
+- `teardown` — plan-owned async connection and cleanup-phase policy.
 
 The plain streaming path is intentionally `DrainPlan(coordinator=None)`. There is no
 public no-op coordinator. Absence of a coordinator means the generic drain loop handles
@@ -27,10 +30,16 @@ events with the selected `DrainPolicy` and finalizes from harness terminal frame
 connection close.
 
 `DrainCoordinator` is narrow: start/stop, timeout selection, event observation,
-terminal-event handling, timeout handling, after-event checks, close classification,
-and stream-exit handling. Constant configuration moved out of coordinator methods
-into `DrainPlan`, so the loop owns wiring and the coordinator owns only live
-completion decisions.
+terminal-event handling, timeout handling, after-event checks, close
+classification, and stream-exit handling. The factory composes plain, resident,
+and Pi plans; `SpawnManager` supplies generic capabilities and holds no Pi
+policy.
+
+Terminal publication is one-way. The drain loop publishes the profile-owned
+terminal outcome and resolves the completion future before it starts one async,
+best-effort cleanup. A stuck descendant cleanup or connection stop therefore
+cannot hang publication. Cleanup reports are telemetry and cannot replace the
+outcome; the startup reaper reconciles incomplete cleanup after a crash.
 
 ## Resident Done Model
 
@@ -40,18 +49,16 @@ model:
 
 1. A successful terminal turn does not immediately finalize if descendant work exists
    or the resident backend requested re-arming.
-2. The coordinator emits a turn boundary, marks the backend as `awaiting_done`, and
-   polls descendant state through read-only reconciliation (`peek_reconciled_active_spawn`).
+2. The coordinator emits a turn boundary, marks the backend as `awaiting_done`,
+   and polls the shared reconciled transitive descendant tree.
 3. `meridian spawn done` and `meridian spawn rearm` are file signals consumed by the
-   coordinator. `done` latches intent to accept the pending success and overrides
-   ordinary blockers and an `unknown` evidence assessment alike; only an
-   evidence-driven (non-`done`) success requires a fresh known `ready` assessment.
-   `rearm` opts the backend into explicit residency
-   with a fresh deadline and advisory poll messages.
-4. When descendants finish, a resident `done` signal is consumed (finalizing the
-   pending success even with descendant evidence outstanding or unreadable), or the
-   deadline expires, the coordinator records the pending terminal outcome or a
-   timeout/failure.
+   coordinator. `done` overrides known blockers only. If the fresh assessment is
+   `unknown`, `done` waits rather than turning unreadability into success.
+   `rearm` opts the backend into explicit residency with a fresh deadline and
+   advisory poll messages.
+4. When evidence becomes readable, `done` can finalize the pending success.
+   Persistent unreadability fails at the completion deadline with
+   `resident_evidence_unreadable` and directs the operator to the session log.
 5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
    correctness does not depend on the nudge succeeding.
 
@@ -63,9 +70,10 @@ For resident drains, `raw_terminal_frames_authoritative=False`: a terminal harne
 frame is a turn boundary candidate, not finalization authority by itself. The
 coordinator owns terminal finalization while resident. If the resident deadline
 expires, it finalizes the parent as `timed_out` with
-`resident_deadline_expired` and cancels active descendants through the normal cancel
-pipeline, so children converge to terminal `cancelled` instead of surviving as
-orphaned backend launches.
+`resident_deadline_expired`. After that outcome is published, async best-effort
+teardown cancels active descendants through the normal cancel pipeline so
+children converge to terminal `cancelled` instead of surviving as orphaned
+backend launches.
 
 ---
 

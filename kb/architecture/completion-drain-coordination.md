@@ -1,128 +1,142 @@
-# Completion drain converges through composition
+# Completion drain is shared mechanism with profile-owned policy
 
-One completion coordinator is the settled architecture for Pi and resident
-drains, with evidence, profile policy, and cleanup kept in three injected
-collaborators. The checkout is partway through that convergence: resident now
-uses `CompletionCoordinator` behind its compatibility wrapper, while Pi still
-uses `PiDrainCoordinator`. Their descendant sources also remain different until
-the Phase 2 authority cutover.
+Pi and resident drains use one `CompletionCoordinator`, composed with
+`CompletionEvidence`, `CompletionProfile`, and `CompletionCleanup`
+collaborators. The coordinator owns candidate, wait, deadline, and stabilization
+mechanics; each profile owns the policy that decides what those facts mean.
 
 ```mermaid
 flowchart LR
-    L[Spawn drain loop] --> C[Completion coordinator]
-    C --> E[Completion evidence]
-    C --> P[Completion profile]
-    C --> X[Completion cleanup]
-    E --> T[Reconciled descendant tree]
+    L[Spawn drain loop] --> C[CompletionCoordinator]
+    C --> E[CompletionEvidence]
+    C --> P[CompletionProfile]
+    C --> X[CompletionCleanup]
+    E --> T[Reconciled transitive descendants]
     E --> W[Pi private-work ledger]
-    X --> D[Canonical descendant cancellation]
-    X --> F[Pi fallback cleanup]
+    L --> O[Publish terminal outcome]
+    O --> D[Async best-effort cleanup]
 ```
 
-## The shared mechanism is deliberately small
+## The coordinator accepts evidence; it does not discover work
 
-The coordinator holds a successful parent terminal candidate, requests a fresh
-work assessment, schedules deadlines and stabilization, and publishes the
-profile-selected terminal outcome. An assessment is `ready`, `blocked`, or
-`unknown`; an evidence failure produces `unknown` and cannot be interpreted as
-an empty work set. Events, file notifications, and polling only wake assessment.
-They are never completion evidence themselves.
+The coordinator retains a successful parent terminal candidate, requests fresh
+work assessments, schedules one completion deadline, and manages any
+stabilization window. Assessments are `ready`, `blocked`, or `unknown`. A store
+or observation failure produces typed `unknown`; it never becomes an empty work
+set.
 
-Stabilization is generation-aware but not generation-only. An unchanged ready
-assessment after an early poll or auxiliary wake keeps the existing window. A
-profile may explicitly restart that window after persisted activity even when
-the evidence generation has not changed, because new activity invalidates the
-elapsed quiet time. This distinction is profile policy rather than generic
-event interpretation.
+Events, file notifications, and bounded polls only wake assessment. They carry
+no completion truth. A profile can allow evaluation before a terminal candidate
+through `allows_evaluation_without_candidate`, but the generic coordinator does
+not infer that policy from an event type.
 
-The collaborators are deep boundaries rather than callback collections:
+The collaborators are cohesive boundaries:
 
-- **Completion evidence** observes events and produces immutable assessments.
-- **Completion profile** owns directives, outcome mapping, deadline/reset
-  policy, close classification, stabilization, and advisory nudges.
-- **Completion cleanup** interprets safe cleanup handles after policy authorizes
+- **Completion evidence** observes persisted events and returns immutable
+  assessments.
+- **Completion profile** owns directives, precedence, outcome mapping,
+  deadline/reset policy, close classification, stabilization, and advisory
+  nudges.
+- **Completion cleanup** interprets cleanup handles after the profile authorizes
   cleanup.
 
-A shared base coordinator was rejected. Pi would have to override timeout,
-post-event, stream-exit, and finalization hooks—the exact ordering-sensitive
-points—turning protected mutable state and hook order into an implicit API.
-Composition makes those dependencies explicit and keeps Pi policy out of the
-generic state machine. A universal functional reducer remains deferred until
-the profiles prove a stable shared input/effect vocabulary.
+Composition avoids an inheritance contract at the most ordering-sensitive
+points. A shared base class would make Pi override timeout, post-event,
+stream-exit, and finalization hooks, turning hook order and protected mutable
+state into an implicit API.
 
-## Persisted descendants and Pi-private work are separate ledgers
+## One reconciled tree owns persisted descendants
 
-The reconciled, cycle-safe, transitive spawn tree is the target authority for
-Meridian-managed persisted descendants in both profiles. Pi keeps a separate
-private-work ledger for facts that a `SpawnRecord` cannot represent:
+`ReconciledDescendantEvidence` is the sole persisted-descendant authority for
+both profiles. It reads valid spawn rows, applies the non-mutating reconciliation
+projection, then performs cycle-safe transitive traversal. A live grandchild
+beneath a terminal direct child therefore still blocks completion. A store-wide
+read failure returns `unknown`; an individual row that cannot establish a valid
+lineage is not admitted to the tree.
+
+Pi-private work remains separate because a `SpawnRecord` cannot represent it.
+`PiPrivateWorkLedger` owns immutable snapshots of:
 
 - tracked bash;
 - pending implicit-wait notifications;
 - rowless Pi-internal subspawns;
+- private-work read failures;
 - owned PID/PGID cleanup handles.
 
-Blocker identity does not grant permission to kill a process. Deadline cleanup
-first invokes canonical descendant cancellation. Pi fallback cleanup may
-exclude only `converged_cancel_ids`: descendant IDs that the canonical
-fixed-point path proved terminal. Selected or attempted IDs remain eligible for
-an owned fallback handle.
+`PiDiskWatcher` observes only the private bash and notification files. It does
+not scan spawn directories or infer descendants. The reconciled tree is
+reassessed on a bounded poll while completion is pending.
 
-> [!NOTE]
-> The current Pi runtime still confirms direct child rows through
-> `PiDiskWatcher`, while resident drain uses reconciled transitive descendants.
-> The canonical [Pi runtime vocabulary](pi-runtime/vocab.md) intentionally keeps
-> the direct-child rule until the Phase 2 authority cutover. Change the
-> vocabulary in that same gated slice, not before it.
+## Readability is required even for `done`
 
-## One deadline produces one terminal outcome
+Every success follows a fresh assessment. A `done` directive may override known
+blockers, but it cannot turn `unknown` into success. Transient unreadability
+waits for recovery. Persistent unreadability fails at the single completion
+deadline with `resident_evidence_unreadable` or `pi_evidence_unreadable`; the
+rendered failure directs the operator to the session log.
 
-Once deadline expiry wins profile arbitration, cleanup is latched and the
-deadline is revoked before cleanup is awaited. Cleanup is attempted once;
-cleanup failure is recorded but cannot arm another work wave or replace the
-policy-owned terminal outcome.
+Stabilization is generation-aware but not generation-only. An unchanged ready
+assessment after an early wake keeps the current window. Persisted activity may
+restart the window even when the evidence generation is unchanged. Pi may also
+hold the original candidate and absolute stabilization deadline across an
+auxiliary-only blocker.
 
-For a Pi child-wave deadline, the policy-owned outcome is `failed` /
-`pi_child_wave_timeout`. Ordinary cleanup and timeout-phase emission failures
-are diagnostic; neither replaces the outcome nor resumes waiting-phase
-emission. Cancellation is different: tracker finalization still runs, then
-cancellation propagates.
+## Publication precedes cleanup
 
-## Persistence is the notification gate
+When a deadline, failure, cancel, or stream-exit path authorizes cleanup, the
+coordinator latches at most one cleanup request and clears the live deadline.
+The drain loop publishes the profile-owned terminal outcome first, resolving
+the caller-visible completion future. It then executes the latched cleanup once
+in asynchronous best-effort teardown.
 
-The drain loop contract is `persist → observer dispatch → fan-out`.
-`note_event_persisted` is also post-persistence. A failed history write reaches
-none of those downstream consumers. The tenth consecutive failure aborts the
-drain with a failed outcome without delivering the rejected event.
+A stuck descendant cleanup cannot delay publication. `CleanupReport` is
+telemetry: cleanup failure cannot replace the published outcome, reopen the
+completion cycle, or arm another child wave. Startup reaper reconciliation
+recovers incomplete cleanup after a crash. Completion deadlines are
+process-local monotonic values rather than persisted timers.
 
-## Migration preserves rollback seams
+Cleanup identity is not cleanup permission. Canonical descendant cancellation
+runs first and returns only IDs proved terminal by its fixed-point path. Pi
+process cleanup may exclude those `converged_cancel_ids`; merely selected or
+attempted IDs remain eligible for an owned fallback handle.
 
-Delivery is ordered so mechanism extraction does not hide authority changes:
+## Composition is outside `SpawnManager`
 
-1. characterize current priority tables and repair the persistence gate;
-2. extract contracts and the composition-first coordinator;
-3. compare, then switch Pi to reconciled transitive tree evidence;
-4. split Pi-private work from persisted descendants;
-5. prove [atomic child-row publication](atomic-child-row-publication.md), bypass
-   the allocation barrier under comparison, then delete raw-directory inference;
-6. move plan construction and async session teardown out of `SpawnManager`.
+`drain_plan_factory.py` is the composition root:
 
-Temporary wrappers and comparison flags are rollback seams, not permanent
-architecture. Plain streaming remains `coordinator=None`. Resident selection
-remains capability-driven, and Pi nudges continue through serialized
-`SpawnManager.inject()` rather than direct connection sends.
+- a resident-capable connection gets the resident profile;
+- a spawned Pi RPC session gets the Pi profile and private-ledger wake source;
+- ordinary streaming gets `DrainPlan(coordinator=None)`.
 
-Product-policy changes are excluded from this structural design. Preserve
-current profile behavior unless a separately settled product decision changes
-it; do not infer a universal policy from the shared mechanism.
+The plan owns `DrainSessionTeardown` from `drain_teardown.py`, including async
+connection stop and Pi cleanup-phase policy. `SpawnManager` supplies generic
+capabilities such as serialized injection and application-service cleanup; it
+contains no Pi imports or Pi child-wave, notification, process-group, stop
+reason, or cleanup-phase policy.
+
+## Invariants
+
+1. Fresh evidence precedes every success.
+2. `unknown` blocks success, including a `done`-directed success.
+3. One completion cycle has at most one deadline expiry, one latched cleanup,
+   and one published terminal outcome.
+4. Wakes trigger reassessment; they are not evidence.
+5. Persisted descendant authority is reconciled, cycle-safe, and transitive.
+6. Profile precedence owns coincident directives, deadlines, readiness,
+   stabilization, and profile timers.
+7. Terminal publication is one-way; cleanup and lifecycle effects cannot replace
+   it.
+8. `note_event_persisted`, observer dispatch, and fan-out occur only after a
+   successful history write.
+9. Pi nudges route through serialized `SpawnManager.inject()`.
+10. The plain path remains `coordinator=None`.
 
 ## Provenance
 
 - `work:drain-convergence`
-- `spawn:p5086`
-- `spawn:p5096`
 
-## Related Pages
+## Related pages
 
-- [spawn-finalization.md](spawn-finalization.md) — drain-plan seam and resident finalization behavior.
-- [pi-lifecycle.md](pi-lifecycle.md) — current Pi quiescence implementation before the authority cutover.
-- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — lifecycle-level resident turn-boundary model.
+- [spawn-finalization.md](spawn-finalization.md) — store authority and terminal publication.
+- [pi-lifecycle.md](pi-lifecycle.md) — Pi quiescence and private-work behavior.
+- [atomic-child-row-publication.md](atomic-child-row-publication.md) — complete-row visibility.
