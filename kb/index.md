@@ -98,6 +98,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/launch-system.md](architecture/launch-system.md) — `build_launch_context()` central seam; prepare/bind split (`prepare_launch_surface` + `bind_launch_context`), `PreparedLaunchSurface`, `CatalogSession`; four driving adapters, composition invariants
 - [architecture/state-system.md](architecture/state-system.md) — JSONL event stores, atomic tmp+rename writes, `fcntl.flock` locking, reaper reconciliation, migration strategy
 - [architecture/spawn-finalization.md](architecture/spawn-finalization.md) — terminal write policy (authority lattice), store-level finalization under flock, TerminalArbitrator, StreamingRunConclusion, PreparedExecutionHandoff, failure_policy consolidation
+- [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, transitive descendant authority, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
 - [architecture/pi-runtime/overview.md](architecture/pi-runtime/overview.md) — Pi runtime vocabulary for background work and extension coordination

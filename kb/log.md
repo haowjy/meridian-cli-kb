@@ -4,6 +4,25 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-16 — Drain-plan boundary extraction
+
+### Trigger
+
+The completion-drain convergence capture expanded the drain-plan and resident
+completion material within the terminal-finalization page.
+
+### What changed
+
+- `architecture/drain-plans.md`: new owner for streaming `DrainPlan`
+  composition and resident completion behavior.
+- `architecture/spawn-finalization.md`: retained terminal-write authority and
+  store-level finalization; links to the extracted drain-plan page.
+- `architecture/overview.md` and `index.md`: indexed the new architecture page.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` pass.
+
 ## 2026-07-15 — Completion drain convergence design capture
 
 ### Trigger
