@@ -9,7 +9,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [state-system.md](state-system.md) — JSONL event stores, atomic writes, locking, reaper reconciliation, and migrations.
 - [spawn-finalization.md](spawn-finalization.md) — Terminal write policy, authority lattice, and finalization races.
 - [drain-plans.md](drain-plans.md) — Streaming drain-plan composition and resident completion behavior.
-- [completion-drain-coordination.md](completion-drain-coordination.md) — Settled composition-first convergence for Pi/resident completion, authority boundaries, cleanup invariant, and phased cutover.
+- [completion-drain-coordination.md](completion-drain-coordination.md) — Shared composition-first Pi/resident completion, reconciled descendant authority, and publish-before-cleanup invariant.
 - [pi-lifecycle.md](pi-lifecycle.md) — Current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior.
 - [atomic-child-row-publication.md](atomic-child-row-publication.md) — Nested-stage directory publication protocol, POSIX evidence, and remaining platform gates.
 - [managed-primary-lifecycle.md](managed-primary-lifecycle.md) — Codex/OpenCode managed-primary process roles, passive reaper safety, and explicit cleanup boundary.
@@ -19,13 +19,6 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [mars-launch-bundle.md](mars-launch-bundle.md) — Cross-repo launch-bundle system: Mars/Meridian ownership, bundle contract, scaffold slots, harness status, static sync vs runtime differences.
 - [mars-routing.md](mars-routing.md) — Mars-internal routing architecture: slug primitive, default harness_order, routing parity, acceptance layer, RouteDecisionReport DTO.
 - [mars-model-refresh.md](mars-model-refresh.md) — Catalog `ensure_fresh` and probe refresh: `ModelsRefreshControl`, CLI flags on sync/models/launch-bundle.
-
-> [!FLAG] **Needs human review**: This catalog and
-> `concepts/spawn-lifecycle.md` still describe completion-drain convergence as a
-> target with a phased cutover, while
-> `completion-drain-coordination.md` and `pi-lifecycle.md` now describe the
-> shared coordinator and reconciled descendant authority as current. Confirm the
-> intended truth state, then align the catalog descriptions. Flagged 2026-07-16.
 
 ## Subtrees
 
