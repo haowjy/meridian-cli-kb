@@ -241,7 +241,7 @@ Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/se
 
 These items were scoped out of v1 agent-model-overrides and are documented here so they aren't re-derived from first principles.
 
-1. **`timeout` in agent overlays not yet supported (v2).** `timeout` is explicitly excluded from `[agents.<name>]` in v1. To support it, the spawn pipeline must thread the compiler-resolved timeout into `ExecutionBudget`. Until then, adding `timeout` to overlay config would parse but silently have no effect. See [D72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface).
+1. **`timeout` in agent overlays not yet supported (v2).** `timeout` is explicitly excluded from `[agents.<name>]` in v1. The overlay compiler does not yet thread resolved timeout into `execution_policy.timeout`. Until then, adding `timeout` to overlay config would parse but silently have no effect. (`ExecutionBudget`, the former dual timeout carrier, was deleted in PR #375; timeout is now carried solely on `execution_policy.timeout` in minutes.) See [D72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface).
 
 2. **List override fields in `model-policies` not yet applied at runtime (v2).** `skills`, `tools`, `disallowed-tools`, `mcp-tools` are rejected with a warning in config overlay model-policies, and in profile model-policies they parse but are not applied. Implementing requires: (a) remove the rejection in overlay validation, (b) implement application in the compiler (merge or replace tool lists), (c) update behavioral spec. The three-state overlay semantics already accommodate this — no schema change needed.
 

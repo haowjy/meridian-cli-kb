@@ -55,6 +55,26 @@ cleanup; `done` is fail-closed on unreadable evidence. See
 [completion drain coordination](architecture/completion-drain-coordination.md)
 and [atomic child-row publication](architecture/atomic-child-row-publication.md).
 
+**Timeout and completion policy: single carrier, opt-in ceilings, spawn-scoped rearm budget (2026-07, PR #375)**
+`execution_policy.timeout` (minutes; seconds conversion at the runner edge only)
+is the single timeout carrier for both CLI `--timeout` and `MERIDIAN_TIMEOUT`.
+The former dual-carrier model (`ExecutionBudget.timeout_secs` alongside
+`execution_policy.timeout`) was deleted because CLI armed one but not the other,
+and env armed the other but not the first -- producing incorrect timeout
+behavior in both paths. Resident rearm grants are signal-gated and unlimited by
+default (`None`); users with 24h+ sessions need no default cap. Budget is opt-in
+via `--resident-rearm-budget` / `MERIDIAN_RESIDENT_REARM_BUDGET` / profile
+`resident-rearm-budget` / `timeouts.resident_rearm_budget`. The running count is
+SPAWN-scoped (persisted as `resident_rearm_count` in `state.json`, monotonic
+across streaming retries) so retry loops cannot bypass the bound. Pi is
+intentionally unbounded while children live; `--timeout` / `MERIDIAN_TIMEOUT` is
+the shared non-renewing opt-in absolute ceiling for both profiles, defaulting to
+`None`. Rejected alternatives: default budget values (legit 24h+ sessions),
+Pi default ceiling (unbounded-while-descendants-live is intentional), shared
+bounded-extension vocabulary (larger rewrite planned). See
+[architecture/drain-plans.md](architecture/drain-plans.md) and
+[architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md).
+
 **Authority/task domain split for spawn CWD and reference resolution (PR #248, 2026-05-22)**
 Every spawn resolves two separate domains: authority domain (agent profiles, skills, config, KB — always from `control_root`) and task domain (agent working directory, reference file anchor — from worktree resolution). `kb:` prefix resolves KB-relative paths from the authority domain. Relative `-f` paths resolve from `task_cwd` (= `reference_anchor`). `@` removed for `-f` paths (use `kb:` instead). See [spawn-cwd-worktree-anchor decisions](decisions/spawn-cwd-worktree-anchor.md) and [architecture/launch-system.md](architecture/launch-system.md).
 

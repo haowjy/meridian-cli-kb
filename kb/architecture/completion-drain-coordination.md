@@ -134,6 +134,7 @@ reason, or cleanup-phase policy.
 ## Provenance
 
 - `work:drain-convergence`
+- `work:drain-streaming-cleanup` (PR #375: reconciliation decisions extraction, rearm budget, timeout carrier unification)
 
 ## Related pages
 

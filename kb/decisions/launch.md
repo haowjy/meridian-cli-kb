@@ -948,20 +948,18 @@ succeeded but no history was captured, and no error was raised.
 
 ---
 
-### D-win-ci: Windows CI added as required check (no Windows-only code without CI gate)
+### D-win-ci: Windows CI gate (superseded)
 
-**Decision:** Windows CI is a required check on all PRs that touch platform
-behavior (paths, signals, processes, locks, file operations, config discovery).
+**Original decision:** Windows CI is a required check on all PRs that touch
+platform behavior.
 
-**Why:** Three of the four Windows bugs in the audit were pre-existing but
-only caught by explicit Windows testing. POSIX CI had silently passed through
-Windows-specific regressions. CI is the only scalable gate for platform
-correctness at PR review time.
-
-**Scope rule:** When a change touches paths, process launching, signals, shells,
-filesystem semantics, locking, or config discovery — explicitly consider Windows
-behavior and add or update tests so behavior is verified on Windows, not just
-inferred from POSIX coverage.
+**Superseded (2026-07-17, PR #375):** The windows-gate CI job was demoted to
+non-blocking (`continue-on-error: true`) as part of the POSIX-first platform
+stance. The job remains as an informational signal but no longer gates merges.
+Rationale: native Windows was never made to work and is not planned; maintaining
+a blocking gate for untested, best-effort platform branches costs more than its
+informational value. See the POSIX-first foundational decision in
+[decisions.md](../decisions.md).
 
 ---
 

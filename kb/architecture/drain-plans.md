@@ -58,6 +58,23 @@ Selection is capability-driven through `connection.resident_backend`, not harnes
 branching. See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md)
 for the connection seam.
 
+### Rearm budget
+
+Each `rearm` signal grants one deadline extension. Grants are unlimited by
+default (`None`). `--resident-rearm-budget` / `MERIDIAN_RESIDENT_REARM_BUDGET` /
+profile `resident-rearm-budget` / `timeouts.resident_rearm_budget` opts into a
+maximum grant count. The running count is SPAWN-scoped: initialized from the
+persisted `resident_rearm_count` in `state.json` and monotonic across streaming
+retries. Attempt-scoped would let retry loops bypass the bound.
+
+Exhaustion (only when a budget is configured) produces `timed_out` with
+`resident_rearm_budget_exhausted`. Pre-expiry `timeout_soon` nudge behavior is
+unchanged from the deadline model. Rearm count telemetry is always emitted
+regardless of whether a budget is configured.
+
+The Mars launch-bundle schema does not currently expose a per-model resident
+rearm budget; `resident-rearm-budget` is a top-level profile default.
+
 For resident drains, `raw_terminal_frames_authoritative=False`: a terminal harness
 frame is a turn boundary candidate, not finalization authority by itself. The
 coordinator owns terminal finalization while resident. If the resident deadline
@@ -66,6 +83,16 @@ expires, it finalizes the parent as `timed_out` with
 teardown cancels active descendants through the normal cancel pipeline so
 children converge to terminal `cancelled` instead of surviving as orphaned
 backend launches.
+
+## Timeout carrier
+
+`execution_policy.timeout` (minutes) is the single timeout carrier for both
+`--timeout` and `MERIDIAN_TIMEOUT`. Seconds conversion happens at the runner edge
+only (`streaming_runner.py`). The former dual model -- `ExecutionBudget.timeout_secs`
+alongside `execution_policy.timeout` -- was deleted because CLI armed one carrier
+but not the other, and env armed the reverse, producing incorrect behavior in both
+paths. The outer attempt timer is non-renewing and defaults to `None`; neither
+resident rearms nor Pi child waves can reset it.
 
 ## Related pages
 

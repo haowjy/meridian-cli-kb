@@ -66,8 +66,8 @@ warn on load but are **not yet applied** to the spawn.
 Source: `src/meridian/lib/catalog/agent.py:24-29, 68-76`
 
 In **agent overlay** `model-policies`, v1 supports the same scalar policy fields
-except `timeout`. Overlay `timeout` is rejected because the spawn pipeline does
-not yet thread compiler-resolved timeout into `ExecutionBudget`; accepting it
+except `timeout`. Overlay `timeout` is rejected because the overlay compiler does
+not yet thread resolved timeout into `execution_policy.timeout`; accepting it
 would create a "parses but does nothing" setting. Overlay list fields
 (`skills`, `tools`, `disallowed-tools`, `mcp-tools`) are also rejected with a
 warning rather than accepted-but-ignored.

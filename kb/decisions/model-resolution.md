@@ -167,7 +167,7 @@ See [launch decisions](launch.md) for the full background worker refactor decisi
 
 **v1 supported scalar fields:** `model`, `harness`, `effort`, `approval`, `sandbox`, `autocompact`.
 
-**`timeout` explicitly excluded from v1 overlay fields.** The spawn pipeline does not thread resolved timeout from policies into `ExecutionBudget`. Adding `timeout` to overlay would create "parses but does nothing" semantics. Timeout still resolves through CLI/env/profile/config paths as before; it just can't be set via `[agents.<name>]` in v1.
+**`timeout` explicitly excluded from v1 overlay fields.** The overlay compiler does not yet thread resolved timeout into the launch pipeline's `execution_policy.timeout` field. Adding `timeout` to overlay would create "parses but does nothing" semantics. Timeout still resolves through CLI/env/profile/config paths as before; it just can't be set via `[agents.<name>]` in v1. (Note: `ExecutionBudget`, the former dual timeout carrier, was deleted in PR #375; timeout is now carried solely on `execution_policy.timeout` in minutes, with seconds conversion at the runner edge only.)
 
 **List override fields (`skills`, `tools`, `disallowed-tools`, `mcp-tools`) rejected with warning in overlay.** In agent profile `model-policies`, these keys parse and are stored in `ModelPolicyRule.overrides` but are not yet applied at runtime (logged as "not-yet-supported"). In config overlays, they are actively rejected at parse time. Rationale: profile behavior is inherited from package authors and the silent-ignore is a known limitation; overlay behavior is user-authored and a silent-ignore would create false expectations about what the overlay controls.
 
