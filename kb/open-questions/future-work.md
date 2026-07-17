@@ -254,19 +254,80 @@ Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/se
 
 ---
 
-### Publish-at-Deadline Redesign (#431)
+### Store-Level Publication Ordering (#431)
 
-**Where:** `src/meridian/lib/launch/streaming_runner.py`, `src/meridian/lib/streaming/spawn_manager.py`
+**Where:** `src/meridian/lib/streaming/spawn_manager.py`, `src/meridian/lib/launch/streaming_runner.py`
 
-**The issue:** Three related design debts identified during the PR #375 G4 probe:
+**The issue:** Store-level `published_at` can trail drain cleanup rows. The probe-fix
+cycle measured 56s between death and store publication on real Pi (p5390: cleanup
+completed at 14:20:20.545Z, `published_at` at 14:20:21.810Z). The sub-second
+`published_at` timestamp (added in #435) makes this ordering observable. Moving
+durable publication ahead of cleanup is a separate store-pipeline concern.
 
-1. **`stop_spawn(prefer_drain_outcome=True)` conflates initiating terminal cause with teardown-observed frames.** The outer timeout timer calls `stop_spawn` with `prefer_drain_outcome=True`, which lets Pi's abort-induced `cancelled`/130 frame replace the timeout fallback. A typed terminal intent/outcome should preserve the initiating cause while permitting explicit late-success precedence. PR #375 fixed the classification (authoritative `timed_out` when the outer timer wins) but left the structural conflation.
+**Resolved in probe-fix cycle:**
+- Item 1 from the prior version of this entry (`prefer_drain_outcome` conflation)
+  was fixed: `prefer_drain_outcome` was replaced with an explicit
+  `resolve_terminal_outcome()` priority resolver and a manager-owned
+  `_publish_terminal` idempotent barrier.
+- Item 2 (publication timing lag) was partially addressed: `_publish_terminal`
+  runs before cleanup, so the completion future resolves immediately. Store-level
+  `published_at` still trails because the runner's `complete_execution()` runs
+  after `stop_spawn()`.
 
-2. **Terminal publication happens after synchronous Pi abort/process cleanup.** The runner synchronously awaits `connection.stop()` and drain cleanup before lifecycle publication. At observed Pi timing (5s abort grace + 1.4s process exit), the visible terminal state lags the deadline by 6-7 seconds. Publishing terminal state immediately at the deadline and moving forced-stop cleanup post-publication is a separate medium-large redesign.
+**Remaining:**
+- `streaming_runner.py` is 1,500+ lines; timeout state spans arbitration, drain
+  normalization, retry/error classification, and lifecycle projection. Extraction
+  of attempt-result normalization would prevent another ad-hoc boolean branch.
 
-3. **`streaming_runner.py` is 1,500+ lines.** Timeout state spans arbitration, drain normalization, retry/error classification, and lifecycle projection. A later extraction of attempt-result normalization would prevent another ad-hoc boolean branch.
+**Why deferred:** The probe-fix cycle resolved the structural conflation.
+Store-level ordering is a pipeline concern tracked as #431 evidence.
 
-**Why deferred:** PR #375 fixed the classification/snapshot correctness (timeout carrier unified, authoritative `timed_out` preserved) as the minimum viable fix. The structural redesign is medium-large (1-3 days) and should not be bundled.
+---
+
+### Typed Terminal Provenance (#438)
+
+**Where:** `src/meridian/lib/streaming/pi_completion_profile.py`, `src/meridian/lib/harness/connections/pi_rpc.py`
+
+**The issue:** `TerminalEventOutcome` loses provenance when
+`error/connectionClosed` is normalized. The probe-fix cycle narrowly addressed
+the Pi exit-classification defect by recognizing the canonical
+`PI_SUBPROCESS_EXIT_ERROR_PREFIX` string in precedence logic. A typed terminal
+origin (`pi_subprocess_exit`, transport failure, provider failure, timeout)
+would make precedence explicit and delete string-prefix policy.
+
+**Why deferred:** String-prefix recognition is correct and scoped. A typed
+provenance taxonomy is a larger contract revision. Filed as #438.
+
+---
+
+### Cleanup Telemetry Categories (#439)
+
+**Where:** `src/meridian/lib/streaming/pi_drain.py`, lifecycle phase events
+
+**The issue:** `cleanup_running`/`cleanup_completed` lifecycle phases do not
+distinguish connection teardown from tracked-work cleanup. The probe-fix root
+cause analysis showed this ambiguity prevents over-reading cleanup telemetry.
+A reason/category field on cleanup phases would make the distinction
+observable.
+
+**Why deferred:** Contract revision, not a correctness fix. Filed as #439.
+
+---
+
+### Pi Notification Telemetry (#440)
+
+**Where:** Pi runtime extensions, `src/meridian/lib/streaming/pi_drain.py`
+
+**The issue:** The real Pi runtime does NOT emit
+`meridian.notification.queued/delivered` or `meridian.subspawn.*` events for
+managed-bash work. Wake-after-completion works via direct follow-up turns
+(`sendMessage({triggerTurn: true})`), not through a Meridian-observable
+event/file protocol. The prior smoke expectations assumed these events would
+be visible; the guide was rewritten to the functional wake contract.
+
+**Why deferred:** Investigation filed as #440. The functional contract
+(follow-up turns produce fresh `agent_end`) is correct; the missing telemetry
+is a visibility gap, not a correctness defect.
 
 ---
 

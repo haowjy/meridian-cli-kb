@@ -4,6 +4,47 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-17 — Probe-fix cycle knowledge reconciliation (post-PR #375/v0.3.34)
+
+### Trigger
+
+Follow-up probe-fix cycle on branch `task/pi-probe-fixes`: full real-Pi
+re-run exposed issues #432-#435 (fixed), filed #438/#439/#440 (deferred).
+Terminal publication architecture changed (publication barrier), Pi exit
+classification became category-complete, Pi RPC inject semantics tightened,
+fakes gained process-exit fidelity helpers.
+
+### What changed
+
+**Stale content fixed:**
+- `architecture/completion-drain-coordination.md`: diagram and "Publication
+  precedes cleanup" section replaced with "Publication is a manager-owned
+  barrier" describing `_publish_terminal`, `resolve_terminal_outcome`, and
+  per-spawn cleanup keying. Invariant 7 updated. Provenance updated.
+- `architecture/drain-plans.md`: terminal publication paragraph rewritten
+  for the manager-owned barrier (removed reference to drain loop owning
+  publication).
+- `open-questions/future-work.md`: "Publish-at-Deadline Redesign (#431)"
+  rewritten as "Store-Level Publication Ordering (#431)" with resolved items
+  marked. Three new deferred entries: typed terminal provenance (#438),
+  cleanup telemetry categories (#439), Pi notification telemetry (#440).
+
+**New content:**
+- `decisions.md`: new foundational entry "Terminal publication barrier" for
+  the `_publish_terminal` / `resolve_terminal_outcome` / per-spawn cleanup
+  architecture.
+- `architecture/pi-lifecycle.md`: two new drain-correctness safeguards:
+  category-complete exit classification via `classify_outstanding_work()`
+  and canonical subprocess-exit precedence via `PI_SUBPROCESS_EXIT_ERROR_PREFIX`.
+- `codebase/test-determinism.md`: new "Pi Process-Exit Fidelity Helpers"
+  section documenting `pi_process_exit_event()` and `write_pi_bash_record()`.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-17 — Post-drain-streaming-cleanup knowledge reconciliation (PR #375)
 
 ### Trigger

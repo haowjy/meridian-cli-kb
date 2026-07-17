@@ -140,6 +140,26 @@ Use the builder instead of manually constructing `SpawnManager` +
 `PiDrainCoordinator` + fake connections. Direct `manager._sessions` seeding
 is a known anti-pattern (tracked in #430).
 
+### Pi Process-Exit Fidelity Helpers
+
+Real `PiRpcConnection` emits an `error/connectionClosed` event with the
+process exit code before the event iterator reaches EOF. Test fakes that
+model only clean iterator exhaustion or direct `handle_stream_exit(None)`
+miss the real precedence path where the generic process-exit failure arrives
+before stream exit. Two reusable helpers close this gap:
+
+- `pi_process_exit_event(return_code)` — builds the canonical
+  `error/connectionClosed` event with the Pi subprocess exit message.
+- `write_pi_bash_record(runtime_root, spawn_id)` — writes managed-bash disk
+  evidence representing Pi-private background work that has no Meridian spawn
+  row.
+
+Pi exit-classification tests should use these helpers to reproduce the
+production event shape. The root cause (#433, pre-existing since #225) was
+that fakes modeled EOF but never Pi's non-zero-exit
+`error/connectionClosed` event, so the exit predicate and precedence path
+were never exercised with realistic evidence.
+
 ### Bounded History-Phase Polling: `wait_for_history_phase()`
 
 After a terminal outcome, publication precedes async telemetry (phase events

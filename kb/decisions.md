@@ -58,6 +58,22 @@ cleanup; `done` is fail-closed on unreadable evidence. See
 [completion drain coordination](architecture/completion-drain-coordination.md)
 and [atomic child-row publication](architecture/atomic-child-row-publication.md).
 
+**Terminal publication barrier: manager-owned idempotent `_publish_terminal` with explicit priority resolver (2026-07, probe-fix cycle)**
+Terminal publication moved from the cancellable drain task to
+`SpawnManager._publish_terminal()`, an idempotent barrier guarded by
+`SpawnSession.terminal_published`. `resolve_terminal_outcome()` resolves
+competing sources in explicit priority: success > authoritative stop > drain
+classification. The former `preferred_stop_outcome` mutable override and
+`prefer_drain_outcome` parameter were replaced. Cleanup tasks are per-spawn
+keyed and drained at shutdown; `stop_spawn()` awaits only its own spawn.
+Pi stream-exit classification is now category-complete via
+`classify_outstanding_work()`; `pi_process_exited_with_tracked_children`
+replaces only the canonical generic subprocess-exit outcome (shared constant
+`PI_SUBPROCESS_EXIT_ERROR_PREFIX`), not unrelated specific failures. Root cause
+(#433) was pre-existing since #225. See
+[completion drain coordination](architecture/completion-drain-coordination.md)
+and [drain plans](architecture/drain-plans.md).
+
 **Timeout and completion policy: single carrier, opt-in ceilings, spawn-scoped rearm budget (2026-07, PR #375)**
 `execution_policy.timeout` (minutes; seconds conversion at the runner edge only)
 is the single timeout carrier for both CLI `--timeout` and `MERIDIAN_TIMEOUT`.
