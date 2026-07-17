@@ -15,24 +15,32 @@ State divides across three roots:
   .gitignore                        — seeded non-destructively
   kb/                               — agent-facing codebase mirror (committed)
 
+~/.meridian/projects/.locks/<uuid>.lock
+                                    — project-lifetime shared/exclusive gate (never unlinked)
+
 ~/.meridian/projects/<uuid>/        ← user runtime, never committed
   sessions.jsonl                    — all session events, append-only
   sessions.jsonl.flock
   session-id-counter                — monotonic counter for c1, c2, …
   sessions/                         — per-session lock + lease files
   spawn-id-counter                  — monotonic counter for p1, p2, …
+  locks/
+    spawns/<id>.lock                — stable per-spawn mutation lock (never unlinked)
+    process-scopes/<id>.lock        — scope-projection sidecar mutation lock
+    reaper-cleanup/<id>.lock        — prevents concurrent cleanup signalling
+    hooks/<name>.lock               — per-hook interval serialization lock
   spawns/
     v2-format.json                  — marker file: v2 format active (one-time migration)
     .staging/<unique>/              — complete row build before atomic publication
     <id>/                           — per-spawn state directory
       state.json                    — authoritative spawn state (v2)
-      state.lock                    — per-spawn exclusive lock for external writers
       starting-prompt.md            — prompt body (written once at spawn creation)
       prompt.md · report.md · heartbeat
       history.jsonl                 — primary output artifact (seq-enveloped harness events)
       output.jsonl                  — legacy fallback (absent on new spawns)
       stderr.log · params.json · tokens.json
-      process_scopes.json           — recorded process containment scopes + released IDs
+      process_scopes.json           — durable process identities + release markers
+      reaper_cleanup_claim.json     — pending finalize-first cleanup targets
       inbound.jsonl                 — injected user messages
       control.sock                  — active-session control socket
       debug.jsonl                   — MERIDIAN_DEBUG=1 only
@@ -86,21 +94,22 @@ Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `time
 
 `mark_finalizing()` is a compare-and-swap from `running` → `finalizing`. It narrows the reaper's target from the full execution window to the drain/report window, enabling `orphan_finalization` vs `orphan_run` distinction.
 
-### Two-Tier Write Model
+### Locked Mutation Seam
 
-V2 distinguishes two write tiers based on who is writing and under what lock:
+Every update to a published spawn calls `write_state_locked()`. It acquires the stable per-spawn lock at `locks/spawns/<id>.lock`, re-reads current `state.json`, applies a pure mutator function, and writes atomically. There is no public unlocked write path — the prior two-tier model (owner writes without lock / external writes with lock) was collapsed in PR #422 to eliminate the convention-enforced split that was the root cause of every reproduced lost-update bug.
 
-**Tier 1 — Owner writes (unlocked, write-through):**  
-`start_spawn()` creates the initial `state.json` under the global `spawns_flock`, where ID reservation is also serialized. Subsequent status transitions by the spawn's own runner use in-memory mutations written to `state.json` via atomic tmp+rename — no per-spawn lock acquired. The runner is the sole writer while the spawn is active, so lock contention is unnecessary.
+`start_spawn()` creates the initial `state.json` under the global `spawns_flock`, where ID reservation is also serialized. Once a spawn row is published, all subsequent mutations go through `write_state_locked()`.
 
-**Tier 2 — External writes (per-spawn `state.lock`, read-merge-write):**  
-Other processes — the reaper, cancel command, `update_spawn()` callers (e.g. session-bleed-isolation writing `claude_config_dir`) — acquire `spawns/<id>/state.lock`, read the current `state.json`, apply a mutator function, and write the result atomically. This pattern appears in `write_state_locked()` in `state/spawn/repository.py`.
+The same mutate-under-lock shape applies across all stores:
+- **Spawn state**: `write_state_locked()` — `locks/spawns/<id>.lock`
+- **Archived spawns**: `mutate_archived_spawns()` — `locks/archived-spawns.lock`
+- **Work items**: `_mutate_item()` in `work_repository.py` — `work-store.flock`
+- **Hook intervals**: `run_if_due()` — `locks/hooks/<name>.lock`
+- **Scope projections**: `mutate_scope_projection()` — `locks/process-scopes/<id>.lock`
+- **Autosync**: `transaction()` — canonical sync-root lock path
+- **Published-spawn deletion**: `delete_published_spawn()` — same per-spawn lock
 
-The distinction matters: `update_spawn(claude_config_dir=...)` is always a tier-2 external write because it may be called from any process. The runner's own finalization path is tier-1.
-
-This split is a convention the call sites must respect, not a runtime capability
-check. An external writer that bypasses `state.lock` can race the runner's unlocked
-write-through path.
+These seams are behavior-preserving contracts: a planned future store rewrite (typed state, store scaling) inherits the same lock-acquire / re-read / pure-mutate / atomic-write shape.
 
 ### Migration: ensure_v2_format()
 
@@ -132,22 +141,50 @@ Per-session files under `sessions/<chat_id>/`:
 
 ## Atomic Writes
 
-Every file write goes through one of two patterns:
+Every file write goes through one of three patterns:
 
 **JSONL append** (`state/event_store.py`): acquire `lock_file()` on `.flock` sidecar → append line → release. If the process dies mid-append, the next read skips the truncated line. Used for session events (`sessions.jsonl`); spawn state now uses atomic overwrite (v2).
 
-**Atomic overwrite** (`state/atomic.py:atomic_write_text()`): write to temp file → `os.replace()` → fsync parent directory (POSIX only; Windows early-returns — NTFS journaling handles this). Either the old file or the new file exists; never a partial write. Spawn `state.json`, ID counters, and all derived state files use this pattern.
+**Atomic file replacement** (`lib/platform/atomic.py:atomic_replace()`): the dependency-neutral platform primitive that `state/atomic.py`, `plugin_api/fs.py`, autosync, and the Codex streaming rewriter all delegate to. Writes to a same-directory temp, optionally fsyncs, then `os.replace()`. Permission policy: `permissions="preserve"` (default) keeps existing file mode; `permissions=0o600` enforces strict mode for runtime state. `AtomicReplaceDurabilityError` surfaces post-commit fsync failures so callers know the write is committed but not yet durable.
+
+State-facing writes use `state/atomic.py:atomic_write_text()` which sets mode `0600` for runtime state. User-owned project files and context work-item metadata use the preserve-mode platform atomic writer.
+
+**Atomic directory publication** (`state/atomic.py:atomic_publish_dir()`): rename a complete same-volume staging directory into a destination that must not exist, then fsync the publication parent.
 
 **Work item renames:** `work-items.rename.intent.json` is written before any rename begins. Leftover intent is replayed on startup/reconciliation — crash-safe two-phase rename.
 
+### Conformance Guard
+
+`tests/contract/test_state_write_conformance.py` is a repo-wide AST test rejecting raw file writes (`Path.write_text`, `Path.write_bytes`, `open(..., "w")`) to authoritative state. It enforces that all state mutations route through the atomic primitives. A documented single-entry allowlist covers the one justified exception (telemetry cooldown marker). Stale allowlist entries are detected. The failure message names the offending call site and guides toward the correct primitive.
+
 ## Platform Locking
 
-`platform.locking.lock_file(path)` is the cross-platform exclusive lock used everywhere:
+`platform.locking.lock_file(path, mode, timeout, reentrant)` is the single cross-process locking primitive:
 
-- **POSIX:** `fcntl.flock(LOCK_EX)` — advisory, kernel-backed
+- **POSIX:** `fcntl.flock(LOCK_EX | LOCK_SH)` — advisory, kernel-backed
 - **Windows:** `msvcrt.locking(LK_NBLCK, 1)` with retry loop (50 ms sleep)
 
-Thread-local reentrancy: a thread that already holds the lock can re-enter on the same path without deadlocking. A depth counter tracks nesting; OS lock released only on outermost exit.
+**Modes:** `exclusive` (default) or `shared`. Shared mode uses `LOCK_SH`; a held shared lock cannot be upgraded to exclusive in place.
+
+**Reentrancy:** thread-local by default. A thread that already holds the lock re-enters safely; the OS lock releases only on outermost exit. Non-reentrant mode (`reentrant=False`) is used for mutation seams where nesting would let an inner run invalidate the outer's state snapshot.
+
+**Fork safety:** acquired handles are tracked in a process-wide registry. On `fork()`, the child closes every inherited descriptor (releasing the parent's open-file-description lock without explicit unlock) and clears the reentrancy state. Release-window descriptors are also registered so a fork during the gap between OS release and handle close does not leak.
+
+**Stable lock inodes:** all coordination locks live under `locks/<domain>/` outside the directories they protect and are never unlinked. This prevents the split-brain failure where one process unlinks a lock file and creates a new inode while another still holds the old one (POSIX `flock` is per-open-file-description, not per-path). Lock-inode accumulation is bounded and accepted; GC is tracked as issue #427.
+
+### Lock-Order Invariants
+
+When multiple locks are needed, acquire in this order to prevent deadlocks:
+
+1. `spawns_flock` (global spawn-ID allocation and publication)
+2. Per-spawn lock (`locks/spawns/<id>.lock`)
+3. Scope-projection lock (`locks/process-scopes/<id>.lock`)
+
+`delete_published_spawn()` acquires the per-spawn lock and checks for pending cleanup claims before deletion. Pruning acquires `spawns_flock` first.
+
+### Project-Lifetime Gate
+
+`~/.meridian/projects/.locks/<uuid>.lock` sits outside the deletable project root. Sessions hold a **shared** lock for their lifetime; global pruning acquires **exclusive** + revalidates the target before removal. This prevents pruning from destroying a runtime root while sessions hold spawn locks inside it.
 
 See `lib/platform/locking.py` for implementation details.
 
@@ -170,6 +207,8 @@ explicit path and only at clear root depth — `MERIDIAN_DEPTH` absent, empty, o
 `"0"`. Nested processes and malformed depth values fail closed.
 
 **Decision/IO split:** Reconciliation separates the decision step (pure, no I/O) from the action step (writes terminal state and cleans scopes). This lets read-time projection reuse the same decision logic without filesystem mutation.
+
+**Finalize-first cleanup claims:** `reconcile_active_spawn()` snapshots exact cleanup targets into `reaper_cleanup_claim.json` under the spawn lock before persisting terminal state, then terminates the claimed scopes using birth-validated signals. This finalize-first order makes state convergence independent of slow cleanup: a crash leaves a durable claim for the next doctor pass. A separate stable cleanup lock (`locks/reaper-cleanup/<id>.lock`) prevents concurrent reapers from double-signalling. Terminal rows retain failed claims for retry. A runner-origin terminal write clears a reconciler claim without signalling because runner authority supersedes reconciler cleanup intent.
 
 ### Liveness Check Sequence
 
@@ -200,7 +239,7 @@ PID reuse guard: the runner records `runner_pid` and `runner_created_at_epoch`. 
 
 ## Work Item Store
 
-Work items use a different storage pattern from spawns: **one `__status.json` file per work directory** under the context work root (e.g. `<context.work>/<slug>/__status.json`). Atomic overwrites via `tmp + os.replace()`. Mutable JSON per directory is appropriate here because work items are correlated with a directory that moves on rename — event-sourcing would add complexity without benefit.
+Work items use a different storage pattern from spawns: **one `__status.json` file per work directory** under the context work root (e.g. `<context.work>/<slug>/__status.json`). All mutations (status updates, healing, directory-namespace operations) go through `work_repository.py:_mutate_item()`, which serializes reads and writes under `work-store.flock`. Pure read projections and compatibility facades remain in `work_store.py`.
 
 Archiving moves the entire directory to the archive root. Directory location is the primary authority for active-vs-archived state.
 

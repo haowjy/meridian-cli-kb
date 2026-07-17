@@ -87,14 +87,14 @@ its access pattern.
 ### Per-Spawn State Files (Spawns — V2)
 
 ```
-spawns/<id>/state.json  → full current state of one spawn, O(1) read
-spawns/<id>/state.lock  → per-spawn exclusive lock for external writers
-spawns/<id>/starting-prompt.md  → prompt body (written once)
+locks/spawns/<id>.lock            → stable per-spawn mutation lock (never unlinked)
+spawns/<id>/state.json            → full current state of one spawn, O(1) read
+spawns/<id>/starting-prompt.md    → prompt body (written once)
 ```
 
 Spawn state uses one JSON file per spawn (since 2026-05 migration). Reads are O(1) — no event replay. Writes use atomic tmp+rename. The authority lattice (`decide_terminal_write()`) enforces terminal monotonicity: runner-origin writes supersede reconciler-origin writes.
 
-**Two write tiers:** The spawn's runner writes directly (no lock — sole writer). External writers (reaper, cancel, `update_spawn()`) acquire `state.lock`, read current state, apply mutation, write atomically.
+**Single locked mutation path:** every update to a published spawn calls `write_state_locked()`, which acquires the stable per-spawn lock, re-reads current state, applies a pure mutator, and writes atomically. The lock identity lives under `locks/spawns/` outside the spawn artifact directory and is never unlinked. There is no public unlocked write path.
 
 ### JSONL Event Stores (Sessions)
 
@@ -131,15 +131,16 @@ rename begins, so a crash mid-rename is recoverable.
 
 ```
 spawns/<id>/
-  state.json      authoritative spawn state (v2) — read/written by spawn_store
-  state.lock      per-spawn exclusive lock for external writers
-  starting-prompt.md  prompt body — written once at spawn creation
-  report.md       agent's run report
-  history.jsonl   seq-enveloped harness events
-  heartbeat       touched every 30s (liveness signal)
-  stderr.log      harness warnings and errors
-  params.json     spawn parameters snapshot
-  tokens.json     usage record
+  state.json                authoritative spawn state (v2) — read/written by spawn_store
+  starting-prompt.md        prompt body — written once at spawn creation
+  report.md                 agent's run report
+  history.jsonl             seq-enveloped harness events
+  heartbeat                 touched every 30s (liveness signal)
+  process_scopes.json       durable process identities + release markers
+  reaper_cleanup_claim.json pending finalize-first cleanup targets
+  stderr.log                harness warnings and errors
+  params.json               spawn parameters snapshot
+  tokens.json               usage record
 ```
 
 Each spawn gets its own isolated directory — no cross-spawn interference. `state.json` is the authoritative record (written by `spawn_store`, read by all). The `heartbeat` file is the exception: repeatedly touched (not written) as a liveness signal for the reaper.
@@ -189,12 +190,22 @@ list, not a UUID creation event.
 
 ## Locking
 
-Concurrent writers need coordination. Meridian uses file-based locking:
+Concurrent writers need coordination. Meridian uses file-based locking through
+one parameterized primitive (`lock_file`): timeout, shared/exclusive mode,
+thread-local reentrancy, and post-fork descriptor cleanup.
 
-- **Spawn state (v2)**: a per-spawn `spawns/<id>/state.lock` file. Acquired by external writers (reaper, cancel, `update_spawn()`); the spawn's runner writes without the lock as the sole owner during active execution.
-- **Spawn ID reservation**: a global `spawns_flock` serializes ID counter increments. Held only for the duration of the counter bump.
-- **Session JSONL**: a `sessions.jsonl.flock` sidecar file. Exclusive lock held during append. Cross-platform: `fcntl.flock` on POSIX, `msvcrt.locking` on Windows. Thread-local reentrant.
-- **Session management**: a per-session lock file (`<chat_id>.lock`) held for the duration of an active session.
+All coordination locks live under `locks/<domain>/` outside the directories they
+protect and are never unlinked. This prevents the POSIX split-brain failure where
+one process unlinks a lock file while another still holds the old inode.
+
+- **Spawn state (v2)**: `locks/spawns/<id>.lock`. Every mutation acquires this lock.
+- **Spawn ID reservation**: a global `spawns_flock` serializes ID counter increments and initial publication.
+- **Scope projections**: `locks/process-scopes/<id>.lock`. Mutation of the process-scope sidecar.
+- **Reaper cleanup**: `locks/reaper-cleanup/<id>.lock`. Prevents concurrent cleanup signalling.
+- **Hook intervals**: `locks/hooks/<name>.lock`. Per-hook serialization.
+- **Session JSONL**: `sessions.jsonl.flock` sidecar. Exclusive lock held during append.
+- **Session management**: per-session lock file held for the duration of an active session.
+- **Project lifetime**: `~/.meridian/projects/.locks/<uuid>.lock`. Sessions hold shared; pruning acquires exclusive.
 - **UUID creation**: `id.lock` exclusive lock with double-checked read inside.
 
 ---
