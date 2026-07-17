@@ -203,8 +203,8 @@ Current safeguards:
   when a new child wave appears.
 - Store and private-file read failures surface as typed `unknown` instead of
   silently allowing false quiescence.
-- Blockers retain their categories: persisted descendants, rowless subspawns,
-  tracked bash, and pending notification are not all called “children.”
+- Blockers retain their categories: persisted descendants, tracked bash, and
+  pending follow-up marker are not all called “children.”
 - Pi stream-exit classification uses the category-complete
   `classify_outstanding_work()` for exit decisions. `pending_children_at_exit()`
   recognizes `spawn_children`, `unknown_spawn_children`, and
@@ -213,8 +213,7 @@ Current safeguards:
 - `pi_process_exited_with_tracked_children` replaces only the canonical generic
   Pi subprocess-exit outcome (`Pi subprocess exited with code <N>.`, shared
   constant `PI_SUBPROCESS_EXIT_ERROR_PREFIX`). Unrelated specific failures such
-  as notification timeout, evidence failure, or explicit cancellation preserve
-  their precedence.
+  as evidence failure or explicit cancellation preserve their precedence.
 
 ### Child-wave timeout is terminal
 
@@ -252,26 +251,24 @@ The nudge is a progress aid, not the authority. Disk state (`state.json`,
 
 ## Child Cleanup
 
-When Pi exits or times out with active tracked work, the completion cycle first
-publishes its terminal outcome. Async teardown then cancels active Meridian
-descendants through the shared `cancel_descendants` pipeline. That path sets
-cancel intent, drives each child through normal cancellation or forced
-convergence, and lets recorded spawn scopes reap child runner trees. Pi
-tracked-process cleanup excludes only descendants proved reaped through that
-canonical path and focuses on Pi-internal background work.
+When Pi exits or times out with active tracked descendants, the completion cycle
+first publishes its terminal outcome. Async teardown then cancels active Meridian
+descendants through the injected descendant cancellation service. Persisted spawn
+rows are the sole child authority; cleanup does not depend on lifecycle PID/PGID
+telemetry.
 
 This keeps Pi child-spawn teardown aligned with the Codex/OpenCode resident-deadline
-model: Meridian-spawn children are cancelled as spawns, while Pi-specific process
-metadata remains a fallback for non-spawn background work.
+model: Meridian-spawn children are cancelled as spawns through the same
+`cancel_descendants` pipeline.
 
 ## Pi-Specific Spawn Phases
 
 Visible phase events in `meridian spawn show` cover connection startup and first
-response, drain and session observation, tracked-child/notification waits,
-micro-drain, timeout, finalization, and connection cleanup. The cleanup phases
-are `cleanup_running`, `cleanup_completed`, `cleanup_failed`, and
-`cleanup_escalated`. Timeout is terminal: `pi_child_wave_timeout` is not followed
-by another `waiting_for_tracked_children` phase from the timeout path.
+response, drain and session observation, tracked-child waits, micro-drain, timeout,
+finalization, and connection cleanup. The cleanup phases are `cleanup_running`,
+`cleanup_completed`, `cleanup_failed`, and `cleanup_escalated`. Timeout is terminal:
+`pi_child_wave_timeout` is not followed by another `waiting_for_tracked_children`
+phase from the timeout path.
 
 `meridian-spawn-watch` owns implicit-wait delivery. The Python drain loop records
 phase names for observation, but notification delivery itself is not a stdout event
@@ -292,11 +289,13 @@ Never writes orphan state from the nested read path. Surfaces as a synthetic ter
 
 ---
 
-## Notification Timeout
+## Follow-Up Marker
 
-The extension may retry a transient `sendMessage()` error locally. If the
-notification protocol remains failed or times out, the Pi completion profile
-fails the parent; notification integrity is part of quiescence evidence.
+`meridian-spawn-watch` writes `last-notification.json` when it fires a
+`sendMessage({triggerTurn: true})`. `PiPrivateWorkLedger` reads this marker and
+requires `agent_end_ts > last_notification_ts` before declaring quiescence.
+This is a disk-state contract between the extension and Python; no Python-side
+notification event parsing or timeout machinery exists.
 
 ## Pi Failure Reports
 

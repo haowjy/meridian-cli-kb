@@ -302,21 +302,6 @@ observable.
 
 ---
 
-### Pi Notification Telemetry (#440)
-
-**Where:** Pi runtime extensions, `src/meridian/lib/streaming/pi_drain.py`
-
-**The issue:** The real Pi runtime does NOT emit
-`meridian.notification.queued/delivered` or `meridian.subspawn.*` events for
-managed-bash work. Wake-after-completion works via direct follow-up turns
-(`sendMessage({triggerTurn: true})`), not through a Meridian-observable
-event/file protocol. The prior smoke expectations assumed these events would
-be visible; the guide was rewritten to the functional wake contract.
-
-**Why deferred:** Investigation filed as #440. The functional contract
-(follow-up turns produce fresh `agent_end`) is correct; the missing telemetry
-is a visibility gap, not a correctness defect.
-
 ---
 
 ## Routing & Model Resolution

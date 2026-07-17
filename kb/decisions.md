@@ -51,8 +51,7 @@ Pi and resident drains use one completion coordinator composed from deep
 evidence, profile/control, and cleanup collaborators; a shared base class was
 rejected because Pi would override ordering-sensitive hooks. The reconciled
 transitive spawn tree is authority for persisted Meridian descendants, while Pi
-retains a private-work ledger for bash, notifications, rowless subspawns, and
-cleanup handles. Spawn rows publish atomically, so raw-directory allocation
+retains a private-work ledger for bash and the follow-up marker. Spawn rows publish atomically, so raw-directory allocation
 inference is absent. Terminal outcomes publish before one async best-effort
 cleanup; `done` is fail-closed on unreadable evidence. See
 [completion drain coordination](architecture/completion-drain-coordination.md)
@@ -114,6 +113,9 @@ CLI startup is driven by a lightweight command catalog that classifies invocatio
 
 **Fixed sandbox projection constraint: no `~/.meridian/` root in child sandboxes**
 Child sandboxes receive purpose-scoped projection only (project runtime roots, workspace/context roots, temp). Global user home is never projected. Each path class (automatic cache, cross-project coordination, global service, optional config, explicit maintenance) has a defined nested behavior: delete, wrap, gate, or keep. See [startup/sandbox decisions](decisions/startup-health-sandbox.md#sandbox-projection-policy).
+
+**Cross-harness death-shape normalization and Pi notification-machinery retirement (harness-hardening audit, PRs #446/#447, 2026-07-17)**
+The four Pi defect classes from PR #443 (fake fidelity, inject truthfulness, terminal-reason shadowing, phantom telemetry) were audited across Claude, Codex, and OpenCode with runtime probes. Results: Codex resident terminal-shadowing confirmed live and fixed (typed `TerminalOutcomeCause.REPLACEABLE_TRANSPORT_CLOSE` scoped to Codex only); OpenCode phantom `response.completed` confirmed and removed from the accepted taxonomy; Claude death normalized to canonical `error/connectionClosed` carrying exit code + bounded stderr; Claude busy-turn inject investigated and found NOT a defect on Claude 2.1.212 (queues + acks correctly). Pi notification/subspawn lifecycle machinery (#440) confirmed dead and retired: zero canonical lifecycle events on real Pi; `meridian-spawn-watch` + `last-notification.json` is the functional contract. `PiSubspawnTracker`, `pi_process_cleanup.py`, and the notification-timeout/pending-ledger lifecycle event parsing were deleted; descendant discovery, `meridian-spawn-watch` follow-up, and `last-notification.json` were retained. The colocated contracts at `src/meridian/lib/harness/.context/CONTEXT.md` (Connection Death Shape, Inject Acknowledgment) and `tests/AGENTS.md` (generalized Fake Fidelity) are the per-adapter detail authority. See [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) and [concepts/harness-abstraction.md](concepts/harness-abstraction.md).
 
 **POSIX-first supersedes Windows-first (platform stance, 2026-07-17)**
 Linux and macOS are the supported platforms. Native Windows was never made to work and is not planned. This supersedes the prior "Windows Is First-Class" design principle (#12 in [design-principles.md](principles/design-principles.md)), which framed Windows support as a product requirement to design for upfront. Rationale: native Windows never reached a working state and maintaining parallel OS branches cost more than their value. Existing `os.name` / `sys.platform` branches in `lib/platform/` (locking, process-scope, signals, path resolution) stay as legacy, untested, best-effort — they must not be expanded. WSL is Linux and needs no special treatment. Canonical wording lives in root `AGENTS.md` "POSIX-first"; the doc sweep that aligned repo docs landed on branch `task/docs-posix-first`.

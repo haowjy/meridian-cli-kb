@@ -4,6 +4,60 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-17 — Harness-hardening audit knowledge reconciliation (PRs #446/#447, v0.3.36/v0.3.37)
+
+### Trigger
+
+Harness-hardening audit completed: PR #446 (harden Claude/Codex/OpenCode death
+and inject contracts) and PR #447 (retire dead Pi notification-lifecycle machinery,
+closes #440), both merged to main.
+
+### What changed
+
+**Stale content fixed:**
+- `architecture/pi-lifecycle.md`: child cleanup rewritten — `PiCompletionCleanup`
+  now uses injected descendant cancellation via persisted spawn rows only, not
+  lifecycle PID/PGID telemetry. Spawn phases: notification wait phase removed.
+  Drain correctness constraints: "rowless subspawns" removed from blocker
+  categories; `notification timeout` removed from precedence examples.
+  "Notification Timeout" section replaced with "Follow-Up Marker" describing the
+  retained `last-notification.json` disk-state contract.
+- `architecture/completion-drain-coordination.md`: `PiPrivateWorkLedger` inventory
+  updated — removed rowless subspawns, PID/PGID cleanup handles; now tracks only
+  managed bash, follow-up marker, and read failures.
+- `decisions.md`: completion-drain-convergence foundational entry updated (ledger
+  scope narrowed). New foundational entry for the harness-hardening audit decision.
+- `concepts/harness-abstraction.md`: removed stale "redesign successor" framing
+  from `meridian-spawn-watch` description.
+- `open-questions/future-work.md`: deleted resolved #440 entry (Pi notification
+  telemetry — retired, not fixed).
+
+**New content:**
+- `concepts/harness-abstraction.md`: new "Cross-Harness Death and Inject Contracts"
+  section documenting the uniform death normalization invariant and pointing to the
+  colocated per-adapter contracts.
+- `decisions.md`: new foundational entry capturing the four-defect-class audit
+  results, per-harness verdicts, and retirement decisions.
+
+### Already current (verified, no change needed)
+
+- `codebase/harness-adapters.md`: Pi-specific notes still accurate (disk-backed
+  quiescence description references notification markers, which are retained).
+- `lessons/harness-integration.md`: extension injection lesson references
+  `PiDiskWatcher` and `PiQuiescenceTracker` (both retained); module paths
+  accurate.
+- `architecture/pi-runtime/vocab.md`: vocabulary entries remain accurate (bash
+  records, spawn-origins, last-notification.json, env-var correlation all
+  retained).
+- `codebase/test-determinism.md`: Pi fidelity helpers section references
+  `pi_process_exit_event` and `write_pi_bash_record` (both retained).
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-17 — cbc-followup knowledge reconciliation (PR #444, closes #427)
 
 ### Trigger

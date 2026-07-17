@@ -59,13 +59,16 @@ Pi-private work remains separate because a `SpawnRecord` cannot represent it.
 `PiPrivateWorkLedger` owns immutable snapshots of:
 
 - tracked bash;
-- pending implicit-wait notifications;
-- rowless Pi-internal subspawns;
-- private-work read failures;
-- owned PID/PGID cleanup handles.
+- pending follow-up marker (disk notification);
+- private-work read failures.
 
-`PiDiskWatcher` observes only the private bash and notification files. It does
-not scan spawn directories or infer descendants. The reconciled tree is
+Rowless subspawn tracking and PID/PGID cleanup handles were retired in PR #447
+(#440): zero canonical lifecycle events are emitted by real Pi, so the subspawn
+tracker and process cleanup module were deleted. Descendant discovery now
+relies solely on the reconciled persisted spawn tree.
+
+`PiDiskWatcher` observes only the private bash and notification-marker files. It
+does not scan spawn directories or infer descendants. The reconciled tree is
 reassessed on a bounded poll while completion is pending.
 
 ## Readability is required even for `done`

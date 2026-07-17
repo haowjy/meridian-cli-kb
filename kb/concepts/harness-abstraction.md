@@ -129,6 +129,31 @@ This is intentional, not a gap. Meridian is a coordination layer; judging work q
 
 **Rejected: `meridian spawn done --error`** — would have required making the user's done signal an outcome override, replacing the harness-written status. "Succeeded = finished cleanly" is the right altitude for the status field; the report is where correctness lives.
 
+### Cross-Harness Death and Inject Contracts
+
+All streaming harnesses now normalize unexpected process death to a canonical
+`error/connectionClosed` event carrying the exit code and (when available)
+bounded stderr diagnostics. This normalization was generalized in v0.3.37
+(harness-hardening audit, PR #446) after initially shipping for Pi only.
+Previously, Claude delivered a generic close without diagnostics, OpenCode
+dropped exit code and stderr entirely (falling back to the maximally generic
+`connection_closed_without_terminal_event`), and Codex's resident drain path
+allowed a late generic transport close to shadow an already-recorded specific
+terminal classification.
+
+The per-harness death shapes and inject acknowledgment semantics are defined in
+the colocated contract at
+`src/meridian/lib/harness/.context/CONTEXT.md` (sections "Connection Death
+Shape" and "Inject Acknowledgment"). This KB page captures the cross-cutting
+pattern; the colocated doc owns the per-adapter details.
+
+**Key cross-cutting invariant:** a connection must deliver its most diagnostic
+terminal evidence before iterator EOF, and a specific terminal classification
+must not be shadowed by a later generic transport failure. The
+`resolve_terminal_outcome()` publication barrier (PR #443) enforces this at
+the `SpawnManager` level; the per-adapter death shapes ensure the raw evidence
+reaches the barrier in the correct order.
+
 ### Primary event scope
 
 When a harness event stream multiplexes parent and child activity (Codex subagent threads, OpenCode child task sessions), `primary_event_scope` identifies which harness-native scope belongs to the parent spawn. Child events stay in history and session logs but cannot complete/fail the parent or supply the parent's report.
@@ -278,7 +303,6 @@ as package data under `src/meridian/pi_runtime/extensions/`:
   terminate. Writes `last-notification.json` marker for Python quiescence tracking.
   Slash commands: `/spawn`, `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear`.
   **`/mspawn` was renamed to `/spawn` — no compatibility alias.**
-  This is the redesign successor to the earlier Pi lifecycle policy extension.
 
 Spawned Pi sessions load both extensions (`--no-extensions -e managed-bash.js -e meridian-spawn-watch.js`).
 Primary Pi sessions load meridian-spawn-watch only (`-e meridian-spawn-watch.js`). See
