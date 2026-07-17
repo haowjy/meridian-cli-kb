@@ -27,11 +27,15 @@ classification, and stream-exit handling. The factory composes plain, resident,
 and Pi plans; `SpawnManager` supplies generic capabilities and holds no Pi
 policy.
 
-Terminal publication is one-way. The drain loop publishes the profile-owned
-terminal outcome and resolves the completion future before it starts one async,
-best-effort cleanup. A stuck descendant cleanup or connection stop therefore
-cannot hang publication. Cleanup reports are telemetry and cannot replace the
-outcome; the startup reaper reconciles incomplete cleanup after a crash.
+Terminal publication is owned by `SpawnManager._publish_terminal()`, an
+idempotent barrier called by both the drain loop's natural exit and
+`stop_spawn()`. `resolve_terminal_outcome()` resolves competing sources:
+success wins; otherwise an authoritative stop outcome wins; otherwise the drain
+classification stands. The barrier publishes the outcome, resolves the
+completion future, and starts one per-spawn async cleanup task. A stuck
+cleanup or connection stop cannot hang publication. Cleanup reports are
+telemetry and cannot replace the outcome; the startup reaper reconciles
+incomplete cleanup after a crash.
 
 ## Resident completion
 

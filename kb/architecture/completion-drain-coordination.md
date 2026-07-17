@@ -13,8 +13,9 @@ flowchart LR
     C --> X[CompletionCleanup]
     E --> T[Reconciled transitive descendants]
     E --> W[Pi private-work ledger]
-    L --> O[Publish terminal outcome]
-    O --> D[Async best-effort cleanup]
+    L -->|classifies| M[SpawnManager._publish_terminal]
+    M -->|resolve_terminal_outcome| O[Published terminal outcome]
+    O --> D[Per-spawn async cleanup]
 ```
 
 ## The coordinator accepts evidence; it does not discover work
@@ -81,13 +82,26 @@ restart the window even when the evidence generation is unchanged. Pi may also
 hold the original candidate and absolute stabilization deadline across an
 auxiliary-only blocker.
 
-## Publication precedes cleanup
+## Publication is a manager-owned barrier
+
+Terminal publication is owned by `SpawnManager._publish_terminal()`, not by
+the drain loop. The drain loop classifies its outcome and passes it to the
+barrier; `stop_spawn()` also calls the same barrier with its own stop intent.
+The `terminal_published` flag on `SpawnSession` makes publication idempotent
+across both paths.
+
+`resolve_terminal_outcome()` resolves competing terminal sources in explicit
+priority order: success wins; otherwise an authoritative stop outcome (set by
+`stop_spawn()`) wins; otherwise the drain classification stands. This replaces
+the former `preferred_stop_outcome` mutable override, making the priority
+visible in one named function rather than scattered across the drain loop.
 
 When a deadline, failure, cancel, or stream-exit path authorizes cleanup, the
 coordinator latches at most one cleanup request and clears the live deadline.
-The drain loop publishes the profile-owned terminal outcome first, resolving
-the caller-visible completion future. It then executes the latched cleanup once
-in asynchronous best-effort teardown.
+The barrier publishes the resolved terminal outcome, resolves the completion
+future, and starts one per-spawn cleanup task. Cleanup tasks are keyed by
+spawn ID (`_cleanup_tasks: dict[SpawnId, Task]`); `stop_spawn()` awaits only
+its own spawn's cleanup, and `shutdown()` drains all remaining tasks.
 
 A stuck descendant cleanup cannot delay publication. `CleanupReport` is
 telemetry: cleanup failure cannot replace the published outcome, reopen the
@@ -124,8 +138,9 @@ reason, or cleanup-phase policy.
 5. Persisted descendant authority is reconciled, cycle-safe, and transitive.
 6. Profile precedence owns coincident directives, deadlines, readiness,
    stabilization, and profile timers.
-7. Terminal publication is one-way; cleanup and lifecycle effects cannot replace
-   it.
+7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
+   against double publication; cleanup and lifecycle effects cannot replace the
+   outcome.
 8. `note_event_persisted`, observer dispatch, and fan-out occur only after a
    successful history write.
 9. Pi nudges route through serialized `SpawnManager.inject()`.
@@ -135,6 +150,7 @@ reason, or cleanup-phase policy.
 
 - `work:drain-convergence`
 - `work:drain-streaming-cleanup` (PR #375: reconciliation decisions extraction, rearm budget, timeout carrier unification)
+- `work:drain-streaming-cleanup` follow-up (probe-fix cycle: publication barrier, `resolve_terminal_outcome`, per-spawn cleanup keying)
 
 ## Related pages
 

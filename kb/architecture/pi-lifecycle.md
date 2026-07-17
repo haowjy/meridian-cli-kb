@@ -205,6 +205,16 @@ Current safeguards:
   silently allowing false quiescence.
 - Blockers retain their categories: persisted descendants, rowless subspawns,
   tracked bash, and pending notification are not all called “children.”
+- Pi stream-exit classification uses the category-complete
+  `classify_outstanding_work()` for exit decisions. `pending_children_at_exit()`
+  recognizes `spawn_children`, `unknown_spawn_children`, and
+  `non_spawn_processes` (managed bash). This prevents managed-bash-only tracked
+  work from being invisible to exit classification while blocking quiescence.
+- `pi_process_exited_with_tracked_children` replaces only the canonical generic
+  Pi subprocess-exit outcome (`Pi subprocess exited with code <N>.`, shared
+  constant `PI_SUBPROCESS_EXIT_ERROR_PREFIX`). Unrelated specific failures such
+  as notification timeout, evidence failure, or explicit cancellation preserve
+  their precedence.
 
 ### Child-wave timeout is terminal
 
