@@ -144,7 +144,6 @@ base implementation's priority chain without modification.
 ## Related Pages
 
 - [../architecture/launch-system.md](../architecture/launch-system.md) — how adapters plug into the launch factory
-- [../architecture/app-server.md](../architecture/app-server.md) — how connections/ is used by the app server
 - [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — policy/mechanism split mental model
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — project_content() semantic IR pattern
 - [../concepts/workspace-projection.md](../concepts/workspace-projection.md) — workspace root projection, Codex remote TUI attach, OpenCode env merging

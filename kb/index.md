@@ -106,7 +106,6 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode primary process roles, passive reconciliation safety, explicit cleanup boundary, and `orphan_primary` diagnosis
 - [architecture/process-scope.md](architecture/process-scope.md) — Process-scope ownership and cleanup: Option D design decision, spawn_owned vs session_owned, platform adapters (POSIX/Windows/psutil), module boundary map, reaper behavior, and known gaps (PROC-004, PROC-007)
 - [architecture/sandbox-projection.md](architecture/sandbox-projection.md) — Sandbox permission projection policy: fixed constraint (no global user home projection), path classification framework, context-root existence filtering (codex bwrap safety), gap-by-gap behavior
-- [architecture/app-server.md](architecture/app-server.md) — FastAPI layer: REST endpoints, WebSocket/SSE streaming, MCP stdio server, connection management
 - [architecture/mars-compiler.md](architecture/mars-compiler.md) — Compiler internals: module map, config-entry pipeline, MCP/hook collision resolution, provenance and stale cleanup
 - [architecture/mars-targeting.md](architecture/mars-targeting.md) — Why `.agents/` was eliminated, `.mars/` as Meridian's compiled read surface, native harness dir emission per target
 - [architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md) — Cross-repo launch-bundle: Mars scaffold, Meridian injection, bundle `routing` contract, schema v2
