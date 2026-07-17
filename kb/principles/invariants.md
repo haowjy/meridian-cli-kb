@@ -40,11 +40,27 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 ### Durable File State
 
-Session events are append-only JSONL: events are never deleted or rewritten in place, and truncated lines are skipped on read. Spawn state uses per-spawn `state.json` files: each replacement is atomic, and external writers coordinate through the per-spawn `state.lock`. Both formats preserve the crash-only property, but only session state is currently replayed from JSONL.
+Session events are append-only JSONL: events are never deleted or rewritten in place, and truncated lines are skipped on read. Spawn state uses per-spawn `state.json` files: each replacement is atomic, and all mutations coordinate through a stable per-spawn lock at `locks/spawns/<id>.lock`. Both formats preserve the crash-only property, but only session state is currently replayed from JSONL.
+
+### Mutate-Under-Lock Seam
+
+Every mutation of authoritative state goes through a locked read-modify-write seam: acquire a stable lock, re-read current state, apply a pure mutator, write atomically. This shape applies to spawn records, archived spawns, work items, hook intervals, scope projections, and autosync transactions. The seam is a behavior-preserving contract that planned future store rewrites inherit.
+
+### Stable Lock Inodes
+
+All coordination locks live under `locks/<domain>/` outside the directories they protect and are never unlinked. POSIX `flock` is per-open-file-description, not per-path: unlinking a lock file while another process holds it creates split-brain where two processes hold "the lock" on different inodes. Lock-inode accumulation is bounded and accepted.
+
+### Lock-Order Invariants
+
+When multiple locks are needed: `spawns_flock` before per-spawn lock before scope-projection lock. `delete_published_spawn()` checks for pending cleanup claims before deletion; pruning acquires `spawns_flock` first.
 
 ### Atomic Writes
 
-Every file replacement uses `atomic_write_text()`: write to a temp file, then `os.replace()`. This guarantees readers see either the old complete file or the new complete file — never a partial write.
+Every file replacement uses the dependency-neutral `lib/platform/atomic.py:atomic_replace()`, which delegates through `state/atomic.py:atomic_write_text()` for runtime state. Permission policy: `preserve` for user-owned files, `0600` for runtime state. The conformance guard (`tests/contract/test_state_write_conformance.py`) rejects raw writes to authoritative state at CI.
+
+### Conformance Guard
+
+`tests/contract/test_state_write_conformance.py` is a repo-wide AST test that rejects direct `Path.write_text`, `Path.write_bytes`, and `open(..., "w")` calls on authoritative state paths. One documented allowlist entry (telemetry cooldown marker); stale entries are detected. New raw writes to state files are CI-rejected.
 
 ### Projection Authority Rule
 

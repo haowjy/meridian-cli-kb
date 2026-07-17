@@ -68,85 +68,45 @@ by remote. Remote state is always available at `origin/<branch>` for inspection.
 
 ---
 
-## D-autosync-2: Conflict notice in AGENTS.md — scoped exception to D4 (2026-05)
+## D-autosync-2: Conflict notice in AGENTS.md — superseded (2026-05; removed 2026-07)
 
-**Context:** The general policy (D4, in design docs) prohibits injecting sync state into
-agent system prompts and prohibits inferring agent capability gating from agent names.
-However, agents on the machine experiencing a conflict need to know about it before they
-modify affected files.
+**Original decision (2026-05):** After recording a merge conflict, autosync appended a
+delimited conflict notice block inside a managed `<!-- autosync-notices -->` section at the
+end of AGENTS.md at the sync root. The notice was staged and committed locally.
 
-**Decision:** After recording a merge conflict, autosync appends a delimited conflict
-notice block inside a managed `<!-- autosync-notices -->` section at the end of AGENTS.md
-at the sync root. The notice is staged and committed locally within the same sync cycle.
-
-**Why AGENTS.md and not system prompt injection:**
-AGENTS.md is a legitimate instruction file read by agents working in the context. Placing
-actionable instructions there is targeted — only agents working in the affected sync root
-see it, and only while the conflict is unresolved. System prompt injection would reach
-every agent regardless of relevance.
-
-**Why this does not violate D4:**
-
-1. **Local-only.** After `git merge --abort`, the clone is behind `origin/<branch>` and
-   cannot push. The notice is committed locally and stays local until the conflict is
-   resolved. Other machines never see it. No cross-machine context injection.
-
-2. **Non-gating wording.** The notice says "if you are not modifying the affected files,
-   this does not block your work." Read-only agents are not blocked. No agent capability
-   inference, no name-based gating.
-
-3. **Managed section.** Autosync writes only inside `<!-- autosync-notices -->` /
-   `<!-- /autosync-notices -->` markers. Agents and humans don't edit inside. Malformed
-   markers trigger skip-with-warning, not corruption.
-
-4. **Self-removing.** The notice is the resolving agent's (or human's) responsibility to
-   remove. `meridian sync conflict resolve <id>` also strips it. When the last block is
-   removed, the section markers are also removed.
-
-**Notice format key points:**
-- Neutral wording: "could not merge remote changes" — does not narrate the conflict shape.
-  The agent has git access and can determine the conflict nature from `git merge origin/<branch>`.
-- Merge resolution instructions: `git fetch origin`, `git merge origin/<branch>`, resolve,
-  `git add` + `git commit`, remove notice.
-- Non-gating clause for read-only agents.
-
-**Rejected alternatives:**
-
-- **Remote-wins with synced notice (prior design):** Under rebase/remote-wins, the notice
-  was pushed to remote so all machines could see it. This created cross-machine problems:
-  notice referenced local-only refs, gated agents on machines that couldn't resolve,
-  required origin-aware wording. With merge/local-wins, the notice stays local and all
-  these problems disappear.
-
-- **Separate `.meridian/autosync/CONFLICT_NOTICE.md`:** Keep the notice in a local-only
-  file. Rejected — agents already read AGENTS.md; placing the instruction there is more
-  direct.
-
-- **No agent notification:** Leaves agents unaware of a pending merge. Agents modifying
-  affected files would overwrite content without knowing a merge is needed.
+**Superseded (PR #422, 2026-07):** Per-conflict AGENTS.md notice rewrites were removed.
+No agent ingestion contract existed to consume the notices — no harness reads managed
+`<!-- autosync-notices -->` sections and no harness treats their content as actionable
+instructions. The conflict JSON in `.meridian/autosync/conflicts/<id>.json` was already
+the authoritative record that CLI (`meridian sync conflict show/resolve`) and dashboard
+read from. The notices modified user-owned files without a consuming contract — a write
+without a reader. Conflict detection is now surfaced only through the conflict JSON and
+CLI/dashboard display.
 
 ---
 
-## D-autosync-3: Artifact ownership split — `autosync_store.py` (2026-05)
+## D-autosync-3: Artifact ownership split — `autosync_store.py` (2026-05; relaxed 2026-07)
 
 **Decision:** Extract all autosync artifact reads and writes into a dedicated module
-`hooks/builtin/autosync_store.py`. This module is stdlib-only (zero meridian imports),
-owns the `.meridian/autosync/` file layout and JSON schemas, and is the single path for
-both write operations (from `git_autosync.py`) and read operations (from ops modules for
-CLI/dashboard).
+`hooks/builtin/autosync_store.py`. It owns the `.meridian/autosync/` file layout and
+JSON schemas and is the single path for both write operations (from `git_autosync.py`)
+and read operations (from ops modules for CLI/dashboard).
 
 **Rationale:** The ops layer needs to read conflict metadata and sync state without
 depending on the hook implementation. Without a shared module, the path construction
 and JSON schema would be duplicated, or the ops layer would import from hook code
 (wrong dependency direction). `autosync_store.py` is the narrow shared surface.
 
-**Stdlib-only constraint:** Keeps the module self-contained and portable. If `git_autosync`
-were ever extracted as a standalone package, `autosync_store` would travel with it without
-pulling in meridian dependencies.
+**Stdlib-only constraint relaxed (PR #422, 2026-07):** The module now imports
+`meridian.plugin_api` for writes and `meridian.lib.platform.locking` for the reentrant
+transaction lock. The plugin lock API is intentionally non-reentrant; a complete autosync
+transaction (remote/local/resolve as one locked sequence) requires reentrancy. These were
+pre-approved import options in the concurrency-by-construction plan. The store also owns
+the canonical sync-root lock path and the `transaction()` context manager.
 
 **Ownership boundary:**
 - Ops modules know *which* directories are sync roots (context resolution)
-- `autosync_store` knows *what* artifacts live inside them (layout, schema, read/write)
+- `autosync_store` knows *what* artifacts live inside them (layout, schema, read/write, transaction lock)
 
 ---
 

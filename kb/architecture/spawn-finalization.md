@@ -72,7 +72,7 @@ spawn from `cancelled` to `succeeded`.
 
 ## Store-Level Finalization (Under Per-Spawn Lock)
 
-`spawn_store.finalize_spawn()` runs the complete finalization sequence under the per-spawn `state.lock` (v2 format):
+`spawn_store.finalize_spawn()` runs the complete finalization sequence under the stable per-spawn lock at `locks/spawns/<id>.lock` (v2 format):
 
 1. Read current `state.json` for this spawn
 2. Call `decide_terminal_write()` with current state and incoming origin
@@ -80,9 +80,9 @@ spawn from `cancelled` to `succeeded`.
 4. If disposition is `append` or `replace`: apply the terminal fields to the record and write the updated `state.json` atomically
 5. Return `FinalizeOutcome(wrote=True, transitioned=..., snapshot=...)`
 
-The per-spawn `state.lock` ensures the read-decide-write sequence is atomic across concurrent processes for one spawn without blocking writes to other spawns. Losers get `wrote=False` and do not write their event — they are genuinely no-op, not just logically overridden.
+The per-spawn lock ensures the read-decide-write sequence is atomic across concurrent processes for one spawn without blocking writes to other spawns. Losers get `wrote=False` and do not write their event — they are genuinely no-op, not just logically overridden.
 
-(Legacy v1 used a global `spawns.jsonl.flock` — a single lock serialized all spawns. V2 replaces this with per-spawn locking, eliminating the global contention bottleneck. See [architecture/state-system.md](state-system.md) for the full two-tier write model.)
+(Legacy v1 used a global `spawns.jsonl.flock` — a single lock serialized all spawns. V2 replaces this with per-spawn locking, eliminating the global contention bottleneck. See [architecture/state-system.md](state-system.md) for the locked mutation seam.)
 
 `FinalizeOutcome` fields:
 - `wrote` — whether this call appended an event
@@ -385,8 +385,8 @@ spawn-exit-schema-split pass.
 | File | Role |
 |------|------|
 | `state/spawn/terminal_policy.py` | Pure function: authority lattice for terminal writes |
-| `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock; calls policy; two-tier write dispatch |
-| `state/spawn/repository.py` | V2 storage: `read_state`, `write_state`, `write_state_locked`, `scan_spawn_ids` |
+| `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock; calls policy; single locked mutation dispatch |
+| `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `delete_published_spawn`, `scan_spawn_ids` |
 | `state/spawn/migration.py` | `ensure_v2_format()`: lazy one-shot migration from JSONL to per-spawn state.json |
 | `state/spawn/legacy_events.py` | V1 event types, reducer, parse; still used during migration |
 | `core/lifecycle.py` | `FinalizeOutcome` return type; mark_finalizing/finalize wrappers |

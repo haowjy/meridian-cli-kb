@@ -170,8 +170,44 @@ have zero consumers and conflates completed-session resume (which meridian
 already models via `supports_session_resume` / `supports_session_fork`)
 with in-flight-turn recovery (which no harness currently supports).
 
+## Execution Outcome: Concurrency by Construction (PR #422)
+
+The audit's concurrency findings drove PR #422 — four waves of structural
+fixes that made the lost-update, split-brain, kill-mid-run, and torn-write
+bug classes unwritable by construction.
+
+**What shipped:**
+- One parameterized lock primitive (timeout, shared mode, reentrancy,
+  fork-safety) over stable never-unlinked lock inodes
+- One atomic-replace context manager in a dependency-neutral platform layer
+- Mutate-under-lock seams across all stores: spawn records, archived
+  spawns, work items, hook intervals, scope projections, autosync
+  transactions
+- Reaper finalize-first with crash-recoverable at-least-once cleanup claims
+- Autosync single-transaction execution with canonical lock path
+- Repo-wide AST conformance guard rejecting raw state writes at CI
+
+**Hardening found by gate reviews:** project pruning destroying live runtime
+roots (project-lifetime shared/exclusive gate); published-spawn deletion
+racing locked writers (one locked deletion seam); fork children inheriting
+and prolonging parent locks (process-wide registry, fork-aware); atomic
+replace flipping user files to 0600 (explicit permission policy).
+
+**Rejected alternatives confirmed:** exactly-once kill gating
+(breaks crash-only recovery), SpawnOwnership capability object (cannot span
+process split), ruff TID251 (cannot match method calls on inferred types),
+revision-CAS without re-read-and-reapply, shared `read_json_object` helper
+(different contracts).
+
+Five review gates, every gate reproduced at least one real bug before the
+fixes shipped. 1563 tests passed / pyright 0 errors at final gate.
+
+See [decisions/state.md](../decisions/state.md) for the durable decision
+records.
+
 ## Provenance
 
 work:thermo-nuclear-audit. Audit PR #425 (closes #389). Verification
 corpus: `findings/` (17 lane reports + `merged.json`), `verify/`
 (per-cluster dossiers A-J + Fable refute notes + sol reviewer reports).
+Concurrency-by-construction execution: PR #422 (work:concurrency-by-construction).

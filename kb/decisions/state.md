@@ -211,6 +211,68 @@ See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-nam
 
 ---
 
+### Concurrency by construction: mutate-under-lock seams over convention-enforced write tiers (PR #422, 2026-07)
+
+**Decision:** The prior two-tier write model (owner writes without lock / external writes with lock) was collapsed into a single locked mutation seam: every mutation of published state calls a `write_state_locked`-shaped function that acquires a stable lock, re-reads current state, applies a pure mutator, and writes atomically. The public unlocked `write_state()` was deleted. This applies across all stores: spawn records, archived spawns, work items, hook intervals, scope projections, and autosync transactions.
+
+**Why:** The two-tier split was the root cause of every lost-update bug the thermo-nuclear audit reproduced. The "convention" that owner-writes skip the lock was unenforceable: any process calling the public `write_state()` could race the runner's unlocked write path, and five stores instantiated the same absent abstraction independently. Collapsing to one locked seam makes the lost-update shape structurally unwritable.
+
+**Seam shape as a durable contract (user decision):** these seams are behavior-preserving contracts that a planned future store rewrite (#423 typed-state, #376 store scaling) inherits. The shape (lock-acquire, re-read, pure-mutate, atomic-write) is the invariant; the implementation details may change.
+
+---
+
+### Never-unlink stable lock inodes with `locks/<domain>/` layout (PR #422, 2026-07)
+
+**Decision:** All coordination locks live under `locks/<domain>/` (e.g. `locks/spawns/`, `locks/process-scopes/`, `locks/reaper-cleanup/`, `locks/hooks/`) outside the directories they protect and are never unlinked.
+
+**Why:** POSIX `flock` is per-open-file-description, not per-path. If one process unlinks a lock file and creates a new one while another holds the old inode, both processes believe they hold "the lock" on different inodes — split-brain. The audit reproduced this failure. Never-unlink eliminates the class. Lock-inode accumulation is bounded and accepted (issue #427).
+
+**Alternatives rejected:**
+- Unlink-while-holding: still allows a third process to create a new inode after unlink, producing split-brain between holder and newcomer.
+- Revision-CAS without re-read-and-reapply: requires the caller to hold the complete previous state, which is fragile across process boundaries and doesn't compose with pure mutators.
+
+---
+
+### Project-lifetime shared/exclusive gate (PR #422, 2026-07)
+
+**Decision:** `~/.meridian/projects/.locks/<uuid>.lock` is a project-lifetime coordination lock outside the deletable project root. Sessions hold a shared lock for their lifetime; global pruning acquires exclusive + revalidates before removal.
+
+**Why:** The audit's gate-1 review reproduced global pruning destroying a runtime root while sessions held spawn locks inside it. The shared/exclusive gate prevents this without requiring pruning to enumerate all active sessions.
+
+---
+
+### Permission policy split: preserve-mode for user files, strict 0600 for runtime state (PR #422, 2026-07)
+
+**Decision:** `atomic_replace()` in `lib/platform/atomic.py` accepts `permissions="preserve"` (default, keeps existing file mode) or `permissions=0o600` (strict mode for runtime state). State-facing writes enforce 0600; user-owned project files and context work-item metadata preserve the original mode.
+
+**Why:** The initial atomic-replace primitive unconditionally set 0600, which flipped user-owned files (like `mars.toml`) to unreadable modes. The split policy was driven by the gate-2 review reproducing Codex rollout permission broadening.
+
+---
+
+### AST conformance guard over ruff TID251 for raw-write ban (PR #422, 2026-07)
+
+**Decision:** Raw writes to authoritative state are rejected by `tests/contract/test_state_write_conformance.py`, a repo-wide AST test with a documented single-entry allowlist. Stale allowlist entries are detected. The failure message names the offending call site and guides toward the correct primitive.
+
+**Why ruff TID251 was rejected:** TID251 matches import paths, not method calls on inferred types. It cannot flag `some_path.write_text()` because it does not know `some_path` is a `Path`. The AST-based test walks call nodes and matches method names against a banned set, which is the correct granularity.
+
+---
+
+### Autosync AGENTS.md notice removal (PR #422, 2026-07)
+
+**Decision:** Per-conflict rewrites of user-owned AGENTS.md at the sync root were removed. Conflict JSON (`<sync-root>/.meridian/autosync/conflicts/<id>.json`) is the durable signal.
+
+**Why:** No agent ingestion contract existed to consume the AGENTS.md notices. The notices were committed locally and never propagated while behind origin (by design), but they modified user-owned files without a consuming contract — a write without a reader. The conflict JSON was already the authoritative record that CLI and dashboard read from.
+
+---
+
+### Conftest git-config guard deletion (PR #422, 2026-07)
+
+**Decision:** The session-wide git-config snapshot/restore guard in `tests/conftest.py` was deleted.
+
+**Why:** Investigation (spawn p5328) proved no test writes the shared repo-local `.git/config`. The guard falsely attributed writes by VS Code's Git extension (which writes `branch.*.vscode-merge-base` to the shared common config on worktree creation) and restored stale bytes — itself an unlocked read-modify-write on an unowned file. The actual test isolation already lives at the correct ownership boundary: each test strips inherited `GIT_*` state and points global config to a temp file.
+
+---
+
 ## Related
 
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor

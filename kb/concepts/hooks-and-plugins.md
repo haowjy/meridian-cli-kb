@@ -183,11 +183,10 @@ for the rationale behind that choice.
 When `git merge origin/<branch>` fails with a conflict:
 
 1. **`git merge --abort`** — restores the pre-merge state. Local changes stay as committed HEAD (local-wins). No content is lost.
-2. **Write conflict metadata** to `<sync-root>/.meridian/autosync/conflicts/<id>.json` — conflict ID, affected paths, local/remote SHAs, remote branch, trigger event.
-3. **Append conflict notice** inside a managed `<!-- autosync-notices -->` section at the end of AGENTS.md at the sync root. Committed locally; cannot push while behind origin.
-4. **Subsequent sync cycles retry** the merge automatically. If new changes make it clean, everything pushes. If still conflicting, the existing record is reused (no re-recording).
+2. **Write conflict metadata** to `<sync-root>/.meridian/autosync/conflicts/<id>.json` — conflict ID, affected paths, local/remote SHAs, remote branch, trigger event. The conflict JSON is the durable signal; per-conflict rewrites of user-owned AGENTS.md were removed because no agent ingestion contract existed to consume them.
+3. **Subsequent sync cycles retry** the merge automatically. If new changes make it clean, everything pushes. If still conflicting, the existing record is reused (no re-recording).
 
-The clone is never wedged. After a conflict: clean state with local commits at HEAD, pending merge to resolve. Other machines are unaffected — the notice is local-only until resolution.
+The clone is never wedged. After a conflict: clean state with local commits at HEAD, pending merge to resolve. Other machines are unaffected.
 
 Resolution: `git merge origin/<branch>`, resolve any conflicts, `git add` + `git commit`, then `meridian sync conflict resolve <id>` to clean up metadata.
 
@@ -195,10 +194,11 @@ Resolution: `git merge origin/<branch>`, resolve any conflicts, `git add` + `git
 
 A dedicated module `hooks/builtin/autosync_store.py` owns all autosync artifact reads and writes:
 
-- Sole owner of the `.meridian/autosync/` file layout and JSON schemas
-- Stdlib-only (zero meridian imports) — designed so git_autosync could be extracted as a standalone package
+- Sole owner of the `.meridian/autosync/` file layout and JSON schemas, plus the canonical sync-root transaction lock
+- Imports `meridian.plugin_api` for writes and `meridian.lib.platform.locking` for the reentrant transaction lock (the plugin lock API is intentionally non-reentrant; a complete autosync transaction requires reentrancy)
 - Both `git_autosync.py` (write path) and ops modules (read path for CLI/dashboard) go through it
 - Ops modules know *which* directories are sync roots; autosync_store knows *what* artifacts live inside them
+- All sync-root mutations run inside `transaction(sync_root)`, which holds the canonical lock and yields a mutation capability
 
 Artifact locations (all local-only, excluded from staging):
 - `<sync-root>/.meridian/autosync/conflicts/<id>.json` — per-conflict metadata

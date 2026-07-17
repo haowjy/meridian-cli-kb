@@ -182,20 +182,25 @@ Process-scope deferred work moved to [process-scope.md](process-scope.md) so the
 
 ---
 
-### D-005: Double Read in `_repair_orphan_runs`
+### Lock-Inode Accumulation (#427)
+
+**Where:** `~/.meridian/projects/<uuid>/locks/` subtree
+
+**The issue:** Stable never-unlinked lock inodes accumulate over project lifetime. Each spawn, scope-projection, reaper-cleanup, and hook lock creates a file under `locks/<domain>/` that is never removed. At 4,000 spawns, the `locks/spawns/` directory alone holds 4,000 `.lock` files.
+
+**Direction:** bounded lock-stripe scheme — hash spawn IDs into a fixed set of lock files rather than one per spawn. Requires careful migration since existing locks may be held.
+
+**Why deferred:** Accumulation is bounded and the files are small (1 byte each). Filed as issue #427 during PR #422.
+
+---
+
+### D-005: Double Read in `_repair_orphan_runs` (stale framing)
 
 **Where:** `src/meridian/lib/ops/diag.py`
 
-**The issue:** `_repair_orphan_runs()` reads and replays the spawn store to perform reconciliation, then discards the reconciled list. `doctor_sync` then re-reads the spawn store in the next step to get the post-reconcile snapshot for `active_spawn_ids`. This is two reads of `spawns.jsonl` where one would suffice.
+**The issue:** `_repair_orphan_runs()` reads the spawn store to perform reconciliation, then `doctor_sync` re-reads to get the post-reconcile snapshot. In v2, each read is O(1) per spawn file rather than an O(n) JSONL replay, so the performance concern is diminished. The structural concern (two reads where one suffices) remains a minor cleanup target.
 
-> [!FLAG] **Needs human review** — Spawn state migrated to per-spawn
-> `state.json` in 2026-05, so this deferred item may be stale or need
-> rephrasing around v2 list/read behavior rather than `spawns.jsonl` replay.
-> Flagged 2026-05-10.
-
-**The cleaner design:** `_repair_orphan_runs()` returns the refreshed reconciled spawn list directly, and `doctor_sync` uses that list instead of re-reading the store.
-
-**Why deferred:** Minor refactor, no correctness issue. The double-read is fast (JSONL replay) and the code is correct. Deferred to keep the initial bugfix minimal.
+**Why deferred:** Minor refactor, no correctness issue. The v2 per-spawn reads are fast.
 
 ---
 
