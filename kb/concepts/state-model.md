@@ -87,7 +87,7 @@ its access pattern.
 ### Per-Spawn State Files (Spawns — V2)
 
 ```
-locks/spawns/<id>.lock            → stable per-spawn mutation lock (never unlinked)
+locks/spawns/<id>.lock            → stable per-spawn mutation lock (GC'd when spawn deleted)
 spawns/<id>/state.json            → full current state of one spawn, O(1) read
 spawns/<id>/starting-prompt.md    → prompt body (written once)
 ```

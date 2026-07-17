@@ -221,13 +221,23 @@ See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-nam
 
 ---
 
-### Never-unlink stable lock inodes with `locks/<domain>/` layout (PR #422, 2026-07)
+### Stable lock inodes with validated-exclusive GC seam (PR #422 + PR #444, 2026-07)
 
-**Decision:** All coordination locks live under `locks/<domain>/` (e.g. `locks/spawns/`, `locks/process-scopes/`, `locks/reaper-cleanup/`, `locks/hooks/`) outside the directories they protect and are never unlinked.
+**Decision (PR #422):** All coordination locks live under `locks/<domain>/` (e.g. `locks/spawns/`, `locks/process-scopes/`, `locks/reaper-cleanup/`, `locks/launch-boundary/`, `locks/hooks/`) outside the directories they protect.
 
-**Why:** POSIX `flock` is per-open-file-description, not per-path. If one process unlinks a lock file and creates a new one while another holds the old inode, both processes believe they hold "the lock" on different inodes — split-brain. The audit reproduced this failure. Never-unlink eliminates the class. Lock-inode accumulation is bounded and accepted (issue #427).
+**Why:** POSIX `flock` is per-open-file-description, not per-path. If one process unlinks a lock file and creates a new one while another holds the old inode, both processes believe they hold "the lock" on different inodes — split-brain. The audit reproduced this failure.
 
-**Alternatives rejected:**
+**Amendment (PR #444, closes #427):** Lock inodes are never unlinked except through `unlink_validated_lock()`, which unlinks only while holding a fresh, non-reentrant exclusive flock whose `fstat` matches the current `stat` of the path, immediately before release. The existing acquire-side revalidation loop makes this provably split-brain-free: a blocked acquirer that finds the inode gone (or changed) retries onto the recreated inode.
+
+Two call sites use this primitive:
+- `lock_gc.py::gc_orphaned_locks()` sweeps orphaned per-spawn locks (four classes) when the corresponding spawn directory no longer exists. Wired into doctor background repairs and post-prune. A non-blocking meta-lock (`locks/gc.lock`) serializes sweeps for churn control; safety is per-inode, not meta-lock dependent.
+- `cleanup_stale_sessions()` unlinks cleaned session locks before release, bounding the session-lock rescan with zero new state.
+
+**The forbidden pattern:** unlinking while the lock remains held afterwards. Concrete example: `delete_published_spawn` uses `reentrant=True`; an inline unlink would strand the outer frame on an orphaned inode while a new acquirer validates against a recreated path — split-brain. No unlink at ordinary release time, no unlink inside reentrant contexts.
+
+**Striping rejected (PR #444 design doc):** A bounded lock-stripe namespace (hash spawn IDs onto a fixed set of lock files) was evaluated and rejected on three grounds: (1) reentrant holds would silently lose exclusion between stripe-colliding spawns; (2) session locks are lifetime-held liveness beacons whose acquirability is the staleness signal — striping collapses this; (3) larger surface than the validated-EX sweep for the same correctness goal. Other rejected alternatives: opportunistic unlink at release time (forbidden pattern above), unlink without holding (meta-lock alone does not exclude holders), epoch/generation lock directories (moves the problem without solving it).
+
+**Alternatives rejected (PR #422, original decision):**
 - Unlink-while-holding: still allows a third process to create a new inode after unlink, producing split-brain between holder and newcomer.
 - Revision-CAS without re-read-and-reapply: requires the caller to hold the complete previous state, which is fragile across process boundaries and doesn't compose with pure mutators.
 
@@ -270,6 +280,36 @@ See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-nam
 **Decision:** The session-wide git-config snapshot/restore guard in `tests/conftest.py` was deleted.
 
 **Why:** Investigation (spawn p5328) proved no test writes the shared repo-local `.git/config`. The guard falsely attributed writes by VS Code's Git extension (which writes `branch.*.vscode-merge-base` to the shared common config on worktree creation) and restored stale bytes — itself an unlocked read-modify-write on an unowned file. The actual test isolation already lives at the correct ownership boundary: each test strips inherited `GIT_*` state and points global config to a temp file.
+
+---
+
+### Torn-tail-proof JSONL appends via parse-before-discard and atomic inode replacement (PR #444, 2026-07)
+
+**Decision:** All durable JSONL consumers (session events, launch-boundary events, permission journals, control-action journals) use `append_durable_jsonl_line`, which repairs any torn tail before appending. A complete row missing only its trailing newline is preserved (readers already accepted it); a genuinely torn partial row is dropped. Repair writes the corrected content via atomic inode replacement (`atomic_replace` with `permissions="preserve"`), so unlocked buffered readers can never splice a fabricated hybrid event from a partial overwrite.
+
+**Why:** A SIGKILL mid-append leaves a partial last line. The next append previously concatenated its content onto the torn tail, making both the torn row and the new row unreadable. For session events, this made the session permanently unstopped after its lock was unlinked (the stop event was the new row). For permission/control journals, torn tails allowed `transition_seq` reuse.
+
+**Design choices:**
+- *Parse-before-discard:* the tail is parsed as JSON before deciding whether to keep or drop it. A complete object row missing only `\n` is common (valid write, missing only the delimiter) and must not be discarded.
+- *Atomic inode replacement over in-place truncation:* `os.truncate` would mutate the file in place; an unlocked reader with a buffered file descriptor could read bytes from the old content followed by bytes from a new append, producing a fabricated hybrid event. Atomic replacement creates a new inode, so the reader sees either the old file (complete) or the new file (repaired), never a splice.
+- *O(1) fast path:* the clean-tail check reads only the last byte (`seek(-1, SEEK_END)`); no whole-file read per append when the tail is intact.
+- `history.jsonl` is deliberately excluded; its repair is tracked under #376.
+
+---
+
+### Spawn deletion composition owner: spawn_aggregate.py (PR #444, 2026-07)
+
+**Decision:** `delete_published_spawn()` and its precondition type live in `spawn_aggregate.py`, which composes the spawn repository and process-scope projection persistence leaves. The dependency is one-way: `spawn_aggregate` imports from both leaves; neither leaf imports the other or the aggregate.
+
+**Why:** `spawn_store.py` had grown to 988 lines by hosting both per-spawn mutation and cross-leaf deletion. The thermo-nuclear consistency review identified the extraction as a structural fix: the deletion seam composes two leaves (spawn lock then projection lock) and should not live inside either leaf.
+
+---
+
+### Mutate-under-lock seams stay store-specific; generic mutation framework rejected (PR #444, 2026-07)
+
+**Decision:** The six mutate-under-lock seams (spawn records, archived spawns, work items, hook intervals, scope projections, autosync) stay store-specific. A generic mutation framework (e.g. a `LockedStore[T]` base class or protocol) was evaluated in the thermo-nuclear consistency review and rejected.
+
+**Why:** The seams share a shape (lock, re-read, pure-mutate, atomic-write) but diverge in lock-path computation, read/write codecs, file layout, and error handling. A generic abstraction would need enough parameters to reconstruct each store's specifics, providing the cost of an abstraction without reducing the decision space. The shared mechanism is already `lock_file` + the atomic-write canon; the seam shape is a documented behavioral contract, not a code-level inheritance hierarchy.
 
 ---
 

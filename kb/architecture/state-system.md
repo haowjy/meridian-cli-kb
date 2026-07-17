@@ -25,9 +25,11 @@ State divides across three roots:
   sessions/                         — per-session lock + lease files
   spawn-id-counter                  — monotonic counter for p1, p2, …
   locks/
-    spawns/<id>.lock                — stable per-spawn mutation lock (never unlinked)
+    spawns/<id>.lock                — stable per-spawn mutation lock
     process-scopes/<id>.lock        — scope-projection sidecar mutation lock
     reaper-cleanup/<id>.lock        — prevents concurrent cleanup signalling
+    launch-boundary/<id>.lock       — launch-boundary append lock
+    gc.lock                         — lock-GC pass serialization
     hooks/<name>.lock               — per-hook interval serialization lock
   spawns/
     v2-format.json                  — marker file: v2 format active (one-time migration)
@@ -143,7 +145,7 @@ Per-session files under `sessions/<chat_id>/`:
 
 Every file write goes through one of three patterns:
 
-**JSONL append** (`state/event_store.py`): acquire `lock_file()` on `.flock` sidecar → append line → release. If the process dies mid-append, the next read skips the truncated line. Used for session events (`sessions.jsonl`); spawn state now uses atomic overwrite (v2).
+**JSONL append** (`state/event_store.py`): acquire `lock_file()` on `.flock` sidecar → repair any torn tail → append line → release. If the process dies mid-append, the next locked append repairs the torn tail before writing: a complete row missing only its delimiter is preserved; a genuinely torn partial row is dropped via atomic inode replacement (so unlocked readers never splice a fabricated hybrid event). The O(1) fast path (check last byte for newline) avoids a full-file read on clean tails. Session events, launch-boundary events, permission journals, and control-action journals all use `append_durable_jsonl_line`, which calls the shared repair before appending. `history.jsonl` is excluded (tracked under #376). Spawn state uses atomic overwrite (v2).
 
 **Atomic file replacement** (`lib/platform/atomic.py:atomic_replace()`): the dependency-neutral platform primitive that `state/atomic.py`, `plugin_api/fs.py`, autosync, and the Codex streaming rewriter all delegate to. Writes to a same-directory temp, optionally fsyncs, then `os.replace()`. Permission policy: `permissions="preserve"` (default) keeps existing file mode; `permissions=0o600` enforces strict mode for runtime state. `AtomicReplaceDurabilityError` surfaces post-commit fsync failures so callers know the write is committed but not yet durable.
 
@@ -170,7 +172,9 @@ State-facing writes use `state/atomic.py:atomic_write_text()` which sets mode `0
 
 **Fork safety:** acquired handles are tracked in a process-wide registry. On `fork()`, the child closes every inherited descriptor (releasing the parent's open-file-description lock without explicit unlock) and clears the reentrancy state. Release-window descriptors are also registered so a fork during the gap between OS release and handle close does not leak.
 
-**Stable lock inodes:** all coordination locks live under `locks/<domain>/` outside the directories they protect and are never unlinked. This prevents the split-brain failure where one process unlinks a lock file and creates a new inode while another still holds the old one (POSIX `flock` is per-open-file-description, not per-path). Lock-inode accumulation is bounded and accepted; GC is tracked as issue #427.
+**Stable lock inodes with GC seam:** all coordination locks live under `locks/<domain>/` outside the directories they protect. This prevents the split-brain failure where one process unlinks a lock file and creates a new inode while another still holds the old one (POSIX `flock` is per-open-file-description, not per-path). Lock inodes are never unlinked except through a validated GC seam: `unlink_validated_lock()` unlinks only while holding a fresh, non-reentrant exclusive flock on the inode currently linked at that path, immediately before release. The acquire-side revalidation loop (`open → flock → compare fstat(fd) vs stat(path) → retry on mismatch`) makes this provably split-brain-free. Two GC call sites use this primitive: `lock_gc.py` sweeps orphaned per-spawn locks (four classes under `locks/`) when the corresponding spawn directory no longer exists; `cleanup_stale_sessions()` unlinks cleaned session locks before release. Both run on episodic paths (doctor, prune, cleanup), never on hot paths. The forbidden pattern — unlinking while a lock remains held afterwards (e.g. inside a reentrant context) — is never used.
+
+`delete_published_spawn()` in `spawn_aggregate.py` is the single composition owner for published-row deletion: it acquires the spawn lock then the scope-projection lock, checks for pending cleanup claims, and removes the spawn directory. Cross-leaf spawn operations belong in `spawn_aggregate.py`, not in either persistence leaf.
 
 ### Lock-Order Invariants
 
@@ -180,7 +184,7 @@ When multiple locks are needed, acquire in this order to prevent deadlocks:
 2. Per-spawn lock (`locks/spawns/<id>.lock`)
 3. Scope-projection lock (`locks/process-scopes/<id>.lock`)
 
-`delete_published_spawn()` acquires the per-spawn lock and checks for pending cleanup claims before deletion. Pruning acquires `spawns_flock` first.
+`delete_published_spawn()` (in `spawn_aggregate.py`) acquires the per-spawn lock then the scope-projection lock, and checks for pending cleanup claims before deletion. Pruning acquires `spawns_flock` first.
 
 ### Project-Lifetime Gate
 
