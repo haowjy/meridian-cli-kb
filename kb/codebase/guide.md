@@ -25,7 +25,8 @@ src/meridian/
     context/      Context path resolver: work/kb path resolution
     hooks/        Hook dispatch: lifecycle events → builtins or shell commands
     core/         Shared primitives: ID types, OutputSink, depth, ResolvedContext, lifecycle
-    platform/     Cross-platform: file locking, process termination, deferred OS imports
+    platform/     OS detection, file locking, process termination, deferred OS imports
+                  (POSIX-first; legacy Windows branches untested, not to be expanded)
     app/          REST server: FastAPI + SSE/WebSocket streaming
     streaming/    HarnessConnection abstractions + SpawnManager
     observability/ Structured logging context, debug tracing
@@ -108,7 +109,7 @@ Same as adding a CLI command above — the operation handler + manifest entry is
 
 **Unit tests for hard-to-smoke logic:** signals, concurrency, security/env sanitization, sync engine algorithms, parsing edge cases. Run with `uv run pytest-llm`.
 
-**Platform coverage required:** when touching paths, process launching, signals, shells, filesystem semantics, or config discovery — consider Windows semantics explicitly. See `CLAUDE.md` for the full platform policy.
+**POSIX-first platform stance:** Linux/macOS are supported; native Windows is not planned. Existing `os.name` / `sys.platform` branches in `lib/platform/` are legacy, untested, best-effort — do not expand them. See root `AGENTS.md` "POSIX-first" for the full policy.
 
 **Lint and type checks:**
 ```bash

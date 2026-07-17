@@ -128,13 +128,13 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 ---
 
-## 12. Windows Is First-Class
+## 12. POSIX-First Platform Stance
 
-**The principle:** Windows support is a product requirement, not cleanup work. Design cross-platform from the start.
+**The principle:** Linux and macOS are the supported platforms. Native Windows was never made to work and is not planned (2026-07-17). Design for the simplest correct POSIX behavior; don't add Windows-specific machinery.
 
-**Why it matters:** Retrofitting cross-platform support after the fact is much more expensive than designing for it upfront. POSIX-only assumptions compound.
+**Why it matters:** Cross-platform-from-the-start was the prior principle (see `decisions.md` — "POSIX-first supersedes Windows-first"), but native Windows never reached working state and the cost of maintaining parallel branches exceeded their value. Letting the stance drift back toward "Windows-first" would re-incur that cost without a working product. WSL is Linux and needs no special treatment.
 
-**In Meridian:** `src/meridian/lib/platform/` centralizes OS detection. `fcntl.flock` vs `msvcrt.locking` is abstracted behind `platform.locking.lock_file()`. Path logic uses `pathlib.Path` throughout. Process termination uses `psutil` for cross-platform liveness checks.
+**In Meridian:** Existing `os.name` / `sys.platform` branches (locking, process-scope, signals, path resolution) may stay as legacy, untested, best-effort code — they must not be expanded. `src/meridian/lib/platform/` keeps OS detection centralized. Still use `get_user_home()` / `get_home_path()`, never hardcode paths. See root `AGENTS.md` "POSIX-first" for the canonical wording.
 
 ---
 

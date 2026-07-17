@@ -4,6 +4,34 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-17 — POSIX-first supersedes Windows-first principle
+
+The 2026-07-17 platform decision (POSIX-first: Linux/macOS supported; native
+Windows never worked and is not planned) superseded the prior "Windows Is
+First-Class" design principle. Doc-only repo sweep landed on branch
+`task/docs-posix-first`; this entry reconciles the durable KB so a cold agent
+no longer reads Windows as a supported product target.
+
+- `principles/design-principles.md` §12 rewritten from "Windows Is
+  First-Class" to "POSIX-First Platform Stance" (current truth; history now
+  lives in the decision record, not the principle list).
+- `principles/overview.md`: principle descriptor updated (Windows-first →
+  POSIX-first platform stance).
+- `overview.md`: "Windows is first-class" key property replaced with the
+  POSIX-first stance.
+- `codebase/guide.md`: platform package descriptor and the "Platform
+  coverage required" guidance reframed from "consider Windows semantics" to
+  POSIX-first (branches legacy/untested, not to be expanded).
+- `decisions.md`: new foundational entry "POSIX-first supersedes
+  Windows-first" recording rationale and the supersession.
+
+Architecture/concept/lesson pages describing existing Windows code branches
+(locking, process-scope, signals, path resolution) were left intact — they
+document concrete reality the POSIX-first decision explicitly permits to
+remain (legacy, untested, best-effort), not forward-looking support claims.
+
+---
+
 ## 2026-07-16 — Thermo-nuclear audit knowledge capture
 
 ### Trigger

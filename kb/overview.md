@@ -197,7 +197,7 @@ Policy over library primitives. The CLI is thin — it parses args and calls syn
 
 **Extension system as single source of truth.** Every user-facing operation is declared once in `ops/commands.py`. CLI, MCP, and REST all consume the same registry. See [concepts/extension-system.md](concepts/extension-system.md).
 
-**Windows is first-class.** Path handling, process launch, locking, signals, shell invocation, and spawn control paths all have explicit Windows branches. Cross-platform primitives live in `src/meridian/lib/platform/`.
+**POSIX-first.** Linux and macOS are the supported platforms; native Windows never worked and is not planned (2026-07-17). Existing Windows branches in `src/meridian/lib/platform/` (locking, process-scope, signals, paths) are legacy and untested — they may stay but must not be expanded. WSL is Linux. See [decisions.md](decisions.md) ("POSIX-first supersedes Windows-first") and root `AGENTS.md`.
 
 ## State Root Layout
 
