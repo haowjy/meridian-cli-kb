@@ -6,7 +6,7 @@ See [concepts/state-model.md](../concepts/state-model.md) for the mental model. 
 
 ## Split State Layout
 
-State divides across two roots keyed by project UUID:
+State divides across three roots:
 
 ```
 .meridian/                          ← repo root, committed scaffolding
@@ -14,10 +14,6 @@ State divides across two roots keyed by project UUID:
   id.lock                           — exclusive lock for UUID generation
   .gitignore                        — seeded non-destructively
   kb/                               — agent-facing codebase mirror (committed)
-  work/                             — active work scratch dirs (committed)
-  archive/work/                     — archived work dirs (committed)
-  work-items/                       — mutable JSON per work item (gitignored)
-  work-items.rename.intent.json     — crash-safe rename intent (transient)
 
 ~/.meridian/projects/<uuid>/        ← user runtime, never committed
   sessions.jsonl                    — all session events, append-only
@@ -27,6 +23,7 @@ State divides across two roots keyed by project UUID:
   spawn-id-counter                  — monotonic counter for p1, p2, …
   spawns/
     v2-format.json                  — marker file: v2 format active (one-time migration)
+    .staging/<unique>/              — complete row build before atomic publication
     <id>/                           — per-spawn state directory
       state.json                    — authoritative spawn state (v2)
       state.lock                    — per-spawn exclusive lock for external writers
@@ -46,9 +43,15 @@ State divides across two roots keyed by project UUID:
   ← Legacy v1 files (archived on migration):
   spawns.legacy-v1.jsonl            — original global event log (renamed from spawns.jsonl)
   spawns.legacy-v1.jsonl.flock      — renamed from spawns.jsonl.flock
+
+<context.work root>/<slug>/         ← context-resolved, NOT repo-local
+  __status.json                     — mutable per-work-item metadata
+  prompts/ handoffs/ …              — work artifacts
 ```
 
 UUID mapping: `.meridian/id` → runtime directory. Projects can be moved or renamed without losing runtime history.
+
+Work items live under the `[context.work]` root (default `{user_home}/context/<id>/work/`), resolved by `work_scope.py` / `work_store.py`. Archived items move to `<context.work root>/../archive/work/<slug>/`. See `docs/configuration.md` for context-path resolution.
 
 ## Spawn State: V2 Per-Spawn state.json
 
@@ -197,7 +200,9 @@ PID reuse guard: the runner records `runner_pid` and `runner_created_at_epoch`. 
 
 ## Work Item Store
 
-Work items use a different storage pattern from spawns: **one mutable JSON file per item** under `work-items/<slug>.json`. Atomic overwrites via `tmp + os.replace()`. Mutable JSON is appropriate here because work items are correlated with a directory that moves on rename — event-sourcing would add complexity without benefit.
+Work items use a different storage pattern from spawns: **one `__status.json` file per work directory** under the context work root (e.g. `<context.work>/<slug>/__status.json`). Atomic overwrites via `tmp + os.replace()`. Mutable JSON per directory is appropriate here because work items are correlated with a directory that moves on rename — event-sourcing would add complexity without benefit.
+
+Archiving moves the entire directory to the archive root. Directory location is the primary authority for active-vs-archived state.
 
 ## ID Generation
 

@@ -307,20 +307,6 @@ These structural findings were accepted as non-blocking after the v1 telemetry i
 
 ---
 
-## App Server
-
-### App Server Extensions: `GET /api/extensions/operations/{operation_id}` Stub
-
-**Where:** `src/meridian/lib/app/extension_routes.py`
-
-**The issue:** `GET /api/extensions/operations/{operation_id}` returns 404 with `code: "not_implemented"`. The endpoint exists in the routing table but has no implementation. It's a stub for future async extension operation status tracking.
-
-**What's needed:** Implement extension operation tracking — store async operation state, allow polling by `operation_id`, return status/result.
-
-**Why deferred:** Extension commands are currently synchronous. Async operation tracking is only needed when extension commands become long-running.
-
----
-
 ## Codebase
 
 ### Source Simplification — Post-Phase-8.6 Remaining Targets

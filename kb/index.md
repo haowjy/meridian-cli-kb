@@ -93,10 +93,10 @@ Mental models for key abstractions. Read before diving into architecture or code
 How the system realizes the concepts — subsystem boundaries, invariants, data flows, and concrete component structure.
 
 - [architecture/overview.md](architecture/overview.md) — Architecture domain overview, subsystem map, and reading paths
-- [architecture/system-overview.md](architecture/system-overview.md) — Three external surfaces + one in-process adapter, shared extension registry, end-to-end data flow diagram
+- [architecture/system-overview.md](architecture/system-overview.md) — Two external surfaces (CLI + MCP), shared extension registry, end-to-end data flow diagram
 - [architecture/startup-pipeline.md](architecture/startup-pipeline.md) — Descriptor-driven startup: CommandDescriptor catalog, thin entrypoint, bootstrap split, unified telemetry install, help profiles; lazy import strategy in `main.py`
-- [architecture/launch-system.md](architecture/launch-system.md) — `build_launch_context()` central seam; prepare/bind split (`prepare_launch_surface` + `bind_launch_context`), `PreparedLaunchSurface`, `CatalogSession`; four driving adapters, composition invariants
-- [architecture/state-system.md](architecture/state-system.md) — JSONL event stores, atomic tmp+rename writes, `fcntl.flock` locking, reaper reconciliation, migration strategy
+- [architecture/launch-system.md](architecture/launch-system.md) — `build_launch_context()` central seam; prepare/bind split (`prepare_launch_surface` + `bind_launch_context`), `PreparedLaunchSurface`, `CatalogSession`; three driving adapters, composition invariants
+- [architecture/state-system.md](architecture/state-system.md) — Per-spawn state.json, context-resolved work items, atomic tmp+rename writes, `fcntl.flock` locking, reaper reconciliation
 - [architecture/spawn-finalization.md](architecture/spawn-finalization.md) — terminal write policy (authority lattice), store-level finalization under flock, TerminalArbitrator, StreamingRunConclusion, PreparedExecutionHandoff, failure_policy consolidation
 - [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, transitive descendant authority, Pi private-work boundary, and publish-before-cleanup invariant
@@ -193,6 +193,7 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 - [lessons/mars-compiler-cleanup.md](lessons/mars-compiler-cleanup.md) — Lessons from the Mars compiler cleanup: Windows config artifacts, lock indexing, integration-test split, diagnostic routing
 - [lessons/source-simplification.md](lessons/source-simplification.md) — Lessons from Phase 8.6 source-seam and test-collapse work: deletion-first simplification, seam ownership moves, test contract discipline, over-collapse recovery
 - [lessons/arch-refactor-pitfalls.md](lessons/arch-refactor-pitfalls.md) — Implementation pitfalls from PR #184/#200: GIT_DIR hook leaks, structlog cache test blindspot, CheckpointService git add -A danger, process-group kill requirement, Windows asyncio signal handler silent no-op, Windows Claude cancel SIGINT unreliable, Windows audit false-positive discipline, no-arg spawn wait full-chat-tree hang bug
+- [lessons/thermo-nuclear-audit.md](lessons/thermo-nuclear-audit.md) — Thermo-nuclear audit method: two-source adversarial panel, rejected alternatives with reasons, peer-benchmark defended strengths and dropped steals
 
 ---
 

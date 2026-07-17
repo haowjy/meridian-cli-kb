@@ -27,7 +27,7 @@ When documentation uses a term, it means exactly what the relevant vocabulary pa
 | **Skill** | A markdown file loaded into a spawn's system prompt to provide domain-specific instructions or operational doctrine. Resolved from `.mars/skills/` at launch time. Distinct from an agent profile. | [concepts/skill-schema.md](concepts/skill-schema.md) |
 | **Spawn** | A delegated child-agent task created by a primary agent or orchestrator via `meridian spawn`. Executed by a harness process, tracked in `spawns/<id>/state.json`, and associated with a spawn ID. The core work unit in Meridian. | [concepts/spawn-lifecycle.md](concepts/spawn-lifecycle.md) |
 | **State root** | The coordination boundary containing spawn/session/filesystem state. Meridian uses a dual-root model: repo `.meridian/` for committed scaffolding, user `~/.meridian/projects/<uuid>/` for runtime state. | [concepts/state-model.md](concepts/state-model.md) |
-| **Work item** | A named unit of work tracked in `.meridian/work-items/<slug>.json`. Has a title, status, description, and associated spawns. The active work item is the default attachment point for new spawns. | [concepts/state-model.md](concepts/state-model.md) |
+| **Work item** | A named unit of work tracked as a directory under the context work root, with mutable metadata in `__status.json`. Has a title, status, description, and associated spawns. The active work item is the default attachment point for new spawns. Directory location determines active-vs-archived. | [concepts/state-model.md](concepts/state-model.md) |
 
 ## Domain Index
 

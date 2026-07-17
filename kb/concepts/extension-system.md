@@ -2,14 +2,13 @@
 
 Every user-visible Meridian command — `spawn list`, `work start`, `session log`,
 `config set` — is defined as an `ExtensionCommandSpec` in a single registry.
-All three surfaces (CLI, MCP, HTTP) read from the same registry. There's one
-place to add a command, and it appears everywhere it belongs.
+CLI and MCP read from the same registry. There is one place to add a command,
+and it appears on every active surface it belongs to.
 
-This is a significant architectural simplification over the prior model, where
-CLI commands and HTTP API endpoints were implemented in parallel with separate
-specifications, and MCP tools were a third track. Commands drifted between
-surfaces. HTTP behavior was disconnected from CLI behavior. The extension system
-eliminates all of that.
+The prior model had CLI commands and HTTP API endpoints implemented in parallel
+with separate specifications, and MCP tools as a third track. The extension
+system unified all three behind one spec. The HTTP app server has since been
+archived; CLI and MCP are the active surfaces.
 
 ---
 
@@ -20,7 +19,6 @@ graph TD
     SPEC["ExtensionCommandSpec\n(one per command)"] --> REG["ExtensionCommandRegistry\n(indexed by fqid + CLI coords)"]
     REG --> CLI["CLI surface\ncyclopts auto-registration"]
     REG --> MCP["MCP surface\nFastMCP tool binding"]
-    REG --> HTTP["HTTP surface\nREST invoke endpoint"]
     REG --> DISPATCH["ExtensionCommandDispatcher\nvalidation pipeline"]
     DISPATCH --> HANDLER["handler(args, context, services)\n→ ExtensionResult"]
 ```
@@ -29,10 +27,9 @@ A command's spec defines:
 - Its **fully-qualified ID** (`extension_id.command_id`, e.g., `meridian.spawn.list`)
 - Its **args schema** (Pydantic model)
 - Its **result schema** (Pydantic model)
-- Which **surfaces** it's reachable from (`CLI`, `MCP`, `HTTP`, or subsets)
+- Which **surfaces** it's reachable from (`CLI`, `MCP`, or both)
 - Its **handler** — the async function that executes the command
 - A **sync handler** — for CLI paths that don't use async
-- Whether it **requires the app server** to be running
 
 ---
 
@@ -55,17 +52,21 @@ and registering it. All surfaces pick it up automatically.
 
 ## Surface Allocation
 
+The extension system defines three surfaces: CLI, MCP, and HTTP. The HTTP
+app server has been archived; HTTP-surface commands exist in the registry but
+have no active host. CLI and MCP are the active surfaces.
+
 Not all commands appear on all surfaces. Surface assignment reflects the
 intended consumer:
 
 | Pattern | Surfaces | Rationale |
 |---------|---------|-----------|
-| `spawn.create`, `spawn.continue` | MCP, HTTP | Agent-facing ops; CLI users use the full `meridian spawn` command |
-| `spawn.list`, `spawn.show` | CLI, MCP, HTTP | Useful everywhere |
-| `config.*`, `workspace.init` | CLI, HTTP | Human-managed configuration |
-| `session.log`, `session.search` | CLI, HTTP | Transcript access is human/CLI concern |
-| `hooks.resolve` | MCP, HTTP | Agent-facing hook resolution |
-| `work.*` | CLI, HTTP | Work lifecycle is CLI-managed |
+| `spawn.create`, `spawn.continue` | MCP | Agent-facing ops; CLI users use the full `meridian spawn` command |
+| `spawn.list`, `spawn.show` | CLI, MCP | Useful everywhere |
+| `config.*`, `workspace.init` | CLI | Human-managed configuration |
+| `session.log`, `session.search` | CLI | Transcript access is human/CLI concern |
+| `hooks.resolve` | MCP | Agent-facing hook resolution |
+| `work.*` | CLI | Work lifecycle is CLI-managed |
 
 The security constraint: **non-first-party commands cannot expose CLI or MCP
 surfaces.** First-party means registered via `first_party.py:register_first_party_commands()`.
@@ -111,42 +112,18 @@ success or failure — every invocation is recorded.
 
 `ExtensionCapabilities` applies surface-aware defaults:
 - CLI and MCP surfaces → `denied()` (no subprocess/kernel/hitl by default)
-- HTTP surface → `elevated()` (all three granted)
 
-This reflects that the app server is a trusted orchestration boundary, while
-CLI and MCP callers may be unprivileged.
+The HTTP surface historically granted `elevated()` capabilities; with the app
+server archived, CLI and MCP are the only active callers.
 
 ---
 
 ## The `requires_app_server` Flag
 
-Some commands only make sense when the app server is running — they read from
-or coordinate with the server's in-flight state. These are marked
-`requires_app_server=True`.
-
-When a CLI or MCP caller invokes such a command, the dispatcher checks for
-`project_uuid` in the context (set only when a server is active). If absent,
-the command fails with `app_server_required`.
-
-For CLI and MCP callers, `RemoteExtensionInvoker` handles this: it proxies the
-invocation via HTTP to the running app server, transparently from the caller's
-perspective.
-
----
-
-## RemoteExtensionInvoker: CLI/MCP → App Server Proxy
-
-```mermaid
-graph LR
-    CLI["CLI ext command"] --> REMOTE["RemoteExtensionInvoker.invoke_sync()"]
-    MCP["MCP extension_invoke"] --> REMOTE
-    REMOTE --> POST["POST /api/extensions/{ext_id}/commands/{cmd_id}/invoke\nAuthorization: Bearer token"]
-    POST --> SERVER["App server dispatcher\n→ handler"]
-```
-
-The invoker reads the server token from `runtime_root/app/<pid>/token` and
-supports both TCP and Unix domain socket transports. If the server isn't
-running, it returns an error rather than hanging.
+Some commands were designed for a now-archived HTTP app server and are marked
+`requires_app_server=True`. The app server (`lib/app/`) has been removed; these
+commands now return `app_server_archived` when invoked from CLI or MCP. Only
+in-process commands (`requires_app_server=False`) execute.
 
 ---
 
@@ -160,7 +137,7 @@ running, it returns an error rather than hanging.
 5. Register in `ops/manifest.py:get_all_op_specs()` (most commands) or
    `extensions/first_party.py` (extension-specific commands)
 
-The spec appears in CLI, MCP, and HTTP automatically based on the `surfaces`
+The spec appears in CLI and MCP automatically based on the `surfaces`
 set. No separate routing code needed.
 
 ---
@@ -180,7 +157,5 @@ Write failures go to stderr — they never raise and never block the command.
 
 ## Related Pages
 
-- `../architecture/app-server.md` — the HTTP adapter that hosts extension
-  routes
 - `../codebase/core-primitives.md` — the ops handler implementations that
   become extension commands

@@ -13,7 +13,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [pi-lifecycle.md](pi-lifecycle.md) — Current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior.
 - [atomic-child-row-publication.md](atomic-child-row-publication.md) — Nested-stage directory publication protocol, POSIX evidence, and remaining platform gates.
 - [managed-primary-lifecycle.md](managed-primary-lifecycle.md) — Codex/OpenCode managed-primary process roles, passive reaper safety, and explicit cleanup boundary.
-- [app-server.md](app-server.md) — REST, WebSocket/SSE streaming, MCP stdio server, and connection management.
+- [app-server.md](app-server.md) — Archived HTTP app server (FastAPI, SSE, WebSocket). The `lib/app/` code was removed; MCP stdio server is now the sole server surface.
 - [mars-compiler.md](mars-compiler.md) — Mars compiler module map, config-entry pipeline, collision resolution, and stale cleanup.
 - [mars-targeting.md](mars-targeting.md) — Mars targeting architecture: `.mars/` as Meridian compiled read surface, native harness skill dirs, and conditional native agent emission.
 - [mars-launch-bundle.md](mars-launch-bundle.md) — Cross-repo launch-bundle system: Mars/Meridian ownership, bundle contract, scaffold slots, harness status, static sync vs runtime differences.

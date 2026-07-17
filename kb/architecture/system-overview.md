@@ -1,6 +1,6 @@
 # Architecture: System Overview
 
-Meridian exposes one coordination layer through three external surfaces and one in-process adapter. All surfaces share a single extension registry — no duplicated command definitions. User requests flow through launch and land in state; the state layer is the only durable record.
+Meridian exposes one coordination layer through two external surfaces. Both share a single extension registry — no duplicated command definitions. User requests flow through launch and land in state; the state layer is the only durable record.
 
 ## Surface Map
 
@@ -9,24 +9,21 @@ graph TD
     subgraph Surfaces
         CLI["CLI\ncli/ · cyclopts\nstdio, human-readable"]
         MCP["MCP server\nserver/ · FastMCP\nstdio, JSON-RPC"]
-        HTTP["HTTP server\nlib/app/ · FastAPI\nTCP or Unix domain socket"]
-        DIRECT["Direct adapter\nlib/harness/direct.py\nPython API, no subprocess"]
     end
 
     REGISTRY["ExtensionCommandRegistry\nlib/extensions/\nsingle source of truth"]
 
     CLI -->|"ext_registration.py\nauto-generates per-group cmds"| REGISTRY
     MCP -->|"extension_list_commands\nextension_invoke"| REGISTRY
-    HTTP -->|"ExtensionCommandDispatcher\nextension_routes.py"| REGISTRY
 
     REGISTRY --> OPS["ops/\noperation handlers\nmanifest.py declares all"]
 
     OPS --> LAUNCH["lib/launch/\nbuild_launch_context()\nexecution"]
-    OPS --> STATE["lib/state/\nJSONL event stores\nwork items"]
+    OPS --> STATE["lib/state/\nper-spawn state.json\nwork items"]
     OPS --> CATALOG["lib/catalog/\nmodel resolution\nagent/skill loading"]
     OPS --> CONFIG["lib/config/\nsettings precedence\nworkspace config"]
 
-    LAUNCH --> HARNESS["lib/harness/\nadapters\nClaude · Codex · OpenCode · Direct"]
+    LAUNCH --> HARNESS["lib/harness/\nadapters\nClaude · Codex · OpenCode · Cursor · Pi"]
     LAUNCH --> STATE
 ```
 
@@ -36,10 +33,8 @@ graph TD
 |---------|-------------|-----------|------|
 | CLI | `meridian` (cyclopts) + `ext_cmd.py` | stdio | n/a |
 | MCP | `meridian serve` (FastMCP) | stdio, JSON-RPC | n/a |
-| HTTP | `lib/app/server.py` (FastAPI) | TCP / Unix socket | Bearer token |
-| Direct | `DirectAdapter.execute()` | Python call | n/a |
 
-The MCP server exposes exactly **two tools**: `extension_list_commands` and `extension_invoke`. The HTTP server adds discovery routes (no auth) and invoke routes (Bearer token). The CLI auto-generates per-group commands from the registry via `ext_registration.py`. All three call the same underlying `sync_handler` or `ExtensionCommandDispatcher`.
+The MCP server exposes exactly **two tools**: `extension_list_commands` and `extension_invoke`. The CLI auto-generates per-group commands from the registry via `ext_registration.py`. Both call the same underlying `sync_handler` or `ExtensionCommandDispatcher`.
 
 ## Data Flow: User Request → State
 
@@ -71,8 +66,8 @@ sequenceDiagram
 graph LR
     subgraph lib
         CORE["core/\nID types · OutputSink · depth\nSpawnLifecycleService · Clock"]
-        LAUNCH["launch/\nbuild_launch_context()\nfour driving adapters"]
-        STATE["state/\nJSONL stores · reaper\nwork items · paths"]
+        LAUNCH["launch/\nbuild_launch_context()\nthree driving adapters"]
+        STATE["state/\nper-spawn state.json · reaper\nwork items · paths"]
         HARNESS["harness/\nadapter protocol\nconnections subpackage"]
         CATALOG["catalog/\nmodel aliases · profile loading"]
         CONFIG["config/\nRuntimeOverrides · TOML\nworkspace config"]
@@ -80,7 +75,6 @@ graph LR
         SAFETY["safety/\nbudget · guardrails\npermissions · redaction"]
         HOOKS["hooks/\nlifecycle event dispatch"]
         PLATFORM["platform/\nfile locking · process kill\ndeferred OS imports"]
-        APP["app/\nFastAPI · SSE · WebSocket\nSpawnManager"]
         STREAMING["streaming/\nHarnessConnection\nSpawnManager"]
         EXT["extensions/\nExtensionCommandRegistry\ndispatcher · context"]
         OPS["ops/\nmanifest.py\nspawn · session · work · ..."]
@@ -93,8 +87,6 @@ graph LR
     LAUNCH --> CONFIG
     LAUNCH --> CATALOG
     STATE --> PLATFORM
-    APP --> STREAMING
-    APP --> EXT
     OPS --> LAUNCH
     OPS --> STATE
     OPS --> CATALOG
@@ -112,7 +104,6 @@ This design means:
 
 ## Related Pages
 
-- [launch-system.md](launch-system.md) — composition factory, four driving adapters
-- [state-system.md](state-system.md) — event store internals, reaper
-- [app-server.md](app-server.md) — FastAPI factory, SSE, WebSocket
+- [launch-system.md](launch-system.md) — composition factory, three driving adapters
+- [state-system.md](state-system.md) — per-spawn state, reaper, work items
 - [../codebase/guide.md](../codebase/guide.md) — how to navigate and change things

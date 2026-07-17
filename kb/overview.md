@@ -121,12 +121,14 @@ graph TD
         CLAUDE2[Claude adapter<br/>harness/claude.py]
         CODEX2[Codex adapter<br/>harness/codex.py]
         OC[OpenCode adapter<br/>harness/opencode.py]
+        CURSOR2[Cursor adapter<br/>harness/cursor.py]
+        PI2[Pi adapter<br/>harness/pi.py]
     end
 
     subgraph StateLayer ["State Layer"]
         SPAWNS2[spawns/id/state.json<br/>per-spawn state]
         SESSIONS2[sessions.jsonl<br/>append-only events]
-        WORK2[work-items/<br/>mutable JSON]
+        WORK2[context work root/<br/>__status.json per item]
         ARTIFACTS2[spawns/id/<br/>artifact dirs]
     end
 
@@ -203,9 +205,9 @@ Policy over library primitives. The CLI is thin — it parses args and calls syn
 .meridian/                          ← repo-local, committed
   id                                  project UUID
   kb/                                 agent knowledge base
-  work/                               active work scratch dirs
-  archive/work/                       archived work
-  work-items/                         mutable work item JSON (gitignored)
+
+<context.work root>/<slug>/         ← context-resolved, NOT repo-local
+  __status.json                       mutable per-work-item metadata
 
 ~/.meridian/projects/<uuid>/        ← user-local, never committed
   spawns/<id>/state.json              authoritative per-spawn state

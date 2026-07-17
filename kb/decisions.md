@@ -62,7 +62,7 @@ Every spawn resolves two separate domains: authority domain (agent profiles, ski
 `MERIDIAN_HARNESS_COMMAND` env override was removed. All harness launches go through typed adapters in `src/meridian/lib/harness/`. Adding a harness is one adapter file plus registration — no other code changes. See [launch decisions](decisions/launch.md#d63-launch).
 
 **Single composition seam: `build_launch_context()` for all driving adapters**
-All launch paths — REST, streaming, TUI — compose prompts through one function. Semantic IR (`ComposedLaunchContent`) is projected to adapter-specific `ProjectedContent` by harness adapters, not in-line at call sites. See [launch decisions](decisions/launch.md).
+All launch paths — primary CLI, spawn subprocess, streaming-serve — compose prompts through one function. Semantic IR (`ComposedLaunchContent`) is projected to adapter-specific `ProjectedContent` by harness adapters, not in-line at call sites. See [launch decisions](decisions/launch.md).
 
 **model-invocable agent visibility filter at inventory prompt boundary (D-model-invocable, 2026-05 PR #208; rewritten 2026-06 PR #314)**
 `model-invocable: false` in agent profile frontmatter is enforced at inventory render time by Mars (in the `prompt_surface.inventory_prompt` bundle field). The Python fallback `build_agent_inventory_prompt()` was deleted in PR #314. The scanner remains policy-free; the inventory prompt is the model-facing boundary. Explicit CLI invocation ignores this field. See [launch decisions](decisions/launch.md#d-model-invocable-filter-at-inventory-prompt-boundary-not-at-catalog-scan).

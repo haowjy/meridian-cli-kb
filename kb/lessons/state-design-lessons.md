@@ -39,9 +39,9 @@ These are the choices that shaped Meridian's state layer, with the reasoning tha
 
 ## Why Mutable JSON for Work Items
 
-**The asymmetry:** Everything else is append-only JSONL. Work items are mutable per-file JSON (`work-items/<slug>.json`). Why the inconsistency?
+**The asymmetry:** Everything else is append-only JSONL. Work items are mutable per-directory JSON (`<context.work>/<slug>/__status.json`). Why the inconsistency?
 
-**The constraint:** Work items have slugs, and the slug IS the directory name under `.meridian/work/<slug>/`. When a work item is renamed, the directory must also rename. Both the JSON file and the directory need to move atomically.
+**The constraint:** Work items have slugs, and the slug IS the directory name. When a work item is renamed, the directory must also rename. Directory location is the primary authority for active-vs-archived state.
 
 With JSONL, rename would mean appending a `rename` event and somehow rebuilding the path — but the directory and the slug must stay in sync, and you can't atomically rename both via event append.
 

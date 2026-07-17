@@ -4,6 +4,56 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-16 — Thermo-nuclear audit knowledge capture
+
+### Trigger
+
+The thermo-nuclear audit (issue #389) completed. PR #390 (qi-docs-hygiene)
+flagged three KB pages as stale against the current three-adapter,
+`__status.json`-era architecture: `architecture/launch-system.md`,
+`architecture/state-system.md`, `concepts/extension-system.md`. The audit
+also produced durable decisions (rejected alternatives, peer-benchmark
+verdicts) worth preserving.
+
+### What changed
+
+**Stale page fixes:**
+- `architecture/launch-system.md`: "Four Driving Adapters" replaced with
+  "Three Driving Adapters" (REST app path removed — `lib/app/` was
+  archived). Mermaid diagram updated. Section 3 (REST App Path) removed;
+  streaming-serve renumbered to section 3. Harness list corrected to
+  include Cursor in the CWD policy table.
+- `architecture/state-system.md`: split state layout corrected. Work items
+  now live under the context work root (`<context.work>/<slug>/__status.json`),
+  not `.meridian/work-items/`. Added staging directory to spawn layout.
+  Work Item Store section updated for directory-based `__status.json`
+  pattern.
+- `concepts/extension-system.md`: HTTP app server marked as archived.
+  `requires_app_server` commands return `app_server_archived`. Surface
+  allocation table updated to show only active CLI/MCP surfaces. Core model
+  diagram updated. RemoteExtensionInvoker section removed.
+- `architecture/system-overview.md`: reduced from "three surfaces + one
+  in-process adapter" to "two external surfaces". Mermaid diagrams updated
+  to remove `lib/app/`, add Cursor and Pi to harness list, change "four"
+  to "three" driving adapters.
+- `architecture/overview.md`: app-server.md entry updated to note archived
+  status.
+- `index.md`, `decisions.md`: stale "four driving adapters" and "JSONL
+  event stores" references updated.
+
+**New lesson page:**
+- `lessons/thermo-nuclear-audit.md`: two-source adversarial verification
+  method, six rejected alternatives with specific evidence (SpawnOwnership,
+  exactly-once reaper gating, wholesale TypeAdapter, shared read_json_object,
+  ruff TID251, strict raw-event rejection), three defended peer-benchmark
+  strengths, one dropped steal.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-16 — Drain-plan boundary extraction
 
 ### Trigger

@@ -14,9 +14,9 @@ State splits across two roots with different purposes:
 ```mermaid
 graph TD
     REPO[".meridian/  (repo root)"] -->|committed| KB["kb/  knowledge base"]
-    REPO -->|committed| WORK["work/  scratch dirs"]
-    REPO -->|gitignored| WORKITEMS["work-items/*.json  mutable per-item"]
     REPO -->|gitignored| ID[".meridian/id  project UUID"]
+
+    CTXWORK["context work root"] -->|per-dir| WORKITEMS["slug/__status.json  mutable per-item"]
 
     USER["~/.meridian/projects/UUID/  (user home)"] -->|local| SPAWNS["spawns/ID/state.json  per-spawn state (v2)"]
     USER -->|local| SESSIONS["sessions.jsonl  session events (JSONL)"]
@@ -115,12 +115,13 @@ State is derived by **replaying** all events for a given session ID:
 ### Mutable JSON (Work Items)
 
 ```
-work-items/<slug>.json  → one file per work item, full overwrite
+<context.work>/<slug>/__status.json  → one file per work directory, full overwrite
 ```
 
-Work items are different: they're correlated with a directory that gets renamed
-(e.g., `work/my-task/` → `archive/work/my-task/`), and they need atomic reads
-that reflect the current full state without replaying history.
+Work items are different: they live under a context-resolved work root (not
+`.meridian/`), each as a directory with `__status.json` inside. Archiving moves
+the entire directory. Directory location is the primary authority for
+active-vs-archived state.
 
 For these, Meridian uses one JSON file per item with **atomic overwrites** via
 `tmp + os.replace()`. The rename intent is stored in a sidecar file before any

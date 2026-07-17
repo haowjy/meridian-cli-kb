@@ -139,7 +139,7 @@ See [../concepts/reference-resolution.md](../concepts/reference-resolution.md) f
 
 | Harness | Behavior |
 |---------|----------|
-| PI / OpenCode / Codex | Actual process cwd = `task_cwd` |
+| Pi / OpenCode / Codex / Cursor | Actual process cwd = `task_cwd` |
 | Claude `-p` (legacy) | Process cwd = `control_root`; task-cwd instruction injected into system prompt |
 
 When `task_cwd` is outside `control_root`, it must be included in workspace projection so the harness sandbox grants filesystem access. If the harness cannot project the path, the fallback (instruction injection) applies.
@@ -161,14 +161,13 @@ inputs and then expose the helper's `scope_snapshot` through the connection. Man
 primary attach upgrades that same concrete backend scope from provisional
 `spawn_owned` to `session_owned` once a harness session id is known.
 
-## Four Driving Adapters
+## Three Driving Adapters
 
 ```mermaid
 graph TD
     subgraph "Driving Adapters"
         PRI["Primary CLI path\nlaunch/__init__.py:launch_primary()"]
         SPAWN["Spawn subprocess path\nops/spawn/execute.py"]
-        REST["REST app path\nlib/app/spawn_routes.py"]
         SERVE["CLI streaming-serve path\ncli/streaming_serve.py"]
     end
 
@@ -176,14 +175,12 @@ graph TD
 
     PRI -->|"dry_run=True (preview)\nthen real context"| FACTORY
     SPAWN -->|"SPEC_ONLY intent"| FACTORY
-    REST -->|"SpawnApplicationService\n.prepare_spawn()"| FACTORY
     SERVE -->|"SpawnApplicationService\n.prepare_spawn()"| FACTORY
 
     FACTORY --> LC["LaunchContext"]
 
     LC --> PROC["process/\nrun_harness_process()\nPTY/pipe"]
     LC --> STREAM["streaming_runner.py\nexecute_with_streaming()\nasync"]
-    LC --> MGR["SpawnManager\napp server connections"]
     LC --> RSTREAM["run_streaming_spawn()\nstreaming_serve path"]
 ```
 
@@ -231,13 +228,15 @@ The background worker trusts the `BackgroundWorkerLaunchRequest` written by `exe
 
 `execute_with_streaming()` in `streaming_runner.py` is the async executor: heartbeat every 30s, `mark_finalizing` CAS after harness exits, `enrich_finalize()` for usage/session/report extraction.
 
-**Known gap:** The subprocess path still creates the spawn row before calling `build_launch_context()`, unlike the REST/streaming-serve paths which use resolve-before-persist. Row-creation order unification is tracked as follow-up.
+**Known gap:** The subprocess path still creates the spawn row before calling `build_launch_context()`, unlike the streaming-serve path which uses resolve-before-persist. Row-creation order unification is tracked as follow-up.
 
 **Note:** `ops/spawn/prepare.py` uses `SPAWN_PREPARE` surface + `LaunchArgvIntent.REQUIRED` — it needs a real argv to populate `cli_command` for display. This is the exception; all execution paths use `SPEC_ONLY`.
 
 **Pi dual launch path.** Pi is the first harness with two completely different launch configurations per role. Primary uses the native Pi TUI (`pi [--model ...] [--session/--fork ...]`, no `--mode`, `meridian-spawn-watch` only). Spawned uses Pi RPC (`pi --mode rpc ... --no-extensions -e managed-bash.js -e meridian-spawn-watch.js`, prompt written to stdin, JSONL drained from stdout). The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned. See [pi-lifecycle.md](pi-lifecycle.md) for the quiescence model.
 
-### 3. REST App Path
+### 3. CLI Streaming-Serve Path
+
+Uses `SpawnApplicationService.prepare_spawn()` for resolve-before-persist, then calls `run_streaming_spawn()` from `streaming_runner.py` directly. Finalizes inline under `signal_coordinator().mask_sigterm()`. `complete_spawn()` routes through the shared policy seam.
 
 `SpawnApplicationService.prepare_spawn()` implements resolve-before-persist:
 
@@ -250,12 +249,6 @@ PreparedSpawn handoff type
 **SEAM-1:** No spawn row on resolution failure.  
 **SEAM-2:** Row metadata always reflects resolved model/agent/harness.  
 **SEAM-3:** `ConnectionConfig.env_overrides` populated from `LaunchContext.env_overrides`.
-
-Finalization is background-async via `spawn_manager.wait_for_completion()`. This path does not use `process/` or `streaming_runner.py`.
-
-### 4. CLI Streaming-Serve Path
-
-Also uses `SpawnApplicationService.prepare_spawn()`, then calls `run_streaming_spawn()` from `streaming_runner.py` directly. Finalizes inline under `signal_coordinator().mask_sigterm()`. `complete_spawn()` routes through the shared policy seam.
 
 `run_streaming_spawn()` is a focused executor: creates `SpawnManager`, starts harness connection, starts heartbeat, awaits drain, records exited event. It does **not** call `enrich_finalize()` or `execute_with_streaming()`.
 
@@ -270,7 +263,7 @@ Layer 5: SpawnLifecycleService      ← sole state writer (spawn_store)
 ```
 
 Key methods:
-- `prepare_spawn()` — resolve-before-persist; the REST and streaming-serve entry point
+- `prepare_spawn()` — resolve-before-persist; the streaming-serve entry point
 - `cancel()` — surface-neutral cancel pipeline; handles managed-primary, signal cancellation, finalizing races
 - `complete_spawn()` — idempotent terminal seam; acquires per-spawn lock internally
 - `archive()` — validates terminal state, emits exactly one `spawn.archived`
@@ -278,7 +271,7 @@ Key methods:
 
 ## Key Invariants (Summary)
 
-The full 13 invariants live at `.meridian/invariants/launch-composition-invariant.md`. Reviewers check these on every PR touching `launch/`, `harness/`, `ops/spawn/`, `app/`, or `cli/streaming_serve.py`.
+The full 13 invariants live at `.meridian/invariants/launch-composition-invariant.md`. Reviewers check these on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`.
 
 | Invariant | Rule |
 |-----------|------|
@@ -437,7 +430,6 @@ ops/spawn/execute.py
 
 - [system-overview.md](system-overview.md) — where launch fits in the overall architecture
 - [state-system.md](state-system.md) — what happens to events after launch writes them
-- [app-server.md](app-server.md) — how the REST app path integrates
 - [../codebase/harness-adapters.md](../codebase/harness-adapters.md) — per-harness adapter notes
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn lifecycle mental model
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection

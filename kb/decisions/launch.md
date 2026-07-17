@@ -6,9 +6,9 @@ Launch decisions cover the single composition seam, driving-adapter boundaries, 
 
 ### Single composition seam: all driving adapters call `build_launch_context()`
 
-**Decision:** All four driving adapters (primary CLI, spawn subprocess, REST app, CLI streaming-serve) call `build_launch_context()` for all composition. No driving adapter re-derives policy, permissions, prompt, argv, or environment.
+**Decision:** All three driving adapters (primary CLI, spawn subprocess, CLI streaming-serve) call `build_launch_context()` for all composition. No driving adapter re-derives policy, permissions, prompt, argv, or environment.
 
-**Why:** Four separate composition paths would drift over time. Security properties (permission resolution, environment sanitization) and behavioral properties (prompt assembly, workspace projection) need a single place to audit. The 13 composition invariants are checkable in one code location.
+**Why:** Separate composition paths drift over time. Security properties (permission resolution, environment sanitization) and behavioral properties (prompt assembly, workspace projection) need a single place to audit. The 13 composition invariants are checkable in one code location.
 
 **Alternatives rejected:** Per-adapter composition was the prior approach and caused drift bugs. Shared utility functions without a single factory were considered, but utility functions don't enforce the "sole callsite" property that invariants require.
 
@@ -29,7 +29,7 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — archit
 **Alternatives rejected:**
 - Keep calling `build_launch_context()` twice — semantically equivalent but obscures the intent and makes the expensive/cheap boundary invisible to reviewers
 - Memoize inside `build_launch_context()` — requires cache invalidation policy and shared mutable state, which violates the "no derived state on DTOs" invariant
-- Split only for the primary path — partial split creates two patterns to maintain; the full split allows all four driving adapters to benefit
+- Split only for the primary path — partial split creates two patterns to maintain; the full split allows all three driving adapters to benefit
 
 See [architecture/launch-system.md](../architecture/launch-system.md) — Prepare/Bind Split.
 
@@ -78,9 +78,9 @@ See [architecture/launch-system.md](../architecture/launch-system.md#control_roo
 
 ---
 
-### Resolve-before-persist for REST app and streaming-serve paths
+### Resolve-before-persist for the streaming-serve path
 
-**Decision:** Both the REST app path and the CLI streaming-serve path call `build_launch_context()` before creating the spawn row (`SpawnApplicationService.prepare_spawn()`). The spawn row is created only if resolution succeeds.
+**Decision:** The CLI streaming-serve path calls `build_launch_context()` before creating the spawn row (`SpawnApplicationService.prepare_spawn()`). The spawn row is created only if resolution succeeds.
 
 **Why:** The alternative — create the row first, then resolve — produces phantom active rows when resolution fails (bad model name, missing profile, permission error). Phantom rows require doctor to clean up and confuse `spawn list` output. Resolve-before-persist eliminates this class of bug: if you see a row, it has real resolved metadata.
 

@@ -10,7 +10,7 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 **I-1 — Single composition seam.** `build_launch_context()` in `launch/context.py` is the sole place where `SpawnRequest + LaunchRuntime → LaunchContext`. No driving adapter constructs argv, env, permissions, or prompt assembly independently. If a driving adapter needs a launch context, it calls the factory.
 
-**I-2 — No bypass.** Driving adapters (primary CLI path, spawn subprocess path, REST app path, CLI streaming-serve path) call `build_launch_context()`. They may not call the composition pipeline stages (`resolve_policies`, `resolve_permission_pipeline`, `compose_run_prompt_text`, etc.) directly.
+**I-2 — No bypass.** Driving adapters (primary CLI path, spawn subprocess path, CLI streaming-serve path) call `build_launch_context()`. They may not call the composition pipeline stages (`resolve_policies`, `resolve_permission_pipeline`, `compose_run_prompt_text`, etc.) directly.
 
 **I-3 — DTO discipline.** `SpawnRequest` and `LaunchRuntime` are frozen Pydantic with JSON-safe field types. `LaunchContext` is a frozen dataclass. No `arbitrary_types_allowed`, no `Path` on `SpawnRequest`, no pre-composed intermediate DTOs that cache derived state. DTOs carry inputs; the factory produces outputs.
 

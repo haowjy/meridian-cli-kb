@@ -20,7 +20,7 @@ src/meridian/
     state/        JSONL event stores, work items, WorkScope (named vs ambient), path
                   resolution, reaper, atomic writes
     catalog/      Model resolution, agent/skill loading, default agent policy
-    launch/       Spawn lifecycle: build_launch_context() + four driving adapters
+    launch/       Spawn lifecycle: build_launch_context() + three driving adapters
     config/       Settings model, precedence chain, TOML read/write, workspace config loader
     context/      Context path resolver: work/kb path resolution
     hooks/        Hook dispatch: lifecycle events → builtins or shell commands

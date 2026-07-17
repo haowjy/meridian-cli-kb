@@ -198,7 +198,7 @@ inspect the bundle or the actual subprocess command directly.
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism
 - [principles/invariants.md](../principles/invariants.md) — strategy map invariant, I-9 (no surface-specific logic in adapters)
-- [architecture/launch-system.md](../architecture/launch-system.md) — four driving adapters and the composition factory
+- [architecture/launch-system.md](../architecture/launch-system.md) — three driving adapters and the composition factory
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — the harness abstraction model
 - [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model and extension architecture
 - [architecture/cursor-harness.md](../architecture/cursor-harness.md) — cursor probe design, raw-slug pattern, effort projection
