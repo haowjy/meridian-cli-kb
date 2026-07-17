@@ -94,7 +94,7 @@ spawns/<id>/starting-prompt.md    → prompt body (written once)
 
 Spawn state uses one JSON file per spawn (since 2026-05 migration). Reads are O(1) — no event replay. Writes use atomic tmp+rename. The authority lattice (`decide_terminal_write()`) enforces terminal monotonicity: runner-origin writes supersede reconciler-origin writes.
 
-**Single locked mutation path:** every update to a published spawn calls `write_state_locked()`, which acquires the stable per-spawn lock, re-reads current state, applies a pure mutator, and writes atomically. The lock identity lives under `locks/spawns/` outside the spawn artifact directory and is never unlinked. There is no public unlocked write path.
+**Single locked mutation path:** every update to a published spawn calls `write_state_locked()`, which acquires the stable per-spawn lock, re-reads current state, applies a pure mutator, and writes atomically. The lock identity lives under `locks/spawns/` outside the spawn artifact directory; orphaned lock inodes are removed only through a validated GC seam (see [state-system locking](../architecture/state-system.md#platform-locking)). There is no public unlocked write path.
 
 ### JSONL Event Stores (Sessions)
 
@@ -195,8 +195,10 @@ one parameterized primitive (`lock_file`): timeout, shared/exclusive mode,
 thread-local reentrancy, and post-fork descriptor cleanup.
 
 All coordination locks live under `locks/<domain>/` outside the directories they
-protect and are never unlinked. This prevents the POSIX split-brain failure where
-one process unlinks a lock file while another still holds the old inode.
+protect. Lock inodes are never unlinked except through a validated GC seam
+(`unlink_validated_lock` under fresh exclusive flock, immediately before release).
+This prevents the POSIX split-brain failure where one process unlinks a lock file
+while another still holds the old inode.
 
 - **Spawn state (v2)**: `locks/spawns/<id>.lock`. Every mutation acquires this lock.
 - **Spawn ID reservation**: a global `spawns_flock` serializes ID counter increments and initial publication.

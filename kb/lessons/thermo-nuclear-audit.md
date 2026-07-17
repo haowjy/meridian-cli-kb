@@ -178,7 +178,7 @@ bug classes unwritable by construction.
 
 **What shipped:**
 - One parameterized lock primitive (timeout, shared mode, reentrancy,
-  fork-safety) over stable never-unlinked lock inodes
+  fork-safety) over stable lock inodes (GC seam added in PR #444)
 - One atomic-replace context manager in a dependency-neutral platform layer
 - Mutate-under-lock seams across all stores: spawn records, archived
   spawns, work items, hook intervals, scope projections, autosync

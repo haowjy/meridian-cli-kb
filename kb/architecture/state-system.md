@@ -107,7 +107,7 @@ The same mutate-under-lock shape applies across all stores:
 - **Archived spawns**: `mutate_archived_spawns()` — `locks/archived-spawns.lock`
 - **Work items**: `_mutate_item()` in `work_repository.py` — `work-store.flock`
 - **Hook intervals**: `run_if_due()` — `locks/hooks/<name>.lock`
-- **Scope projections**: `mutate_scope_projection()` — `locks/process-scopes/<id>.lock`
+- **Scope projections**: `_mutate_scope_projection()` (private) — `locks/process-scopes/<id>.lock`
 - **Autosync**: `transaction()` — canonical sync-root lock path
 - **Published-spawn deletion**: `delete_published_spawn()` — same per-spawn lock
 

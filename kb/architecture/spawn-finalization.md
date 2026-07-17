@@ -386,7 +386,8 @@ spawn-exit-schema-split pass.
 |------|------|
 | `state/spawn/terminal_policy.py` | Pure function: authority lattice for terminal writes |
 | `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock; calls policy; single locked mutation dispatch |
-| `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `delete_published_spawn`, `scan_spawn_ids` |
+| `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `scan_spawn_ids` |
+| `state/spawn_aggregate.py` | Cross-leaf spawn mutations: `delete_published_spawn()` under spawn + projection locks |
 | `state/spawn/migration.py` | `ensure_v2_format()`: lazy one-shot migration from JSONL to per-spawn state.json |
 | `state/spawn/legacy_events.py` | V1 event types, reducer, parse; still used during migration |
 | `core/lifecycle.py` | `FinalizeOutcome` return type; mark_finalizing/finalize wrappers |

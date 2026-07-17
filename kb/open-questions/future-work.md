@@ -182,18 +182,6 @@ Process-scope deferred work moved to [process-scope.md](process-scope.md) so the
 
 ---
 
-### Lock-Inode Accumulation (#427)
-
-**Where:** `~/.meridian/projects/<uuid>/locks/` subtree
-
-**The issue:** Stable never-unlinked lock inodes accumulate over project lifetime. Each spawn, scope-projection, reaper-cleanup, and hook lock creates a file under `locks/<domain>/` that is never removed. At 4,000 spawns, the `locks/spawns/` directory alone holds 4,000 `.lock` files.
-
-**Direction:** bounded lock-stripe scheme — hash spawn IDs into a fixed set of lock files rather than one per spawn. Requires careful migration since existing locks may be held.
-
-**Why deferred:** Accumulation is bounded and the files are small (1 byte each). Filed as issue #427 during PR #422.
-
----
-
 ### D-005: Double Read in `_repair_orphan_runs` (stale framing)
 
 **Where:** `src/meridian/lib/ops/diag.py`

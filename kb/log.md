@@ -4,6 +4,48 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-17 — cbc-followup knowledge reconciliation (PR #444, closes #427)
+
+### Trigger
+
+PR #444 (cbc-followup, 21 commits over main): lock GC via validated-exclusive
+sweep (#427), torn-tail-proof JSONL appends, session cleanup ordering invariant,
+bounded first-writer wait for projection reads, spawn_aggregate extraction.
+Follow-up to PR #422 (concurrency by construction, v0.3.34).
+
+### What changed
+
+**Stale content fixed:**
+- `architecture/state-system.md`: "never unlinked" claims amended with GC-seam
+  exception; `launch-boundary` and `gc.lock` added to lock layout; JSONL append
+  section rewritten for torn-tail repair; `delete_published_spawn` attributed to
+  `spawn_aggregate.py`; `mutate_scope_projection` marked private.
+- `concepts/state-model.md`: three "never unlinked" claims updated with GC-seam
+  exception.
+- `principles/invariants.md`: "Stable Lock Inodes" invariant rewritten for GC
+  seam and forbidden pattern.
+- `decisions/state.md`: "Never-unlink" decision amended as "Stable lock inodes
+  with validated-exclusive GC seam" covering PR #422 + #444; striping rejection
+  and forbidden pattern documented.
+- `decisions.md` (index): "never-unlinked" phrasing updated; #444 decisions
+  added to the State domain row.
+- `open-questions/future-work.md`: "Lock-Inode Accumulation (#427)" entry
+  deleted (resolved).
+- `architecture/spawn-finalization.md`: `delete_published_spawn` moved from
+  `repository.py` row to new `spawn_aggregate.py` row in the module map.
+- `lessons/thermo-nuclear-audit.md`: "never-unlinked" annotation updated with
+  GC seam provenance.
+
+**New content:**
+- `decisions/state.md`: three new decision entries — torn-tail-proof JSONL
+  appends, spawn_aggregate extraction, generic mutation framework rejected.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-17 — Probe-fix cycle knowledge reconciliation (post-PR #375/v0.3.34)
 
 ### Trigger

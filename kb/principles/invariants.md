@@ -48,7 +48,7 @@ Every mutation of authoritative state goes through a locked read-modify-write se
 
 ### Stable Lock Inodes
 
-All coordination locks live under `locks/<domain>/` outside the directories they protect and are never unlinked. POSIX `flock` is per-open-file-description, not per-path: unlinking a lock file while another process holds it creates split-brain where two processes hold "the lock" on different inodes. Lock-inode accumulation is bounded and accepted.
+All coordination locks live under `locks/<domain>/` outside the directories they protect. Lock inodes are never unlinked except through `unlink_validated_lock()`: a fresh, non-reentrant exclusive acquisition that validates `fstat` matches `stat(path)`, unlinks, and releases immediately. POSIX `flock` is per-open-file-description, not per-path: unlinking a lock file while another process holds it creates split-brain where two processes hold "the lock" on different inodes. Unlinking while the lock remains held afterwards (the forbidden pattern) is never used. Orphaned per-spawn locks are GC'd by `lock_gc.py`; cleaned session locks are unlinked by `cleanup_stale_sessions`.
 
 ### Lock-Order Invariants
 
