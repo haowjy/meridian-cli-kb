@@ -233,6 +233,38 @@ Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/se
 
 ---
 
+## Streaming & Completion
+
+### Resident Nudge Serialization and Test Seeding (#430)
+
+**Where:** `src/meridian/lib/streaming/resident_drain.py:181-190`, `src/meridian/lib/streaming/drain_plan_factory.py:105-123`, `tests/integration/launch/test_spawn_manager_lifecycle.py:243,330`
+
+**The issue:** Two residuals from the #322 re-audit (PR #375):
+
+1. **Resident nudges bypass the serialized inject seam.** `resident_drain.py` calls `ResidentBackendControl.begin_followup_turn()` directly; the resident plan does not receive the `SerializedInject` callback from `drain_plan_factory.py`. Pi done nudges route through the factory's manager-owned callback, but resident nudges use a separate path. Unification belongs to the future completion-profile/factory redesign, not the seam extraction done in PR #375.
+
+2. **Test `_sessions` seeding.** `test_spawn_manager_lifecycle.py` directly seeds `manager._sessions` to set up integration scenarios. This is a private-field dependency; the streaming test-suite reshaping deferred from #372 should replace it with the `PiDrainScenario` builder or a manager-owned setup path.
+
+**Why deferred:** Both are known residuals deliberately left by PR #375. The nudge unification requires a completion-profile redesign; the test seeding belongs to a broader streaming test-suite reshaping.
+
+---
+
+### Publish-at-Deadline Redesign (#431)
+
+**Where:** `src/meridian/lib/launch/streaming_runner.py`, `src/meridian/lib/streaming/spawn_manager.py`
+
+**The issue:** Three related design debts identified during the PR #375 G4 probe:
+
+1. **`stop_spawn(prefer_drain_outcome=True)` conflates initiating terminal cause with teardown-observed frames.** The outer timeout timer calls `stop_spawn` with `prefer_drain_outcome=True`, which lets Pi's abort-induced `cancelled`/130 frame replace the timeout fallback. A typed terminal intent/outcome should preserve the initiating cause while permitting explicit late-success precedence. PR #375 fixed the classification (authoritative `timed_out` when the outer timer wins) but left the structural conflation.
+
+2. **Terminal publication happens after synchronous Pi abort/process cleanup.** The runner synchronously awaits `connection.stop()` and drain cleanup before lifecycle publication. At observed Pi timing (5s abort grace + 1.4s process exit), the visible terminal state lags the deadline by 6-7 seconds. Publishing terminal state immediately at the deadline and moving forced-stop cleanup post-publication is a separate medium-large redesign.
+
+3. **`streaming_runner.py` is 1,500+ lines.** Timeout state spans arbitration, drain normalization, retry/error classification, and lifecycle projection. A later extraction of attempt-result normalization would prevent another ad-hoc boolean branch.
+
+**Why deferred:** PR #375 fixed the classification/snapshot correctness (timeout carrier unified, authoritative `timed_out` preserved) as the minimum viable fix. The structural redesign is medium-large (1-3 days) and should not be bundled.
+
+---
+
 ## Routing & Model Resolution
 
 ### Agent Overlay Follow-Ups (2026-05-05, after agent-model-overrides shipped)

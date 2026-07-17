@@ -128,6 +128,32 @@ A test used `asyncio.wait_for(manager.wait_for_completion(...), timeout=1.0)` as
 
 Tests that were weakened during de-flake (asserting less to avoid timing flakiness) were restored to full coverage by advancing FakeClock past the boundary: liveness suppression crossing the expiry window, resident rearm crossing the original deadline, lock-blocking with a bounded "stays blocked until release" wait.
 
+## PiDrainScenario Builder: `tests/support/pi.py`
+
+`PiDrainScenario` is the canonical way to write Pi drain and quiescence tests.
+It provides a fake `PiRpcConnection`, pre-wired `SpawnManager`, spawn store,
+and helpers for emitting events, advancing fake time, and asserting drain
+outcomes. Five Pi characterization test files were consolidated behind it in
+PR #375 (#372).
+
+Use the builder instead of manually constructing `SpawnManager` +
+`PiDrainCoordinator` + fake connections. Direct `manager._sessions` seeding
+is a known anti-pattern (tracked in #430).
+
+### Bounded History-Phase Polling: `wait_for_history_phase()`
+
+After a terminal outcome, publication precedes async telemetry (phase events
+written to `history.jsonl`). Tests that assert on phase events must poll with
+`wait_for_history_phase()` rather than reading immediately after the outcome
+future resolves. The helper polls bounded with the fake clock so it does not
+introduce real-time waits.
+
+```python
+scenario = PiDrainScenario(...)
+# ... drive to terminal outcome ...
+await scenario.wait_for_history_phase("cleanup_completed")
+```
+
 ## Real Sleeps: When They're Acceptable
 
 Real sub-second sleeps are acceptable only when:

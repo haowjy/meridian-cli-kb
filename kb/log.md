@@ -4,6 +4,52 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-17 — Post-drain-streaming-cleanup knowledge reconciliation (PR #375)
+
+### Trigger
+
+PR #375 (drain-streaming-cleanup, 21 commits) completed the post-drain-convergence
+streaming cleanup: migration scaffolding deletion, drain composition-root
+inversion, Pi drain test consolidation, resident rearm budget, Pi timeout
+policy documentation, timeout carrier unification, shared reconciliation
+decisions extraction, and windows-gate CI demotion.
+
+### What changed
+
+**Stale content fixed:**
+- `decisions/model-resolution.md` D72: updated `ExecutionBudget` reference to
+  `execution_policy.timeout` (ExecutionBudget was deleted in PR #375; timeout
+  is now a single carrier in minutes).
+- `concepts/model-resolution/model-policies.md`: same ExecutionBudget reference
+  corrected.
+- `open-questions/future-work.md`: agent overlay timeout item updated for
+  new carrier name.
+- `decisions/launch.md` D-win-ci: marked as superseded by POSIX-first; windows-gate
+  CI demoted to non-blocking.
+- `decisions.md` domain index Launch row: noted windows-gate as superseded.
+
+**New content:**
+- `decisions.md`: new foundational entry "Timeout and completion policy" covering
+  single timeout carrier, opt-in ceilings, spawn-scoped rearm budget, and
+  rejected alternatives.
+- `architecture/drain-plans.md`: new sections "Rearm budget" (signal-gated,
+  unlimited default, spawn-scoped, exhaustion behavior, Mars schema limitation)
+  and "Timeout carrier" (single `execution_policy.timeout`, dual-carrier deletion
+  rationale).
+- `architecture/completion-drain-coordination.md`: provenance updated.
+- `open-questions/future-work.md`: new "Streaming & Completion" section with
+  two deferred items: #430 (resident nudge serialization + test seeding) and
+  #431 (publish-at-deadline redesign, prefer_drain_outcome conflation,
+  streaming_runner extraction).
+- `codebase/test-determinism.md`: new section "PiDrainScenario Builder" and
+  "Bounded History-Phase Polling" pattern.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-17 — POSIX-first supersedes Windows-first principle
 
 The 2026-07-17 platform decision (POSIX-first: Linux/macOS supported; native
