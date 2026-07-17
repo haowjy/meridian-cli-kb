@@ -196,6 +196,34 @@ but cannot publish success until a later fresh assessment is known. The completi
 `completion_nudge.py`) prompts the model to run `meridian spawn done` / `rearm`.
 A non-resident leaf spawn ends on `turn/completed` and never waits for `done`.
 
+### Startup Bound
+
+The startup phase (backend boot, connection, session handshake) is bounded by a
+configurable watchdog. Default: 5 minutes. Configurable via
+`timeouts.startup_minutes` (TOML) or `MERIDIAN_STARTUP_TIMEOUT_MINUTES` (env).
+Exceeding the bound produces terminal `failed` with error `startup phase timeout
+after <N>s`. Both the spawn subprocess path and the streaming-serve path apply
+the same bound via `_start_spawn_with_timeout()`.
+
+### Attempt Evidence Preservation
+
+When a streaming spawn retries after a startup or runtime failure, the runner
+preserves the prior attempt's artifacts (history, stderr, report, lifecycle
+journal, diagnostic marker) under `attempt-N/` within the spawn log directory.
+The rotation is crash-atomic: files stage under `attempt-N.tmp/` and commit with
+a single `os.replace()`. After commit, artifact-store copies are made and active
+keys are deleted so the next attempt starts clean rather than reusing stale
+evidence from a prior attempt.
+
+### Prompt Source
+
+A spawn prompt comes from `--prompt` / `-p` (inline text) or `--prompt-file` /
+`-f` (file path). Stdin is read only when `--prompt-file -` is given explicitly.
+There is no implicit stdin fallback: a spawn invoked without a prompt source and
+with an open silent stdin returns an error immediately rather than blocking on a
+read that may never complete. Empty prompt is valid for `--continue` and
+reference-only launches.
+
 ---
 
 ## Crash Recovery: Heartbeat, Projection, Repair

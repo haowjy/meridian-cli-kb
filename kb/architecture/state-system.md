@@ -41,10 +41,13 @@ State divides across three roots:
       history.jsonl                 — primary output artifact (seq-enveloped harness events)
       output.jsonl                  — legacy fallback (absent on new spawns)
       stderr.log · params.json · tokens.json
+      attempt-N/                    — preserved retry evidence from prior attempts
+      last-observed-event.json      — diagnostic marker: last harness event + counters
+      runner-lifecycle.jsonl        — runner breadcrumb journal (signals, phases, atexit)
+      finalize-evidence.json        — orphan-time liveness snapshot before reaper cleanup
       process_scopes.json           — durable process identities + release markers
       reaper_cleanup_claim.json     — pending finalize-first cleanup targets
       inbound.jsonl                 — injected user messages
-      control.sock                  — active-session control socket
       debug.jsonl                   — MERIDIAN_DEBUG=1 only
   artifacts/                        — LocalStore blob store
   cache/                            — models.json (24h TTL), other transient data
@@ -60,6 +63,14 @@ State divides across three roots:
 ```
 
 UUID mapping: `.meridian/id` → runtime directory. Projects can be moved or renamed without losing runtime history.
+
+Control sockets live outside the spawn directory in a per-user temp directory:
+`/tmp/meridian-<uid>/control-<sha256[:32]>.sock` (POSIX). The hash is derived from
+the resolved runtime root and spawn ID, keeping the path within the
+`sockaddr_un.sun_path` limit regardless of project path depth. The directory is
+mode 0700 with UID ownership validation. Because the socket is external to the spawn
+directory, spawn-directory GC does not clean stale sockets; issue #445 tracks
+reconnecting socket GC to lifecycle.
 
 Work items live under the `[context.work]` root (default `{user_home}/context/<id>/work/`), resolved by `work_scope.py` / `work_store.py`. Archived items move to `<context.work root>/../archive/work/<slug>/`. See `docs/configuration.md` for context-path resolution.
 

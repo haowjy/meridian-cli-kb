@@ -147,6 +147,45 @@ When `task_cwd` is outside `control_root`, it must be included in workspace proj
 See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for rationale on all design decisions.
 
 
+## Startup Watchdog
+
+`_start_spawn_with_timeout()` in `streaming_runner.py` wraps the entire pre-connect
+span (backend boot, connection establishment, session handshake) with an outer
+`asyncio.timeout`. The default bound is 5 minutes, configured via
+`timeouts.startup_minutes` (TOML) or `MERIDIAN_STARTUP_TIMEOUT_MINUTES` (env).
+Both `execute_with_streaming()` (spawn path) and `run_streaming_spawn()`
+(streaming-serve path) use the same helper.
+
+Exceeding the bound raises `StartupPhaseTimeout`, classified as a non-retryable
+terminal failure. The timeout is resolved from the config snapshot via
+`resolve_startup_timeout_seconds()` in `launch/resolve.py`. The streaming-serve
+caller passes the resolved value rather than hardcoding the 300s default.
+
+Rationale: before the watchdog, the pre-connect span was unbounded. The recorded
+worst case was a spawn that wedged for 2h18m with no liveness signal.
+
+## Attempt Evidence Preservation
+
+When a streaming spawn retries, `_preserve_attempt_artifacts()` in
+`streaming_runner.py` rotates the completed attempt's disk artifacts into
+`attempt-N/` under the spawn log directory. Preserved files include
+`history.jsonl`, `stderr.log`, `report.md`, `runner-lifecycle.jsonl`, and
+`last-observed-event.json`. The rotation is crash-atomic: files are staged under
+`attempt-N.tmp/` and committed with a single `os.replace()`. Artifact-store copies
+and active-key deletion happen only after the filesystem commit, so the next attempt
+never reads stale keys from a prior attempt.
+
+## Ownership-Transfer Guard
+
+External task cancellation during the startup corridor (adapter `start()`, dispatch,
+manager registration) can strand a child process between owners.
+`reap_on_ownership_transfer_failure()` in `harness/connections/base.py` catches
+`BaseException`, wraps cleanup in `asyncio.shield()` inside a while-not-done loop
+that survives repeated `CancelledError` deliveries, and bounds foreground cleanup
+to 30 seconds. Beyond that bound, durable `spawn_owned` process scopes and the
+reaper own any residue. Each adapter, `spawn_dispatch`, and `SpawnManager` invoke
+the guard at their respective ownership boundaries.
+
 ## Managed Backend Launch Helper
 
 Codex/OpenCode managed backends launch through one helper:
@@ -160,6 +199,12 @@ Adapters no longer own per-harness backend launch blocks. They provide command/e
 inputs and then expose the helper's `scope_snapshot` through the connection. Managed
 primary attach upgrades that same concrete backend scope from provisional
 `spawn_owned` to `session_owned` once a harness session id is known.
+
+`register_spawn_owned_process()` in the same module is the generic scope recording
+helper for stdio children (Claude, Pi, Cursor) that are not managed backends but
+still need durable `spawn_owned` process-scope records for crash recovery. Its
+placement in `managed_backend.py` is accepted naming debt; #424's layering split
+will give it a better home.
 
 ## Three Driving Adapters
 
