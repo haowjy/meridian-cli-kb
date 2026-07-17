@@ -2,7 +2,6 @@
 
 Synthesized findings from a dedicated external research pass (May 2026) that
 validated the dev frontend security decisions DF-D1–DF-D7. See
-[architecture/chat/dev-frontend.md](../architecture/chat/dev-frontend.md) for how these
 findings shaped the design.
 
 ---
@@ -101,7 +100,6 @@ needed in portless mode.
 
 ## Related Pages
 
-- [architecture/chat/dev-frontend.md](../architecture/chat/dev-frontend.md) — Full design
   incorporating these findings
 - [decisions/dev-frontend.md](../decisions/dev-frontend.md) — DF-D1–DF-D7 with rationale
 - [tailscale-serve-semantics.md](tailscale-serve-semantics.md) — `tailscale serve`/`funnel`

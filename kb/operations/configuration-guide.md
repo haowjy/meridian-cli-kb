@@ -69,7 +69,6 @@ meridian workspace init
 ```toml
 # meridian.toml
 [workspace.frontend]
-path = "../meridian-web"
 
 [workspace.docs]
 path = "../docs-repo"
@@ -80,7 +79,6 @@ path = "../docs-repo"
 ```toml
 # meridian.local.toml
 [workspace.frontend]
-path = "/home/me/different-location/meridian-web"   # my checkout is elsewhere
 
 [workspace.private-data]
 path = "/data/local-only"   # only I have this

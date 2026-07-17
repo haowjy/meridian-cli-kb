@@ -456,5 +456,4 @@ All five targeted smoke tests passed (lifecycle, acquisition, normalizer parity,
 - [architecture/state-system.md](../architecture/state-system.md) — migration framework design
 - [architecture/process-scope.md](../architecture/process-scope.md) — process-scope ownership design
 - [operations/health-checks.md](../operations/health-checks.md) — doctor flow (D-003, D-005 context)
-- [architecture/chat/overview.md](../architecture/chat/overview.md) — chat backend design context
 - [decisions.md](../decisions.md) — D27, D29

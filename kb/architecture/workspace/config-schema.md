@@ -11,14 +11,12 @@ See [decisions/workspace.md](../../decisions/workspace.md#d42) for why named ent
 ```toml
 # meridian.toml — committed team conventions
 [workspace.frontend]
-path = "../meridian-web"
 
 [workspace.prompts]
 path = "../prompts/meridian-base"
 
 # meridian.local.toml — per-developer overrides (gitignored)
 [workspace.frontend]
-path = "/home/user/repos/meridian-web"   # my checkout at a different path
 
 [workspace.local-data]
 path = "/data/large-dataset"             # local-only root not in committed config

@@ -57,7 +57,6 @@ The bug is not fixed if live streaming works but replayed history diverges. Norm
 
 That means a normalizer change is not isolated to rendering. It changes durable history semantics. Captured raw histories need to replay through recovery paths, not just direct unit normalization calls.
 
-See [architecture/chat/normalization.md](../architecture/chat/normalization.md), [architecture/chat/event-pipeline.md](../architecture/chat/event-pipeline.md), and [architecture/chat/recovery.md](../architecture/chat/recovery.md).
 
 ## Where to Look in the Code
 

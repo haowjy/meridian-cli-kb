@@ -2,7 +2,6 @@
 
 Decision records for the chat backend — why this architecture, what alternatives were rejected, what constraints drove the choices. Organized by subsystem.
 
-See [../decisions.md](../decisions.md) for the chronological index. Architecture mechanism is documented in [../architecture/chat/](../architecture/chat/).
 
 ---
 

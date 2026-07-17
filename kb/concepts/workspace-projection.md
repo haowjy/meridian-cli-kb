@@ -16,7 +16,6 @@ Workspace entries live in `[workspace.<name>]` tables in `meridian.toml` and/or 
 # meridian.toml (committed) — declares the conventional layout for this project.
 # Assumes standard checkout structure; developers with non-standard layouts override in local.
 [workspace.frontend]
-path = "../meridian-web"
 
 [workspace.prompts]
 path = "../prompts/meridian-base"
@@ -25,7 +24,6 @@ path = "../prompts/meridian-base"
 ```toml
 # meridian.local.toml (gitignored) — machine-specific path overrides and additions.
 [workspace.frontend]
-path = "/home/user/repos/meridian-web"   # checkout lives elsewhere
 
 [workspace.local-data]
 path = "/data/large-dataset"             # local-only root not in committed convention

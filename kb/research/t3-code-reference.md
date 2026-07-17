@@ -107,6 +107,4 @@ Three other protocols were evaluated before designing the custom `ChatEvent` pro
 
 ## Cross-References
 
-- [architecture/chat/overview.md](../architecture/chat/overview.md) — chat pipeline design informed by T3 Code
-- [architecture/chat/command-system.md](../architecture/chat/command-system.md) — single dispatch pattern taken from T3 Code
 - [decisions.md](../decisions.md) — D1 (custom protocol rationale), D2 (event pipeline over CQRS), D5 (T3-inspired taxonomy), D18 (three-layer pipeline)

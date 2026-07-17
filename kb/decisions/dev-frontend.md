@@ -2,7 +2,6 @@
 
 These decisions govern the unified development setup for running `meridian chat --dev` with a live backend and hot-reload frontend. They are namespaced as **DF-D1** through **DF-D7** to avoid colliding with older domain-local decision IDs in [../decisions.md](../decisions.md).
 
-Related: [Architecture: Dev Frontend](../architecture/chat/dev-frontend.md) | [Research: Vite, Portless, and Funnel](../research/vite-portless-funnel.md)
 
 ## Decision Map
 
@@ -56,4 +55,3 @@ Funnel changes public internet reachability — a qualitatively different trust 
 
 ## Validation Basis
 
-These decisions are reflected in `src/meridian/lib/chat/dev_frontend/` and guarded by the unit/integration/smoke tests listed in [../architecture/chat/dev-frontend.md](../architecture/chat/dev-frontend.md#recommended-tests). External security and upstream behavior assumptions are summarized in [../research/vite-portless-funnel.md](../research/vite-portless-funnel.md).

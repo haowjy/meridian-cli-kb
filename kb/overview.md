@@ -260,5 +260,4 @@ See [concepts/spawn-lifecycle.md](concepts/spawn-lifecycle.md) for the full stat
 | Understanding why something was built this way | [decisions.md](decisions.md) |
 | Looking up a term | [vocabulary.md](vocabulary.md) |
 | Understanding mars package management | [concepts/package-management/overview.md](concepts/package-management/overview.md) |
-| Understanding the web frontend | [ecosystem/meridian-web/overview.md](ecosystem/meridian-web/overview.md) |
 | Understanding prompt packages | [ecosystem/prompt-packages/overview.md](ecosystem/prompt-packages/overview.md) |

@@ -37,9 +37,7 @@ Domain vocabulary pages cover terms specific to one subsystem. Each page has a b
 |---|---|---|
 | **Model resolution** | [concepts/model-resolution/vocabulary.md](concepts/model-resolution/vocabulary.md) | Alias entries, model policies, fanout, approval mode, skill registry, skill variants, resolved policies, prompting guidance, agent-first resolution |
 | **Package management** | [concepts/package-management/vocabulary.md](concepts/package-management/vocabulary.md) | Mars compiler pipeline, source resolution, targeting, sync model, lock file, MVS |
-| **Chat architecture** | [architecture/chat/vocabulary.md](architecture/chat/vocabulary.md) | Chat pipeline, spawn lifecycle state machine, event system, drain policies, normalization, HITL, recovery |
 | **Telemetry** | [architecture/telemetry/vocabulary.md](architecture/telemetry/vocabulary.md) | Telemetry sinks, envelope format, router, local persistence |
 | **Workspace** | [architecture/workspace/vocabulary.md](architecture/workspace/vocabulary.md) | Workspace entries, multi-repo projection, snapshot merging |
-| **meridian-web** | [ecosystem/meridian-web/vocabulary.md](ecosystem/meridian-web/vocabulary.md) | Extension system, shell architecture, WebSocket protocol, layout, frontend stores |
 | **Pi runtime** | [architecture/pi-runtime/vocab.md](architecture/pi-runtime/vocab.md) | `bash_id`, `bash_manage`, `managed-bash`, `meridian-spawn-watch`, `originating_bash_id`, env-var correlation, quiescence rule |
 | **Codebase** | [codebase/vocabulary.md](codebase/vocabulary.md) | Harness infrastructure, hooks and plugins, safety and permissions, launch system, state management, config loading, platform abstractions |

@@ -9,7 +9,6 @@ graph TD
     subgraph infra["Infrastructure"]
         CLI["meridian-cli\ncoordination CLI (Python)"]
         MARS["mars-agents\npackage compiler (Rust)"]
-        WEB["meridian-web\nweb frontend (React/TS)"]
     end
 
     subgraph prompts["Prompt Packages"]
@@ -55,7 +54,6 @@ graph TD
 - Harness adapters for Claude, Codex, OpenCode, Direct
 - JSONL event stores (atomic writes, crash-tolerant reads)
 - Launch composition: resolves model, permissions, prompt, argv in one place (`build_launch_context`)
-- REST + WebSocket app server consumed by meridian-web
 - `meridian mars ...` commands that delegate to mars-agents
 
 **Canonical local path:** `../meridian-cli/`
@@ -82,7 +80,6 @@ See [architecture/mars-compiler.md](../architecture/mars-compiler.md) and [archi
 
 ---
 
-### meridian-web
 **Role:** The web frontend. An extension-based shell that connects to meridian-cli's WebSocket/REST server and renders the chat UI and agent interaction surface.
 
 **Language:** TypeScript (React 19, Vite, Zustand, shadcn/ui)
@@ -94,9 +91,7 @@ See [architecture/mars-compiler.md](../architecture/mars-compiler.md) and [archi
 - Event log as source of truth: UI reconstructs state from replayed backend events
 - Chat extension: maps backend event stream to a timeline (messages, tools, approvals, spawns, checkpoints)
 
-**Canonical local path:** `../meridian-web/`
 
-See [ecosystem/meridian-web/overview.md](meridian-web/overview.md) for the shell and extension architecture.
 
 ---
 
@@ -198,6 +193,5 @@ Every `meridian spawn -a <agent>` loads agent profiles and skills from `.mars/`.
 - [architecture/system-overview.md](../architecture/system-overview.md) — meridian-cli internals
 - [concepts/package-management/overview.md](../concepts/package-management/overview.md) — mars package model concepts
 - [architecture/mars-compiler.md](../architecture/mars-compiler.md) — compiler pipeline internals
-- [ecosystem/meridian-web/overview.md](meridian-web/overview.md) — web frontend architecture
 - [ecosystem/prompt-packages/overview.md](prompt-packages/overview.md) — prompt package composition model
 - [jupyter-workbench/overview.md](jupyter-workbench/overview.md) — notebook runtime

@@ -15,7 +15,6 @@ See [decisions/workspace.md#d41](../../decisions/workspace.md#d41) for why the f
 ```toml
 # workspace.local.toml (legacy — gitignored, no committed equivalent)
 [[context-roots]]
-path = "../meridian-web"
 
 [[context-roots]]
 path = "../prompts/meridian-base"
@@ -73,7 +72,6 @@ Example output:
 ```bash
 $ meridian workspace migrate
 migrated: 2 entries -> /project/meridian.local.toml
-- workspace.meridian-web: ../meridian-web
 - workspace.meridian-base: ../prompts/meridian-base
 warning: Review and rename auto-generated workspace entry names before adopting
   shared [workspace] conventions in meridian.toml; basename-derived names are
@@ -82,7 +80,6 @@ warning: Review and rename auto-generated workspace entry names before adopting
 
 ### Why names are provisional
 
-Entry names become durable merge keys. A migrated local name like `meridian-web` will not automatically match a future committed entry named `frontend`. If those diverge, the local entry becomes a stale local-only root that may duplicate a projected path.
 
 Names should be reviewed and aligned with whatever the project chooses to commit in `meridian.toml`.
 
