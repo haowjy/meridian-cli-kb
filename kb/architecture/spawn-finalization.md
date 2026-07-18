@@ -387,7 +387,7 @@ spawn-exit-schema-split pass.
 | `state/spawn/terminal_policy.py` | Pure function: authority lattice for terminal writes |
 | `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock; calls policy; single locked mutation dispatch |
 | `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `scan_spawn_ids` |
-| `state/spawn_aggregate.py` | Cross-leaf spawn mutations: `delete_published_spawn()` under spawn + projection locks |
+| `state/spawn_aggregate.py` | Published-row lifetime: guarded artifact mutation plus deletion under stable outer spawn lock |
 | `state/spawn/migration.py` | `ensure_v2_format()`: lazy one-shot migration from JSONL to per-spawn state.json |
 | `state/spawn/legacy_events.py` | V1 event types, reducer, parse; still used during migration |
 | `core/lifecycle.py` | `FinalizeOutcome` return type; mark_finalizing/finalize wrappers |
@@ -404,6 +404,6 @@ spawn-exit-schema-split pass.
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — projection authority model and status machine
 - [drain-plans.md](drain-plans.md) — streaming drain-plan composition and resident completion.
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary.
-- [architecture/state-system.md](state-system.md) — JSONL store, atomic writes, flock locking
+- [architecture/state-system.md](state-system.md) — JSONL store, atomic writes, flock locking, and the published spawn artifact lifetime boundary
 - [decisions/state.md](../decisions/state.md) — design decisions for this subsystem
 - [principles/invariants.md](../principles/invariants.md) — projection authority rule as invariant

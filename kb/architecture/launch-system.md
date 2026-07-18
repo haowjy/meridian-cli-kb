@@ -297,6 +297,21 @@ PreparedSpawn handoff type
 
 `run_streaming_spawn()` is a focused executor: creates `SpawnManager`, starts harness connection, starts heartbeat, awaits drain, records exited event. It does **not** call `enrich_finalize()` or `execute_with_streaming()`.
 
+### Published-Spawn Startup Boundary
+
+Harness connections, heartbeat loops, and managed-child adoption consume an
+already-published spawn; they do not create `spawns/<id>/`. If retention deletes
+the aggregate across an awaited startup boundary, artifact opens and guarded
+process-scope registration fail closed. A child that launched before
+registration failed is cleaned up rather than left unowned.
+
+The same rule applies after terminal publication: runner lifecycle records,
+history, harness journals, and other best-effort diagnostics may finish late,
+but they cannot reconstruct the deleted aggregate. The state layer owns the
+[published spawn artifact lifetime](state-system.md#published-spawn-artifact-lifetime)
+and supplies the guarded mutation seam; launch and harness code must cross that
+seam at the actual write point rather than checking before an `await`.
+
 ## SpawnApplicationService: Policy Coordinator
 
 Sits above `SpawnLifecycleService` (sole state writer) and below driving adapters. Surfaces call the service; the service calls the lifecycle service.
