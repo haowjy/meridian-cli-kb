@@ -347,7 +347,7 @@ A stale report from a prior attempt looks identical to a valid final report with
 ### `FinalizeSucceededFromReport` — preserved paths
 
 Kept for non-retry scenarios where a `report.md` cannot be stale from a prior attempt:
-- Launch-boundary ghosts (pre-worker takeover)
+- Pre-worker stalls: still-published rows before detached-worker takeover
 - Missing-runner-pid fallback
 - `ManagedPrimaryReconciliationStrategy`
 
