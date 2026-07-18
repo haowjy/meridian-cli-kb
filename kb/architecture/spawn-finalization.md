@@ -13,14 +13,13 @@ store-level finalization.
 
 ## Finalization Authority Hierarchy
 
-The store resolves concurrent finalization races using an authority lattice encoded in `terminal_policy.py`. Two dimensions govern the decision: whether the spawn is already terminal, and whether the incoming origin is authoritative.
+The store resolves concurrent finalization races using an authority lattice inlined in `spawn_store.py:finalize_spawn()`. Two dimensions govern the decision: whether the spawn is already terminal, and whether the incoming origin is authoritative.
 
 **Authoritative origins:** `runner`, `launcher`, `launch_failure`, `cancel`  
 **Reconciler origins:** `reconciler` (the reaper)
 
 ```
-current_status = None             → reject  (spawn row doesn't exist)
-current_status is active          → append  (first terminal write — always wins)
+current_status is active          → proceed (first terminal write — always wins)
 current_status is terminal (authoritative origin wrote it):
   incoming is authoritative       → reject  (first authoritative wins)
   incoming is reconciler          → reject
@@ -29,7 +28,7 @@ current_status is terminal (reconciler wrote it):
   incoming is reconciler          → reject
 ```
 
-This lattice is implemented as `decide_terminal_write()` in `state/spawn/terminal_policy.py` — a **pure function** with no I/O. It takes `current_status`, `current_terminal_origin`, and `incoming_origin` and returns a `TerminalWriteDecision` with disposition `"append" | "replace" | "reject"`.
+The authority check runs inside the locked finalize mutator, against the re-read snapshot. The earlier `terminal_policy.py` module was deleted when its sole second caller (the v1 reducer) was removed.
 
 ---
 
@@ -84,14 +83,14 @@ The per-spawn lock ensures the read-decide-write sequence is atomic across concu
 
 (Legacy v1 used a global `spawns.jsonl.flock` — a single lock serialized all spawns. V2 replaces this with per-spawn locking, eliminating the global contention bottleneck. See [architecture/state-system.md](state-system.md) for the locked mutation seam.)
 
-`MutationOutcome` fields (returned by `write_state_locked()`):
-- `wrote` — whether this call persisted a change
-- `snapshot` — the authoritative post-mutation `SpawnRecord`
-- `reason` — optional decline reason when `wrote=False`
+`write_state_locked()` returns a discriminated `LockedMutationResult`:
+- `Applied(before, after)` — the mutation persisted one atomic transition
+- `Declined(snapshot, reason)` — the mutation preserved the current state
+- `Missing` — the spawn did not exist when the lock was held
 
 Mutators return `SpawnRecord | Decline(reason)`; the repository wraps the
-result into `MutationOutcome`. The lifecycle layer adds `transitioned` on top
-for status-change awareness.
+result into the appropriate variant. The lifecycle layer derives `transitioned`
+from comparing `Applied.before.status` and `Applied.after.status`.
 
 ---
 
@@ -298,20 +297,19 @@ the sub-model so existing callers compile unchanged.
 
 ### Finalized outcome: `terminal: TerminalFacts | None`
 
-Frozen sub-model (`TerminalFacts`) holding the complete finalized state: `status`,
-`exit_code`, `finished_at`, `published_at`, `duration_secs`, token/cost metrics,
-`error`, `origin`. Written by `apply_finalize()`.
+Frozen sub-model (`TerminalFacts`) holding the complete finalized state: `exit_code`,
+`finished_at`, `published_at`, `duration_secs`, token/cost metrics,
+`error`, `origin`. Does not carry status; top-level `status` is the sole status
+authority. Written by `apply_finalize()`.
 
-### Enforced-equivalence invariant
+### Single status authority
 
-A `model_validator(mode="before")` on `SpawnStateFields` enforces:
-- Terminal `status` requires non-None `terminal` with `terminal.status == status`
-- Active/unknown `status` requires `terminal is None`
-- Stale flat lifecycle fields (the pre-#423 schema) are rejected outright
-
-`_RevalidatedFrozenModel.model_copy(update=)` round-trips through
-`model_validate` so the invariant survives in-memory copies. This closes the
-escape hatch where Pydantic's default `model_copy` would skip validators.
+Top-level `status` is the sole status field. `TerminalFacts` carries terminal
+evidence but does not repeat status. `StoredSpawnState` uses `extra="forbid"`,
+so persisted rows with a nested `terminal.status` or stale flat lifecycle fields
+are quarantined rather than silently accepted. When `status` is terminal,
+`terminal` must not be `None`; when `status` is active or `unknown`, `terminal`
+must be `None`.
 
 ### Write sequence (crash-only safety invariant)
 
@@ -330,7 +328,7 @@ All finalization paths must persist `runner_exit` before calling
 ### Quarantine for out-of-vocab rows
 
 Out-of-vocabulary persisted rows are quarantined, not coerced. Single reads
-raise `SpawnStateQuarantined`; collection reads partition into `SpawnCollection`
+raise `SpawnStateQuarantined`; collection reads partition into `SpawnScan`
 (valid rows + quarantine reports). Migration and retention fail closed on
 quarantine. See `state/spawn/.context/CONTEXT.md` for the full quarantine
 contract.
@@ -415,9 +413,8 @@ decide_generic_reconciliation(record, snapshot, now):
 
 | File | Role |
 |------|------|
-| `state/spawn/terminal_policy.py` | Pure function: authority lattice for terminal writes |
-| `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock; calls policy; single locked mutation dispatch |
-| `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `scan_spawn_ids`; `StoredSpawnState` quarantine validator; `Decline`, `MutationOutcome` |
+| `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock with inlined authority check; single locked mutation dispatch |
+| `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `scan_spawn_ids`; `StoredSpawnState` quarantine; `Applied`, `Declined`, `Missing` |
 | `state/spawn_aggregate.py` | Published-row lifetime: guarded artifact mutation plus deletion under stable outer spawn lock |
 | `state/spawn/migration.py` | `ensure_v2_format()`: lazy one-shot migration from JSONL to per-spawn state.json |
 | `state/spawn/legacy_events.py` | V1 event types, reducer, parse; still used during migration |

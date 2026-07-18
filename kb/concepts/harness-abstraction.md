@@ -111,11 +111,14 @@ content via the system prompt channel instead.
 
 Raw harness events arrive as open `RawHarnessEvent` envelopes; each adapter's
 `HarnessBundle` registers a `HarnessSemantics` port that normalizes known events
-into a closed `SemanticEvent` union. `HarnessSemantics.normalize()` dispatches by
-`HarnessId` then by `event_type` within that bundle's table — shared
-`semantics.py` contains no harness event names. The classification is
-**harness-specific**; `event_type` is not globally unique. `turn/completed` is
-Codex; OpenCode uses `session.idle` for the same semantic.
+into a typed `EventSemantics` descriptor. `normalize_event()` dispatches by
+`HarnessId` then by `event_type` within that bundle's table, returning
+`NormalizedHarnessEvent` carrying the raw event and its single descriptor.
+Each event is normalized exactly once; downstream consumers read the descriptor's
+`activity`, `clears_signal`, and `terminal` fields. Shared `semantics.py`
+contains no harness event names. The classification is **harness-specific**;
+`event_type` is not globally unique. `turn/completed` is Codex; OpenCode uses
+`session.idle` for the same semantic.
 
 ### What `succeeded` means — per harness
 
@@ -259,11 +262,12 @@ which harness-native scope belongs to the parent spawn:
 | Codex | Main turn `threadId` | Subagent-thread `turn/completed` |
 | OpenCode | Launched parent `sessionID` | Child task `session.idle` / `session.error` |
 
-The scope is passed into `terminal_outcome()`, `activity_transition()`, and
-`clears_signal()`. It also guides OpenCode report extraction. This keeps the harness
-mechanism honest without hiding information: child events remain in the persisted
-history and session log, but parent lifecycle and report selection only use parent
-events.
+Connections own primary scope construction. The scope is applied during
+normalize-once event processing: `HarnessSemantics.normalize_event()` receives
+the scope and checks scoped events against it. It also guides OpenCode report
+extraction. This keeps the harness mechanism honest without hiding information:
+child events remain in the persisted history and session log, but parent lifecycle
+and report selection only use parent events.
 
 Codex and OpenCode intentionally differ on unscoped events. Codex treats unscoped
 `turn/completed` as parent completion for legacy safety. OpenCode does not treat

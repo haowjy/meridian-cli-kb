@@ -155,7 +155,6 @@ graph TD
 File-backed state for spawns and sessions. Spawn state uses per-spawn `state.json`; session state remains event-sourced JSONL. Key types:
 - `SpawnRecord` — loaded from `spawns/<id>/state.json` and updated through the spawn store
 - `SessionRecord` — materialized from `SessionStartEvent` → `SessionUpdateEvent` → `SessionStopEvent`
-- `state/spawn/terminal_policy.py` — terminal-write authority for concurrent spawn finalization
 - `reaper.py` — reconciliation logic that runs on read paths to close orphaned spawns
 
 ### Launch subsystem (`src/meridian/lib/launch/`)

@@ -131,6 +131,26 @@ normalized = value.strip()  # safe — value is str
 The Gate 2 convergence sweep grepped all eleven `mode="before"` validators
 and confirmed the pattern was fully closed.
 
+### Bounded Shape Guards Grow Into Hand Codecs
+
+A pattern observed twice in PR #423: a handwritten runtime shape guard
+("just check a few fields") accumulates edge cases until it becomes an
+informal codec. The Pi TypeScript `SpawnStateFile` type started as a simple
+interface with a runtime `typeof` guard, then grew to validate nested
+optional objects, discriminate terminal state, and handle quarantined rows.
+Python-side, the `quarantine_unknown_vocabulary` validator started as a
+three-field enum-member check and grew to validate nested fact vocabularies,
+type-check before string operations, and handle extra-field rejection.
+
+In both cases, the fix was to replace the hand guard with a declarative
+schema tool (TypeBox for TypeScript, `extra="forbid"` on Pydantic for
+Python). The declarative schema cannot drift from the model it describes.
+
+**Lesson:** When a shape guard crosses two fields, evaluate whether a
+schema derivation tool should own the validation. The guard's growth is
+predictable — each new field or nested model adds another branch — and the
+maintenance cost compounds as the schema evolves across work streams.
+
 ### Cross-Language Consumers of Persisted Schema
 
 The "no backwards compatibility" rule is Python-scoped. The Pi
@@ -141,14 +161,42 @@ extension rendered `duration` as `-` and misreported quarantined rows as
 
 The fix classified completion from the `terminal` discriminant
 (`terminal !== null`) and deleted the extension's duplicated status vocabulary.
-A deeper TypeScript runtime codec was considered and judged unnecessary — a
-bounded shape guard covering only the fields the extension consumes is
-sufficient for a three-field reader.
+Wave 4 refined this further: a partial TypeBox schema replaced the handwritten
+type and runtime guard stack, deriving `SpawnStateFile` from
+`Static<typeof SpawnStateFileSchema>`. Terminal status remains `Type.String()`;
+Pi does not duplicate Meridian's terminal vocabulary. A deeper TypeScript
+runtime codec was judged unnecessary — the partial schema covers only the
+fields the extension consumes.
 
 **Lesson:** When persisted state has cross-language readers, schema changes
 require a sweep of those readers. The authority boundary is the discriminant
 (`terminal !== null`), not a duplicated vocabulary. Classify from the
-authoritative field; don't mirror the Python enum.
+authoritative field; don't mirror the Python enum. When the shape guard grows
+complex enough to need runtime validation, use a schema derivation tool
+(TypeBox) rather than hand-rolling the guard — this pattern bit twice in two
+different languages.
+
+### Quarantine Partitions Must Survive All Read Paths (Gate 3, PR #423)
+
+The Gate 3 convergence review probe-confirmed a deletion bug: `ops/pruning`
+and `ops/diag` consumed `SpawnScan` envelopes but silently shed the
+quarantine partition, operating only on `.records`. A project whose spawn
+rows were ALL quarantined (for example, after a schema-breaking upgrade)
+would have its entire spawn directory deleted by pruning, and its diagnostic
+warnings would report zero spawns. Retention similarly aborted on
+`SpawnStateQuarantined` instead of preserving the row.
+
+The fix was fail-closed: pruning skips quarantined rows (quarantine =
+uncertain = keep), retention preserves quarantined segments without touching
+them, and diagnostics report quarantined rows as warnings. The regression
+tests exercise a quarantine-only project through all three paths.
+
+**Lesson:** When a typed read returns an envelope with two partitions (valid
++ quarantine), every consumer must explicitly decide what to do with both.
+Silently discarding the quarantine partition is the exact bug class the
+quarantine system exists to prevent. This is the same shape as the
+`SpawnCollection(list)` problem from wave 3, where list operations shed
+quarantines — `SpawnScan` fixed the API, but callers still needed updating.
 
 ## Cross-References
 

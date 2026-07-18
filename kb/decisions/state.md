@@ -57,6 +57,14 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### Terminal write policy as a pure function (terminal_policy.py)
 
+> **Superseded (PR #423 wave 4, 2026-07).** `terminal_policy.py` was deleted.
+> The authority lattice is now inlined in `spawn_store.py:finalize_spawn()` as
+> a four-line check inside the locked mutator. The v1 reducer that also called
+> it no longer exists, so the single-caller justification for a separate module
+> evaporated. The authority rule itself is unchanged: authoritative origins
+> replace reconciler-origin terminals; all other terminal-to-terminal writes
+> are rejected.
+
 **Decision (2026-05, spawn-finalization-refactor):** The finalization authority lattice is encoded as a pure function `decide_terminal_write(current_status, current_terminal_origin, incoming_origin)` in `state/spawn/terminal_policy.py`. The store calls this function under flock; the reducer calls it during event projection.
 
 **Why:** The authority lattice had previously been duplicated between the store write path and the reducer projection path — two copies that could drift. Extracting it as a pure function makes the lattice a single testable artifact. It can be unit-tested without filesystem setup, making the full decision space verifiable (append / replace / reject × all status + origin combinations).
@@ -358,35 +366,61 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### Quarantine, not coercion, for out-of-vocab persisted rows
 
-**Decision:** `StoredSpawnState` validates vocabulary fields in a `model_validator(mode="before")`. Rows with unknown `status`, `kind`, `launch_mode`, or nested fact vocabularies are quarantined: single reads raise `SpawnStateQuarantined`; collection reads partition into `SpawnCollection` (valid rows + quarantine reports). Migration and retention fail closed on quarantine — an unreadable row may contain active work.
+**Decision:** `StoredSpawnState` validates vocabulary fields in a `model_validator(mode="before")`. Rows with unknown `status`, `kind`, `launch_mode`, or nested fact vocabularies are quarantined: single reads raise `SpawnStateQuarantined`; collection reads partition into `SpawnScan` (valid rows + quarantine reports). Migration and retention fail closed on quarantine — an unreadable row may contain active work.
 
 **Rejected:** Silently omitting unknown rows (loses data). Coercing to `failed` (misrepresents a parse failure as a lifecycle outcome). The quarantine seam validates type before string operations so a non-string value routes to quarantine rather than crashing with `AttributeError`.
 
 ---
 
-### Enforced-equivalence discriminant for terminal lifecycle facts
+### Single status authority with non-duplicating terminal facts
 
-**Decision:** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. A model validator enforces `status == terminal.status` when terminal, and `terminal is None` when active. Stale flat lifecycle fields are rejected at parse.
+> **Updated (PR #423 wave 4, 2026-07).** Wave 4 chose the non-duplicating
+> design that the earlier enforced-equivalence approach approximated: terminal
+> status lives ONLY in the top-level `status` field. `TerminalFacts` carries
+> exit code, timestamps, metrics, error, and origin — but not status.
+> `_RevalidatedFrozenModel` and 17 backward-compatible property accessors were
+> deleted. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a
+> nested `terminal.status` are quarantined rather than silently accepted.
 
-`_RevalidatedFrozenModel.model_copy(update=)` round-trips through `model_validate` instead of Pydantic's default shallow copy, closing the escape hatch where `model_copy` would bypass validators.
+**Decision (updated):** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. Top-level `status` is the sole status authority. `TerminalFacts` carries no status field. When status is terminal, `terminal` must not be `None`; when status is active or `unknown`, `terminal` must be `None`. `extra="forbid"` on the persisted model quarantines rows with extra fields, including any legacy `terminal.status`.
 
-**Rejected:** Sole-carrier (a single discriminated union carrying both the status and the facts). The model-copy revalidation approach was chosen after discovering that frozen-model immutability alone did NOT close the copy escape hatch — Pydantic's `model_copy` skips validators by default.
+**Rejected (original wave 2-3 approach):** Enforced-equivalence discriminant (`status == terminal.status`) with `_RevalidatedFrozenModel.model_copy` revalidation. This worked but duplicated status authority across two fields, requiring a validator, a custom base class, and 17 compatibility properties. The thermo-nuclear audit identified the duplication as unnecessary complexity; wave 4 removed the second field entirely.
+
+**Rejected (original wave 2-3 alternative):** Sole-carrier (a single discriminated union carrying both status and facts). The non-duplicating approach achieves the same structural guarantee without changing the persisted record shape beyond deleting one field.
 
 ---
 
-### Apply/Decline typed mutation outcome
+### Applied/Declined/Missing discriminated mutation result
 
-**Decision:** Locked mutators return `SpawnRecord | Decline(reason)`. `write_state_locked()` returns `MutationOutcome(wrote, snapshot, reason)`. The lifecycle layer adds `transitioned` for status-change awareness.
+> **Updated (PR #423 wave 4, 2026-07).** `MutationOutcome(wrote, snapshot,
+> reason)` was replaced by a discriminated union: `Applied(before, after) |
+> Declined(snapshot, reason) | Missing`. Each variant carries exactly the
+> evidence its callers need. Duplicate cancel requests return
+> `Declined(reason="cancel intent already recorded")`.
 
-**Rejected:** Four ad-hoc exception classes and two `nonlocal` smuggles that encoded mutation outcomes as control flow. The typed outcome makes the wrote/declined distinction part of the return type, not exception handling.
+**Decision (updated):** Locked mutators return `SpawnRecord | Decline(reason)`. `write_state_locked()` returns `LockedMutationResult`, which is exactly one of `Applied(before, after)`, `Declined(snapshot, reason)`, or `Missing`. Callers pattern-match on the variant. The lifecycle layer derives `transitioned` from comparing `Applied.before.status` and `Applied.after.status`.
+
+**Rejected:** Four ad-hoc exception classes and two `nonlocal` smuggles that encoded mutation outcomes as control flow. The typed outcome makes the wrote/declined distinction part of the return type, not exception handling. The intermediate `MutationOutcome(wrote, snapshot, reason)` was itself replaced because boolean `wrote` left callers guessing what the `None` snapshot meant and required separate None-checks for missing-row vs declined paths.
 
 ---
 
-### Open `RawHarnessEvent` envelope to closed `SemanticEvent` union
+### Normalize-once EventSemantics descriptor per raw event
 
-**Decision:** Raw harness events stay open (unknown event types pass through). Each adapter's `HarnessBundle` registers a `HarnessSemantics` port with an event-name→`SemanticClass` table and optional payload resolver. `HarnessSemantics.normalize()` dispatches by `HarnessId` before `event_type`, producing a closed `SemanticEvent` union. Shared `semantics.py` contains no harness event names.
+> **Updated (PR #423 wave 4, 2026-07).** The `SemanticEvent` union
+> (`ActivitySemanticEvent | TerminalSemanticEvent | SignalClearedSemanticEvent`)
+> and the `SemanticClass` flag-bag were deleted. They were an unused
+> intermediate representation: three legacy scalar queries (`terminal_outcome`,
+> `activity_transition`, `clears_signal`) re-dispatched per event, the drain
+> interpreted twice, and connections re-interpreted. Wave 4 replaced them with
+> one typed `EventSemantics` descriptor (fields: `activity`, `clears_signal`,
+> `terminal`) attached to `NormalizedHarnessEvent`. Each raw event is
+> normalized exactly once; downstream consumers read the descriptor.
 
-**Rejected:** Strict rejection at raw parsing — harness CLIs are unpinned; new event types arrive across minor releases. The open envelope / closed semantic union preserves forward compatibility without ignoring classification responsibility.
+**Decision (updated):** Raw harness events stay open (unknown event types pass through). Each adapter's `HarnessBundle` registers a `HarnessSemantics` port with an event-name to `EventSemantics` descriptor table and optional payload resolver. `normalize_event()` dispatches by `HarnessId` before `event_type` and returns `NormalizedHarnessEvent` carrying the raw event and its single semantic descriptor. Shared `semantics.py` contains no harness event names. Connections own primary scope; scope construction was moved from shared semantics into each connection.
+
+**Rejected:** Strict rejection at raw parsing — harness CLIs are unpinned; new event types arrive across minor releases. The open envelope / typed descriptor preserves forward compatibility without ignoring classification responsibility.
+
+**Rejected (wave 2-3 intermediate):** `SemanticEvent` discriminated union with `SemanticClass` flag-bag. This created an IR that no consumer used directly: every downstream path extracted scalar properties, re-dispatching by union variant. The descriptor-over-union choice eliminates the intermediate type and the per-consumer dispatch.
 
 ---
 
@@ -395,6 +429,16 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 **Decision:** A work item's `archived_at` timestamp is stored but never decides whether the item is archived. Directory location (`work/<slug>/` vs `archive/work/<slug>/`) is the sole authority. Archive and reopen operations move the directory first; `__status.json` is updated inside the moved directory. `StoredWorkItemState` is the typed codec for `__status.json`; work-item `status` is an open string vocabulary (not a closed enum) because custom labels exist.
 
 **Rejected:** Closed `WorkStatus` enum — would delete custom labels. Relocating the reconciliation heuristic (the 117-line heuristic that previously reconciled `archived_at` with directory location was deleted).
+
+---
+
+### Three-way work store split: work_state / work_store / work_repository (PR #423 wave 4, 2026-07)
+
+**Decision:** The monolithic `work_store.py` was split into three modules with distinct roles: `work_state.py` (models, metadata codec, slug normalization, shared directory-location primitives), `work_store.py` (pure read projections), and `work_repository.py` (all mutations serialized behind `work-store.flock`). Nine mutation pass-through wrappers and 13 private cross-imports were deleted.
+
+**Why:** The thermo-nuclear audit (p26 H2) identified a circular facade: `work_store.py` and `work_repository.py` had 13 private cross-imports and 9 lazy wrappers, with 4 "unused" helpers that were actually misplaced. The split eliminates the cycle by making the dependency one-way: `work_store` and `work_repository` both import from the neutral `work_state`, but never from each other.
+
+**Rejected:** `WorkLocation` discriminated model (the "judo" suggested by the reviewer). The boundary between work store and repository could be made honest without changing the location callback contract. Retaining the two-optionals shape minimizes behavioral risk in crash-sensitive transitions that move directories between active and archive roots.
 
 ---
 
