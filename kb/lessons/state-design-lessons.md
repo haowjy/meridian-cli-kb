@@ -107,8 +107,8 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 ## Typed State Contracts: Systemic Patterns (PR #423)
 
-Two bug patterns recurred across multiple lanes of the typed-state-contracts
-work and are worth encoding as durable lessons.
+Bug patterns that recurred across multiple lanes of the typed-state-contracts
+work, worth encoding as durable lessons.
 
 ### Operate-Before-Type-Check in `mode="before"` Validators
 
@@ -197,6 +197,33 @@ Silently discarding the quarantine partition is the exact bug class the
 quarantine system exists to prevent. This is the same shape as the
 `SpawnCollection(list)` problem from wave 3, where list operations shed
 quarantines — `SpawnScan` fixed the API, but callers still needed updating.
+
+### Schema-Upgrade Mappings Must Be Derived From Real Disk, Not Old Code (PR #423)
+
+The legacy v2→v3 upgrade codec was first written by deriving the legacy field
+inventory from the previous writer's code (`origin/main`'s `spawn_store.py`).
+Two of its three initial defects came from disk reality that no living code
+generation describes:
+
+- `revision` — an optimistic-concurrency field from a generation OLDER than
+  main, present on 6,801 of 7,095 real rows and referenced by zero code
+  anywhere. The codec's never-drop-unknown rule quarantined every row that
+  carried it.
+- `published_at` absent — the field was introduced recently; only 273 of
+  7,096 real rows had it. The codec's completeness rule quarantined ~96% of
+  real history as `incomplete_terminal`.
+
+Both fixes were driven by a machine-wide inventory script (walk every
+`state.json`, count field presence and unknown keys), which took minutes and
+turned design debate into arithmetic. Final validation: 7,097 rows, 0
+quarantines.
+
+**Lesson:** Persisted history spans every schema generation that ever wrote
+it, including generations whose writer code no longer exists. Before writing
+an upgrade mapping, inventory the real corpus: which fields actually appear,
+at what frequency, and which "required" fields are actually missing. The
+previous writer's code tells you the *latest* legacy shape; the disk tells
+you all of them.
 
 ## Cross-References
 

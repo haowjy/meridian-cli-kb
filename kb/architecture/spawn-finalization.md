@@ -306,10 +306,17 @@ authority. Written by `apply_finalize()`.
 
 Top-level `status` is the sole status field. `TerminalFacts` carries terminal
 evidence but does not repeat status. `StoredSpawnState` uses `extra="forbid"`,
-so persisted rows with a nested `terminal.status` or stale flat lifecycle fields
-are quarantined rather than silently accepted. When `status` is terminal,
-`terminal` must not be `None`; when `status` is active or `unknown`, `terminal`
-must be `None`.
+so unknown fields on a v3 row are quarantined rather than silently accepted.
+When `status` is terminal, `terminal` must not be `None`; when `status` is
+active or `unknown`, `terminal` must be `None`.
+
+Writers stamp `v: 3`. Known legacy v2 shapes (flat runner-exit/terminal
+fields, the interim nested `terminal.status`, retired pre-main fields,
+pre-`published_at` history) upgrade in memory through `state/spawn/legacy.py`
+before the strict model validates — old history stays readable, and only
+conflicting or truly unknown legacy rows quarantine. Reads never rewrite
+legacy files. See the legacy-upgrade decision in
+[../decisions/state.md](../decisions/state.md).
 
 ### Write sequence (crash-only safety invariant)
 
@@ -416,6 +423,7 @@ decide_generic_reconciliation(record, snapshot, now):
 | `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock with inlined authority check; single locked mutation dispatch |
 | `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `scan_spawn_ids`; `StoredSpawnState` quarantine; `Applied`, `Declined`, `Missing` |
 | `state/spawn_aggregate.py` | Published-row lifetime: guarded artifact mutation plus deletion under stable outer spawn lock |
+| `state/spawn/legacy.py` | One-shot v2→v3 in-memory upgrade at the parse boundary; `RETIRED_LEGACY_FIELDS`; deletable once pre-v3 rows are gone |
 | `state/spawn/migration.py` | `ensure_v2_format()`: lazy one-shot migration from JSONL to per-spawn state.json |
 | `state/spawn/legacy_events.py` | V1 event types, reducer, parse; still used during migration |
 | `core/lifecycle.py` | `FinalizeOutcome` return type; mark_finalizing/finalize wrappers |

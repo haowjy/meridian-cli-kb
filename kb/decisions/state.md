@@ -442,6 +442,26 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ---
 
+### One-shot versioned legacy upgrade codec over quarantining history (PR #423, 2026-07)
+
+**Decision:** Spawn `state.json` is stamped `v: 3` by the writer. Legacy v2 (and versionless) rows upgrade in memory at the parse boundary through `state/spawn/legacy.py` BEFORE the strict `extra="forbid"` model validates. Reads never rewrite legacy files; a row's next locked mutation persists v3 naturally. The module is documented as deletable once pre-v3 rows are gone.
+
+The never-guess posture holds, with two curated, evidence-based exceptions derived from a real-disk inventory (7,096 rows across all projects on a dev machine):
+
+- `RETIRED_LEGACY_FIELDS = {"revision"}` — a pre-main optimistic-concurrency field present on 6,801 rows and referenced by zero living code; deliberately dropped during upgrade. Fields outside this set still quarantine as `unknown_fields`.
+- `published_at := finished_at` backfill — `published_at` is a recent field (273 of 7,096 rows had it); for pre-field history, finish time is defined as the publication moment. A total deterministic mapping of a metadata timestamp, not value guessing.
+
+Meaning-carrying conflicts still quarantine: nested/top-level status disagreement, partial runner-exit or terminal facts, terminal facts on an active status.
+
+**Validation:** machine-wide scan of 7,097 real rows → 0 quarantines.
+
+**Alternatives rejected:**
+- Tolerant reader inside the model — a permanent legacy-reading branch is a second schema whose meaning is decided by reader fallbacks; it rebuilds the drift disease this PR deletes.
+- Making `TerminalFacts.published_at` optional — weakens the new contract for all future rows to accommodate old ones.
+- Quarantining all legacy rows (the initial no-backcompat posture) — every machine's entire spawn history goes dark on upgrade; the practical cost was never weighed as its own decision until a user asked "why can't we read legacy?"
+
+---
+
 ## Related
 
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor and typed state contracts
