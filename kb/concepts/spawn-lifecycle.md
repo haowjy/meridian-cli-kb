@@ -37,6 +37,11 @@ management and the top-level chat tree, not for lifecycle semantics.
 
 ## The Status Machine
 
+`SpawnStatus` is a `StrEnum` (`core/domain.py`) — the single authority for the
+status vocabulary. Lifecycle sets (`ACTIVE_SPAWN_STATUSES`,
+`TERMINAL_SPAWN_STATUSES`) are derived from a member-to-lifecycle-class map,
+not declared as separate constants.
+
 ```mermaid
 stateDiagram-v2
     [*] --> queued : spawn created (background)

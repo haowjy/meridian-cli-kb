@@ -344,9 +344,63 @@ Provenance: `work:launch-boundary-resurrection`, issue #437.
 
 ---
 
+## Typed State Contracts (PR #423, 2026-07)
+
+Six decisions made invalid states unparseable or unconstructible, eliminating bug classes that existed only because the types permitted them.
+
+### Single `SpawnStatus` StrEnum authority with member-derived lifecycle sets
+
+**Decision:** `SpawnStatus` is a `StrEnum` in `core/domain.py`. Lifecycle sets (`ALL_SPAWN_STATUSES`, `ACTIVE_SPAWN_STATUSES`, `TERMINAL_SPAWN_STATUSES`) are derived from a `dict[SpawnStatus, SpawnLifecycleClass]` map. `TerminalSpawnStatus` is a `Literal` alias verified against the terminal set at import time.
+
+**Rejected:** Positional ordering with magic count (the sets were previously hand-curated frozensets of strings whose membership could drift from the Literal duplicate). Keeping the Literal as an independent authority (it still exists for static type-checking, but the import-time guard ties it to the StrEnum).
+
+---
+
+### Quarantine, not coercion, for out-of-vocab persisted rows
+
+**Decision:** `StoredSpawnState` validates vocabulary fields in a `model_validator(mode="before")`. Rows with unknown `status`, `kind`, `launch_mode`, or nested fact vocabularies are quarantined: single reads raise `SpawnStateQuarantined`; collection reads partition into `SpawnCollection` (valid rows + quarantine reports). Migration and retention fail closed on quarantine — an unreadable row may contain active work.
+
+**Rejected:** Silently omitting unknown rows (loses data). Coercing to `failed` (misrepresents a parse failure as a lifecycle outcome). The quarantine seam validates type before string operations so a non-string value routes to quarantine rather than crashing with `AttributeError`.
+
+---
+
+### Enforced-equivalence discriminant for terminal lifecycle facts
+
+**Decision:** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. A model validator enforces `status == terminal.status` when terminal, and `terminal is None` when active. Stale flat lifecycle fields are rejected at parse.
+
+`_RevalidatedFrozenModel.model_copy(update=)` round-trips through `model_validate` instead of Pydantic's default shallow copy, closing the escape hatch where `model_copy` would bypass validators.
+
+**Rejected:** Sole-carrier (a single discriminated union carrying both the status and the facts). The model-copy revalidation approach was chosen after discovering that frozen-model immutability alone did NOT close the copy escape hatch — Pydantic's `model_copy` skips validators by default.
+
+---
+
+### Apply/Decline typed mutation outcome
+
+**Decision:** Locked mutators return `SpawnRecord | Decline(reason)`. `write_state_locked()` returns `MutationOutcome(wrote, snapshot, reason)`. The lifecycle layer adds `transitioned` for status-change awareness.
+
+**Rejected:** Four ad-hoc exception classes and two `nonlocal` smuggles that encoded mutation outcomes as control flow. The typed outcome makes the wrote/declined distinction part of the return type, not exception handling.
+
+---
+
+### Open `RawHarnessEvent` envelope to closed `SemanticEvent` union
+
+**Decision:** Raw harness events stay open (unknown event types pass through). Each adapter's `HarnessBundle` registers a `HarnessSemantics` port with an event-name→`SemanticClass` table and optional payload resolver. `HarnessSemantics.normalize()` dispatches by `HarnessId` before `event_type`, producing a closed `SemanticEvent` union. Shared `semantics.py` contains no harness event names.
+
+**Rejected:** Strict rejection at raw parsing — harness CLIs are unpinned; new event types arrive across minor releases. The open envelope / closed semantic union preserves forward compatibility without ignoring classification responsibility.
+
+---
+
+### Directory location as sole archived-ness authority for work items
+
+**Decision:** A work item's `archived_at` timestamp is stored but never decides whether the item is archived. Directory location (`work/<slug>/` vs `archive/work/<slug>/`) is the sole authority. Archive and reopen operations move the directory first; `__status.json` is updated inside the moved directory. `StoredWorkItemState` is the typed codec for `__status.json`; work-item `status` is an open string vocabulary (not a closed enum) because custom labels exist.
+
+**Rejected:** Closed `WorkStatus` enum — would delete custom labels. Relocating the reconciliation heuristic (the 117-line heuristic that previously reconciled `archived_at` with directory location was deleted).
+
+---
+
 ## Related
 
-- [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor
+- [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor and typed state contracts
 - [../architecture/state-system.md](../architecture/state-system.md) — state-system mechanism
 - [../concepts/state-model.md](../concepts/state-model.md) — state mental model
 - [state-and-launch.md](state-and-launch.md) — compatibility map for the previous combined decision page

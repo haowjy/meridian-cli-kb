@@ -35,7 +35,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, web frontend, prompt 
 Durable decision rationale, clustered by domain. Start with [decisions.md](decisions.md) for the chronological index; follow anchors into domain pages for full reasoning.
 
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
-- [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, read-only UUID behavior, and presentation vs storage field naming
+- [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, typed state contracts (discriminated lifecycle facts, quarantine, per-bundle semantics, directory-authoritative work items)
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) — Why descriptor-driven startup, doctor tiering, and sandbox projection policy work the way they do
 - [decisions/state-and-launch.md](decisions/state-and-launch.md) — Compatibility map for the previous combined state/launch decision page

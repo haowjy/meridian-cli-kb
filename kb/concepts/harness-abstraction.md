@@ -109,7 +109,13 @@ content via the system prompt channel instead.
 
 ## Terminal Status Semantics
 
-`harness/semantics.py::terminal_outcome()` classifies harness events to determine spawn terminal status. The classification is **harness-specific** — `event_type` is not globally unique. `turn/completed` is Codex; OpenCode uses `session.idle` for the same semantic.
+Raw harness events arrive as open `RawHarnessEvent` envelopes; each adapter's
+`HarnessBundle` registers a `HarnessSemantics` port that normalizes known events
+into a closed `SemanticEvent` union. `HarnessSemantics.normalize()` dispatches by
+`HarnessId` then by `event_type` within that bundle's table — shared
+`semantics.py` contains no harness event names. The classification is
+**harness-specific**; `event_type` is not globally unique. `turn/completed` is
+Codex; OpenCode uses `session.idle` for the same semantic.
 
 ### What `succeeded` means — per harness
 

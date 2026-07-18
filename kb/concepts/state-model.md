@@ -128,8 +128,11 @@ State is derived by **replaying** all events for a given session ID:
 
 Work items are different: they live under a context-resolved work root (not
 `.meridian/`), each as a directory with `__status.json` inside. Archiving moves
-the entire directory. Directory location is the primary authority for
-active-vs-archived state.
+the entire directory. Directory location is the **sole** authority for
+active-vs-archived state; `archived_at` is stored in `__status.json` but never
+decides whether the item is archived. `StoredWorkItemState` is the typed codec
+for `__status.json`; work-item `status` is an open string vocabulary because
+custom labels exist.
 
 For these, Meridian uses one JSON file per item with **atomic overwrites** via
 `tmp + os.replace()`. The rename intent is stored in a sidecar file before any

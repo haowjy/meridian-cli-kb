@@ -105,9 +105,55 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 **The fix:** For `finalizing` rows, the reaper uses only heartbeat recency, not PID liveness. A stale heartbeat during `finalizing` means the runner crashed mid-drain → `orphan_finalization`.
 
+## Typed State Contracts: Systemic Patterns (PR #423)
+
+Two bug patterns recurred across multiple lanes of the typed-state-contracts
+work and are worth encoding as durable lessons.
+
+### Operate-Before-Type-Check in `mode="before"` Validators
+
+Pydantic `mode="before"` validators receive raw deserialized input, not typed
+model fields. Calling `.strip()` or testing membership (`value in frozenset`)
+before checking `isinstance(value, str)` raises `AttributeError` or `TypeError`
+on non-string input, bypassing the quarantine seam and crashing the reader.
+
+This pattern bit two separate lanes (#400 and #403) in the same way: a
+normalizer called `.strip()` on a value that could be `None`, `int`, or another
+non-string type from corrupt persisted JSON. The fix in both cases was to
+type-check first, then operate:
+
+```python
+if not isinstance(value, str):
+    raise ValueError(...)   # routes to quarantine
+normalized = value.strip()  # safe — value is str
+```
+
+The Gate 2 convergence sweep grepped all eleven `mode="before"` validators
+and confirmed the pattern was fully closed.
+
+### Cross-Language Consumers of Persisted Schema
+
+The "no backwards compatibility" rule is Python-scoped. The Pi
+`meridian-spawn-watch` TypeScript extension reads `state.json` directly and
+broke when lifecycle facts moved from flat fields to nested sub-models: the
+extension rendered `duration` as `-` and misreported quarantined rows as
+`succeeded`.
+
+The fix classified completion from the `terminal` discriminant
+(`terminal !== null`) and deleted the extension's duplicated status vocabulary.
+A deeper TypeScript runtime codec was considered and judged unnecessary — a
+bounded shape guard covering only the fields the extension consumes is
+sufficient for a three-field reader.
+
+**Lesson:** When persisted state has cross-language readers, schema changes
+require a sweep of those readers. The authority boundary is the discriminant
+(`terminal !== null`), not a duplicated vocabulary. Classify from the
+authoritative field; don't mirror the Python enum.
+
 ## Cross-References
 
 - [architecture/state-system.md](../architecture/state-system.md) — full state system architecture
+- [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — discriminated lifecycle facts and quarantine
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — reaper decision logic
 - [principles/design-principles.md](../principles/design-principles.md) — crash-only design, files as authority
 - [principles/invariants.md](../principles/invariants.md) — projection authority rule, JSONL invariant

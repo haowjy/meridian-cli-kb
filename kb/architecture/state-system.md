@@ -101,7 +101,9 @@ stateDiagram-v2
     finalizing --> failed: orphan_finalization reap
 ```
 
-Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `timed_out` is a failure class distinct from generic `failed`, so user-facing filters and statistics can separate deadline failures from other errors.
+Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `timed_out` is a failure class distinct from generic `failed`, so user-facing filters and statistics can separate deadline failures from other errors. `SpawnStatus` is a `StrEnum` (`core/domain.py`); lifecycle sets are derived from a member→class map.
+
+Lifecycle evidence is nested into frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) with an enforced-equivalence invariant: terminal `status` requires `terminal.status == status`; active rows must not carry `terminal`. Out-of-vocab persisted rows are quarantined via `SpawnStateQuarantined`; collection reads partition valid rows from quarantine reports in `SpawnCollection`. See [spawn-finalization.md](spawn-finalization.md) for the discriminated facts schema and quarantine contract.
 
 **Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. See [spawn-finalization.md](spawn-finalization.md) for the full authority lattice.
 
@@ -289,9 +291,9 @@ PID reuse guard: the runner records `runner_pid` and `runner_created_at_epoch`. 
 
 ## Work Item Store
 
-Work items use a different storage pattern from spawns: **one `__status.json` file per work directory** under the context work root (e.g. `<context.work>/<slug>/__status.json`). All mutations (status updates, healing, directory-namespace operations) go through `work_repository.py:_mutate_item()`, which serializes reads and writes under `work-store.flock`. Pure read projections and compatibility facades remain in `work_store.py`.
+Work items use a different storage pattern from spawns: **one `__status.json` file per work directory** under the context work root (e.g. `<context.work>/<slug>/__status.json`). `StoredWorkItemState` is the sole typed codec for `__status.json` contents; reads and writes both route through it. All mutations (status updates, healing, directory-namespace operations) go through `work_repository.py:write_state_locked()`, which serializes reads and writes under `work-store.flock`. Pure read projections and compatibility facades remain in `work_store.py`.
 
-Archiving moves the entire directory to the archive root. Directory location is the primary authority for active-vs-archived state.
+Archiving moves the entire directory to the archive root. Directory location is the **sole** authority for active-vs-archived state; `archived_at` is stored but never decides. Archive and reopen operations move the directory first, then update `__status.json` inside the moved directory. Work-item `status` is an open string vocabulary (not a closed enum) because custom labels exist; `"done"` is reserved for archived items; empty status is rejected.
 
 ## ID Generation
 

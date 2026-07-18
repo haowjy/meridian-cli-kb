@@ -19,6 +19,9 @@ Global `spawns.jsonl` replaced with `spawns/<id>/state.json`. Lazy one-shot migr
 **Concurrency by construction: mutate-under-lock seams as THE store contract (PR #422, 2026-07)**
 All stores (spawn records, archived spawns, work items, hook intervals, scope projections, autosync) use the same mutate-under-lock shape: acquire a stable lock, re-read current state, apply a pure mutator, write atomically. These seams are behavior-preserving contracts a planned future store rewrite inherits. Lock-order invariants: `spawns_flock` before per-spawn lock before scope-projection lock. Orphaned per-spawn lock inodes are GC'd via a validated-exclusive unlink seam (PR #444, closes #427); cleaned session locks use the same primitive. Project-lifetime shared/exclusive gate prevents pruning from destroying live runtime roots. AST conformance guard rejects raw writes at CI. See [state decisions](decisions/state.md#concurrency-by-construction-mutate-under-lock-seams-over-convention-enforced-write-tiers-pr-422-2026-07).
 
+**Typed state contracts: discriminated lifecycle facts, quarantine, and per-bundle semantics (PR #423, 2026-07)**
+Six decisions made invalid states unparseable or unconstructible: single `SpawnStatus` StrEnum authority with member-derived lifecycle sets; quarantine (not coercion) for out-of-vocab rows; enforced-equivalence discriminant for terminal facts with `_RevalidatedFrozenModel` copy revalidation; `Apply/Decline` typed mutation outcome replacing exception classes; open `RawHarnessEvent` envelope to closed `SemanticEvent` union via per-bundle `HarnessSemantics` port; directory location as sole archived-ness authority for work items. See [state decisions](decisions/state.md#typed-state-contracts-pr-423-2026-07).
+
 **Published-row lifetime owns spawn artifacts (issue #437, 2026-07)**
 A spawn-owned artifact may change only while its `state.json` row is published.
 Late parent-creating writers and deletion share the stable external per-spawn
