@@ -37,26 +37,13 @@ See [principles/design-principles.md](../principles/design-principles.md) for fu
 
 ---
 
-### Dual-root state: repo `.meridian/` + user `~/.meridian/projects/<uuid>/`
+### Project identity in `meridian.toml`; no repo-local state (Decision 3, 2026-07)
 
-**Decision:** State is split between a repo-local committed root (`.meridian/`) and a user-level runtime root keyed by UUID (`~/.meridian/projects/<uuid>/`). Runtime state (spawn history, session events, artifact directories) is never committed.
+**Decision:** The committed, machine-managed `[project] id` in `meridian.toml` is the precedence-exempt project identity. A directory is a project when it has `meridian.toml` or `mars.toml`; zero-TOML directories remain runnable. Read-only commands create nothing, while the first durable write creates identity atomically.
 
-**Problems solved:**
-- **Repo moves** — if runtime state lived in `.meridian/`, renaming or moving the repo would orphan all prior spawn history. UUID keying means history survives repo renames.
-- **Privacy** — spawn history, report content, and conversation artifacts are private to the developer. Committing them would leak into shared history.
-- **Shareability** — committed scaffolding (KB, work directories) benefits from being in the repo. Runtime state doesn't benefit from sharing.
+The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<id>/` for default context. No state, lock, cache, generated `.gitignore`, or fallback context directory lives under repo-local `.meridian/`. Clones and worktrees retain shared history because identity remains committed and immutable.
 
-**Alternatives rejected:**
-- All state in `.meridian/` (original design) — broke on repo renames, committed private runtime data
-- All state in `~/.meridian/` — lost the committable scaffolding advantage for KB and work directories
-
----
-
-### UUID generation skipped for read-only commands
-
-**Decision:** State bootstrap (UUID creation + runtime directory setup) is skipped for read-only commands. `resolve_project_runtime_root()` never creates a UUID; only `resolve_project_runtime_root_for_write()` does.
-
-**Why:** Without this, commands like `meridian spawn list` in an untouched CI checkout would create a `.meridian/id` file and `~/.meridian/projects/<uuid>/` directory — a surprising side effect from a read command that pollutes CI environments and makes the first `meridian` invocation in a new checkout unexpectedly stateful.
+**Alternatives rejected:** repo-local identity/state created a second root; local-only identity split clones and worktrees; path or VCS-derived identity broke moves or the no-VCS contract; precedence overrides could silently split one project across state roots.
 
 ---
 
