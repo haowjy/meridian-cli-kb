@@ -124,6 +124,36 @@ The same mutate-under-lock shape applies across all stores:
 
 These seams are behavior-preserving contracts: a planned future store rewrite (typed state, store scaling) inherits the same lock-acquire / re-read / pure-mutate / atomic-write shape.
 
+### Published Spawn Artifact Lifetime
+
+The published `state.json` row owns the lifetime of every artifact under its
+spawn directory. Once that row is gone, no signal, journal, history record,
+diagnostic, metadata file, heartbeat, connection, or process-scope registration
+may recreate or change the aggregate.
+
+`spawn_aggregate.py` gives deletion and late writers one ordering boundary:
+
+1. `mutate_published_spawn_artifact()` acquires
+   `locks/spawns/<id>.lock`.
+2. It re-reads `spawns/<id>/state.json` while holding the lock.
+3. It optionally evaluates a current-row predicate, such as `status == failed`.
+4. It performs the supplied artifact mutation or returns `False` without
+   touching the spawn directory.
+5. `delete_published_spawn()` takes the same outer lock before removing the
+   directory.
+
+If the writer wins, deletion waits and then removes the complete aggregate. If
+deletion wins, the writer observes no published row and fails closed. Artifact-
+specific locks remain nested inside the spawn lock. Heartbeats are the lighter
+case: they never create their parent and stop when deletion makes the path
+disappear. Harness connection startup and process adoption likewise require an
+already-published directory rather than creating one.
+
+This seam belongs above the persistence leaves because low-level atomic and
+JSONL writers cannot decide whether a spawn is still published. See the
+[state decision](../decisions/state.md#published-row-lifetime-owns-spawn-artifacts-issue-437-2026-07)
+for the rejected alternatives and rationale.
+
 ### Migration: ensure_v2_format()
 
 `state/spawn/migration.py:ensure_v2_format()` performs a one-shot lazy migration on first access to a runtime root:
@@ -185,7 +215,12 @@ State-facing writes use `state/atomic.py:atomic_write_text()` which sets mode `0
 
 **Stable lock inodes with GC seam:** all coordination locks live under `locks/<domain>/` outside the directories they protect. This prevents the split-brain failure where one process unlinks a lock file and creates a new inode while another still holds the old one (POSIX `flock` is per-open-file-description, not per-path). Lock inodes are never unlinked except through a validated GC seam: `unlink_validated_lock()` unlinks only while holding a fresh, non-reentrant exclusive flock on the inode currently linked at that path, immediately before release. The acquire-side revalidation loop (`open → flock → compare fstat(fd) vs stat(path) → retry on mismatch`) makes this provably split-brain-free. Two GC call sites use this primitive: `lock_gc.py` sweeps orphaned per-spawn locks (four classes under `locks/`) when the corresponding spawn directory no longer exists; `cleanup_stale_sessions()` unlinks cleaned session locks before release. Both run on episodic paths (doctor, prune, cleanup), never on hot paths. The forbidden pattern — unlinking while a lock remains held afterwards (e.g. inside a reentrant context) — is never used.
 
-`delete_published_spawn()` in `spawn_aggregate.py` is the single composition owner for published-row deletion: it acquires the spawn lock then the scope-projection lock, checks for pending cleanup claims, and removes the spawn directory. Cross-leaf spawn operations belong in `spawn_aggregate.py`, not in either persistence leaf.
+`spawn_aggregate.py` owns published-row lifetime coordination. Artifact writers
+use `mutate_published_spawn_artifact()` to check publication under the spawn
+lock; deletion uses `delete_published_spawn()` to acquire the spawn lock then
+the scope-projection lock, check for pending cleanup claims, and remove the
+spawn directory. Cross-leaf spawn operations belong in the aggregate, not in
+either persistence leaf.
 
 ### Lock-Order Invariants
 

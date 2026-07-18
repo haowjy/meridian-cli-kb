@@ -96,6 +96,14 @@ Spawn state uses one JSON file per spawn (since 2026-05 migration). Reads are O(
 
 **Single locked mutation path:** every update to a published spawn calls `write_state_locked()`, which acquires the stable per-spawn lock, re-reads current state, applies a pure mutator, and writes atomically. The lock identity lives under `locks/spawns/` outside the spawn artifact directory; orphaned lock inodes are removed only through a validated GC seam (see [state-system locking](../architecture/state-system.md#platform-locking)). There is no public unlocked write path.
 
+**The row owns its artifacts:** `state.json` is not merely one file beside the
+prompt, history, heartbeat, journals, and diagnostics. Its publication is the
+lifetime boundary for the whole spawn aggregate. Late work checks the row under
+the same stable external lock used by deletion, or uses a no-parent-create
+operation such as heartbeat touch. A missing row means the mutation is refused;
+the writer does not reconstruct an incomplete spawn directory. See
+[Published Spawn Artifact Lifetime](../architecture/state-system.md#published-spawn-artifact-lifetime).
+
 ### JSONL Event Stores (Sessions)
 
 ```

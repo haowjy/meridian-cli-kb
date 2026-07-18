@@ -305,6 +305,50 @@ Two call sites use this primitive:
 
 ---
 
+### Published-row lifetime owns spawn artifacts (issue #437, 2026-07)
+
+**Decision:** A spawn-owned artifact may be created or changed only while that
+spawn has a published `state.json` row. Parent-creating or otherwise late
+mutations use `mutate_published_spawn_artifact()` in `spawn_aggregate.py`. The
+seam acquires the stable external per-spawn lock, re-reads the row while locked,
+optionally checks a current-row predicate, and runs the artifact mutation only
+if the row is still eligible. `delete_published_spawn()` uses the same outer
+lock, so deletion and a late artifact write have a total order.
+
+Simple writers that do not need to create parents, such as heartbeats, may fail
+closed on `FileNotFoundError` instead of taking the aggregate seam. Connection
+startup and child-process adoption treat the published spawn directory as a
+precondition; they never manufacture it. Late diagnostics are best-effort and
+may be dropped rather than outlive their authoritative row.
+
+**Why:** The spawn directory was both the aggregate being deleted and the place
+where low-level helpers recreated parents. Retention could remove a terminal
+spawn, then an awaited callback could append a journal, write metadata, or
+touch a heartbeat and reconstruct `spawns/<id>/` without `state.json`. The
+result was a ghost directory: invisible to authoritative listing, confusing to
+cleanup, and able to delay external lock GC. Checking existence before the
+write was insufficient because deletion could win between the check and the
+mutation.
+
+**Rejected:**
+
+- Guard only the launch-boundary writer. Harness callbacks, history drains,
+  signals, scope registration, metadata, reaper evidence, and other
+  asynchronous writers share the same lifetime race.
+- Teach atomic-write and JSONL helpers about spawn publication. Those helpers
+  are deliberately domain-blind and serve state outside the spawn aggregate.
+- Preserve direct connection startup without a published row by recreating the
+  directory. Missing publication is a lifecycle violation, not a compatibility
+  case.
+
+The resulting lock order keeps the per-spawn lifetime lock outside specialized
+artifact locks: spawn lock before launch-boundary append lock, and spawn lock
+before process-scope projection lock.
+
+Provenance: `work:launch-boundary-resurrection`, issue #437.
+
+---
+
 ### Mutate-under-lock seams stay store-specific; generic mutation framework rejected (PR #444, 2026-07)
 
 **Decision:** The six mutate-under-lock seams (spawn records, archived spawns, work items, hook intervals, scope projections, autosync) stay store-specific. A generic mutation framework (e.g. a `LockedStore[T]` base class or protocol) was evaluated in the thermo-nuclear consistency review and rejected.

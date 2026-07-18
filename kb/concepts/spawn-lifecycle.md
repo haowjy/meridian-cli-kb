@@ -18,8 +18,10 @@ At its core, a spawn is:
 2. An **artifact directory** (`spawns/<id>/`) — prompt, output, report, heartbeat
 3. A **running harness process** (while active) — Claude, Codex, OpenCode, or Direct
 
-The state file is created before the process launches. It persists after the
-process exits. The process itself is ephemeral — the spawn record is durable.
+The state file is created before the process launches and persists after the
+process exits until retention deletes the spawn aggregate. The process itself
+is ephemeral; while the aggregate is published, the spawn record is its durable
+authority.
 
 ### Primary vs Child
 
@@ -357,6 +359,9 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 7. Runner-origin finalization supersedes reconciler-origin finalization.
 8. Reconciliation only signals managed-primary backend/TUI/runtime children from explicit repair/control paths, after a finalize-as-failed decision, and only when metadata or recorded scopes safely identify them.
 9. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.
+10. The published `state.json` row owns every spawn artifact. After retention
+    deletes the row, late writers fail closed and cannot recreate the spawn
+    directory.
 
 ---
 
