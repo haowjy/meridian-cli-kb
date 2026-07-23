@@ -38,7 +38,7 @@ bind_launch_context()       ← cheap materialization, spawn-ID + paths + env
 LaunchContext
 ```
 
-**`prepare_launch_surface()`** — the expensive phase. Runs model/harness/profile/skill resolution, composition, prompt assembly, semantic IR projection, skill injection, continuation resolution. Called once per spawn. Safe to call before the spawn ID is known — it produces no side effects.
+**`prepare_launch_surface()`** — the expensive phase. Runs model/harness/profile/skill resolution, composition, prompt assembly, semantic IR projection, skill injection, continuation resolution, and policy gates (e.g. `deny_headless_harnesses`). Called once per spawn. Safe to call before the spawn ID is known — it produces no side effects. Policy decisions that can be evaluated before the spawn ID exists belong here, not in bind.
 
 **`PreparedLaunchSurface`** — frozen dataclass; the in-memory boundary between preparation and binding. Carries: resolved request, harness, seed session info, composition warnings, loaded references, agent inventory prompt, context prompt, alias catalog, model selection context. Deliberately excludes spawn IDs, report paths, env, argv, and permission outputs — everything that varies per bind.
 

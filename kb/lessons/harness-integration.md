@@ -164,6 +164,40 @@ Do not create a no-op coordinator just to make the generic loop look uniform.
 ---
 
 
+## Test Env Isolation: Private `_MERIDIAN_*` Vars Leak Across Session Boundaries
+
+**The bug:** Tests run from inside a Meridian-managed session (e.g. a spawned
+agent running `pytest`) inherited `_MERIDIAN_DEPTH` and `_MERIDIAN_HARNESS`
+from the parent session. These private env vars silently changed runtime
+behavior: `_MERIDIAN_DEPTH` caused the reaper to skip reconciliation (depth
+gating invariant), and `_MERIDIAN_HARNESS` affected harness identity detection.
+Reaper-scope integration tests that worked in local CI failed when run from a
+Meridian spawn.
+
+**Why it burned two cycles:** The conftest fixture cleared `MERIDIAN_*` (public)
+env vars but not `_MERIDIAN_*` (private internal) vars. The first investigation
+cycle (#456) identified the reaper test failure but attributed it to a state
+bug. The second cycle (during PR #460 review) reproduced the same false
+positives and traced them to the inherited private env vars. Both cycles would
+have been avoided by clearing the full variable family from the start.
+
+**The fix (PR #459):** The global conftest fixture now clears all `_MERIDIAN_*`
+private vars in addition to `MERIDIAN_*` public vars. This ensures tests run in
+a clean env regardless of whether they are launched from inside a Meridian
+session.
+
+**The lesson:** Private/internal env vars are still env vars. A test fixture that
+clears the public namespace but not the private namespace creates a boundary
+mismatch: production code reads private vars that tests did not neutralize.
+When adding new `_MERIDIAN_*` vars to the runtime, verify the test conftest
+clears them. The conftest clear pattern should match the full `_MERIDIAN_*` +
+`MERIDIAN_*` family, not just the public surface.
+
+**Where this lives:** `tests/conftest.py` (global fixture),
+`src/meridian/lib/launch/env.py` (where private vars are set)
+
+---
+
 ## Cursor: Stale Mars Binary Leaves harness_model Unresolved
 
 **The scenario:** When testing cursor spawns in a worktree, the worktree had a stale

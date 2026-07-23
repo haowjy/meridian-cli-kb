@@ -124,19 +124,72 @@ contains no harness event names. The classification is **harness-specific**;
 
 | Harness | Terminal event | `succeeded` means | Failure paths |
 |---------|---------------|-------------------|---------------|
-| **Codex** | `turn/completed` | The agent finished its turn and terminated cleanly | `error/connectionClosed` (only failure path) |
+| **Codex** | `turn/completed` | Nested `turn.status` is `completed` or absent | `turn.status=failed` → failed/1 with error; `interrupted` → cancelled/130; unknown status → failed/1 diagnostic; `error/connectionClosed` → failed/1 |
 | **Claude** | `result` | `is_error=False`, subtype `"success"` or `""`, terminal_reason `"completed"` or `""` | `is_error=True`, or non-success subtype/terminal_reason |
 | **Cursor** | `result` | Same logic as Claude: `is_error=False`, subtype `"success"` or `""` | `is_error=True`, or non-success subtype |
 | **OpenCode** | `session.idle` | Session reached idle state cleanly | `session.error` |
 | **Pi** | `agent_end` | Last assistant message `stopReason != "error"` and not abort/cancel | `stopReason="error"`, or `response` with `success=False` |
 
-### Codex: `succeeded` = turn-completion, NOT work-correctness
+### Codex turn-status ladder
 
-Codex has the leanest terminal-outcome signal of all harnesses: `turn/completed` → `succeeded`, `error/connectionClosed` → `failed`. There is no `result.is_error`, no subtype inspection, no `stopReason`. This means **Codex `succeeded` means the agent finished its turn and terminated cleanly** — it does NOT mean the work is correct.
+Codex `turn/completed` events carry a nested `turn.status` field that the
+payload resolver reads to classify terminal outcomes. The ladder (PR #460,
+2026-07):
 
-This is intentional, not a gap. Meridian is a coordination layer; judging work quality is the orchestrator's/reviewer's job (read the report + diff). Other harnesses have richer signals incidentally, not by design requirement — Claude's `is_error` and OpenCode's `session.error` reflect their own internal error taxonomy, not a cross-harness work-correctness standard.
+| `turn.status` | Terminal outcome | Exit code | Error |
+|---|---|---|---|
+| `completed` or absent | succeeded | 0 | none |
+| `failed` | failed | 1 | `turn.error.message` (preferred) or `turn.error` stringified |
+| `interrupted` | cancelled | 130 | `"interrupted"` |
+| any other value | failed | 1 | `"unexpected_codex_turn_status:<value>"` |
+
+`error/connectionClosed` is unchanged: failed/1 with the transport message,
+tagged as `REPLACEABLE_TRANSPORT_CLOSE` so the publication barrier can prefer
+a more specific prior outcome.
+
+Before PR #460, every `turn/completed` unconditionally mapped to succeeded/0.
+A Codex upstream 400 (e.g. unsupported model) arrived as `turn/completed` with
+`turn.status=failed`, but Meridian persisted it as succeeded with no error.
+The fix reads the turn payload in the semantics port; the raw connection
+adapter is untouched.
+
+The `interrupted` → cancelled/130 mapping mirrors the Pi abort convention
+(SIGINT exit code). The `unknown` fallback treats unrecognized vendor statuses
+as failures with a diagnostic rather than silently succeeding.
+
+**Codex `succeeded` = turn-completion, NOT work-correctness.** Even with the
+richer status ladder, Codex `succeeded` means the harness finished cleanly, not
+that the work is correct. Meridian is a coordination layer; judging work
+quality is the orchestrator's/reviewer's job (read the report + diff).
 
 **Rejected: `meridian spawn done --error`** — would have required making the user's done signal an outcome override, replacing the harness-written status. "Succeeded = finished cleanly" is the right altitude for the status field; the report is where correctness lives.
+
+### `TerminalEventOutcome` succeeded invariant
+
+`TerminalEventOutcome` enforces at construction that a `succeeded` outcome
+cannot carry a nonzero exit code or an error string (PR #460, 2026-07). This
+makes the invalid state that #448 demonstrated unrepresentable:
+
+```python
+@dataclass(frozen=True)
+class TerminalEventOutcome:
+    status: SpawnStatus
+    exit_code: int
+    error: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.status == SpawnStatus.SUCCEEDED and (
+            self.exit_code != 0 or self.error is not None
+        ):
+            raise ValueError(
+                "succeeded terminal outcomes require exit_code=0 and no error"
+            )
+```
+
+Harness terminal payloads are normalized once at the semantics port;
+downstream consumers read the descriptor. The invariant ensures that
+"succeeded with an error" can never reach the state store, lifecycle
+resolution, or durable spawn records.
 
 ### Cross-Harness Death and Inject Contracts
 

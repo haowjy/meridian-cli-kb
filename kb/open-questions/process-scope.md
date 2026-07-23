@@ -66,6 +66,44 @@ mechanism gap.
 
 ---
 
+### PROC-009: `root_pid` Conflates Launcher, Health, and Containment Identity (issue #449)
+
+**Where:** `src/meridian/lib/harness/connections/managed_backend.py`,
+`src/meridian/lib/state/process_scope_projection.py`
+
+**The issue:** `ProcessScopeSnapshot.root_pid` represents three concepts that can
+diverge for managed backends: the launcher shim PID, the effective serving process
+(health target), and the containment boundary (PGID). With npm Codex 0.144.4, the
+recorded `root_pid` is Node (the npm shim); it forks a native `codex app-server`
+child in the same PGID. Killing the recorded root reparents the native child to PID 1,
+but `/readyz` remains HTTP 200 and the turn completes. The shim PID is therefore not
+an effective health identity, while `pgid` remains the correct POSIX containment handle.
+
+**Observed scenario:** Kill the recorded `root_pid` of a managed Codex backend.
+The native vendor child reparents to PID 1, continues serving turns, and readiness
+checks pass. The scope projection records a release for the root PID but the backend
+is still alive and functional. Process scopes correctly clean up at normal terminal
+time via PGID, so the terminal release path is not broken -- the issue is the interval
+between shim death and terminal, during which registered backend liveness is wrong.
+
+**What's needed:** Model at least three identity roles: launcher PID (the direct
+child of `create_subprocess_exec`), effective serving/health PID (the process that
+owns the readiness endpoint), and containment PGID. For Codex, discover and record
+the effective server child after readiness (POSIX-first is acceptable) while retaining
+PGID for cleanup. A narrow documentation-only change would explain the current behavior
+but would not make registered backend liveness truthful.
+
+**Why deferred:** Diagnostics enrichment (medium effort) and process-identity redesign
+(large effort) are separable. The diagnostics piece (enriching connection-close events
+with managed-process exit code and stderr) could ship standalone. The identity redesign
+is large because it touches scope projection, reaper paths, and managed-backend lifecycle.
+Investigation findings posted to issue #449 (comment 5054101045).
+
+**Decision context:** [decisions/launch.md](../decisions/launch.md#d-process-scope-ownership-durable-process-scope-ownership-over-posix-only-or-psutil-only-cleanup)
+and [architecture/process-scope.md](../architecture/process-scope.md)
+
+---
+
 ### PROC-008: Thread Windows Job Handles Through Scope Termination
 
 **Where:** `src/meridian/lib/platform/process_scope/base.py`,

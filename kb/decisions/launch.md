@@ -819,6 +819,49 @@ See [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md).
 
 ---
 
+### D-headless-deny-at-prepare: Headless deny policy moved from bind to prepare (PR #460, 2026-07)
+
+**Decision:** The `deny_headless_harnesses` policy check moved from
+`bind_launch_context()` to `prepare_launch_surface()`. The bind-time check is
+retained as defense in depth for persisted worker requests that may have
+bypassed preparation.
+
+**Why:** The deny check lived in `bind_launch_context()` -- the cheap
+materialization phase. Background spawns call `prepare_launch_surface()` before
+row reservation, then persist a worker request. The detached worker later calls
+`bind_launch_context()` in a separate process. Between submission and worker
+bind, the spawn row exists and `spawn wait` blocks on it. The denial surfaces
+only seconds later as a generic `launch_failure` from the worker.
+
+Moving the check to preparation rejects denied spawns synchronously at
+submission, before any row, log directory, or worker artifacts are created. The
+caller receives the actionable policy error immediately.
+
+**Structural principle:** Policy decisions belong in preparation; bind purely
+materializes. The prepare/bind split separates "should this spawn run?"
+(preparation) from "build the process arguments" (binding). Deny-headless is a
+policy decision, not a materialization step. This principle applies to any
+future policy gate: if it can be evaluated before the spawn ID exists, it
+belongs in `prepare_launch_surface()`.
+
+**Guard scope:** The enforcement is guarded to `SPAWN_PREPARE` surface only --
+primary launches are unaffected. The bind-time check remains because the
+background worker binds from a persisted request that was not necessarily
+prepared in the same process.
+
+**Alternatives rejected:**
+- Add an ops-level preflight check before `execute_spawn_background()` --
+  duplicates the policy outside the composition seam; `prepare_launch_surface()`
+  is the natural home because all required inputs (resolved harness, config
+  snapshot) are already available there.
+- Remove the bind-time check entirely -- unsafe because persisted worker
+  requests skip preparation; defense in depth is cheap.
+
+See [architecture/launch-system.md](../architecture/launch-system.md) for the
+prepare/bind split.
+
+---
+
 ## Spawn Goal (`--goal`)
 
 ### Spawn-level goal authority: not work-level, not prompt sugar

@@ -94,6 +94,30 @@ finalizing → succeeded | failed | cancelled
 
 ---
 
+## Terminal Event Outcome Invariant
+
+`TerminalEventOutcome` enforces at construction that a `succeeded` outcome
+requires `exit_code=0` and `error=None`. Constructing a succeeded outcome with
+a nonzero exit code or an error string raises `ValueError`. This makes the
+invalid state unrepresentable rather than relying on downstream checks.
+
+**Why:** Before this invariant, Codex `turn/completed` with `turn.status=failed`
+was normalized to succeeded/0 because the semantics port did not inspect the
+nested turn payload. The lifecycle resolver then persisted `succeeded` with the
+upstream error string intact -- a contradictory state that misled callers. The
+construction-time check eliminates this class of bug across all harnesses, not
+just Codex.
+
+**Effect:** Every call site that constructs a `TerminalEventOutcome` must
+classify the outcome correctly before construction. A harness adapter that
+attempts to report succeeded with an error will fail immediately at the
+semantics layer rather than silently propagating contradictory state.
+
+See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) for
+the per-harness terminal status semantics.
+
+---
+
 ## Harness Strategy Map Invariant
 
 Every `SpawnParams` field must be either in the adapter's `STRATEGIES` dict or in `_SKIP_FIELDS`. Missing fields raise `ValueError` at command-build time, not at call time. This is an early-detection invariant — it catches adapter drift at test time or first invocation, not in production.

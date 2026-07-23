@@ -272,6 +272,65 @@ Store-level ordering is a pipeline concern tracked as #431 evidence.
 
 ---
 
+### Wait Fail-Fast Reporting (#458)
+
+**Where:** `src/meridian/lib/ops/spawn/api.py` — `spawn_wait_sync()`
+
+**The issue:** `spawn wait` blocks until all pending spawns reach a terminal
+state. When a denied or failed spawn finalizes quickly (e.g. after the
+headless-deny fix in PR #460), the healthy spawns in the wait set continue
+running. The caller sees the failure only after the entire wait set drains.
+A fail-fast mode would report the first terminal failure immediately without
+waiting for healthy spawns to complete.
+
+**What's needed:** An eager/fail-fast option on `spawn wait` (and
+`spawn_wait_sync`) that returns as soon as any spawn in the wait set reaches a
+terminal failure status. Checkpoint mode already returns partial state, but it is
+timer-driven, not event-driven. Fail-fast is conceptually distinct: it reacts to
+a specific failure, not to a timer expiry.
+
+**Why deferred:** Scoped out of PR #460 (#442 fix) as a separate concern.
+The deny-at-prepare fix eliminates the most common trigger (denied spawns no
+longer reach the wait set), reducing urgency. Filed as issue #458.
+
+**Decision context:** `decisions-bugfix-sprint.md` in the workstream-roadmap work
+directory.
+
+---
+
+### Codex Death Diagnostics (#449 — medium effort piece)
+
+**Where:** `src/meridian/lib/harness/connections/codex_ws.py` —
+`_read_messages_loop()`
+
+**The issue:** When the Codex WebSocket connection closes unexpectedly, the
+synthetic `error/connectionClosed` event carries only the transport exception
+string (e.g. "no close frame received or sent"). The managed backend's exit code
+and stderr bytes exist on disk but are not gathered before the synthetic event is
+emitted. The result is that durable state/report diagnostics lose the most
+informative evidence.
+
+Claude and OpenCode already gather bounded managed-process evidence (exit code +
+stderr tail) before emitting their synthetic connection-close events. Codex does
+not, leaving a parity gap.
+
+**What's needed:** On unexpected Codex WS close/reader failure, gather bounded
+managed-process evidence before emitting the synthetic event: wrapper exit/return
+code (brief bounded wait if needed) and stderr tail. Reuse the OpenCode/Claude
+pattern, ideally through one managed-backend diagnostic helper so parity cannot
+drift again. Preserve the WebSocket transport text as transport context alongside
+the richer diagnostics.
+
+**Why deferred:** The diagnostics piece is separable from the process-identity
+redesign (PROC-009 in [process-scope.md](process-scope.md)). The identity work
+is large; diagnostics alone are medium. Deferred from the bugfix sprint because
+neither blocks the other or the CI-unblock goal.
+
+**Decision context:** Investigation findings: `findings/spawn-lifecycle-investigation.md`
+in the workstream-roadmap work directory; issue #449 comment 5054101045.
+
+---
+
 ### Typed Terminal Provenance (#438)
 
 **Where:** `src/meridian/lib/streaming/pi_completion_profile.py`, `src/meridian/lib/harness/connections/pi_rpc.py`

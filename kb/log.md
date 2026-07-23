@@ -4,6 +4,60 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-22 — Bugfix sprint knowledge capture (PRs #459/#460)
+
+### Trigger
+
+Bugfix sprint settled: PR #459 (bugfix-ci-unblock) and PR #460
+(spawn-lifecycle-fixes) address #442 (deny-headless after background
+submission), #448 (Codex failed turn normalized as success), #450 (stale
+continue task_dir), #456 (inherited env vars in tests), #457 (--from UUID
+resolution), plus test pruning. PRs open; merge gate awaiting human approval.
+
+### What changed
+
+**Stale content fixed:**
+- `concepts/harness-abstraction.md`: Codex terminal status table rewritten
+  from unconditional `turn/completed` → succeeded to the payload-resolver
+  turn-status ladder (completed/failed/interrupted/unknown). "Leanest terminal
+  outcome signal" claim replaced with the actual ladder. Codex doctrine
+  paragraph updated to reflect richer classification while preserving the
+  "succeeded = turn-completion, not work-correctness" principle.
+
+**New content:**
+- `concepts/harness-abstraction.md`: new "TerminalEventOutcome succeeded
+  invariant" section documenting the construction-time check that makes
+  succeeded-with-error unrepresentable.
+- `principles/invariants.md`: new "Terminal Event Outcome Invariant" section.
+- `decisions/launch.md`: new D-headless-deny-at-prepare decision recording
+  the policy placement principle (policy decisions in preparation, bind purely
+  materializes) and the structural rationale.
+- `decisions.md`: new foundational entry and updated Launch domain row.
+- `lessons/harness-integration.md`: new "Test Env Isolation" lesson
+  documenting the `_MERIDIAN_*` private env var inheritance bug and fix.
+- `lessons/overview.md`: lesson index updated.
+- `architecture/launch-system.md`: prepare_launch_surface description updated
+  to mention policy gates.
+- `open-questions/process-scope.md`: new PROC-009 for root_pid identity
+  conflation (#449).
+- `open-questions/future-work.md`: new deferred entries for #458 (wait
+  fail-fast) and #449 medium-effort diagnostics piece.
+
+### Already current (verified, no change needed)
+
+- `architecture/launch-system.md`: prepare/bind split description already
+  covers the two-phase architecture; only the prepare description needed a
+  one-line policy-gate mention.
+- `codebase/harness-adapters.md`: no Codex-specific terminal detail that
+  needed updating (terminal semantics live in concepts/harness-abstraction.md).
+- `concepts/spawn-lifecycle.md`: no stale content from this sprint.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-17 — Harness-hardening audit knowledge reconciliation (PRs #446/#447, v0.3.36/v0.3.37)
 
 ### Trigger
