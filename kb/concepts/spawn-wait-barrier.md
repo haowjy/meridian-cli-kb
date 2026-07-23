@@ -83,6 +83,34 @@ open a new barrier, not the barrier itself.
 
 ---
 
+## Fail-Fast
+
+```bash
+meridian spawn wait --fail-fast
+meridian spawn wait --fail-fast p2404 p2408
+```
+
+`--fail-fast` exits as soon as any spawn in the wait set reaches `failed` or
+`timed_out`, without waiting for the remaining spawns to finish. The output
+includes which spawns triggered the early exit and which are still pending.
+
+**Trigger statuses:** `failed` and `timed_out` only. `cancelled` does not
+trigger fail-fast -- cancellation keeps existing aggregate-exit behavior where
+the orchestrator handles all terminal results together.
+
+**Snapshot consistency:** When fail-fast fires, the implementation re-reads
+all pending spawns from state in one pass and derives the `pending_ids` from
+that same snapshot. This prevents a spawn that goes terminal during the
+re-read from appearing as both failed and pending. If the re-read shows
+everything went terminal, the normal completed output is returned instead.
+
+**Output shape:** `SpawnWaitMultiOutput` with `fail_fast=True` and
+`pending_ids` listing the spawns that are still running. Text output leads
+with a summary line naming the failed IDs and the pending IDs. JSON output
+adds `fail_fast` and `pending_ids` fields to the wire shape.
+
+---
+
 ## Yield Semantics
 
 `spawn wait` uses a **yield-checkpoint** model, not a hard timeout:
