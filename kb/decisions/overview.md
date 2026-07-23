@@ -15,6 +15,7 @@ Decision records explain why durable architectural choices were made — what al
 | [launch.md](launch.md) | Launch pipeline, composition seam, harness identity env, spawn wait barrier, spawn-level goal authority and completion-contract composition (D32–D34, D57, D63-launch, 2026-05 spawn-goal) |
 | [startup-health-sandbox.md](startup-health-sandbox.md) | Descriptor-driven startup, bootstrap split, doctor/reaper, sandbox projection policy |
 | [state-and-launch.md](state-and-launch.md) | Compatibility map for links that used the previous combined state/launch decision page |
+| [testing.md](testing.md) | Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline |
 | [telemetry.md](telemetry.md) | Three-layer observability: envelope design, storage layout, readers vs. sinks, liveness, retention (D61–D70) |
 | [workspace.md](workspace.md) | Workspace config: `[workspace]` in `meridian.toml`, named entries, missing-path behavior, dedicated loader (D41–D46) |
 | [git-autosync-merge-strategy.md](git-autosync-merge-strategy.md) | Git autosync: merge over rebase, local-wins conflict handling, AGENTS.md notice exception, artifact ownership split (D-autosync-1 through D-autosync-4) |

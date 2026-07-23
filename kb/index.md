@@ -43,6 +43,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/model-resolution.md](decisions/model-resolution.md) — Why Mars owns alias authority, routing architecture, profile schema, policy matching, harness derivation from model, and candidate-chain semantics
 - [decisions/package-management.md](decisions/package-management.md) — Why `.mars/` replaced `.agents/`, targeting design, compiler pipeline choices, universal skill schema, bootstrap doc model, upgrades-available direct-deps fix
 - [decisions/managed-command-references.md](decisions/managed-command-references.md) — `managed_cmd()` pattern: how mars-agents surfaces `mars` vs `meridian mars` in user-facing output based on `MERIDIAN_MANAGED`
+- [decisions/testing.md](decisions/testing.md) — Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
 - [decisions/workspace.md](decisions/workspace.md) — Why named workspace entries, permission-grant vs context-surfacing split, missing-path behavior, migration strategy
 - [decisions/spawn-cwd-worktree-anchor.md](decisions/spawn-cwd-worktree-anchor.md) — Authority/task domain split: single reference anchor, kb: resolution from authority_root, stale worktree hard error, managed vs manual worktree ownership

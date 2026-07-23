@@ -156,6 +156,12 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **The positive rule:** Retain tests at stable seams with explicit contracts (policy precedence, fail-closed behavior, pure helper logic, cross-boundary behavior). Delete tests that verify collaborator call sequences, internal function invocations, or mock return plumbing. When reviewers find over-collapse, restore behavior contracts, not full suites.
 
+Test location follows the behavior under test: unit for the pure functional
+core, integration for real seams, contract for payload/retry shapes, platform
+for OS behavior, and smoke for CLI-visible workflows. See
+[testing decisions](../decisions/testing.md) for the tier boundaries, security
+exception, and deletion safeguards.
+
 **Smoke tests as markdown guides, not pytest:** `tests/smoke/` uses `.md` files, not pytest functions. Smoke tests for CLI behavior require real harness execution that pytest cannot automate usefully. Markdown guides are human-readable scenarios that can be followed interactively or delegated to `@smoke-tester`. Pytest-based smoke tests add maintenance burden without automation benefit — they break on every CLI shape change but don't actually validate end-to-end behavior. New smoke scenarios go in `tests/smoke/<topic>.md`, not in `test_*.py` files.
 
 **The framework-testing deletion criterion:** A second, independent reason to delete a unit test: it tests framework behavior rather than project logic. Tests that parse a known TOML/JSON string and assert that `serde::Deserialize` or a stdlib function deserialized it correctly are testing the framework's correctness, not the project's. The framework is already tested by its own maintainers. Delete these tests without replacing them — they add maintenance burden with no coverage value. The concrete criterion: if the test would pass or fail identically in an unrelated project that happens to use the same library, it is a framework test. Applied during init-ux-overhaul (2026-05): 4 serde-parse unit tests deleted from mars-agents that verified `toml::from_str()` deserialized known struct shapes correctly.

@@ -12,6 +12,11 @@ The key insight: **deleting a seam is a hypothesis that the seam's contract is e
 
 The correction pattern matters: reviewers found over-collapse, and the fix was to write small targeted behavior contracts — not to restore the original broad mock-heavy suites. The lesson is not "be conservative about deleting tests." It is "when a reviewer finds a gap, fill it with a contract test, not a suite."
 
+The later aggressive unit-tier prune made the safety mechanism explicit:
+close risk-register prerequisites before deleting a gated file, verify each
+named invariant at its surviving tier, and consolidate rather than copy when
+re-tiering. See [testing decisions](../decisions/testing.md).
+
 ---
 
 ## Unit Tests That Pin Implementation Shape Are Presumptively Deletable

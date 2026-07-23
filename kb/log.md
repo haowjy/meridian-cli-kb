@@ -4,6 +4,28 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-23 — Aggressive unit-test prune knowledge capture (PRs #462/#463)
+
+### Trigger
+
+The delete/re-tier and functional-core shrink slices settled with both PRs open,
+reviewed, and gated.
+
+### What changed
+
+- Added `decisions/testing.md` for behavior-owned test tiers, the coherent
+  security-suite exception, evidence-gated deletion, consolidate-not-copy
+  re-tiering, rejected alternatives, and CI-safe fake-executable observation.
+- Linked the decision from the decision overview, root catalog, chronological
+  decision index, design principles, and the earlier source-simplification
+  lesson.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-22 — Bugfix sprint knowledge capture (PRs #459/#460)
 
 ### Trigger

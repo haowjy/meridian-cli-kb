@@ -21,7 +21,6 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 
 ## Subtrees
 
-- [chat/](chat/) — Chat runtime, event pipeline, normalizers, acquisition, recovery, commands, dev frontend, and extensibility.
 - [telemetry/](telemetry/) — Three-layer observability spine: local persistence, event catalog, reader and query.
 - [workspace/](workspace/) — Workspace config schema, resolution, merge semantics, and migration.
 - [pi-runtime/](pi-runtime/) — Pi runtime vocabulary for background work and extension coordination.
@@ -29,6 +28,5 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 ## Reading Paths
 
 - New system work: start with [system-overview.md](system-overview.md), then the subsystem-specific page.
-- Chat backend work: read [chat/overview.md](chat/overview.md), then the specific page within the chat subtree.
 - Mars work: read [mars-targeting.md](mars-targeting.md) for layout, [mars-compiler.md](mars-compiler.md) for internals.
 - Decision rationale: follow D-number references into [../decisions.md](../decisions.md) or the domain-specific decision pages under [../decisions/](../decisions/).
