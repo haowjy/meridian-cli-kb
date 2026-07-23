@@ -16,6 +16,8 @@ reviewed, and gated.
 - Added `decisions/testing.md` for behavior-owned test tiers, the coherent
   security-suite exception, evidence-gated deletion, consolidate-not-copy
   re-tiering, rejected alternatives, and CI-safe fake-executable observation.
+- Replaced stale `codebase/guide.md` guidance that assigned signal behavior to
+  unit tests with the current platform-tier boundary.
 - Linked the decision from the decision overview, root catalog, chronological
   decision index, design principles, and the earlier source-simplification
   lesson.

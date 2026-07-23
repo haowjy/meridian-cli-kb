@@ -105,9 +105,13 @@ Same as adding a CLI command above — the operation handler + manifest entry is
 
 ## Testing Strategy
 
-**Smoke tests first.** Integration smoke tests (`tests/smoke/`) are the primary quality gate. They test real CLI invocations and catch what unit tests miss. Run with `uv run meridian`.
+**Smoke tests first.** Smoke guides (`tests/smoke/`) exercise CLI-visible
+workflows and catch what isolated tests miss. Run with `uv run meridian`.
 
-**Unit tests for hard-to-smoke logic:** signals, concurrency, security/env sanitization, sync engine algorithms, parsing edge cases. Run with `uv run pytest-llm`.
+**Place tests by behavioral boundary.** Unit owns pure functional cores;
+integration crosses real seams; contract owns payload/retry shapes; platform
+owns OS behavior. Run the automated suite with `uv run pytest-llm`. See
+[testing decisions](../decisions/testing.md).
 
 **POSIX-first platform stance:** Linux/macOS are supported; native Windows is not planned. Existing `os.name` / `sys.platform` branches in `lib/platform/` are legacy, untested, best-effort — do not expand them. See root `AGENTS.md` "POSIX-first" for the full policy.
 
