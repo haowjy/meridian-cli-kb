@@ -4,6 +4,64 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-24 — Triage-designs-impl knowledge capture (PRs #466/#467, #113/#171 pending)
+
+### Trigger
+
+Four triaged design issues went design → implementation → adversarial review →
+fix pass → PRs: #449 (Codex backend death), #171 (Claude transcript
+resolution), #334 (params.json bind refresh), #113 (sparse JSON projections).
+All four settled with PRs open; merge gate awaiting human approval.
+
+### What changed
+
+**Stale content fixed:**
+- `concepts/spawn-output-contract.md`: "spawn show is full inspection, all
+  fields" replaced with curated sparse JSON projection via `to_cli_wire()`.
+  Progressive disclosure table updated. Multi-spawn behavior updated for
+  per-spawn projection. New "Sparse JSON Projections" section covers
+  `spawn show` (tri-state `--report`, `harness_session_id` drop), `spawn wait`,
+  `work show`, `hooks run`, and contract tests.
+- `open-questions/process-scope.md`: PROC-009 updated to mark diagnostics and
+  liveness-projection pieces as shipped (PR #467). Remaining scope narrowed to
+  the identity redesign.
+- `open-questions/future-work.md`: deleted resolved "Codex Death Diagnostics
+  (#449)" entry (shipped in PR #467).
+
+**New content:**
+- `codebase/harness-adapters.md`: new "Connection Death Diagnostics" section
+  documenting the single idempotent terminal owner pattern, post-connect
+  enrichment parity, and cause-typing stability.
+- `codebase/session-operations.md`: "Transcript Source Resolution" expanded with
+  trust-ordered root chain (recorded → canonical → ambient), `config_root_hint`
+  seam, rejected alternatives (persist path, canonicalize at creation).
+- `architecture/process-scope.md`: new "Scope Liveness Projection" section
+  documenting `scope_liveness()`, `is_pgid_reachable`, and the three-signal
+  model wired through all reaper consumers.
+- `architecture/state-system.md`: `params.json` annotated as two-phase in the
+  directory layout.
+- `decisions.md`: four new foundational entries (sparse JSON projections, single
+  terminal owner, trust-ordered transcript resolution, two-phase params.json).
+- `lessons/harness-integration.md`: new "Optional Defaults on Widened Seams Mask
+  Missed Callers" lesson from the #171 review-gate finding.
+- `lessons/overview.md`: lesson index updated.
+
+### Already current (verified, no change needed)
+
+- `concepts/harness-abstraction.md`: connection death shape section already
+  covers cross-harness normalization from the PRs #446/#447 audit; #449 adds
+  Codex enrichment detail in `codebase/harness-adapters.md` without changing the
+  cross-cutting invariant.
+- `concepts/spawn-lifecycle.md`: no stale content from this sprint.
+- `decisions/session-reference-resolution.md`: recovery provenance chain is
+  orthogonal to config-root resolution; no update needed.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-23 — Aggressive unit-test prune knowledge capture (PRs #462/#463)
 
 ### Trigger

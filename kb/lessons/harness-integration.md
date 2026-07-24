@@ -228,6 +228,34 @@ inspect the bundle or the actual subprocess command directly.
 
 ---
 
+## Optional Defaults on Widened Seams Mask Missed Callers
+
+**The bug:** When #171 widened the `resolve_session_file()` seam to accept a
+`config_root_hint` parameter, the hint was given a default of `= None`. The
+implementation threaded the hint through the primary resolution paths but
+missed several `session repair` callers. Because the parameter defaulted to
+`None`, the missed callers compiled and ran without error — they just silently
+used ambient-only resolution, which was the original broken behavior.
+
+**Why it burned a review cycle:** The adversarial reviewer wrote a
+registry-wide runtime probe and found no `TypeError`, which appeared to
+confirm totality. The `= None` defaults meant that even callers that should
+have passed metadata compiled cleanly. The reviewer then traced the repair
+paths manually and found the gap.
+
+**The fix:** Make the hint parameter required (no `= None` default) on
+internal helpers that carry it. Every caller must explicitly choose between
+tracked metadata and untracked `None`. The missed repair callers became
+immediate type errors rather than silent degradation.
+
+**The lesson:** When widening a seam with a parameter that has a "do nothing"
+value (`None`, `False`, empty), making it optional with a default hides
+callers that should have been forced to choose. Required parameters turn
+forgotten callers into compilation failures. This applies to any seam
+widening where the new parameter controls correctness, not just convenience.
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism

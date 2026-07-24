@@ -55,13 +55,14 @@ Three levels of detail, from compact to comprehensive:
 |---|---|---|
 | **Compact** (default) | `meridian spawn ...` | Status line, report body, transcript pointer |
 | **Metadata** | `--metadata` | Everything in compact, plus model/harness, exit code, cost/tokens, duration, report path |
-| **Full record** | `meridian spawn show <id>` | Complete spawn record — all fields, all paths |
+| **Inspection** | `meridian spawn show <id>` | Curated per-command projection (JSON); full record (text) |
 
 `--metadata` adds detail to the compact view; it does not replace or hide the
 primary result. The report body and transcript pointer still appear.
 
-`spawn show <id>` remains the canonical full inspection command and is
-unchanged by this contract.
+`spawn show <id>` is the canonical inspection command. Its text output shows
+all fields; its JSON output is a curated sparse projection via `to_cli_wire()`
+(see [Sparse JSON Projections](#sparse-json-projections) below).
 
 ---
 
@@ -111,29 +112,85 @@ changed from `"json"` to `"text"` in `startup/catalog.py`.
 
 ### Explicit JSON Content
 
-When `--format json` is used, the output must include the same primary content
-as compact text — structurally:
-
-- `report_body` field (the report text)
-- `transcript` field or equivalent (the `meridian session log <id>` command)
-- Existing useful fields: `spawn_id`, `status`, `duration_secs`, `exit_code`
-
-The wire shape is unchanged; this is about ensuring report content flows into
-the output when available. JSON consumers get the same semantic content as
-text consumers, just in structured form.
+When `--format json` is used, `to_cli_wire()` on the output model produces a
+curated sparse projection. See [Sparse JSON Projections](#sparse-json-projections)
+for the full contract.
 
 ---
 
 ## Multi-Spawn and Background Behavior
 
-These surfaces are **unchanged** by this contract:
-
 | Surface | Behavior |
 |---|---|
 | Multi-spawn `spawn wait` | Table + report sections (existing behavior) |
 | Background spawn submission (`--bg`) | Spawn ID + MUST-run obligation notice |
-| `spawn show <id>` | Full inspection command, all fields |
-| JSON wire shape | No change — agents consuming programmatically are unaffected |
+| Multi-ID `spawn show p1 p2` | JSON array of per-spawn sparse projections |
+
+---
+
+## Sparse JSON Projections
+
+The codebase uses curated per-command default projections via
+`CLIOutputProtocol` / `to_cli_wire()`. Each output model defines a
+`to_cli_wire()` method that returns the JSON-default shape — a sparse
+contract carrying the fields a coordinating agent actually needs. Heavy fields
+stay reachable via explicit flags. No `--fields` flag or query language exists;
+the noisy *default* was the bug, and curated projections are the fix.
+
+This matches the same pattern used by gh, kubectl, and docker: a stable
+default shape with selection layered on top when needed.
+
+### `spawn show`
+
+The JSON default is a sparse projection: spawn identity, status, timing,
+model, agent, description, `report_path`, and a bounded 500-char
+`report_summary`. Two fields are deliberately excluded:
+
+- **`report_body`**: opt-in via `--report`. Text mode keeps
+  report-by-default UX; JSON default carries only the bounded summary.
+  `--report` is tri-state: omitted (format-dependent default), `--report`
+  (include), `--no-report` (exclude).
+- **`harness_session_id`**: dropped from the default JSON contract entirely.
+  It is an internal lookup key; `session log <chat-id>` covers the use case.
+  This is a deliberate, human-approved divergence from the original issue
+  text (#113), which asked to keep it.
+
+Multi-ID invocations (`spawn show p1 p2`) emit a JSON array where each
+element is the same sparse projection. Previously the list path bypassed
+projection and dumped full models.
+
+`to_agent_wire()` on `SpawnActionOutput` is a separate projection for
+managed-session ergonomics (implicit agent-mode JSON for background spawns).
+It solves a different problem and is not unified with `to_cli_wire()`.
+
+### `spawn wait`
+
+Uses the same JSON report gating as `spawn show`. Agent-mode `spawn wait`
+defaults to text and retains the full report — the sparse JSON path does not
+affect agent workflow.
+
+### `work show`
+
+Sparse `to_cli_wire()`: work identity, status, timing, directories, plus
+summary-only nested `spawns` (id, status, model, desc) and `sessions`
+(chat_id, harness, status, model, agent). Worktree internals and
+`harness_session_id` excluded. Deliberately no verbose/full-model escape
+hatch — no consumer of the full shape exists, and a global `--json=full` can
+be added later if a real need appears.
+
+### `hooks run`
+
+Outcome projection: hook, event, outcome, success, skipped, skip_reason,
+error, exit_code, duration_ms. Raw `stdout`/`stderr` gated behind
+`include_output` on `HookRunInput` + `--output` CLI flag (mirrors how
+`include_report_body` flows through `SpawnWaitInput`).
+
+### Contract Tests
+
+Real-CLI JSON tests for the six projected commands (including multi-ID
+arrays) assert required keys present and noisy keys recursively absent.
+These also pin the four previously projected commands, which nothing
+protected before.
 
 ---
 

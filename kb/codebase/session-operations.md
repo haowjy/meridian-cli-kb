@@ -9,6 +9,40 @@ Session operations (`meridian session log`, `session search`, `session export`) 
 usable user/assistant interaction content. Fallback is source-list iteration, not
 recursive target resolution.
 
+### Claude: Trust-Ordered Root Chain
+
+Claude transcript resolution uses a trust-ordered root chain when resolving
+tracked sessions. The adapter seam `resolve_session_file()` accepts an
+optional `config_root_hint` parameter, threaded from the persisted
+`SessionRecord.claude_config_dir` / `SpawnRecord.claude_config_dir` through
+every tracked ref form (bare harness session id, chat id, spawn id, corpus
+search, and `session repair` paths).
+
+The Claude adapter searches a deduped chain of roots, ordered by trust:
+
+1. **Recorded config dir** (the dir where the session actually ran)
+2. **Canonical `~/.claude`** (via `get_home_path()`) — covers the common
+   case where a transcript was repaired to the canonical root while the
+   ambient env points elsewhere
+3. **Ambient `CLAUDE_CONFIG_DIR`** — last resort
+
+First existing `<session_id>.jsonl` match wins. The chain is ordered by trust
+because cross-root copies (not always symlinks) can diverge in content.
+
+Untracked resolution passes `config_root_hint=None`, behavior unchanged.
+Non-Claude harnesses (codex, opencode, pi) accept the hint parameter and
+ignore it — their session roots are not env-relocatable this way.
+
+Two rejected alternatives shaped this design:
+- **Persisting a resolved transcript path** was rejected because Claude
+  transcripts can be re-materialized into new roots on later launches,
+  making a persisted path go stale.
+- **Canonicalizing `CLAUDE_CONFIG_DIR` at session creation** was rejected
+  because overlays exist for concurrent session isolation; canonicalizing
+  defeats that purpose.
+
+### OpenCode: SQLite Precedence
+
 OpenCode completed-session precedence is:
 
 1. OpenCode SQLite (`opencode.db`) when a matching `session.id` exists;

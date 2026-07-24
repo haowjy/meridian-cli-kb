@@ -45,6 +45,33 @@ classification of quiet streams, active turns, in-flight requests, dead backend 
 and intentionally suppressed waits. Adapter code feeds it signals; callers consume
 its decisions.
 
+## Connection Death Diagnostics
+
+When a managed backend dies mid-turn, the connection must emit enriched
+diagnostics (exit code + bounded stderr excerpt) rather than raw transport
+exceptions. Claude, OpenCode, and Codex all follow the same pattern: gather
+managed-process evidence before emitting the synthetic `connectionClosed`
+event.
+
+Codex has a structural complication that Claude and OpenCode do not: its
+WebSocket reader and a backend-exit watcher task can both detect death
+simultaneously and race to emit the close event. The Codex connection
+solves this with a **single idempotent terminal owner**:
+`_emit_connection_closed_once()` guards close-event emission with a lock,
+emits at most one close event, lets the first fully-enriched payload win,
+and is the sole owner of the queue-end sentinel. Expected shutdown
+(`stop()`/cleanup) cancels the watcher before terminating the backend, so
+intentional teardown never reports backend death. Teardown is crash-only:
+every cleanup operation is individually failure-contained, with final state
+normalization and sentinel emission on a `finally` path.
+
+Cause typing stays `REPLACEABLE_TRANSPORT_CLOSE` for all connection-close
+events; the enrichment changes the recorded *detail* (exit code, stderr
+excerpt), not the terminal-refinement semantics.
+`connection_closed_outcome()` in `semantics.py` folds optional
+`backend_exit_code`/`backend_stderr_excerpt` into the failure detail when
+present; Claude/OpenCode paths are unaffected.
+
 ## Adapter-Owned Spawn Contract
 
 Each harness adapter declares its spawn-usage-contract phrasing variants via

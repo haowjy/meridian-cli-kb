@@ -40,7 +40,7 @@ State divides across three roots:
       prompt.md · report.md · heartbeat
       history.jsonl                 — primary output artifact (seq-enveloped harness events)
       output.jsonl                  — legacy fallback (absent on new spawns)
-      stderr.log · params.json · tokens.json
+      stderr.log · params.json (two-phase) · tokens.json
       attempt-N/                    — preserved retry evidence from prior attempts
       last-observed-event.json      — diagnostic marker: last harness event + counters
       runner-lifecycle.jsonl        — runner breadcrumb journal (signals, phases, atexit)

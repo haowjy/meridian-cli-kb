@@ -298,39 +298,6 @@ directory.
 
 ---
 
-### Codex Death Diagnostics (#449 — medium effort piece)
-
-**Where:** `src/meridian/lib/harness/connections/codex_ws.py` —
-`_read_messages_loop()`
-
-**The issue:** When the Codex WebSocket connection closes unexpectedly, the
-synthetic `error/connectionClosed` event carries only the transport exception
-string (e.g. "no close frame received or sent"). The managed backend's exit code
-and stderr bytes exist on disk but are not gathered before the synthetic event is
-emitted. The result is that durable state/report diagnostics lose the most
-informative evidence.
-
-Claude and OpenCode already gather bounded managed-process evidence (exit code +
-stderr tail) before emitting their synthetic connection-close events. Codex does
-not, leaving a parity gap.
-
-**What's needed:** On unexpected Codex WS close/reader failure, gather bounded
-managed-process evidence before emitting the synthetic event: wrapper exit/return
-code (brief bounded wait if needed) and stderr tail. Reuse the OpenCode/Claude
-pattern, ideally through one managed-backend diagnostic helper so parity cannot
-drift again. Preserve the WebSocket transport text as transport context alongside
-the richer diagnostics.
-
-**Why deferred:** The diagnostics piece is separable from the process-identity
-redesign (PROC-009 in [process-scope.md](process-scope.md)). The identity work
-is large; diagnostics alone are medium. Deferred from the bugfix sprint because
-neither blocks the other or the CI-unblock goal.
-
-**Decision context:** Investigation findings: `findings/spawn-lifecycle-investigation.md`
-in the workstream-roadmap work directory; issue #449 comment 5054101045.
-
----
-
 ### Typed Terminal Provenance (#438)
 
 **Where:** `src/meridian/lib/streaming/pi_completion_profile.py`, `src/meridian/lib/harness/connections/pi_rpc.py`

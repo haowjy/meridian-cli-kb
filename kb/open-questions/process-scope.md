@@ -86,17 +86,28 @@ is still alive and functional. Process scopes correctly clean up at normal termi
 time via PGID, so the terminal release path is not broken -- the issue is the interval
 between shim death and terminal, during which registered backend liveness is wrong.
 
-**What's needed:** Model at least three identity roles: launcher PID (the direct
-child of `create_subprocess_exec`), effective serving/health PID (the process that
-owns the readiness endpoint), and containment PGID. For Codex, discover and record
-the effective server child after readiness (POSIX-first is acceptable) while retaining
-PGID for cleanup. A narrow documentation-only change would explain the current behavior
-but would not make registered backend liveness truthful.
+**Partially resolved (PR #467, 2026-07):** The diagnostics and liveness-projection
+pieces shipped:
+- `is_pgid_reachable(pgid)` in `state/liveness.py` — deliberately named *reachable*,
+  not *alive*: no birth-time reuse guard, counts zombies; documented as diagnostic-only.
+- `scope_liveness()` shared projection (`root_alive`, `pgid_reachable`,
+  `likely_serving`) wired through all three reaper consumers: finalize evidence,
+  `worker_or_backend_alive`, orphan diagnostics. Reaper evidence for a shim-rooted
+  backend now shows `root_alive=false, pgid_reachable=true, likely_serving=true`
+  instead of flat misleading "dead".
+- Post-connect death enrichment: exit code + stderr excerpt in Codex connection-close
+  events, routed through a single idempotent terminal owner
+  (`_emit_connection_closed_once`).
 
-**Why deferred:** Diagnostics enrichment (medium effort) and process-identity redesign
-(large effort) are separable. The diagnostics piece (enriching connection-close events
-with managed-process exit code and stderr) could ship standalone. The identity redesign
-is large because it touches scope projection, reaper paths, and managed-backend lifecycle.
+**What remains:** The identity redesign. Model at least three identity roles:
+launcher PID (the direct child of `create_subprocess_exec`), effective
+serving/health PID (the process that owns the readiness endpoint), and
+containment PGID. For Codex, discover and register the effective server child
+after readiness (POSIX-first is acceptable) while retaining PGID for cleanup.
+
+**Why the remainder is deferred:** The identity redesign is large — it touches
+scope projection, reaper paths, and managed-backend lifecycle. The shipped
+liveness projection makes diagnostics truthful without the redesign.
 Investigation findings posted to issue #449 (comment 5054101045).
 
 **Decision context:** [decisions/launch.md](../decisions/launch.md#d-process-scope-ownership-durable-process-scope-ownership-over-posix-only-or-psutil-only-cleanup)

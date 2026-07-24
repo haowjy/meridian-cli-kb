@@ -5,7 +5,7 @@ Lessons pages preserve hard-won context from failures, abandoned approaches, and
 ## Pages
 
 - [state-design-lessons.md](state-design-lessons.md) — Why dual-root and JSONL, earlier failures, and state-design tradeoffs.
-- [harness-integration.md](harness-integration.md) — Claude, Codex, and OpenCode integration surprises, test env var inheritance, and generalized patterns.
+- [harness-integration.md](harness-integration.md) — Claude, Codex, and OpenCode integration surprises, test env var inheritance, optional-default seam-widening pitfall, and generalized patterns.
 - [chat-normalization-repair.md](chat-normalization-repair.md) — Harness protocol drift lessons, completion-dedupe rules, replay implications, and live smoke cautions from the 2026 chat repair.
 - [mars-compiler-cleanup.md](mars-compiler-cleanup.md) — Mars cleanup lessons: Windows config artifacts, lock indexing, test splitting, dead-code deletion, and warning routing.
 - [mars-launch-bundle-lessons.md](mars-launch-bundle-lessons.md) — Mars/Meridian launch-bundle lessons: schema split discipline, contract-bound test splits, OpenCode env merging, and experimental Cursor signaling.

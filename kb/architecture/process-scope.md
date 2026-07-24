@@ -350,6 +350,38 @@ harness session IDs.
 
 ---
 
+## Scope Liveness Projection
+
+Root PIDs recorded in `process_scopes.json` can be launcher shims (e.g. an npm
+wrapper that forks the real `codex app-server`). A dead root PID does not mean
+the serving process is gone — the real child may be alive in the same PGID,
+reparented to PID 1.
+
+`scope_liveness(scope)` in `state/liveness.py` is the single projection for
+scope-health queries. It returns three signals:
+
+| Signal | Meaning |
+|---|---|
+| `root_alive` | `is_process_alive(root_pid)` with birth-time reuse guard |
+| `pgid_reachable` | `is_pgid_reachable(pgid)` — `os.killpg(pgid, 0)` probe |
+| `likely_serving` | `not root_alive and pgid_reachable` |
+
+`is_pgid_reachable` is deliberately named *reachable*, not *alive*. It has no
+birth-time reuse guard (the scope stores only the root's birth time), so after
+a group fully dissolves a reused PGID could belong to an unrelated group.
+Signal-0 also counts zombies. It is a diagnostic signal with documented limits,
+not a liveness authority. PGID reachability changes diagnostics only — no
+kill/finalize decisions depend on it.
+
+All three reaper consumers use `scope_liveness()`:
+- Finalize evidence (`state/reaper.py`) — records truthful
+  `root_alive`/`pgid_reachable`/`likely_serving` instead of flat "dead"
+- `worker_or_backend_alive` summary — incorporates PGID reachability
+- Managed-primary orphan diagnostics — distinguishes shim-dead-but-serving
+  from fully-dead
+
+---
+
 ## Known Gaps (Follow-up Items)
 
 Detailed deferred-work notes live in [open-questions/process-scope.md](../open-questions/process-scope.md).
