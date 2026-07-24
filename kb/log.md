@@ -20,7 +20,7 @@ All four settled with PRs open; merge gate awaiting human approval.
   fields" replaced with curated sparse JSON projection via `to_cli_wire()`.
   Progressive disclosure table updated. Multi-spawn behavior updated for
   per-spawn projection. New "Sparse JSON Projections" section covers
-  `spawn show` (tri-state `--report`, `harness_session_id` drop), `spawn wait`,
+  `spawn show` (tri-state `--full`, `harness_session_id` drop), `spawn wait`,
   `work show`, `hooks run`, and contract tests.
 - `open-questions/process-scope.md`: PROC-009 updated to mark diagnostics and
   liveness-projection pieces as shipped (PR #467). Remaining scope narrowed to

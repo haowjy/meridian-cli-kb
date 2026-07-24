@@ -95,7 +95,7 @@ would mean "verbose" has two unrelated meanings depending on context.
 | `meridian spawn ... --format json` | Structured equivalent: `spawn_id`, `status`, `duration_secs`, `exit_code`, `report_body`, `transcript` field |
 | `meridian spawn ... --metadata` | Compact + inline spawn record (model, cost, tokens, paths) |
 | `meridian spawn ... --verbose` | Debug-level detail; report body and transcript still included |
-| `meridian spawn ... --no-report` | Status line only — no report body, no transcript pointer |
+| `meridian spawn ... --no-full` | Status line only — no report body, no transcript pointer |
 
 ### Agent Mode: Same Default as Human Mode
 
@@ -146,10 +146,11 @@ The JSON default is a sparse projection: spawn identity, status, timing,
 model, agent, description, `report_path`, and a bounded 500-char
 `report_summary`. Two fields are deliberately excluded:
 
-- **`report_body`**: opt-in via `--report`. Text mode keeps
+- **`report_body`**: opt-in via `--full`. Text mode keeps
   report-by-default UX; JSON default carries only the bounded summary.
-  `--report` is tri-state: omitted (format-dependent default), `--report`
-  (include), `--no-report` (exclude).
+  `--full` is tri-state: omitted (format-dependent default), `--full`
+  (include), `--no-full` (exclude). (Renamed from `--report`/`--no-report`
+  in PR #469 to align with `session log --full`.)
 - **`harness_session_id`**: dropped from the default JSON contract entirely.
   It is an internal lookup key; `session log <chat-id>` covers the use case.
   This is a deliberate, human-approved divergence from the original issue
@@ -182,7 +183,7 @@ be added later if a real need appears.
 
 Outcome projection: hook, event, outcome, success, skipped, skip_reason,
 error, exit_code, duration_ms. Raw `stdout`/`stderr` gated behind
-`include_output` on `HookRunInput` + `--output` CLI flag (mirrors how
+`include_output` on `HookRunInput` + `--verbose` CLI flag (mirrors how
 `include_report_body` flows through `SpawnWaitInput`).
 
 ### Contract Tests
@@ -207,7 +208,7 @@ The compact text path is implemented in two places:
   for `--verbose` mode.
 
 Report body is populated in `execute_spawn_blocking()` via `read_report()` after
-completion. The `--report` flag default in `_spawn_wait()` flipped from `False`
+completion. The `--full` flag default in `_spawn_wait()` flipped from `False`
 to `True`.
 
 ---
