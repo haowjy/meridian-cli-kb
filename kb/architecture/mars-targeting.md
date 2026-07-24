@@ -136,14 +136,16 @@ MCP config and hooks are also compiled to native harness directories:
 
 | Harness | MCP location | Hook location |
 |---------|-------------|--------------|
-| Claude | `.mcp.json` (project root) | `.claude/settings.json hooks` |
-| Codex | `.codex/config.toml [mcp_servers.*]` | `.codex/config.toml [hooks]` |
-| OpenCode | `opencode.json mcp.<name>` | Plugin API (TypeScript) — mars warns, skips |
-| Cursor | `.cursor/mcp.json` | No public hook API — skipped |
-| Pi | N/A | Extension API — mars warns, skips |
+| Claude | `.mcp.json` (project root) | `.claude/settings.local.json hooks` |
+| Codex | `.codex/config.toml [mcp_servers.*]` | `.codex/hooks.json` |
+| OpenCode | `opencode.json mcp.<name>` | No command-hook mechanism (TypeScript plugins) — hard error |
+| Cursor | `.cursor/mcp.json` | Documented hook API exists — writing deferred (mars-agents#131) |
+| Pi | N/A | No command-hook mechanism (TypeScript extensions) — hard error |
 
 Mars manages its entries in these files without touching user-managed entries
-(append-and-lock approach).
+(append-and-lock approach). Hook event names are native passthrough: authors
+declare harness-native names per target; mars validates against per-target
+allowlists (D90).
 
 ---
 

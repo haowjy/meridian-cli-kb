@@ -448,6 +448,35 @@ to claude with high confidence, the launch bundle will route to claude. No silen
 
 ---
 
+### D90: Native hook passthrough replaces universal event vocabulary (mars-agents PR #133, 2026-07)
+
+**Decision:** `hook.toml` declares harness-native event names in per-target `[targets."<target>"]` tables. Mars validates each event against a static per-target allowlist (`TargetAdapter::known_hook_events()`) and passes names through verbatim to target config files. The universal event vocabulary (`UniversalEvent`, `classify_for_target`, all five per-target translation tables, `LossinessKind`, `codex_hook_matcher`, legacy `codex_hooks.json` format support) is deleted.
+
+**Owner ratification:** "I've never used the compile feature at all" and "yeah, I think we just passthrough... the vision was I would write once and then we would lower down but..." The original write-once/lower-down vision was abandoned deliberately after audit evidence.
+
+**What the audit found:** Of 12 event-name mappings that emit config, 6 were wrong: Claude `session.end` compiled to the nonexistent `SessionStop`; Codex `session.end` compiled to `Stop` (fires per-turn, not session end); all 4 OpenCode mappings were fabricated names written to a schema with `additionalProperties: false`. Of the 3 real hooks in existence, all were single-target with harness-native payload handling in their scripts.
+
+**What mars keeps:** Hook discovery across package dependency trees, deterministic ordering, script staging, atomic config merge/removal under per-target lock ownership, provenance tracking in `mars.lock`. Mars invariants hold: never delete files it didn't create, tmp+rename writes, resolve-first semantics.
+
+**What mars stops doing:** Inventing event names. Lock keys change from `hook:<universal-event>:<name>` to `hook:<NativeEvent>:<name>`. Targets without declarative command hooks (OpenCode, Pi) produce hard errors instead of silent drops. The `unchecked = true` escape hatch per target table opts out of allowlist validation for events newer than the mars binary.
+
+**Codex `SessionEnd` excluded from allowlist:** Runtime probe (spawn p5698, Codex 0.144.4) proved Codex silently tolerates but never fires `SessionEnd`. Including a known-dead event would be the exact silent-dead-hook class this work eliminates. Codex allowlist is 10 events; re-add tracked in mars-agents#132. Claude allowlist is 29 events.
+
+**Migration:** Old `hook.toml` schema is a hard error with a migration hint. No compatibility shim: no real users beyond three meridian-base hooks, all migrated. One-release removal-only residue sweeps strip prior-version artifacts from OpenCode (`opencode.json` hooks) and Codex (`codex_hooks.json` entries). Deferred: delete residue sweeps in next release (mars-agents#130); Cursor hook writing (mars-agents#131).
+
+**Release sequencing:** Mars release (schema flag-day) -> meridian-base `mars version patch --push` (migrated hook.tomls) -> meridian-cli pin bump. No intermediate compatibility window.
+
+**Alternatives rejected:**
+
+| Option | Why not |
+|---|---|
+| Hybrid (universal core + native escape hatch) | Keeps drifting translation tables alive for a portable core with zero users; adds precedence rules; gives authors two ways to say the same thing |
+| Expanded universal vocabulary with generated/validated tables | Portability remains fake: payloads, matchers, and output protocols stay native; maintaining a validated intersection of five vocabularies (29/11/21/29/33 events) is standing tax for an unused property |
+| Per-target hook directories (`hooks/claude/...`) | Same authoring model but loses shared script, `order`, `visibility`, and single discovery unit |
+| Drop hooks from mars entirely | Config-writing machinery is real value: managed merge/removal into `settings.local.json` and `hooks.json`, script staging, lock ownership |
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution

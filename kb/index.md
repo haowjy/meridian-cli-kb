@@ -194,6 +194,7 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 - [lessons/source-simplification.md](lessons/source-simplification.md) — Lessons from Phase 8.6 source-seam and test-collapse work: deletion-first simplification, seam ownership moves, test contract discipline, over-collapse recovery
 - [lessons/arch-refactor-pitfalls.md](lessons/arch-refactor-pitfalls.md) — Implementation pitfalls from PR #184/#200: GIT_DIR hook leaks, structlog cache test blindspot, CheckpointService git add -A danger, process-group kill requirement, Windows asyncio signal handler silent no-op, Windows Claude cancel SIGINT unreliable, Windows audit false-positive discipline, no-arg spawn wait full-chat-tree hang bug
 - [lessons/thermo-nuclear-audit.md](lessons/thermo-nuclear-audit.md) — Thermo-nuclear audit method: two-source adversarial panel, rejected alternatives with reasons, peer-benchmark defended strengths and dropped steals
+- [lessons/residue-cleanup-discipline.md](lessons/residue-cleanup-discipline.md) — When mars changes what it emits, removal paths must recognize prior versions' actual output shapes. Twice-learned: sweep ordering, legacy format misses, real-shape verification discipline
 
 ---
 

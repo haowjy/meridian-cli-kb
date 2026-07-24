@@ -47,64 +47,22 @@ a full tool distribution system.
 
 ## 3. Hook Distribution
 
-**Status (2026-07): Hook config-entry pipeline works; the event vocabulary is broken.**
+**Status (2026-07): Resolved.** Mars hook compilation uses native passthrough (mars-agents PR #133, D90).
 
-Mars distributes hook entries as first-class config-entry artifacts, with
-provenance tracking, collision resolution, and stale cleanup on sync
-(see [architecture/mars-compiler.md](../architecture/mars-compiler.md)).
-The config-entry pipeline is sound. The event-name translation layer is not.
+`hook.toml` declares harness-native event names in per-target `[targets."<target>"]` tables. Mars validates each event against a static per-target allowlist (`TargetAdapter::known_hook_events()`) and passes names through verbatim. The universal event vocabulary, all five per-target translation tables, lossiness classification, and the legacy `codex_hooks.json` format are deleted. One-release removal-only residue sweeps strip fabricated OpenCode hooks and legacy Codex hooks from prior mars versions.
 
-### Known vocabulary bugs (audit, 2026-07-24)
+Allowlists: Claude 29 events, Codex 10 events (SessionEnd excluded after runtime probe proved it non-functional in 0.144.4; mars-agents#132 tracks re-add). Targets without declarative command hooks (OpenCode, Pi) produce hard errors. `unchecked = true` per target table opts out of validation for events newer than the mars binary.
 
-An audit of all 12 emitting mappings in `classify_for_target` against
-installed harness binaries and official documentation found:
+See [decisions/package-management.md](../decisions/package-management.md#d90-native-hook-passthrough-replaces-universal-event-vocabulary-mars-agents-pr-133-2026-07) for rationale and rejected alternatives.
 
-| Target | Bug | Severity |
-|---|---|---|
-| Claude | `session.end` → `SessionStop` | **Fixed** (mars-agents v0.10.6, PR #129). `SessionStop` does not exist; corrected to `SessionEnd` (exact). The `context-autosync` hook was dead on arrival until this fix. |
-| Codex | `session.end` → `Stop` | **Live bug.** Codex `Stop` fires at the end of every *turn*, not at session end. Codex documents `SessionEnd` for session termination. A `session.end` hook compiled this way fires many times per session at the wrong moments. |
-| OpenCode | All 4 mappings | **Live bug — fabricated names.** `session:start`, `session:end`, `tool:before`, `tool:after` are not OpenCode events. OpenCode has no `hooks` config key; its published JSON schema is `additionalProperties: false`. Mars writes a schema-invalid `hooks` object into `opencode.json`. |
-| Cursor | All 4 dropped | **Stale premise.** Cursor documents 21 hook events in `hooks.json`, including direct equivalents for all four universal events. Mars claims "limited/undocumented hook surface" and drops everything. |
-
-Additional structural findings: each adapter re-declares the mapping for
-its removal path, so every bug exists in two places. Lossiness annotations
-are wrong or misleading in 11 of 20 rows.
-
-**Stale-artifact residue:** mars <=0.10.5 wrote hooks under the orphaned
-`SessionStop` key in `settings.local.json`. Fixed mars no longer recognizes
-its own old output for removal — stale entries must be cleaned manually
-(or by a `mars sync` that re-adds the hook under the correct key, which
-triggers the name-based removal sweep).
-
-### Settled direction: native passthrough (future work item `mars-native-hook-events`)
-
-The universal event vocabulary will be replaced with native passthrough:
-`hook.toml` declares the harness-native event name per target; mars
-validates the name against a per-target allowlist and passes it through
-unchanged. Mars keeps hook discovery, ordering, script staging, config
-writing/merging/removal, and lock ownership — it stops inventing event
-names.
-
-Design rationale:
-- Zero demand for cross-target hook portability (no real hook targets more
-  than one harness, and script bodies are already harness-native)
-- Hand-maintained translation tables in two places per target cannot track
-  five fast-moving harness vocabularies (29/11/21/~29/33 events)
-- A stale allowlist fails loud (compile error with escape hatch) instead of
-  producing a silently dead hook
-- The universal vocabulary cannot express real needs (e.g., Claude's
-  `SubagentStop` — 29 events vs the 4 universal ones)
-
-The full audit and design live in the `reaper-scope-regression` work
-directory at `design/mars-hook-authoring.md`.
+**Deferred:** Delete residue sweeps next release (mars-agents#130). Cursor hook writing (mars-agents#131). Codex SessionEnd re-add when functional (mars-agents#132).
 
 ### Remaining gap: lifecycle hooks
 
 Lifecycle hooks (post-spawn, pre-exit, runtime events) and post-sync hooks
 are still not a first-class concern. What shipped covers harness config
 hooks (e.g., `settings.json` hook entries) — not dynamic lifecycle
-bindings. The native-passthrough design solves the vocabulary problem for
-config hooks; it does not extend to lifecycle bindings.
+bindings.
 
 ---
 
@@ -228,7 +186,7 @@ If resources allow only a few of these to be built, the likely priority:
 1. Permission sync — most direct gap between packaged content and usable runtime behavior
 2. Tool definition distribution — tools are half the execution contract
 3. ~~MCP integration~~ — **partially resolved** (2026-05): config-entry sync and collision resolution shipped; remaining: capability validation
-4. ~~Hook distribution~~ — **config pipeline works; event vocabulary broken** (2026-07): config-entry pipeline ships with provenance; event-name translation has 6/12 wrong mappings (Claude fixed v0.10.6; Codex, OpenCode, Cursor still buggy); settled direction is native passthrough (future work `mars-native-hook-events`)
+4. ~~Hook distribution~~ — **resolved** (2026-07): native passthrough replaces universal event vocabulary (D90, mars-agents PR #133); remaining: lifecycle hooks, Cursor hook writing (#131)
 5. Distribution model — important eventually, premature without the capability schema
 
 ## Cross-References

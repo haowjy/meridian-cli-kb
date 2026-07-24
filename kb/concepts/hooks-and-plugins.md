@@ -226,12 +226,12 @@ event — most commonly knowledge capture by an Agent-tool subagent as a
 session's final act. Those commits sit stranded locally until the next
 meridian lifecycle event.
 
-The `context-autosync` hook in `meridian-base` (v0.8.9) closes this gap.
-It is a Mars-compiled Claude hook that fires at harness `SessionEnd`,
-discovers each enabled `git-autosync:*` instance via `meridian hooks list`,
-and runs them. This bridges Mars-compiled harness hooks (which fire at
-harness session events) with Meridian's builtin hook system (which runs
-the actual sync logic). See
+The `context-autosync` hook in `meridian-base` closes this gap.
+It is a Mars-compiled Claude hook that fires at harness `SubagentStop`
+and `SessionEnd`, discovers each enabled `git-autosync:*` instance via
+`meridian hooks list`, and runs them. This bridges Mars-compiled harness
+hooks (which fire at harness session events) with Meridian's builtin hook
+system (which runs the actual sync logic). See
 [../ecosystem/prompt-packages/meridian-base.md](../ecosystem/prompt-packages/meridian-base.md#hooks).
 
 ### Failure Philosophy

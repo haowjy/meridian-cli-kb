@@ -83,25 +83,27 @@ Defined in `mars.toml`, available to all agents in packages that depend on `meri
 ## Hooks
 
 Mars-compiled hooks that install into harness config files during `mars sync`.
+Each `hook.toml` declares harness-native event names in per-target tables.
 
-| Hook | Event | Target | Purpose |
+| Hook | Native events | Target | Purpose |
 |---|---|---|---|
-| `deny-generic-agent` | `tool.pre` | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) via `PreToolUse` |
-| `deny-interactive-prompts` | `tool.pre` | `.codex` | Blocks interactive prompts in Codex sandbox via `PreToolUse` matcher `"Bash"` |
-| `context-autosync` | `session.end` | `.claude` | Pushes stranded context-repo commits at session end (v0.8.9) |
+| `deny-generic-agent` | `PreToolUse` | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) |
+| `deny-interactive-prompts` | `PreToolUse` (matcher `"Bash"`) | `.codex` | Blocks interactive prompts in Codex sandbox |
+| `context-autosync` | `SubagentStop`, `SessionEnd` | `.claude` | Pushes stranded context-repo commits at session end and after subagent work (v0.8.9; native events in unreleased migration) |
 
 **`context-autosync`** closes a gap where meridian's builtin `git-autosync`
 fires only on meridian lifecycle events (`spawn.start`/`finalized`,
 `work.started`/`done`). Commits created after the last such event — typically
 knowledge capture by an Agent-tool subagent as a session's final act — sit
 stranded locally until the next meridian event. This hook fires at Claude
-`SessionEnd`, discovers each enabled `git-autosync:*` instance via
-`meridian hooks list` (the single runtime authority — no parallel config
-parsing), and runs them. It is a no-op without autosync config.
+`SessionEnd` and `SubagentStop`, discovers each enabled `git-autosync:*`
+instance via `meridian hooks list` (the single runtime authority — no
+parallel config parsing), and runs them. It is a no-op without autosync
+config.
 
-Requires mars-agents >= 0.10.6 (the `session.end` → `SessionEnd` fix;
-prior versions compiled to the nonexistent `SessionStop` event, making
-this hook dead on arrival).
+Requires the native-event hook schema (mars-agents post-v0.10.6, PR #133).
+Prior versions used a universal event vocabulary that compiled to incorrect
+harness event names.
 
 ## Package Composition Patterns
 

@@ -119,10 +119,11 @@ packages without leaving orphans.
 
 ### Hooks (`compiler/hooks/`)
 
-Parses `hook.toml`, validates V0 universal events, checks path traversal, emits
-deterministic ordering. Classifies hooks as lossy or lossless per target (some
-targets like OpenCode and Pi lack hook APIs; mars warns and skips rather than
-aborting).
+Parses `hook.toml` per-target `[targets."<name>"]` tables, validates native event
+names against `TargetAdapter::known_hook_events()` allowlists, checks path
+traversal, and emits deterministic ordering. Targets without declarative command
+hooks (OpenCode, Pi) produce hard errors. `unchecked = true` per target table
+opts out of allowlist validation for events newer than the mars binary.
 
 ### MCP Servers (`compiler/mcp/`)
 
@@ -180,7 +181,7 @@ how the lock feeds the diff phase on the next sync.
 - Agent emission policy: `src/compiler/mod.rs` lines 99–217
 - Config-entry resolution: `src/compiler/config_entries/resolve.rs`
 - Stale cleanup: `src/compiler/config_entries/stale.rs`
-- Hook lowering: `src/compiler/hooks/mod.rs`
+- Hook compilation (native events): `src/compiler/hooks/mod.rs`
 - MCP lowering: `src/compiler/mcp/mod.rs`
 - Skill compilation: `src/compiler/skills/mod.rs`
 - Variant indexing: `src/compiler/variants.rs`
