@@ -212,10 +212,10 @@ subprocess to complete or fail within the bound, but on a contended runner the
 process startup alone can exceed it. The test passes locally and fails
 intermittently in CI.
 
-**Known instance:** `tests/integration/cli/test_spawn_prompt_input.py` uses
-`timeout=3` on 6 `subprocess.run` calls wrapping `python -m meridian` CLI
+**Known instance (fixed):** `tests/integration/cli/test_spawn_prompt_input.py`
+used `timeout=3` on 6 `subprocess.run` calls wrapping `python -m meridian` CLI
 invocations. Failed once on a release preflight run (#469) due to CI
-contention.
+contention; PR #471 raised the hang-guard to 20s.
 
 The flake mechanism is the same class as Monkeypatchable Module Finals above:
 a timing boundary that's too tight for worst-case CI scheduling. The remedy
