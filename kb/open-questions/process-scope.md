@@ -58,9 +58,16 @@ containment.
 or `PrimaryAttachLauncher` scope recording. Any path that can own a process tree should
 record a `ProcessScopeSnapshot` before exposing the process.
 
+**Progress (PR #465):** All three stdio-transport adapters (Claude, Pi, Cursor) now
+launch through `launch_managed_stdio()`, which records scope with
+`register_spawn_owned_process()`. Before this change, stdio children acquired scope
+registration ad-hoc in each adapter's `start()` method. The remaining audit scope is
+background-worker and metadata-only lifecycle edges that bypass both
+`launch_managed_backend()` and `launch_managed_stdio()`.
+
 **Why deferred:** The known managed-backend leak was fixed by centralizing launch and
-recording scope snapshots. This item is now a coverage audit, not the primary cleanup
-mechanism gap.
+recording scope snapshots. Stdio children are now covered. This item is now a coverage
+audit of the remaining non-managed-launch paths.
 
 **Decision context:** [architecture/process-scope.md](../architecture/process-scope.md)
 

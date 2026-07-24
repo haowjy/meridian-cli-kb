@@ -33,12 +33,24 @@ OpenCode session-id and report artifact parsing is centralized in
 `harness/opencode_report.py`; the extractor delegates there rather than duplicating
 OpenCode event-shape logic in generic helpers.
 
-Managed Codex/OpenCode backends launch through `launch_managed_backend()`, which
-records the backend scope and links the detached backend to the worker lifetime where
-the platform can enforce it (Linux parent-death signal, Windows Job Object; other
-POSIX platforms degrade to isolated-session containment plus recorded scope cleanup).
+Two launch helpers consolidate process lifecycle for the two child categories:
+
+- **Managed backend** (`launch_managed_backend()`): detached resident child
+  (Codex app-server, OpenCode serve) with DEVNULL stdout, parent-death link,
+  scope id `backend`, role `harness_backend`. Records the backend scope and
+  links the child to the worker lifetime where the platform can enforce it
+  (Linux parent-death signal, Windows Job Object; other POSIX platforms
+  degrade to isolated-session containment plus recorded scope cleanup).
+- **Managed stdio child** (`launch_managed_stdio()`): spawn-lifetime piped
+  child (Claude, Pi, Cursor) whose stdout/stderr pipes ARE the transport or
+  its log — PIPE stdout, stderr into `spawns/<id>/stderr.log`, scope id
+  `stdio`, role `harness_stdio`. No parent-death link; the durable scope and
+  the reaper own residue. Provides bounded current-launch stderr tails,
+  termination escalation, and provisional scope ownership across the
+  registration window.
+
 Adapter code should expose the resulting `scope_snapshot`, not write a separate
-backend lifecycle sidecar.
+backend lifecycle sidecar or manage scope handles directly.
 
 `BackendLivenessPolicy` is shared by managed Codex/OpenCode connections and owns the
 classification of quiet streams, active turns, in-flight requests, dead backend PIDs,

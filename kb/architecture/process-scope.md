@@ -96,17 +96,23 @@ Neither needs to touch the other.
 
 ### Scope Recording for Stdio Children
 
-`register_spawn_owned_process()` in `managed_backend.py` is the generic helper for
-recording durable `spawn_owned` process scopes for already-launched child processes.
-Managed backends use `launch_managed_backend()` (which calls `record_scope`
-internally). Stdio-transport children (Claude, Pi, Cursor) use
-`register_spawn_owned_process()` directly: they launch the subprocess through the
-adapter's own `start()` method, then call the helper to persist the scope record.
-This gives the reaper enough state to reclaim stdio children after a crash, closing
-the gap where only managed-backend children had durable scope records.
+Stdio-transport children (Claude, Pi, Cursor) launch through
+`launch_managed_stdio()` in `connections/managed_stdio.py`. The factory
+handles subprocess exec, stderr log open, durable scope registration
+(via `register_spawn_owned_process()` from `managed_backend.py`), and
+provisional ownership during the registration window. Adapters no longer
+call `register_spawn_owned_process()` directly or manage scope handles
+themselves; the helper owns the full launch-to-registered lifecycle.
 
-The helper's placement in `managed_backend.py` is naming debt accepted ahead of
-#424's layering split; it serves all transports, not only managed backends.
+The provisional ownership pattern addresses a gap where cancellation between
+subprocess exec and scope registration could strand a child: the factory
+acquires a `ScopedProcessHandle` immediately after exec, and if registration
+fails, wraps cleanup in `reap_on_ownership_transfer_failure()` so the child
+is terminated even under repeated cancellation delivery.
+
+`register_spawn_owned_process()` remains in `managed_backend.py` — naming
+debt accepted ahead of #424's layering split; it serves all transports, not
+only managed backends.
 
 ---
 

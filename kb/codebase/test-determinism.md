@@ -174,6 +174,36 @@ scenario = PiDrainScenario(...)
 await scenario.wait_for_history_phase("cleanup_completed")
 ```
 
+## Monkeypatchable Module Finals: A Flake Class
+
+Tests that `monkeypatch.setattr` a module-level timing `Final` (e.g.,
+`_FIRST_STDOUT_AFTER_INITIAL_PROMPT_TIMEOUT_SECONDS`) to shorten a timeout race CI
+load. The production code reads the Final at runtime; the test overrides it to a
+sub-second value so the timeout fires quickly. On a contended CI runner, the real
+event can arrive before the shortened timeout expires, flipping the outcome. This
+produced at least two CI flake issues (#459, #465) on the same module Finals.
+
+The flake mechanism: `monkeypatch.setattr` replaces the value on the module object,
+but the production code reads it at an arbitrary point during execution. If the
+timeout is short enough (50-200 ms), real event delivery races the deadline, and the
+test outcome depends on CI scheduling.
+
+**Remedy pattern — injected frozen policy:**
+
+1. Replace module-level timing Finals with a frozen `@dataclass` (e.g.,
+   `PiRpcTimingPolicy`) carrying all timing constants.
+2. Inject the policy at the constructor. Production constructs with defaults;
+   tests construct with short but race-free values (1-2 s, not 50 ms).
+3. Stamp deadlines at the producing event (e.g., prompt-write success), not at
+   the consumer's first iteration.
+4. **Delete the old Finals, do not alias them.** `monkeypatch.setattr` on a
+   missing attribute raises `AttributeError`, so any straggler test fails
+   loudly instead of monkeypatching an inert name and passing silently.
+
+This pattern applies whenever tests need to exercise timeout behavior on a real
+subprocess integration test. The injected policy makes the timeout value a
+constructor concern, not a module-global mutation.
+
 ## Real Sleeps: When They're Acceptable
 
 Real sub-second sleeps are acceptable only when:
