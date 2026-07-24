@@ -2,7 +2,7 @@
 
 **meridian-base** is the foundation package that turns a bare Meridian install into a functional multi-agent coordination system. It provides the orchestrator, subagent, KB agents, and the core skills that every other package builds on.
 
-**Package version:** 0.7.26  
+**Package version:** 0.8.9  
 **Source:** `../prompts/meridian-base/`  
 **Key dependency:** `meridian-prompter` (provides `prompt-principles`)
 
@@ -79,6 +79,29 @@ Defined in `mars.toml`, available to all agents in packages that depend on `meri
 > **`sonnet` alias removed (v0.7.26+).** The `sonnet` model alias was deleted — no agents still referenced it after migrating `session-explorer` → `session-miner` to `deepseekflash` and `kb-writer` → `kb-lead` to `deepseek`.
 
 > **`gpt55` prompting guidance (v0.7.26+).** `gpt55` is the only alias with a `prompting` field: "Outcome-first executor. Include the north-star goal, success criteria, relevant high-level context, constraints, expected output shape, and concrete verification: how to prove the goal is met and what evidence to report." See `mars models prompting gpt55`.
+
+## Hooks
+
+Mars-compiled hooks that install into harness config files during `mars sync`.
+
+| Hook | Event | Target | Purpose |
+|---|---|---|---|
+| `deny-generic-agent` | `tool.pre` | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) via `PreToolUse` |
+| `deny-interactive-prompts` | `tool.pre` | `.codex` | Blocks interactive prompts in Codex sandbox via `PreToolUse` matcher `"Bash"` |
+| `context-autosync` | `session.end` | `.claude` | Pushes stranded context-repo commits at session end (v0.8.9) |
+
+**`context-autosync`** closes a gap where meridian's builtin `git-autosync`
+fires only on meridian lifecycle events (`spawn.start`/`finalized`,
+`work.started`/`done`). Commits created after the last such event — typically
+knowledge capture by an Agent-tool subagent as a session's final act — sit
+stranded locally until the next meridian event. This hook fires at Claude
+`SessionEnd`, discovers each enabled `git-autosync:*` instance via
+`meridian hooks list` (the single runtime authority — no parallel config
+parsing), and runs them. It is a no-op without autosync config.
+
+Requires mars-agents >= 0.10.6 (the `session.end` → `SessionEnd` fix;
+prior versions compiled to the nonexistent `SessionStop` event, making
+this hook dead on arrival).
 
 ## Package Composition Patterns
 

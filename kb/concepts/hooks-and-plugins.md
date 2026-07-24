@@ -217,6 +217,23 @@ each clone is serialized with a per-clone lock (`~/.meridian/locks/clone-<hash>.
 If the lock can't be acquired within 60 seconds, the sync is skipped rather
 than blocking the agent session indefinitely.
 
+### Session-End Coverage Gap
+
+Meridian's builtin hooks fire on meridian lifecycle events: `spawn.start`,
+`spawn.finalized`, `work.start`, `work.done`. These cover agent activity
+coordinated through meridian, but miss commits created after the last such
+event — most commonly knowledge capture by an Agent-tool subagent as a
+session's final act. Those commits sit stranded locally until the next
+meridian lifecycle event.
+
+The `context-autosync` hook in `meridian-base` (v0.8.9) closes this gap.
+It is a Mars-compiled Claude hook that fires at harness `SessionEnd`,
+discovers each enabled `git-autosync:*` instance via `meridian hooks list`,
+and runs them. This bridges Mars-compiled harness hooks (which fire at
+harness session events) with Meridian's builtin hook system (which runs
+the actual sync logic). See
+[../ecosystem/prompt-packages/meridian-base.md](../ecosystem/prompt-packages/meridian-base.md#hooks).
+
 ### Failure Philosophy
 
 All errors produce `skipped` (not `failure`). Sync failures are non-fatal —

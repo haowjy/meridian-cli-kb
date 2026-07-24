@@ -204,6 +204,29 @@ This pattern applies whenever tests need to exercise timeout behavior on a real
 subprocess integration test. The injected policy makes the timeout value a
 constructor concern, not a module-global mutation.
 
+## Tight Subprocess Timeouts: A Flake Class
+
+Tests that wrap `subprocess.run(["python", "-m", "meridian", ...], timeout=N)`
+with a short timeout (e.g., 3 seconds) race CI load. The test expects the
+subprocess to complete or fail within the bound, but on a contended runner the
+process startup alone can exceed it. The test passes locally and fails
+intermittently in CI.
+
+**Known instance:** `tests/integration/cli/test_spawn_prompt_input.py` uses
+`timeout=3` on 6 `subprocess.run` calls wrapping `python -m meridian` CLI
+invocations. Failed once on a release preflight run (#469) due to CI
+contention.
+
+The flake mechanism is the same class as Monkeypatchable Module Finals above:
+a timing boundary that's too tight for worst-case CI scheduling. The remedy
+differs because the timeout is on a real subprocess, not a monkeypatched
+constant:
+
+1. Increase the timeout to a value that's loose enough for CI load (10-30s)
+   while still catching genuine hangs.
+2. If the test asserts timeout behavior (the subprocess should time out),
+   use a deterministic signal instead of a wall-clock race.
+
 ## Real Sleeps: When They're Acceptable
 
 Real sub-second sleeps are acceptable only when:

@@ -4,6 +4,58 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-24 — KB-autosync gap chain knowledge capture (reaper-scope-regression phase 2)
+
+### Trigger
+
+The `reaper-scope-regression` work item's second phase settled: root-caused
+the stranded-commit gap in git-autosync, fixed the mars-agents hook event
+vocabulary bug (PR #129, v0.10.6), shipped the `context-autosync` hook in
+meridian-base (v0.8.9), and completed a full audit of mars hook event
+mappings revealing 6 of 12 wrong.
+
+### What changed
+
+**Stale content fixed:**
+- `open-questions/mars-feature-gaps.md` section 3 (Hook Distribution):
+  rewrote from "partially resolved" to document the full vocabulary audit
+  findings (Claude fix shipped, Codex/OpenCode/Cursor bugs live), the
+  stale-artifact residue problem, and the settled native-passthrough
+  direction (future work item `mars-native-hook-events`).
+
+**New content:**
+- `ecosystem/prompt-packages/meridian-base.md`: version updated to 0.8.9;
+  new Hooks section documenting all three Mars-compiled hooks
+  (`deny-generic-agent`, `deny-interactive-prompts`, `context-autosync`)
+  with the session-end gap rationale and mars-agents version requirement.
+- `concepts/hooks-and-plugins.md`: new "Session-End Coverage Gap" section
+  documenting the builtin-hook coverage gap and the `context-autosync`
+  bridge between Mars-compiled harness hooks and Meridian's builtin hook
+  system.
+- `codebase/test-determinism.md`: new "Tight Subprocess Timeouts" flake
+  class documenting the `test_spawn_prompt_input.py` instance (timeout=3
+  on `subprocess.run`, lost to CI load in #469).
+
+### Already current (verified, no change needed)
+
+- `architecture/mars-compiler.md`: describes the compiler pipeline and
+  hooks module architecture without specific event mappings — nothing
+  contradicts the fix.
+- mars-agents `docs/config/mcp-and-hooks.md`: Claude `session.end` row
+  already updated to `SessionEnd (exact)` in PR #129. Remaining rows
+  (Codex, OpenCode, Cursor) accurately describe current (buggy) mars
+  behavior — the KB captures the audit findings, not a docs correction
+  for behavior that still exists.
+- `decisions/package-management.md`: hook-related decisions (D36, D37)
+  cover collision resolution and Windows quoting, not event vocabulary —
+  no stale content.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-24 — Triage-designs-impl knowledge capture (PRs #466/#467, #113/#171 pending)
 
 ### Trigger
