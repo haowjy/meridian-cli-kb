@@ -1,9 +1,9 @@
 # Verification and Review Discipline
 
 Patterns from the mars-agents hook-fragment convergence gate (11 review
-rounds on PR #138, 3 further rounds on the consolidated PR #147, 2026-07).
-Each appeared multiple times in independent instances, grounded in specific
-evidence below.
+rounds on PR #138, 7 further rounds on the consolidated PR #147 including
+the recovery-seam phase, 2026-07). Each appeared multiple times in
+independent instances, grounded in specific evidence below.
 
 ## A capability token proves a check happened, not that this call is the thing checked
 
@@ -156,9 +156,95 @@ root and nested symlinks, rejects non-directory roots, includes empty
 directories, and compares file content hashes -- but only after structural
 validation passes.
 
+## The sync pipeline assumes staged tree == total desired intent
+
+This is the structural invariant that drove the round-9 redesign escalation
+and the recovery-seam design (D92). Two competent implementation lanes each
+attempted to add a "cannot currently interpret, must not touch" exception
+category to the sync pipeline. Both failed with rising severity.
+
+The sync pipeline flows through resolve, stage, discover, diff, plan,
+target-sync, finalize, retention, and lock. Every stage is a persistence
+site. An exception category must be enforced at every one, or it corrupts
+state. Omission-as-absence (round 4) missed the desired-state engine;
+staging absence read as removal intent, and `mars remove a` destroyed
+unrelated dependency b's hooks. Freeze-as-carried-state (round 5)
+threaded `frozen_hook_sources` through resolution but leaked at three
+persistence sites on the first attempt, with five more stages named by
+the review as eventually needing freeze awareness.
+
+The design that worked (Shape A, D92) deleted the exception category
+entirely. Recovery commands persist intent only and halt before the
+compiler; strict sync remains the sole materializer. The invariant holds
+by construction: when anything is unreadable, the only writes are the
+user's own intent files, which are not derived from package content.
+
+**The transferable rule:** prefer deleting an exception category over
+perfecting it. If every persistence site must honor a distinction, and
+two competent attempts each missed a different subset, the distinction
+costs more to maintain than the value it provides. The right question is
+whether the feature that requires the exception can be decomposed to
+avoid it.
+
+## Runtime probe gate step for schema-breaking releases
+
+Three clean review rounds (diff-and-test) approved a branch whose
+real-world upgrade path was broken. Old-binary staging content from a
+locked v0.8.9 package used the removed hook schema (`event=` singular,
+`[action]` block). Config load rejected it, and every recovery
+command -- including `mars upgrade`, the escape hatch -- was bricked by
+the state it existed to fix. Deleting staging did not help: the archive
+cache held the same content and re-materialized it.
+
+The review gate could not have caught this. It reviewed diffs and tests,
+not a live upgrade from real old-binary state. The test suite exercised
+the new schema thoroughly and the old schema's error path, but no test
+constructed state that a prior binary release would actually have written
+to disk.
+
+**Standing gate step for schema-breaking releases:** after the
+diff-and-test convergence gate closes, probe the release binary against a
+copy of a real old-state project. The probe must exercise the full upgrade
+path (promotion, sweeps, intent writes, final sync) against artifacts
+written by the prior binary, not reconstructed from the current code.
+
+This extends the existing convergence gate process (below) rather than
+replacing it. The diff-and-test gate catches code-level defects; the
+runtime probe catches state-level defects that live in the gap between
+"the code is correct" and "the upgrade from real prior state works."
+
+## Measurement traps: exit codes and cwd drift
+
+Two recurring trap classes across this work item, four occurrences of cwd
+drift alone:
+
+**Exit codes through a pipe.** `$?` captures the exit status of the last
+command in a pipeline, not the first. `mars repair | tail -5` reports
+tail's exit status; if the preceding command exited 2 (a recovery halt),
+the pipe masks it and reads 0. Exit codes must be captured without a pipe
+(`mars repair; echo $?`), or `PIPEFAIL` must be set.
+
+**cwd drift into the wrong repository.** Shell cwd persists between
+calls. `git status`, `gh pr view`, `gh run list`, and `git rev-parse` all
+silently answer about whatever repository cwd points to, returning
+plausible wrong answers rather than visible errors. Four occurrences on
+this work item: `gh pr view 138` queried the wrong repo; push-state
+checks ran against `meridian-cli` instead of `mars-agents`; `gh run list`
+returned empty because cwd had drifted; `gh pr checks 147` said "Could
+not resolve" for the same reason.
+
+Both are instances of the same pattern described in "Verification that
+examines nothing" above: a tool returns a real answer about something
+other than what was asked. The failure is never a visible error -- it is a
+plausible answer to a question that was not intended. The defense is an
+explicit identity check (`pwd`, `headSha` vs branch tip, `git remote -v`)
+rather than careful reading of the output.
+
 ## Convergence gate: the process that closed this review
 
-The 14-round review used a specific process that drove severity to zero:
+The 18-round review (11 on PR #138, 7 on the consolidated PR #147
+including the recovery-seam phase) used a specific process that drove
+severity to zero:
 
 1. **Frozen read-only worktrees.** Each review round ran against a dedicated
    worktree checked out at a specific commit. The reviewer could not see
@@ -174,11 +260,20 @@ The 14-round review used a specific process that drove severity to zero:
 3. **Severity must fall each round.** The blocking-finding trajectory was
    the primary convergence signal: 8, 5, 4, 1, 2, 1, 0 (rounds 1-7 on
    PR #138), then 2, 2, 0 (rounds 8-10 on retention redesign), then 3, 1,
-   0 (rounds 1-3 on the consolidated PR). Sustained non-decrease triggers
-   a scope decision -- round 9 escalated to a redesign brief after six
-   consecutive rounds of same-class ownership bugs.
+   0 (rounds 1-3 on the consolidated PR), then probe + 2, 3H (recovery
+   freeze attempts), then 1H, 0 (post-design rounds 6-7). Sustained
+   non-decrease triggers a scope decision -- round 9 escalated to a
+   redesign brief after six consecutive rounds of same-class ownership
+   bugs; the recovery freeze triggered a second escalation after two
+   rounds with rising severity.
 
-4. **Cross-model review for correlated blind spots.** Eleven rounds all ran
+4. **Runtime probe for schema-breaking releases.** After the diff-and-test
+   gate closes, probe the binary against real old-state artifacts. See
+   "Runtime probe gate step" above. This step was added after the recovery
+   seam phase proved that diff-and-test alone cannot catch state-level
+   upgrade failures.
+
+5. **Cross-model review for correlated blind spots.** Eleven rounds all ran
    on one model family, so their blind spots were correlated by construction.
    A cross-model reviewer from a different family independently returned
    SHIP and found tighter arguments for several invariants. The diversity
@@ -217,4 +312,5 @@ the PR looked healthy.
 - [residue-cleanup-discipline.md](residue-cleanup-discipline.md) -- the
   ownership-violation instances that drove rounds 4-8
 - [../decisions/package-management.md](../decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) -- D91 decision, including the retention seam
+- [../decisions/package-management.md](../decisions/package-management.md#d92-shape-a-recovery-seam----halt-before-compilation-when-hook-surfaces-are-unreadable-2026-07) -- D92 decision, recovery seam design
 - [../architecture/mars-compiler.md](../architecture/mars-compiler.md) -- compiler module map including `surface_ownership/retention.rs`

@@ -519,6 +519,41 @@ to claude with high confidence, the launch bundle will route to claude. No silen
 
 ---
 
+### D92: Shape-A recovery seam -- halt before compilation when hook surfaces are unreadable (2026-07)
+
+**Decision:** Recovery commands (`upgrade`, `override`, `remove`, `repair`) persist their intent mutation (pins, overrides, dependency graph changes to `mars.toml` / `mars.local.toml`) and **halt with exit 2 before the compiler** when any resolved source has an unreadable hook surface (removed-schema package). Strict `sync` remains the sole materializer and only ever runs against a fully readable graph. The "frozen" hook category is deleted from the sync pipeline entirely.
+
+**Why:** The sync pipeline assumes the staged tree is total desired intent. Two implementation attempts to thread a "cannot currently interpret, must not touch" exception through the pipeline each failed with rising severity, not falling:
+
+- **Round 4 (omission-as-absence):** omitting unreadable hooks from staging read as removal intent to the desired-state engine. `mars remove a` deleted unrelated dependency b's installed hooks, bindings, and lock records.
+- **Round 5 (freeze-as-carried-state):** `frozen_hook_sources` flowed through resolution, but three of N persistence sites did not honor it. `PlannedAction::Skip` copied at the target boundary (repair overwrote user edits, finalize mutated frozen checksums). Omitted desired paths were not reserved (a readable hook could claim a frozen hook's destination). Provenance was carried for transitive but not direct dependencies (the override escape hatch self-blocked).
+
+Every stage of the sync pipeline is a persistence site; an exception must be enforced at all of them or it corrupts state. Six pipeline stages needed freeze awareness; five more were named by the round-5 review as eventually needing it. A permanent concept in every current and future persistence site, built for a one-release migration window, was disproportionate.
+
+**What Shape A deletes:** `DiffEntry::Frozen`, `PlannedAction::Skip` frozen lowering, frozen-source hook omission during target construction, `frozen_hook_retention` and every frozen branch in config-entry compilation, frozen partition and exact-record carry-forward in lock construction, `RemovedHookSchemaPolicy` and the policy-conditional staging detection. Commits `5fc4148` and `783437b` are substantially reverted.
+
+**The seam.** The gate sits at the existing reader/compiler boundary in `sync::execute` -- between `reader::read` (load config, resolve, stage, classify hook surfaces) and `compiler::compile` (target, diff, plan, apply, target-sync, sweeps, lock). `unreadable_hook_surfaces` on `ResolvedGraph` has exactly **one consumer**: the gate. Nothing downstream reads it.
+
+**Why one-shot convergence is barely lost.** In the dominant real case (one legacy source), `mars upgrade` resolves a migrated release, the post-mutation graph becomes fully readable, and the full pipeline runs in the same invocation -- including v2-to-v3 promotion and the #130 sweeps. `override` and `remove` behave the same way: the mutation itself makes the graph readable. Shape A gives up one-shot convergence only in the multi-legacy-source case, where one-shot was never achievable under any shape (each escape-hatch command fixes one source).
+
+**User-facing contract.** Exit 0 iff the full pipeline ran (project converged). Exit 2 with a halt report otherwise. The halt report states what was persisted, each remaining blocker as `package@version` with its unreadable hook names, and the suggested next command. JSON output carries a `recovery_halt` object. Exit 2 after a successful intent write follows the `git rebase` conflict pattern: state advanced, work remains, the message says what.
+
+**Corrupt-lock repair contract.** Repair treats a corrupt lock as empty in memory under the sync flock; the on-disk corrupt bytes are preserved until a successful full run finalizes via atomic tmp+rename. A corrupt lock is evidence, not garbage.
+
+**Vocabulary repair.** "Frozen" had two unrelated meanings: `--frozen` (lockfile immutability mode, `check_frozen_gate`, `MarsError::FrozenViolation`) and `frozen_hook_sources` (recovery freeze). Shape A deletes the second meaning. `HookSurfaceState::Frozen` renames to `Unreadable`.
+
+**What survives from rounds 4-5:** `RecoveryPolicy` on `SyncRequest` with strict default and explicit per-command opt-in (`e9992b9`); `compiler::hooks::uses_removed_schema` as the single classifier; contextualized source-package errors with no staging-path leaks (`04f6b04`); transitive override capability (`a18c0c6`) plus declared-identity preservation (`41b540d`).
+
+**Alternatives rejected:**
+
+| Shape | Why not |
+|---|---|
+| Omission-as-absence (round 4) | Staging absence reads as removal intent; destroyed unrelated dependencies' installed state |
+| Freeze-as-carried-state (round 5) | Every pipeline stage is a persistence site; the exception leaked at 3 of N sites on the first attempt, with 5 more stages named as eventually needing awareness. Permanent complexity for a one-release migration bridge |
+| Recovery commands write targets while blind | Round 5 proved repair-while-blind overwrites user edits and corrupts frozen checksums. The #130 sweeps and v2 promotion run inside the materialization pipeline and always eventually execute -- as the same invocation when the graph becomes readable, or as the final `mars sync` |
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution
