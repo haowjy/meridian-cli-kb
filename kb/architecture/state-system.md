@@ -206,7 +206,7 @@ When multiple locks are needed, acquire in this order to prevent deadlocks:
 
 ### Project-Lifetime Gate
 
-`~/.meridian/projects/.locks/<uuid>.lock` sits outside the deletable project root. Sessions hold a **shared** lock for their lifetime; global pruning acquires **exclusive** + revalidates the target before removal. This prevents pruning from destroying a runtime root while sessions hold spawn locks inside it.
+`~/.meridian/projects/.locks/<project-id>.lock` sits outside the deletable project root. Sessions hold a **shared** lock for their lifetime; global pruning acquires **exclusive** + revalidates the target before removal. This prevents pruning from destroying a runtime root while sessions hold spawn locks inside it.
 
 See `lib/platform/locking.py` for implementation details.
 
@@ -277,19 +277,29 @@ store locks and render as `p1`, `p2`, … and `c1`, `c2`, … respectively.
 
 ## Read vs Write Resolution
 
-Bootstrap (UUID creation + runtime dir setup) is skipped for read-only commands. This prevents diagnostic/list commands from creating a UUID in untouched checkouts (CI, first-time runs).
+Read paths call `resolve_project_runtime_root_or_none()` when zero state is a
+valid result, or `resolve_project_runtime_root()` when identity is required.
+Neither creates identity. Write paths call
+`resolve_project_runtime_root_for_write()`, which resolves write authority and
+creates or migrates identity when needed.
 
-| Resolver | Creates UUID? | Use when |
-|----------|--------------|----------|
-| `resolve_project_runtime_root(root)` | No | Read paths; falls back to `.meridian/` if no UUID |
-| `resolve_project_runtime_root_or_none(root)` | No | Read paths where caller needs to know if uninitialized |
-| `resolve_project_runtime_root_for_write(root)` | Yes (under lock) | Write paths |
+| Resolver | Mutates identity? | Result |
+|---|---|---|
+| `resolve_project_runtime_root_or_none()` | No | Runtime root or `None` |
+| `resolve_project_runtime_root()` | No | Runtime root or error |
+| `resolve_project_runtime_root_for_write()` | Yes, when absent/legacy | Runtime root |
 
-## Migrations
+## Identity Compatibility Migration
 
-Migration scripts live in top-level `migrations/`, versioned as `vNNN_short_name/`. Each has `README.md`, `check.py`, `migrate.py`, optional `rollback.py`. Tracking splits across `.meridian/.migrations.json` (repo-side) and `~/.meridian/projects/<uuid>/.migrations.json` (user-side). Run manually — no auto-run, no CLI integration yet.
+The active migration is implemented in `lib/ops/migration.py`, not a stub in a
+repo-side migrations registry. `get_project_id()` reads committed
+`meridian.toml` first and falls back to `.meridian/id`. On the first write,
+`get_or_create_project_id()` runs `migrate_legacy_project_identity()` under the
+project-config transaction, atomically writes the legacy value into
+`meridian.toml`, and then resolves the same user runtime root. Without a legacy
+value it generates a collision-checked three-word ID.
 
-**v001 `uuid_state_split`** (introduced 0.0.34): moves legacy runtime state from `.meridian/` to `~/.meridian/projects/<uuid>/`. Currently a stub.
+The legacy file is compatibility input, not a second current identity store.
 
 ## Related Pages
 

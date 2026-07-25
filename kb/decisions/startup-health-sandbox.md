@@ -70,15 +70,18 @@ See [architecture/startup-pipeline.md](../architecture/startup-pipeline.md).
 
 ---
 
-### Telemetry install at process seam only, not in ops modules
+### Proposed single process-seam telemetry install — not shipped
 
-**Decision:** `TelemetryBootstrap.install(plan: TelemetryPlan) -> TelemetryHandle` is called once per process, at the process entry seam (CLI entrypoint, spawn worker entrypoint, MCP server entrypoint). Operation-layer functions (`spawn_create_sync`, `run_chat_server`, extension dispatch) do not configure telemetry.
+**Status:** Intended design, not current mechanism. The proposed
+`TelemetryBootstrap.install(plan)` class was never implemented. Shipped code
+retains `setup_telemetry()` in spawn operations and the background execution
+path, with `BufferingSink` available before a runtime root is known.
 
-**Why:** Installing telemetry inside ops modules creates multiple entry points with divergent lifecycle behavior. The `BufferingSink → upgrade` pattern (install early, upgrade to a real sink once runtime root is known) adds complexity and only makes sense when telemetry is installed before the runtime root is resolved — which is no longer necessary once bootstrap is sequenced correctly.
-
-**Consequences:** `setup_telemetry()` calls removed from `spawn/api.py`, `spawn/execute.py`, `chat_cmd.py`, and `server/main.py`. Read-only commands install no telemetry at all.
-
-> [!FLAG] **Needs human review** — Current source still has `setup_telemetry()` call sites in `src/meridian/lib/ops/spawn/api.py` and no `TelemetryBootstrap` class was found during the 2026-05-05 structural check. Decide whether this decision record is aspirational, partially shipped, or stale.
+The durable rationale still applies: duplicated install sites can diverge and a
+single process seam may be worth implementing. Until that happens,
+[CLI Startup Architecture](../architecture/startup-pipeline.md#telemetry-as-shipped)
+is authoritative for current behavior. This record must not be read as evidence
+that operation-layer setup was removed.
 
 ---
 
@@ -150,7 +153,10 @@ See [architecture/startup-pipeline.md](../architecture/startup-pipeline.md).
 
 3. **`exit_no_established_project()`** is the single CLI-edge `SystemExit(1)` — centralized so the exit message never diverges across call sites.
 
-**Established-project predicate:** `cwd_has_project_id(cwd)` checks whether the literal CWD contains `.meridian/id` — **no ancestor walk**. This restores correct behavior when run from inside a project directory without `-C` / `MERIDIAN_PROJECT_DIR` (a pre-existing #335 over-correction had dropped the literal-cwd check). The predicate is intentionally one function; #341 will broaden it to `meridian.toml` / `mars.toml`.
+**Established-project predicate:** `cwd_has_project_id(cwd)` checks whether
+the literal CWD contains `meridian.toml` or `mars.toml`—no ancestor walk. The
+function name predates the shipped identity migration; `.meridian/id`, `.mars/`,
+`.agents/`, and `.git` do not establish a project.
 
 **Not an established project:** CWD resolution where `cwd_has_project_id()` returns `False` — project-required commands still exit 1; rootless commands exit 0.
 

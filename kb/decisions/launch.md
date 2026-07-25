@@ -479,13 +479,19 @@ See [concepts/composition-pipeline.md](../concepts/composition-pipeline.md).
 
 ---
 
-### StrategyMap invariant enforces exhaustive SpawnParams handling per adapter
+### Spawn-field coverage from adapter `handled_fields` (supersedes StrategyMap)
 
-**Decision:** Each harness adapter declares a `STRATEGIES: StrategyMap` dict mapping every `SpawnParams` field name to a `FlagStrategy`. Fields not in the map must be in the `_SKIP_FIELDS` set. Missing mappings raise `ValueError` at build time.
+**Current decision:** each adapter declares the launch fields it handles, and
+coverage validation uses the union of those declarations against the typed
+launch spec. Bundle registration and launch-spec guards fail when a field has no
+owner.
 
-**Why:** Without this, adding a new field to `SpawnParams` silently ignores it in adapters that don't handle it. Subtle omissions (forgetting to pass `report_output_path` to a harness that supports it) are hard to catch in review. The invariant makes the gap a runtime error at the earliest possible moment.
+The earlier decision required a per-adapter `STRATEGIES: StrategyMap` of
+`FlagStrategy` entries. That command-assembly generation was deleted; retaining
+its exhaustive-coverage goal through `handled_fields` avoids coupling every
+field to a flag-strategy abstraction.
 
-See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — command assembly.
+See [Harness Abstraction](../concepts/harness-abstraction.md).
 
 ---
 
