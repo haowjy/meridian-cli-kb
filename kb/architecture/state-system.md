@@ -6,73 +6,38 @@ See [concepts/state-model.md](../concepts/state-model.md) for the mental model. 
 
 ## Split State Layout
 
-State divides across three roots:
+State divides across committed configuration, a user-local runtime root, and a configured context work root:
 
 ```
-.meridian/                          ← repo root, committed scaffolding
-  id                                — project UUID (gitignored; 36-char v4)
-  id.lock                           — exclusive lock for UUID generation
-  .gitignore                        — seeded non-destructively
-  kb/                               — agent-facing codebase mirror (committed)
+meridian.toml
+  [project]
+  id = "three-word-id"              — committed authoritative identity
 
-~/.meridian/projects/.locks/<uuid>.lock
-                                    — project-lifetime shared/exclusive gate (never unlinked)
-
-~/.meridian/projects/<uuid>/        ← user runtime, never committed
-  sessions.jsonl                    — all session events, append-only
-  sessions.jsonl.flock
-  session-id-counter                — monotonic counter for c1, c2, …
-  sessions/                         — per-session lock + lease files
-  spawn-id-counter                  — monotonic counter for p1, p2, …
-  locks/
-    spawns/<id>.lock                — stable per-spawn mutation lock
-    process-scopes/<id>.lock        — scope-projection sidecar mutation lock
-    reaper-cleanup/<id>.lock        — prevents concurrent cleanup signalling
-    launch-boundary/<id>.lock       — launch-boundary append lock
-    gc.lock                         — lock-GC pass serialization
-    hooks/<name>.lock               — per-hook interval serialization lock
+~/.meridian/projects/.locks/<id>.lock — project-lifetime gate
+~/.meridian/projects/<id>/          — user runtime, never committed
+  sessions.jsonl                    — session events
+  session-id-counter · spawn-id-counter
+  sessions/ · locks/
   spawns/
-    v2-format.json                  — marker file: v2 format active (one-time migration)
-    .staging/<unique>/              — complete row build before atomic publication
-    <id>/                           — per-spawn state directory
-      state.json                    — authoritative spawn state (v2)
-      starting-prompt.md            — prompt body (written once at spawn creation)
-      prompt.md · report.md · heartbeat
-      history.jsonl                 — primary output artifact (seq-enveloped harness events)
-      output.jsonl                  — legacy fallback (absent on new spawns)
-      stderr.log · params.json (two-phase) · tokens.json
-      attempt-N/                    — preserved retry evidence from prior attempts
-      last-observed-event.json      — diagnostic marker: last harness event + counters
-      runner-lifecycle.jsonl        — runner breadcrumb journal (signals, phases, atexit)
-      finalize-evidence.json        — orphan-time liveness snapshot before reaper cleanup
-      process_scopes.json           — durable process identities + release markers
-      reaper_cleanup_claim.json     — pending finalize-first cleanup targets
-      inbound.jsonl                 — injected user messages
-      debug.jsonl                   — MERIDIAN_DEBUG=1 only
-  artifacts/                        — LocalStore blob store
-  cache/                            — models.json (24h TTL), other transient data
-  .migrations.json                  — user-side migration tracking
+    v2-format.json · .staging/<unique>/
+    <spawn-id>/
+      state.json                    — authoritative spawn row
+      starting-prompt.md · prompt.md · report.md · heartbeat
+      history.jsonl · stderr.log · params.json · tokens.json
+      attempt-N/ · runner-lifecycle.jsonl · process_scopes.json
+  artifacts/ · cache/ · .migrations.json
 
-  ← Legacy v1 files (archived on migration):
-  spawns.legacy-v1.jsonl            — original global event log (renamed from spawns.jsonl)
-  spawns.legacy-v1.jsonl.flock      — renamed from spawns.jsonl.flock
-
-<context.work root>/<slug>/         ← context-resolved, NOT repo-local
-  __status.json                     — mutable per-work-item metadata
-  prompts/ handoffs/ …              — work artifacts
+<context.work root>/<slug>/         — context-resolved work state and artifacts
 ```
 
-UUID mapping: `.meridian/id` → runtime directory. Projects can be moved or renamed without losing runtime history.
+`[project].id` selects the runtime directory. `user_paths.py` still reads a
+legacy `.meridian/id` when config has no ID; the first write migrates that value
+(or generates a three-word ID) into `meridian.toml` by atomic replacement.
+Repo-local `.meridian/` is not an active state root.
 
-Control sockets live outside the spawn directory in a per-user temp directory:
-`/tmp/meridian-<uid>/control-<sha256[:32]>.sock` (POSIX). The hash is derived from
-the resolved runtime root and spawn ID, keeping the path within the
-`sockaddr_un.sun_path` limit regardless of project path depth. The directory is
-mode 0700 with UID ownership validation. Because the socket is external to the spawn
-directory, spawn-directory GC does not clean stale sockets; issue #445 tracks
-reconnecting socket GC to lifecycle.
-
-Work items live under the `[context.work]` root (default `{user_home}/context/<id>/work/`), resolved by `work_scope.py` / `work_store.py`. Archived items move to `<context.work root>/../archive/work/<slug>/`. See `docs/configuration.md` for context-path resolution.
+Control sockets live outside spawn directories in the per-user POSIX temp
+root. Work items live under `[context.work]` and archive beside that work root.
+See `docs/configuration.md` in meridian-cli for context-path resolution.
 
 ## Spawn State: V2 Per-Spawn state.json
 
@@ -80,7 +45,12 @@ Since 2026-05 (spawn-state-v2 migration), spawn state lives in individual `state
 
 **Why the migration:** The global `spawns.jsonl` had grown to 189 MB / 35,000 events in production, making every spawn-status read O(n) replay of the entire file. Primary launch time had degraded to 12–13 seconds. Per-spawn `state.json` makes reads O(1) — a single file read per spawn, regardless of project history.
 
-**Performance results after migration:** 12–13s primary launch time → 0.67s. `list_spawns()` improved from multi-second to ~386ms (still bounded by 4,000 file reads — see [open-questions/future-work.md](../open-questions/future-work.md) for the remaining gap).
+**Measured migration result:** in the production dataset that triggered the
+migration (about 189 MB / 35,000 events), primary launch fell from 12–13 seconds
+to 0.67 seconds and `list_spawns()` measured about 386 ms across roughly 4,000
+spawn files. Provenance: `work:spawn-state-v2`, benchmark notes from the May
+2026 state-v2 campaign. These historical measurements are not current
+performance guarantees.
 
 ### Spawn Status Machine
 
@@ -297,11 +267,13 @@ Archiving moves the entire directory to the archive root. Directory location is 
 
 ## ID Generation
 
-**Project UUID:** `get_or_create_project_uuid()` in `user_paths.py`. Double-checked under `id.lock` (exclusive cross-process lock). Concurrent first-writes converge to the same UUID.
+**Project IDs:** `get_or_create_project_id()` reads `[project].id`, migrates a
+legacy `.meridian/id`, or generates a three-word ID. It atomically edits
+`meridian.toml`; concurrent writers converge by re-reading under the config
+lock.
 
-**Session IDs:** Monotonic counter in `session-id-counter`, incremented under `lock_file()`. IDs: c1, c2, c3, …
-
-**Spawn IDs:** Monotonic counter in `spawn-id-counter` at the runtime root, incremented under `spawns_flock` at reservation time. Format: `p1`, `p2`, `p3`, … IDs can be reserved before the spawn row exists (via `reserve_spawn_id()`) so callers can compose launch context with the final ID.
+**Spawn IDs** and **session IDs** come from monotonic counters under their
+store locks and render as `p1`, `p2`, … and `c1`, `c2`, … respectively.
 
 ## Read vs Write Resolution
 

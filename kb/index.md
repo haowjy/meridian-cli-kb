@@ -37,6 +37,9 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, typed state contracts (discriminated lifecycle facts, quarantine, per-bundle semantics, directory-authoritative work items)
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
+- [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
+- [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) — Wait, goal, and session-mode decisions
+- [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) — Harness/platform compatibility history
 - [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) — Why descriptor-driven startup, doctor tiering, and sandbox projection policy work the way they do
 - [decisions/state-and-launch.md](decisions/state-and-launch.md) — Compatibility map for the previous combined state/launch decision page
 - [decisions/dev-frontend.md](decisions/dev-frontend.md) — Dev frontend decisions DF-D1 through DF-D7: portless default, explicit exposure, PORTLESS env scrub, allowed-hosts, launcher strategy
@@ -138,7 +141,6 @@ High-level orientation for making changes — where to start, what owns what, ho
 - [codebase/overview.md](codebase/overview.md) — Codebase domain overview and ownership map
 - [codebase/guide.md](codebase/guide.md) — How to navigate the codebase, where to start reading, how to add new subsystems
 - [codebase/harness-adapters.md](codebase/harness-adapters.md) — `lib/harness/`: capability matrix, primary event scope, and cross-harness comparison
-- [codebase/observability.md](codebase/observability.md) — Telemetry spine framing and relationship to durable state log
 - [codebase/tools.md](codebase/tools.md) — `lib/kg/`, `lib/mermaid/`, `lib/markdown/`: KG analysis, Mermaid validation, Markdown extraction exposed via `meridian kg` / `meridian mermaid`
 - [codebase/work-items.md](codebase/work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination
 - [codebase/session-operations.md](codebase/session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, user-facing command guidance

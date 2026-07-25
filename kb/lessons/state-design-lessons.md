@@ -2,20 +2,28 @@
 
 These are the choices that shaped Meridian's state layer, with the reasoning that drove each one. The "we tried X" context is what makes these valuable — without it, the decisions look arbitrary.
 
-## Why Dual-Root (Repo + User)
+This page is historical: it records the reasoning and mistakes that shaped the
+state system. For the shipped layout and identity mechanism, use
+[Architecture: State System](../architecture/state-system.md). Some early
+choices below were later superseded; each section names what remains true.
 
-**The problem we were solving:** Projects get moved, renamed, and copied. A state root tied to the project path breaks when the directory changes. But committing high-churn runtime state (spawn records, artifacts, session transcripts) to git creates commit noise, merge conflicts, and bloated repositories.
+## Why Separate Committed Identity from User Runtime
 
-**The solution:** Split state into two roots by volatility:
+The durable lesson is separation by volatility: project identity must move with
+the repository, while spawn records, transcripts, locks, and caches must not be
+committed. The first implementation put a UUID in `.meridian/id` and keyed
+`~/.meridian/projects/<uuid>/` from it. That solved path moves but made checkout
+identity gitignored and left repo-local `.meridian/` carrying ambiguous roles.
 
-- **Repo `.meridian/`** — committed scaffolding: KB, work items, agent profiles. Moves with the repo. Goes into version control.
-- **User `~/.meridian/projects/<uuid>/`** — runtime state: per-spawn `state.json`, session events, artifact directories. Keyed by UUID, not path. Never committed.
+The current design keeps the split but changed its binding: `[project].id` in
+`meridian.toml` is authoritative and the user runtime remains
+`~/.meridian/projects/<id>/`. A legacy `.meridian/id` is read only for
+compatibility and migrated on the first write. Work items moved to the
+configured context work root rather than either identity or runtime location.
 
-**The UUID binding:** `~/.meridian/projects/<uuid>/` uses a project UUID (stored in `.meridian/id`). When you rename or move the repo, the UUID stays the same, and the user-level state is still there. This was the key insight: project identity is the UUID, not the path.
-
-**The migration moment:** This split was introduced in `v001 uuid_state_split` (0.0.34). Before that, all state lived under repo `.meridian/`. The legacy path still worked for reading; new writes went to the user root.
-
-**What we'd do differently:** The split is right, but the migration tooling (currently a stub) should have been implemented before the split was released. Running the old structure and the new structure in parallel required read-fallback code that complicated path resolution.
+**What remains true:** identity is not the absolute checkout path; high-churn
+runtime state stays user-local; migration must land with the new write path
+rather than leaving two active stores indefinitely.
 
 ---
 
@@ -33,7 +41,7 @@ These are the choices that shaped Meridian's state layer, with the reasoning tha
 
 4. **Simpler crash recovery.** A truncated JSONL file is recoverable by skipping the last partial line. A corrupt SQLite database requires `PRAGMA integrity_check` and may need manual reconstruction.
 
-**The cost:** Querying requires reading and replaying the entire file. For spawn lists this is fast (hundreds of events, not millions). If spawns scale to tens of thousands, we'd need an index. That's a future problem.
+**The cost:** Querying requires reading and replaying the entire file. For spawn state this cost became real, so the global event log was superseded by per-spawn `state.json`. JSONL remains appropriate for sessions and journals where ordered history is the contract.
 
 ---
 

@@ -186,6 +186,6 @@ base implementation's priority chain without modification.
 - [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — policy/mechanism split mental model
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — project_content() semantic IR pattern
 - [../concepts/workspace-projection.md](../concepts/workspace-projection.md) — workspace root projection, Codex remote TUI attach, OpenCode env merging
-- [../decisions/launch.md](../decisions/launch.md#d-primary-approval) — D-primary-approval: managed-primary Codex approval routing design
+- [../decisions/launch.md](../decisions/launch-process-ownership.md#d-primary-approval) — D-primary-approval: managed-primary Codex approval routing design
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
 - [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination

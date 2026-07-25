@@ -7,7 +7,7 @@ managed-primary sessions that are still serving an active frontend lease.
 Related pages:
 - [architecture/managed-primary-lifecycle.md](managed-primary-lifecycle.md) — managed-primary
   spawn_owned vs session_owned ownership split
-- [decisions/launch.md](../decisions/launch.md#d-process-scope-ownership) — why Option D was
+- [decisions/launch.md](../decisions/launch-process-ownership.md#d-process-scope-ownership) — why Option D was
   chosen over A/B/C
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — generic spawn status machine
   and reaper model

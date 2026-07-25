@@ -16,7 +16,7 @@ Launch composition, resolve-before-persist, finalization ownership, semantic IR 
 
 ## Spawn Wait Barrier
 
-No-argument wait discovery, yield checkpoints, and background-spawn barrier language now live in [launch.md](launch.md#spawn-wait-barrier).
+No-argument wait discovery, yield checkpoints, and background-spawn barrier language now live in [launch.md](launch-session-initiation.md#spawn-wait-barrier).
 
 ## Doctor and Health Checks
 
