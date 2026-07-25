@@ -304,5 +304,5 @@ the only path. The bug was latent but inactive.
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed primary reaper safety boundary
 - [operations/health-checks.md](../operations/health-checks.md) — doctor `--kill-orphans` flag
 - [principles/design-principles.md](../principles/design-principles.md) — crash-only, files-as-authority
-- [codebase/observability.md](../codebase/observability.md) — stdlib vs structlog boundary and why it matters
+- [telemetry overview](../architecture/telemetry/overview.md) — durable telemetry versus transient diagnostic logging
 - [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md) — spawn wait descendant-scoping semantics

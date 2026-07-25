@@ -1,134 +1,51 @@
 # Aliases and Harness Routing
 
-Model names in a spawn request resolve to concrete model IDs via **Mars aliases**,
-then route to a harness via the Mars launch-bundle. This page covers the alias
-mechanism, the identity/routing split, and how harness-specific model strings work.
+Mars is the authority for model aliases and launch routing. Meridian parses the
+resolved alias payload for display and launch context, but it does not infer a
+harness from Python prefix tables.
 
-## Alias Authority: Mars
+## Alias Authority
 
-Meridian has **zero built-in alias definitions**. All aliases come from Mars
-packages declared in `mars.toml` `[models]` sections. When you run
-`meridian mars sync`, Mars writes a merged alias table to
-`.mars/models-merged.json`. At resolution time:
+Aliases originate in package and consumer `[models]` configuration. Mars
+resolves them and supplies the launch bundle; `.mars/models-merged.json` is the
+compiled alias catalog used for local catalog fallback. Meridian has no built-in
+alias definitions.
 
-1. `mars models list --json` → fully resolved alias list (preferred)
-2. Fall back to `.mars/models-merged.json` if the Mars binary is unavailable
-3. Fall back to empty alias table if neither works — bare model IDs still work
-
-Source: `src/meridian/lib/catalog/model_aliases.py:390-411`
-
-Keeping aliases in `mars.toml` co-locates them with the agent packages that
-use them. An alias change propagates automatically on the next `meridian mars sync`.
-
-## AliasEntry
-
-`resolve_model()` returns an `AliasEntry` (frozen dataclass):
+`AliasEntry` is a frozen Pydantic model with canonical `model_id`, optional
+`resolved_harness`, defaults, ordered harness candidates, and a tuple of
+`RunnablePath` records:
 
 ```python
+class RunnablePath(BaseModel):
+    harness: str
+    harness_model_id: str
+    provider: str = ""
+
 class AliasEntry(BaseModel):
     alias: str
     model_id: ModelId
-    resolved_harness: HarnessId | None   # None if mars doesn't specify
-    description: str | None
-    default_effort: str | None
-    default_autocompact: int | None
-    harness_candidates: list[RunnablePath]      # per-harness (harness_id, model_id) pairs
-    runnable_paths: dict[HarnessId, ModelId]    # fast lookup: harness → harness-specific model string
-
-    @property
-    def harness(self) -> HarnessId:
-        if self.resolved_harness is not None:
-            return self.resolved_harness
-        return pattern_fallback_harness(str(self.model_id))
-
-    @property
-    def mars_provided_harness(self) -> HarnessId | None:
-        return self.resolved_harness
-
-    def harness_model_id_for(self, harness_id: HarnessId) -> ModelId:
-        """Return the harness-specific model string, or canonical model_id if not in runnable_paths."""
-        return self.runnable_paths.get(harness_id, self.model_id)
+    resolved_harness: HarnessId | None
+    harness_candidates: tuple[str, ...]
+    runnable_paths: tuple[RunnablePath, ...]
 ```
 
-Source: `src/meridian/lib/catalog/model_aliases.py:28-48`
+`AliasEntry.harness` returns the Mars-supplied harness and raises if it is
+missing. `runnable_paths` is not a dict, and the entry has no
+`harness_model_id_for()` helper. The harness-specific model string used for a
+launch comes from `routing.harness_model` in the Mars launch bundle.
 
-`mars_provided_harness` returns `None` when Mars doesn't specify a harness for
-the alias. In the bundle path, Mars handles harness assignment in the
-launch-bundle response.
+## Identity and Routing
 
-## Harness-Specific Model IDs
+Model lookup establishes identity; Mars launch-policy resolution establishes a
+runnable route. Meridian forwards explicit model/harness/effort/approval/sandbox
+overrides in the bundle request. The response supplies the resolved harness,
+canonical and harness-native model strings, selected token, and per-field
+provenance.
 
-Some models carry different concrete model strings per harness. For example,
-`gpt-5.5` may be `gpt-5.5` on Codex but `openai/gpt-5.5` on OpenCode (which
-routes to an HTTP API requiring provider-prefixed IDs).
-
-Mars encodes these per-harness strings via **`RunnablePath`** entries:
-
-```python
-@dataclass(frozen=True)
-class RunnablePath:
-    harness_id: HarnessId    # which harness this path applies to
-    model_id: ModelId        # the harness-specific model string for that harness
-```
-
-`AliasEntry.harness_candidates` is the ordered list of `RunnablePath` entries
-for the alias. `AliasEntry.runnable_paths` is a dict derived from it for O(1)
-lookup: `{harness_id: model_id}`.
-
-At bind time, `context.py:bind_launch_context()` calls
-`entry.harness_model_id_for(resolved_harness)` to retrieve the harness-specific
-model string. This string is stored as `ModelSelectionContext.harness_model_id`
-and passed to the harness adapter when building the subprocess command.
-
-If `runnable_paths` has no entry for the resolved harness, `harness_model_id_for()`
-falls back to the canonical `model_id` — preserving behavior for harnesses that
-don't need a provider-prefixed form.
-
-Source: `src/meridian/lib/catalog/model_aliases.py` — `RunnablePath`,
-`parse_harness_candidates()`, `parse_runnable_paths()`.
-
-## Identity vs. Routing Split
-
-`resolve_model()` establishes **identity** only — what model are we talking about?
-It returns an `AliasEntry` with `model_id` and optional `mars_provided_harness`.
-It does not raise if the harness is unknown.
-
-**Harness routing** for PRIMARY/SPAWN_PREPARE is handled by Mars via the
-launch-bundle. Meridian passes explicit CLI/env overrides to
-`mars build launch-bundle` and Mars returns the resolved harness in the bundle
-payload. This split lets identity resolution succeed independently of harness
-assignment; the full routing resolution (including policy rules and fallback)
-lives in Mars.
-
-## resolve_model() Algorithm
-
-```
-1. Strip whitespace from input
-2. Call mars models resolve <name> --json
-   - If mars returns same model_id as input → return it as AliasEntry
-   - If mars returns a different model_id → run exact-ID guard via
-     mars models list --all --json to protect against prefix collisions
-     (e.g. gpt-5.4 resolving to gpt-5.4-mini)
-3. If mars cannot resolve → treat input as raw model ID, apply pattern fallback
-```
-
-Source: `src/meridian/lib/catalog/models.py:44-136`
-
-## Pattern Fallback for Raw Model IDs
-
-When a model name doesn't match any Mars alias, `pattern_fallback_harness()`
-maps it to a harness by prefix:
-
-| Patterns | Harness |
-|---|---|
-| `claude-*`, `opus*`, `sonnet*`, `haiku*` | Claude |
-| `gpt-*`, `o1*`, `o3*`, `o4*`, `codex*` | Codex |
-| `gemini*` | OpenCode |
-
-Source: `src/meridian/lib/catalog/model_policy.py:33-67`
-
-Pattern fallback is a last resort. Teams using Mars aliases don't rely on it
-in production — it's mainly for bare model IDs in development.
+Raw model IDs follow this same Mars path. There is no Python
+`pattern_fallback_harness()` or `model_policy.py` prefix router. If Mars cannot
+supply a required harness, Meridian fails rather than guessing from the model
+name.
 
 ## ModelSelectionContext
 

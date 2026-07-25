@@ -134,71 +134,12 @@ then model-policies rules are walked in list order.
 See [D75](../../decisions/model-resolution.md#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan)
 for the decision rationale.
 
-## Model Visibility Policy
+## Model Inventory and Visibility
 
-`ModelVisibilityConfig` controls which models appear in `meridian models list`
-default output (not `--all`):
-
-```python
-class ModelVisibilityConfig(BaseModel):
-    include: tuple[str, ...] = ()
-    exclude: tuple[str, ...] = (
-        "*-latest",
-        "*-deep-research",
-        "gemini-live-*",
-        "o1*", "o3*", "o4*",
-    )
-    max_input_cost: float | None = 10.0   # $/M tokens
-    max_age_days: int | None = 120
-    hide_date_variants: bool = True
-    hide_superseded: bool = True
-```
-
-Source: `src/meridian/lib/catalog/model_policy.py:13-39`
-
-`is_default_visible_model()` applies these filters in order:
-
-1. **Include/exclude globs** — `include` patterns must match; `exclude` patterns
-   must not match
-2. **Date variant hiding** — models with a date suffix (e.g., `claude-3-5-sonnet-20241022`)
-   are hidden if the base model (`claude-3-5-sonnet`) also exists in the catalog
-3. **Superseded hiding** — older models in the same provider+lineage group are
-   hidden
-4. **Age cutoff** — models older than `max_age_days` from their `release_date`
-   are hidden
-5. **Cost cap** — models above `max_input_cost` $/M tokens are hidden
-
-Pinned aliases are always visible regardless of these filters.
-
-### Superseded Model Detection
-
-`compute_superseded_ids()` groups models by `(provider, lineage)` where lineage
-is the model ID with version numbers and date suffixes stripped. Within each
-group, all models except the newest release are marked superseded.
-
-Example: `claude-3-5-sonnet`, `claude-3-5-sonnet-20240620`, and
-`claude-3-5-sonnet-20241022` are one lineage group. The two older entries become
-superseded.
-
-Source: `src/meridian/lib/catalog/model_policy.py:139-196`
-
-## Invariants
-
-- **I-1: Parse-time validation** — `model-policies` rules are validated when
-  the profile is loaded, not at resolution time. Unknown keys and malformed rules
-  fail at load time.
-- **I-2: Pinned aliases always visible** — `is_default_visible_model()` returns
-  `True` immediately for pinned aliases regardless of filters.
-- **I-3: List fields deferred** — profile `model-policies` list override
-  fields (`skills`, `tools`, etc.) are accepted and warned but not applied;
-  overlay list fields are rejected with a warning.
-- **I-4: Overlay prepend, not replacement** — when an overlay provides one or
-  more `model-policies` entries, those rules prepend to profile rules (evaluated
-  first). `model-policies = []` suppresses all profile rules. Key absent inherits
-  unchanged.
-- **I-5: First-match wins** — within a given match-type rank, the first matching
-  rule in list order wins. Duplicate same-specificity rules are silently unreachable,
-  not a parse error.
+Model inventory, default visibility, and supersession belong to Mars.
+`meridian models list` is a redirect that tells callers to use
+`meridian mars models list`; Meridian has no `ModelVisibilityConfig`,
+`is_default_visible_model()`, or `compute_superseded_ids()` implementation.
 
 ## Migration: fanout → model-policies
 

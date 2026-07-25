@@ -16,7 +16,7 @@ src/meridian/
   lib/
     extensions/   Unified command system: ExtensionCommandSpec, registry, dispatcher
     ops/          Operation handler implementations + commands.py
-    harness/      Subprocess adapters: Claude, Codex, OpenCode, Direct + connections/
+    harness/      Harness bundles: Claude, Codex, Cursor, OpenCode, Pi + connections/
     state/        JSONL event stores, work items, WorkScope (named vs ambient), path
                   resolution, reaper, atomic writes
     catalog/      Model resolution, agent/skill loading, default agent policy
@@ -27,7 +27,6 @@ src/meridian/
     core/         Shared primitives: ID types, OutputSink, depth, ResolvedContext, lifecycle
     platform/     OS detection, file locking, process termination, deferred OS imports
                   (POSIX-first; legacy Windows branches untested, not to be expanded)
-    app/          REST server: FastAPI + SSE/WebSocket streaming
     streaming/    HarnessConnection abstractions + SpawnManager
     observability/ Structured logging context, debug tracing
     safety/       Budget, guardrails, permissions, redaction
@@ -72,18 +71,22 @@ src/meridian/
 1. Define a handler function in the appropriate `ops/` module
 2. Add an `ExtensionCommandSpec` entry in `ops/commands.py` via `ExtensionCommandSpec.from_op()`
 3. The CLI auto-generates the command via `cli/ext_registration.py` — no explicit registration needed
-4. The command is automatically available via the MCP server and HTTP server too
+4. Declare MCP exposure in the extension spec when the operation belongs on that surface
 
 ### A new harness
 
-1. Create an adapter file in `lib/harness/` implementing `SubprocessHarness` (or `InProcessHarness`)
-2. Define `HarnessCapabilities` — set capability flags conservatively
-3. Implement `STRATEGIES: StrategyMap` for command assembly (every `SpawnParams` field must be mapped or added to `_SKIP_FIELDS`)
-4. Implement `project_content()` for semantic content routing (both PRIMARY and SPAWN_PREPARE surfaces)
-5. Register the adapter in `lib/harness/registry.py:with_defaults()`
-6. For bidirectional streaming: add a `HarnessConnection` implementation in `lib/harness/connections/`
+1. Define the typed launch spec and adapter contract.
+2. Implement the adapter, subprocess projection, and event semantics.
+3. Implement a `HarnessExtractor` and at least one `HarnessConnection`.
+4. Construct and register a validated `HarnessBundle`; add managed-primary
+   projection ports only for that bootstrap mode.
+5. Add the adapter to `HarnessRegistry.with_defaults()` and update
+   `HARNESS_EXTENSION_TOUCHPOINTS` if the real touchpoint set changes.
+6. Run the real harness through startup, failure, extraction, injection (when
+   supported), and cleanup.
 
-No shared code should need modification.
+See [Harness Abstraction](../concepts/harness-abstraction.md). No Direct or
+`InProcessHarness` extension path exists.
 
 ### A new operation / extension command
 

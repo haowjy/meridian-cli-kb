@@ -8,6 +8,14 @@ Lessons from the `architecture-refactor-roadmap` work item (2026-05), specifical
 
 The Phase 8.6 goal was to reduce concepts and entropy, not merely move lines. The final result: −3,005 LOC net across 10 files, with all four reviewer gates passing (verifier, reviewer, refactor-reviewer, alignment-reviewer).
 
+> **Measurement provenance:** net line count was taken from the Phase 8.6 final
+> diff in `work:architecture-refactor-roadmap` on 2026-05-08, excluding no
+> separately generated tree; review outcomes are the final verifier, reviewer,
+> refactor-reviewer, and alignment-reviewer reports attached to that work item.
+> Implementation and correction evidence is recoverable through
+> [meridian-cli PR #184](https://github.com/haowjy/meridian-cli/pull/184) and
+> `spawn:p5491`. This is a historical campaign result, not a target metric.
+
 The key insight: **deleting a seam is a hypothesis that the seam's contract is either trivially enforced at call sites or not worth enforcing independently.** Test collapse proved the hypothesis for most of the targeted suites. One suite (primary_launch + compiler) disproved it — over-collapse was caught at review and corrected with minimal contract tests.
 
 The correction pattern matters: reviewers found over-collapse, and the fix was to write small targeted behavior contracts — not to restore the original broad mock-heavy suites. The lesson is not "be conservative about deleting tests." It is "when a reviewer finds a gap, fill it with a contract test, not a suite."

@@ -155,20 +155,14 @@ Final gate review found concurrency/safety concerns that were not introduced by 
 
 Process-scope deferred work moved to [process-scope.md](process-scope.md) so the detailed PROC-004 and PROC-007 notes live with their shared containment/reaper context.
 
-### list_spawns() ~386ms — O(spawns) file reads in v2
+### Spawn-list scaling
 
-**Where:** `state/spawn_store.py:list_spawns()`, `state/spawn/repository.py:scan_spawn_ids()`
+**Status:** Deferred until scale pressure recurs. Individual spawn reads are
+O(1), while listing is O(spawns) file reads. The measured migration dataset and
+timings live only in [Architecture: State System](../architecture/state-system.md#spawn-state-v2-per-spawn-statejson); this page does not duplicate them.
 
-**The issue:** V2 per-spawn `state.json` made individual spawn reads O(1) and eliminated the 12–13s primary launch bottleneck. But `list_spawns()` is now O(spawns) in file reads — each spawn requires reading one `state.json`. At ~4,000 spawns in production the measured time is ~386ms. Not blocking in practice (startup is already 0.67s), but will grow linearly with spawn count.
-
-**Directions to consider:**
-- A lightweight index file at `spawns/index.json` that caches status/key fields for all spawns — updated on every state write. Trades write overhead for list read speed.
-- Separate hot-path list fields (status, agent, started_at) from cold fields (prompt, cost) so listing reads smaller files.
-- Bloom-filter or bitmask for active-spawn check without reading all files.
-
-**Why deferred:** 386ms is acceptable at current scale. The index approach requires careful invalidation under concurrent writers. Design deferred until scale pressure recurs.
-
----
+An index would require invalidation rules under concurrent writers, so the
+complexity is not justified without renewed evidence.
 
 ### D-003: Nested-Depth "After Reconciliation" Wording
 
@@ -386,9 +380,12 @@ These structural findings were accepted as non-blocking after the v1 telemetry i
 
 1. **Observer ownership cleanup.** `SpawnTelemetryObserver` in `lib/telemetry/observer.py` creates a dependency from `telemetry` back to core lifecycle types. Future cleanup: consolidate lifecycle observer types into a neutral module (e.g. `lib/observers/`) to resolve the `core↔telemetry` module tension.
 
-2. **Telemetry bootstrap deduplication.** Each process entry point should converge on one process-seam telemetry install contract. The startup docs now describe `TelemetryBootstrap.install()`, but the current source still has `setup_telemetry()` call sites in `src/meridian/lib/ops/spawn/api.py` and no `TelemetryBootstrap` class was found during the 2026-05-05 structural check.
-
-> [!FLAG] **Needs human review** — Startup documentation claims operation-layer telemetry setup was removed, while current source still contains operation-layer `setup_telemetry()` calls. Decide whether the docs are ahead of implementation or the remaining call sites are stale. Flagged 2026-05-05.
+2. **Telemetry bootstrap deduplication.** Operation and background-spawn entry
+points still call `setup_telemetry()` after they know the logical owner and
+runtime root. A future change may converge these on one process seam, but the
+current [startup architecture](../architecture/startup-pipeline.md#telemetry-as-shipped)
+documents the distributed installation accurately; no `TelemetryBootstrap`
+class exists today.
 
 3. **Reader JSONL parsing deduplication.** `read_events` and `tail_events` in `reader.py` each carry their own line-parsing logic. Future cleanup: extract a shared truncation-tolerant line parser.
 

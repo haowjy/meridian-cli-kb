@@ -144,7 +144,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **Why it matters:** CI environments, temporary work directories, and non-git version control systems are all real use cases.
 
-**In Meridian:** Project identity uses a UUID in `.meridian/id`, not the git remote. Root discovery uses `.mars/` presence as the primary project marker during the post-`.agents/` migration, with legacy `.agents/skills/` and `.git` as fallback heuristics. Workspace init writes `.git/info/exclude` but gracefully degrades when `.git` is absent.
+**In Meridian:** Project identity is `[project].id` in `meridian.toml`, not the git remote or checkout path. Literal-CWD establishment checks only for `meridian.toml` or `mars.toml`; it does not walk ancestors or infer a project from `.mars/`, `.agents/`, or `.git`. Workspace init may use git integration when available, but core project resolution has no VCS dependency.
 
 ---
 
@@ -166,7 +166,7 @@ exception, and deletion safeguards.
 
 **The framework-testing deletion criterion:** A second, independent reason to delete a unit test: it tests framework behavior rather than project logic. Tests that parse a known TOML/JSON string and assert that `serde::Deserialize` or a stdlib function deserialized it correctly are testing the framework's correctness, not the project's. The framework is already tested by its own maintainers. Delete these tests without replacing them — they add maintenance burden with no coverage value. The concrete criterion: if the test would pass or fail identically in an unrelated project that happens to use the same library, it is a framework test. Applied during init-ux-overhaul (2026-05): 4 serde-parse unit tests deleted from mars-agents that verified `toml::from_str()` deserialized known struct shapes correctly.
 
-**In Meridian:** Validated in Phase 8.6 (2026-05-08): −3,005 LOC, 7 mock-heavy test suites collapsed, all four gates passing. Over-collapse in primary_launch/compiler was corrected with targeted contract tests, not suite restoration. `test_work_items.py` and `test_workspace.py` converted to `work-items.md` and `workspace.md` in the same session. See [lessons/source-simplification.md](../lessons/source-simplification.md).
+**In Meridian:** Phase 8.6 deleted implementation-pinning suites, then restored only the contract coverage whose loss review exposed. The canonical result and provenance are in [Source Simplification Lessons](../lessons/source-simplification.md).
 
 ---
 

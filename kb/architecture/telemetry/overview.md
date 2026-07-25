@@ -2,10 +2,15 @@
 
 The telemetry system is a three-layer observability spine that fills Meridian's observability dead zones — areas where existing stores (`spawns/<id>/state.json`, `sessions.jsonl`, `chat/<id>/history.jsonl`) are silent — without duplicating what those stores already capture.
 
+Telemetry is durable and queryable. Structured logging and stderr tracing are
+transient process diagnostics; per-spawn `debug.jsonl` is a best-effort wire
+trace. Lifecycle authority remains in `state.json`, session events, and spawn
+artifacts. Use telemetry for cross-subsystem diagnostic events, not as a second
+state store.
+
 **Related:**
 - [concepts/state-model.md](../../concepts/state-model.md) — dual-root state model the telemetry layer sits alongside
 - [architecture/state-system.md](../state-system.md) — existing JSONL stores
-- [codebase/observability.md](../../codebase/observability.md) — structured logging and debug tracing
 - [decisions/telemetry.md](../../decisions/telemetry.md) — why this architecture, rejected alternatives
 
 ---

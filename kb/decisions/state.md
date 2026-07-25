@@ -132,9 +132,10 @@ except Exception:
 
 **Decision:** Spawn state migrated from a single global `spawns.jsonl` event log to individual `spawns/<id>/state.json` files. Each file holds the full current state of one spawn; no event replay needed.
 
-**What drove the migration:** Production `spawns.jsonl` had grown to 189 MB / 35,000 events. Every spawn-status read required replaying the entire log — O(n) in total project history. Primary launch time had degraded to 12–13 seconds. Per-spawn `state.json` makes reads O(1) — one file read per spawn.
-
-**Performance results:** Primary launch time dropped from 12–13s to 0.67s.
+**What drove the migration:** replaying the global spawn event log made every
+status read O(total history). Per-spawn `state.json` makes an individual read
+O(1). The canonical dataset and timing provenance are recorded in
+[Architecture: State System](../architecture/state-system.md#spawn-state-v2-per-spawn-statejson).
 
 **Two-tier write model:**
 
@@ -151,7 +152,7 @@ except Exception:
 - `decide_terminal_write()` is preserved as a pure function — application point shifted from read-time (v1 reducer) to write-time (v2 `write_state_locked()` mutator). The authority lattice and `CompleteSpawnOutcome` contract are unchanged.
 - Per-spawn locking in v2 eliminates the global `spawns.jsonl.flock` contention bottleneck.
 
-**Known remaining gap:** `list_spawns()` is still ~386ms due to ~4,000 individual file reads. Per-spawn O(1) reads help individual spawn access, but listing all spawns is now O(spawns) in file reads rather than O(events). See [open-questions/future-work.md](../open-questions/future-work.md).
+**Known remaining gap:** listing remains O(spawns) file reads. See the canonical measurement in [Architecture: State System](../architecture/state-system.md#spawn-state-v2-per-spawn-statejson).
 
 ---
 

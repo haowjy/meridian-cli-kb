@@ -320,4 +320,4 @@ Hook processes run inside meridian spawn processes, which inherit the spawning s
 ## Related Pages
 
 - [../operations/troubleshooting.md](../operations/troubleshooting.md) — diagnosing hook failures
-- [../codebase/observability.md](../codebase/observability.md) — how hook execution is logged
+- [../architecture/telemetry/overview.md](../architecture/telemetry/overview.md) — durable telemetry and transient logging boundary
