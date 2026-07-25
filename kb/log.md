@@ -4,6 +4,22 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-25 — KB structural consolidation and staleness repair
+
+- Replaced the root overview with the current CLI/MCP, Mars `.mars/`, harness
+  bundle, and `meridian.toml` identity model.
+- Converted `decisions.md` to an index and split launch decisions into
+  composition, process ownership, session initiation, and compatibility pages.
+- Made state architecture canonical for on-disk mechanics; recast the state
+  concept and lesson pages as mental model and explicit history.
+- Split reusable verification rules and the convergence gate from the retained
+  campaign chronology.
+- Updated Mars ownership/retention, target output, cache, routing, harness, and
+  startup pages against current source; deleted the duplicate observability
+  page after moving its durable/transient boundary to telemetry architecture.
+- Concentrated state and source-simplification measurement provenance on their
+  canonical pages.
+
 ## 2026-07-25 — Convergence-gate phase capture (mars-agents PR #147, consolidated)
 
 ### Trigger

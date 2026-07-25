@@ -43,7 +43,10 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 
 Since 2026-05 (spawn-state-v2 migration), spawn state lives in individual `state.json` files — one per spawn — rather than a single global `spawns.jsonl` event log.
 
-**Why the migration:** The global `spawns.jsonl` had grown to 189 MB / 35,000 events in production, making every spawn-status read O(n) replay of the entire file. Primary launch time had degraded to 12–13 seconds. Per-spawn `state.json` makes reads O(1) — a single file read per spawn, regardless of project history.
+**Why the migration:** the production global event log had grown enough that
+every status read replayed substantial project history. Per-spawn `state.json`
+makes an individual read O(1), independent of total event history. The dataset
+and before/after measurements are recorded once below.
 
 **Measured migration result:** in the production dataset that triggered the
 migration (about 189 MB / 35,000 events), primary launch fell from 12–13 seconds

@@ -549,7 +549,7 @@ See also [decisions/model-resolution.md](model-resolution.md) for the model rout
 
 **Decision:** The `MERIDIAN_HARNESS_COMMAND` environment variable override mechanism was removed. Harness adapters are now the only way to specify how a harness is launched.
 
-**Why:** `MERIDIAN_HARNESS_COMMAND` was a backdoor that bypassed the adapter's command assembly, including the StrategyMap invariant (exhaustive field handling) and security checks. Any legitimate need to customize a launch command belongs in the adapter's `build_command()` method — where it goes through review, testing, and invariant checking.
+**Why:** `MERIDIAN_HARNESS_COMMAND` was a backdoor that bypassed the adapter's command assembly, including exhaustive spawn-field coverage and security checks. Any legitimate need to customize a launch command belongs in the adapter's `build_command()` method — where it goes through review, testing, and invariant checking.
 
 **Alternatives rejected:** Keep as an advanced escape hatch — rejected because there was no documented use case that couldn't be served by adapter customization.
 
