@@ -4,6 +4,56 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-25 — Convergence-gate phase capture (mars-agents PR #147, consolidated)
+
+### Trigger
+
+The review-gate phase of `mars-native-hook-events` settled: 3 review
+rounds on the consolidated PR #147 (retargeted from `chore/delete-dead-code`
+to `main`, absorbing PRs #138, #146, #139/#140, perf optimizations, and
+dead-code deletion). Blocking findings 3 -> 1 -> 0. Lock v3, ownership
+lifecycle, data-loss fixes, no-op sync optimization, and dead-code deletion
+all ship as one minor breaking release.
+
+### What changed
+
+**Stale content fixed:**
+- `concepts/package-management/sync-model.md`: lock version updated from v2
+  to v3 throughout. v2 lock TOML example replaced with v3 schema showing
+  per-output lifecycle state. Dead `Merge` action removed from Plan->Apply
+  table (three-way merge was deleted as dead code). Invariant I-6 updated
+  from "v2 lock is always written" to v3. v2 promotion description updated
+  for disk-consulting classification. `reconcile/fs_ops.rs` reference
+  removed (module was cleaned up in dead-code deletion).
+- `concepts/package-management/vocabulary.md`: "Mars lock" entry updated
+  from "Schema v2" to v3 with lifecycle state description and v2 promotion
+  semantics.
+
+**Updated content:**
+- `lessons/verification-and-review-discipline.md`: three new sections added
+  from the convergence-gate phase:
+  - Symlink-following hash bug class: 4 instances across 3 review rounds
+    (mars-agents#152), the structural rule that ownership-deciding
+    comparisons must use symlink_metadata-based validation.
+  - Convergence-gate process: frozen read-only worktrees, fix lanes from
+    findings, severity-must-fall trajectory, cross-model review for
+    correlated blind spots, one-editor-per-checkout rule.
+  - CI trigger gap: `pull_request` default types exclude `edited`;
+    retargeting a PR base does not queue CI; close/reopen workaround.
+- `lessons/overview.md`: lesson page description updated.
+- `index.md`: lesson page description updated.
+
+**Colocated (mars-agents, not this repo):**
+- `src/surface_ownership/.context/CONTEXT.md`: deletion-vs-replacement
+  authority distinction made explicit (the contract gap that caused 8 review
+  rounds to miss half the ownership model).
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-24 — Hook-fragment review lessons and two-surface ownership capture (mars-agents PR #138)
 
 ### Trigger

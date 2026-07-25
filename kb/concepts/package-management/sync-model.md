@@ -37,7 +37,7 @@ classifications:
 | `Add` | Item is new — not in prior lock |
 | `Update` | Item changed — content hash differs |
 | `Unchanged` | Content hash matches lock |
-| `Conflict` | Item was locally modified (dual-hash check) |
+| `Conflict` | Item changed upstream AND locally modified |
 | `Orphan` | Item was in prior lock but is absent from current graph |
 | `LocalModified` | On-disk content differs from the lock's installed hash |
 
@@ -65,13 +65,11 @@ unless `--force` is passed.
 |---|---|
 | Install | Atomic copy (tmp+rename) |
 | Overwrite | Atomic copy (tmp+rename) |
-| Merge | Three-way merge via `git merge-file` |
 | Remove | Safe removal |
 | Skip | No-op |
 | Keep-local | No-op, records warning |
 
-All file operations go through `reconcile/fs_ops.rs`, which wraps the atomic
-primitives.
+All file operations use atomic primitives (tmp+rename).
 
 ## Config Mutations
 
@@ -88,40 +86,54 @@ checked.
 
 ## Lock File and Provenance
 
-`mars.lock` is the authority on installed state. It is schema v2, keyed by
-logical item identity (`kind/name`):
+`mars.lock` is the authority on installed state. It is schema v3, keyed by
+logical item identity (`kind/name`). Each item carries one or more output
+records scoped by `(target_root, dest_path)` with an explicit lifecycle state:
 
 ```toml
-version = 2
+version = 3
 
 [items."agent/coder"]
 source = "meridian-base"
-url = "https://github.com/org/meridian-base"
-commit = "abc123def456"
-version = "1.2.0"
-dest_path = ".mars/agents/coder.md"
-content_hash = "sha256:..."
+source_checksum = "sha256:src..."
 
-[config_entries."claude/.mcp.json"]
-source = "meridian-base"
-key = "some-mcp-server"
-target_root = "claude"
+[[items."agent/coder".outputs]]
+target_root = ".mars"
+dest_path = "agents/coder.md"
+state = "installed"
+installed_checksum = "sha256:inst..."
+
+[[items."agent/coder".outputs]]
+target_root = ".claude"
+dest_path = "agents/coder.md"
+state = "installed"
+installed_checksum = "sha256:claude..."
+
+[config_entries.".claude"]
+"hook:SessionStart:audit" = { emitted_json = "[...]" }
+"mcp:some-server" = {}
 ```
 
-The `items` section is the ownership registry: provenance and content hash per
-managed file. The `config_entries` section records provenance for installed MCP
-and hook entries.
+The `items` section is the ownership registry: per-output lifecycle claims
+keyed by `(target_root, dest_path)`. `state = "installed"` asserts content
+at the path; `state = "pending-deletion"` asserts only retry-deletion
+authority with no checksum. The `config_entries` section records provenance
+for installed MCP and hook entries, with `emitted_json` carrying the exact
+emitted bytes for structural removal.
 
-On each sync, `lock::build()` in `src/lock/mod.rs` lines 420–639 reconstructs
-the lock from the resolved graph plus apply outcomes. Skipped and kept-local
-items are carried forward unchanged.
+On each sync, `lock::build()` reconstructs the lock from the resolved graph
+plus apply outcomes. Skipped and kept-local items are carried forward
+unchanged.
 
-Lock writes are always atomic. Legacy v1 lock files are promoted transparently
-at read time and re-written as v2 (`load_with_diagnostics()` in
-`src/lock/mod.rs` lines 291–354).
+Lock writes are always atomic. Legacy v2 lock files are promoted at read
+time by consulting disk state: a regular file or directory with a matching
+checksum becomes `installed`; an absent, non-file, unreadable, or mismatched
+path becomes `pending-deletion`. v1 locks are unsupported. The v2 promotion
+preserves legacy config-entry records needed by the one-release #130 hook
+sweep; delete the promotion after that sweep lands.
 
-`LockIndex` (`src/lock/mod.rs` lines 127–176) is a fast lookup overlay for
-repeated dest-path queries during the diff phase.
+`LockIndex` is a fast lookup overlay for repeated dest-path queries during
+the diff phase, with both target-scoped and broad unscoped methods.
 
 ## Rename and Rewrite Pass
 
@@ -186,8 +198,8 @@ sync and released on completion or crash.
   `Conflict` items are kept unless `--force` is passed.
 - **I-5: Orphan cleanup** — items that were installed in a prior sync but removed
   from the current graph are removed from both `.mars/` and native target dirs.
-- **I-6: v2 lock is always written** — v1 is a read-time compatibility path only;
-  any write produces v2.
+- **I-6: v3 lock is always written** — v2 is promoted at read time by
+  consulting disk state; v1 is unsupported. Any write produces v3.
 
 ## Key References
 
@@ -199,9 +211,9 @@ sync and released on completion or crash.
 - Config mutations: `src/sync/mutation.rs`
 - Filter pass: `src/sync/filter.rs`
 - Skill rewrite: `src/sync/rewrite.rs`
-- Lock build: `src/lock/mod.rs` lines 420–639
-- Lock index: `src/lock/mod.rs` lines 127–176
-- Atomic file ops: `src/reconcile/fs_ops.rs`
+- Lock build: `src/lock/mod.rs`
+- Lock index: `src/lock/mod.rs` (`LockIndex`)
+- Surface ownership: `src/surface_ownership/mod.rs`, `src/surface_ownership/retention.rs`
 
 ## Related
 

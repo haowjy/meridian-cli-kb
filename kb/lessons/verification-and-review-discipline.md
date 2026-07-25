@@ -1,8 +1,9 @@
 # Verification and Review Discipline
 
-Five patterns from the mars-agents hook-fragment review (11 rounds, PR #138,
-2026-07). Each appeared multiple times in independent instances, grounded in
-specific evidence below.
+Patterns from the mars-agents hook-fragment convergence gate (11 review
+rounds on PR #138, 3 further rounds on the consolidated PR #147, 2026-07).
+Each appeared multiple times in independent instances, grounded in specific
+evidence below.
 
 ## A capability token proves a check happened, not that this call is the thing checked
 
@@ -117,6 +118,99 @@ within one function or module, each fix correct and each introducing the next.
 That is not a defect sequence; it is a missing invariant. A redesign brief
 costs one round. Continuing to patch costs N more rounds, each with the same
 diagnostic overhead and the same probability of introducing the next bug.
+
+## A hash that follows symlinks grants ownership to whatever the symlink points at
+
+Four instances of the same bug class across three review rounds, all in
+mars-agents (tracked as mars-agents#152):
+
+1. `compute_hash(dest)` in the no-op fast path follows directory symlinks.
+   Replacing a synced skill directory with a symlink to an identical external
+   directory makes the next sync say "already up to date," leave the symlink,
+   and keep an `installed` record. Mars claims a managed copy while the
+   destination is user-controlled indirection.
+
+2. `directory_trees_content_equal` (the old comparator the fast path
+   bypassed) had its own symlink handling, but the replacement
+   checksum-only comparator did not.
+
+3. `check_unmanaged_collisions()` -- pre-existing on `main`, not
+   branch-introduced. Same class: follows symlinks when deciding whether a
+   path is owned.
+
+4. v2 lock promotion accepted `is_file()` only, tombstoning every directory
+   output. The fix added structural validation (nested-shape check plus
+   directory-manifest hash) that rejects root and nested symlinks before
+   hashing.
+
+**The rule:** ownership-deciding comparisons must use
+`symlink_metadata`-based structural validation, never content-following
+hashes. A content hash answers "what bytes are here" and follows symlinks
+to answer it. Ownership needs "what filesystem object is here" -- a question
+about structure, not content. The two answers diverge precisely when a
+symlink points at a correct copy, which is the case an attacker (or an
+innocent user organizing their workspace) would produce.
+
+The shared structural comparator that replaced the fast-path hash rejects
+root and nested symlinks, rejects non-directory roots, includes empty
+directories, and compares file content hashes -- but only after structural
+validation passes.
+
+## Convergence gate: the process that closed this review
+
+The 14-round review used a specific process that drove severity to zero:
+
+1. **Frozen read-only worktrees.** Each review round ran against a dedicated
+   worktree checked out at a specific commit. The reviewer could not see
+   work-in-progress changes from a fix lane. This prevented the two
+   phantom-finding incidents that occurred when a reviewer and an editor
+   shared a checkout.
+
+2. **Findings produce fix lanes, not patches.** Each round's blocking
+   findings spawned a separate fix lane with a scoped prompt. The fix lane
+   committed to the implementation worktree. A new review round ran against
+   the fixed tip in a fresh frozen worktree.
+
+3. **Severity must fall each round.** The blocking-finding trajectory was
+   the primary convergence signal: 8, 5, 4, 1, 2, 1, 0 (rounds 1-7 on
+   PR #138), then 2, 2, 0 (rounds 8-10 on retention redesign), then 3, 1,
+   0 (rounds 1-3 on the consolidated PR). Sustained non-decrease triggers
+   a scope decision -- round 9 escalated to a redesign brief after six
+   consecutive rounds of same-class ownership bugs.
+
+4. **Cross-model review for correlated blind spots.** Eleven rounds all ran
+   on one model family, so their blind spots were correlated by construction.
+   A cross-model reviewer from a different family independently returned
+   SHIP and found tighter arguments for several invariants. The diversity
+   was limited by infrastructure (one alternative harness had exhausted
+   credits, another failed pre-init), which is worth recording rather than
+   silently letting "two reviewers ran" stand in for "two independent
+   perspectives ran."
+
+**One editor per checkout.** The rule that emerged from two phantom-finding
+incidents: read-only or doc-only lanes get the frozen review worktree or
+their own; only one lane edits a given checkout at a time. A review run
+against a shifting tree cannot be trusted on anything it measured.
+
+## CI trigger gap: retargeting a PR does not queue a run
+
+GitHub's `pull_request` event triggers default to `opened`, `synchronize`,
+and `reopened`. Changing a PR's base branch fires `edited`, which is not in
+that set. Retargeting a PR base therefore does not queue CI, and the push's
+`synchronize` may not fire against the new base.
+
+The symptom is invisible: the PR page shows green checks from a prior run
+against the old base, and `gh pr checks` reports those results without
+indicating they cover a different commit. Only comparing the run's
+`headSha` against the current branch tip catches the gap.
+
+**Workaround:** close and reopen the PR after retargeting. This fires
+`reopened` and queues a fresh run against the real head. Adding `edited` to
+the trigger list would also work but fires on title/body edits too.
+
+This was discovered when PR #147 was retargeted from `feat/hook-fragments`
+to `main` for consolidation -- the merged tree sat unverified by CI while
+the PR looked healthy.
 
 ## Related
 
