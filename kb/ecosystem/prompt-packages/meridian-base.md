@@ -2,7 +2,7 @@
 
 **meridian-base** is the foundation package that turns a bare Meridian install into a functional multi-agent coordination system. It provides the orchestrator, subagent, KB agents, and the core skills that every other package builds on.
 
-**Package version:** 0.8.9  
+**Package version:** 0.10.0  
 **Source:** `../prompts/meridian-base/`  
 **Key dependency:** `meridian-prompter` (provides `prompt-principles`)
 
@@ -82,28 +82,30 @@ Defined in `mars.toml`, available to all agents in packages that depend on `meri
 
 ## Hooks
 
-Mars-compiled hooks that install into harness config files during `mars sync`.
-Each `hook.toml` declares harness-native event names in per-target tables.
+Mars-compiled hooks using the D91 native fragment schema. Each hook has a
+`hook.toml` (identity and routing) and a per-target JSON fragment
+(`claude.json`, `codex.json`) carrying the harness's native config shape
+verbatim. Mars validates event keys, substitutes `${MARS_HOOK_DIR}` with
+the installed path, and merges entries into target config files.
 
-| Hook | Native events | Target | Purpose |
-|---|---|---|---|
-| `deny-generic-agent` | `PreToolUse` | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) |
-| `deny-interactive-prompts` | `PreToolUse` (matcher `"Bash"`) | `.codex` | Blocks interactive prompts in Codex sandbox |
-| `context-autosync` | `SubagentStop`, `SessionEnd` | `.claude` | Pushes stranded context-repo commits at session end and after subagent work (v0.8.9; native events in unreleased migration) |
+| Hook | Fragment | Native events | Target | Purpose |
+|---|---|---|---|---|
+| `deny-generic-agent` | `claude.json` | `PreToolUse` (matcher `"Agent"`) | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) |
+| `deny-interactive-prompts` | `codex.json` | `PreToolUse` (matcher `"Bash"`) | `.codex` | Blocks interactive prompts in Codex sandbox |
+| `context-autosync` | `claude.json` | `SubagentStop`, `SessionEnd` | `.claude` | Pushes stranded context-repo commits at session end and after subagent work |
 
 **`context-autosync`** closes a gap where meridian's builtin `git-autosync`
 fires only on meridian lifecycle events (`spawn.start`/`finalized`,
-`work.started`/`done`). Commits created after the last such event — typically
-knowledge capture by an Agent-tool subagent as a session's final act — sit
+`work.started`/`done`). Commits created after the last such event -- typically
+knowledge capture by an Agent-tool subagent as a session's final act -- sit
 stranded locally until the next meridian event. This hook fires at Claude
-`SessionEnd` and `SubagentStop`, discovers each enabled `git-autosync:*`
-instance via `meridian hooks list` (the single runtime authority — no
-parallel config parsing), and runs them. It is a no-op without autosync
-config.
+`SessionEnd` (with `timeout: 30`) and `SubagentStop`, discovers each enabled
+`git-autosync:*` instance via `meridian hooks list` (the single runtime
+authority -- no parallel config parsing), and runs them. It is a no-op
+without autosync config.
 
-Requires the native-event hook schema (mars-agents post-v0.10.6, PR #133).
-Prior versions used a universal event vocabulary that compiled to incorrect
-harness event names.
+Requires mars-agents 0.12.0+ (D91 fragment schema). Migrated from the D90
+per-target event schema in v0.10.0.
 
 ## Package Composition Patterns
 

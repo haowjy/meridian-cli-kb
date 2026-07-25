@@ -313,8 +313,39 @@ This was discovered when PR #147 was retargeted from `feat/hook-fragments`
 to `main` for consolidation -- the merged tree sat unverified by CI while
 the PR looked healthy.
 
+## Static gate fully green on a shipped ecosystem break
+
+A second confirming instance of the runtime-probe principle, from the
+release-sequencing failure rather than a review gate.
+
+mars-agents 0.12.0 shipped a breaking hook-schema change. The meridian-base
+migration answering it sat unpushed since 24 Jul. Every published
+meridian-base was rejected by the new mars binary.
+
+The meridian-cli pin-bump PR passed its entire static gate: ruff 0, pyright
+0, 1395 tests passed. Nothing in meridian-cli's code changed, and nothing
+in meridian-cli's test suite exercises real `mars sync` against a project
+with hooks. The static gate was incapable of detecting the break.
+
+The blast-radius assessment was itself wrong: it grepped root `mars.toml`
+files for `[[hooks]]`. Hooks are declared in `hooks/<name>/hook.toml`
+inside resolved packages -- a location the search could not reach. The
+negative result was structurally invalid, not merely unlucky.
+
+A runtime probe -- `mars sync` against a throwaway copy of
+meridian-dev-workflow -- caught the break and stopped the PR. The same
+pattern as the schema-breaking upgrade lockout instance above, extending
+it from within-repo schema changes to cross-repo dependency breaks.
+
+The discipline remains the same: static gates verify local correctness;
+behavioral breaks at the boundary between repos require running the actual
+binary against real project state. See [release-sequencing.md](release-sequencing.md)
+for the full incident and cross-repo release discipline.
+
 ## Related
 
+- [release-sequencing.md](release-sequencing.md) -- the cross-repo
+  release-sequencing lesson from this incident
 - [residue-cleanup-discipline.md](residue-cleanup-discipline.md) -- the
   ownership-violation instances that drove rounds 4-8
 - [../decisions/package-management.md](../decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) -- D91 decision, including the retention seam

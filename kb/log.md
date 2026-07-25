@@ -4,6 +4,58 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-25 — Release-sequencing failure capture and ecosystem staleness repair
+
+### Trigger
+
+mars-agents 0.12.0 shipped a breaking hook-schema change while the
+meridian-base fragment migration sat unpushed since 24 Jul. Every published
+meridian-base was rejected by the new mars. The failure exposed a structural
+gap: cross-repo release sequencing has no enforcement.
+
+### What changed
+
+**New content:**
+- `lessons/release-sequencing.md`: cross-repo release sequencing discipline.
+  The structural gap (independent repos, independent release processes,
+  nothing pairing them), the concrete instance (mars 0.12.0 vs unpushed
+  meridian-base 0.10.0), and three discipline points (verify consumer
+  migration is published, search at the data's location, runtime probe for
+  cross-repo bumps).
+
+**Extended content:**
+- `lessons/verification-and-review-discipline.md`: new "Verify the search
+  scope contains the fact" rule under Verification Validity. A negative
+  search result is evidence only when the target can contain the fact.
+- `lessons/verification-campaign-history.md`: new "Static gate fully green
+  on a shipped ecosystem break" section documenting the second confirming
+  instance of the runtime-probe principle (cross-repo dependency break vs
+  the prior within-repo schema-change instance).
+- `operations/troubleshooting.md`: new "Pre-Init Failed" section
+  documenting the two known causes of `pre_init_failed` (stale task_dir
+  from removed worktree; Claude blocked by deny_headless_harnesses) and
+  the diagnostic that `--task-dir` does not override the stale work-item
+  value (meridian-cli#482).
+
+**Stale content fixed:**
+- `ecosystem/prompt-packages/meridian-base.md`: version 0.8.9 updated to
+  0.10.0. Hooks section rewritten from D90 per-target event schema to D91
+  native fragment schema (claude.json/codex.json fragments, `${MARS_HOOK_DIR}`
+  substitution, matcher fields). mars-agents version requirement updated
+  from "post-v0.10.6, PR #133" to "0.12.0+ (D91 fragment schema)".
+
+**Navigation updates:**
+- `lessons/overview.md`: added release-sequencing entry; updated
+  verification-and-review-discipline description.
+- `index.md`: added release-sequencing entry; updated
+  verification-and-review-discipline description.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-25 — KB structural consolidation and staleness repair
 
 - Replaced the root overview with the current CLI/MCP, Mars `.mars/`, harness

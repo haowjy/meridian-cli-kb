@@ -38,6 +38,24 @@ registration side effects, filesystem behavior, process races, or actual CLI
 output. Pair structural review with a runtime probe at the real seam whenever
 those behaviors matter.
 
+### Verify the search scope contains the fact
+
+A negative search result is evidence only when the search target can contain
+the fact being searched for. Grepping root config files for declarations that
+live inside compiled package internals cannot find them regardless of search
+quality. This is not "should have searched harder" -- it is "searched a
+location that could not hold the answer."
+
+Before trusting a negative result, verify that the search scope covers the
+domain structure where the fact would live. The cost of a false negative in
+blast-radius assessment is an undetected breaking change; the cost of
+checking the scope is one question.
+
+The [release-sequencing](release-sequencing.md) lesson has a concrete instance:
+a blast-radius assessment grepped sibling `mars.toml` files for `[[hooks]]`
+and concluded no consumers existed. Hooks live in `hooks/<name>/hook.toml`
+inside the resolved package, a location the search never reached.
+
 ### Record exit status and working directory
 
 A copied success-looking line is not a validation record. Capture the command,
