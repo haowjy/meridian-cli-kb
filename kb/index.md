@@ -197,7 +197,9 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 - [lessons/arch-refactor-pitfalls.md](lessons/arch-refactor-pitfalls.md) — Implementation pitfalls from PR #184/#200: GIT_DIR hook leaks, structlog cache test blindspot, CheckpointService git add -A danger, process-group kill requirement, Windows asyncio signal handler silent no-op, Windows Claude cancel SIGINT unreliable, Windows audit false-positive discipline, no-arg spawn wait full-chat-tree hang bug
 - [lessons/thermo-nuclear-audit.md](lessons/thermo-nuclear-audit.md) — Thermo-nuclear audit method: two-source adversarial panel, rejected alternatives with reasons, peer-benchmark defended strengths and dropped steals
 - [lessons/residue-cleanup-discipline.md](lessons/residue-cleanup-discipline.md) — When mars changes what it emits, removal paths must recognize prior versions' actual output shapes. Twice-learned: sweep ordering, legacy format misses, real-shape verification discipline
-- [lessons/verification-and-review-discipline.md](lessons/verification-and-review-discipline.md) — Patterns from 14 review rounds: capability token consumption, wrong-gate tests, vacuous verification, diff-vs-run, convergence as redesign signal, symlink-following hash bug class, convergence-gate process, CI trigger gaps
+- [lessons/verification-and-review-discipline.md](lessons/verification-and-review-discipline.md) — Verification validity, non-vacuous oracles, runtime evidence, CWD/exit-status and measurement discipline
+- [lessons/review-convergence-gate.md](lessons/review-convergence-gate.md) — Same-class recurrence, redesign escalation, total-intent invariant, and old-state runtime probe
+- [lessons/verification-campaign-history.md](lessons/verification-campaign-history.md) — Collapsed historical chronology and incident evidence
 
 ---
 
