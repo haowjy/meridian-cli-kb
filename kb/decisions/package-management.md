@@ -477,6 +477,46 @@ to claude with high confidence, the launch bundle will route to claude. No silen
 
 ---
 
+### D91: Native hook fragments replace command synthesis (2026-07)
+
+> **Supersedes D90's schema.** D90 established the principle (native passthrough, per-target allowlists, `unchecked` escape hatch). D91 replaces the residual command-synthesis machinery with full native fragments: the author writes the harness's own hook shape verbatim, and mars stops owning any hook entry schema at all.
+
+**Decision:** `hook.toml` shrinks to identity and routing (name, visibility, order, target-to-fragment map). Per-target fragment files (`claude.json`, `codex.json`, `cursor.json`, or `.ts` for file-mode targets) carry the harness's native config shape verbatim. Mars validates event keys against the existing per-target allowlists, substitutes `${MARS_HOOK_DIR}` with the absolute installed hook directory path, merges entries into target config files (or places file-mode fragments whole), copies the complete hook directory into `<target>/hooks/<name>/`, and records the exact emitted JSON entries in `mars.lock` for structural removal.
+
+**What mars stops doing:** Synthesizing hook entries. D90 still had `[action] kind = "script" path = "run.sh"` and mars assembled `bash '<path>/run.sh'` commands with platform-specific quoting. The author now writes the complete command string (`"bash \"${MARS_HOOK_DIR}/run.sh\""`) and every harness-specific field (handler `type`, `matcher`, `timeout`, `args`, `if`, `once`, `async`, `shell`, `statusMessage`, `failClosed`). Mars never parses or generates any of these.
+
+**Two fragment modes:**
+
+| Mode | Targets | What mars does |
+|---|---|---|
+| MergeJson | Claude, Codex, Cursor | Validates event keys, substitutes `${MARS_HOOK_DIR}` in all JSON string values, merges entry arrays per event into the target config file |
+| File | OpenCode, Pi | Substitutes `${MARS_HOOK_DIR}` textually, places the file at `plugins/mars-<name>.ts` or `extensions/mars-<name>.ts` |
+
+**Ownership model: lock-recorded emissions.** For each `hook:<Event>:<name>` config-entry key, `mars.lock` stores the exact emitted JSON entry array (post-substitution). Removal matches entries in the current config file by structural JSON equality. User-edited entries no longer match and are preserved. File-mode fragments are ordinary target outputs with `OutputRecord` tracking through `surface_ownership`. This structurally prevents the residue-cleanup class: future emission-shape changes are automatically recognizable because the lock carries the actual bytes, not a shape assumption.
+
+**`${MARS_HOOK_DIR}` substitution rationale:** Runtime probes (p5711) proved hook cwd is the launch directory on both Claude and Codex, and Claude's `$CLAUDE_PROJECT_DIR` follows the launch directory too. Codex has no project-root env var at all. Relative paths and env-var-prefixed paths both break when the user launches from a subdirectory. Sync-time textual substitution with absolute paths is the only form that works on every probed harness.
+
+**Cursor merge-mode:** Mars owns the `{"version": 1, "hooks": {...}}` wrapper in `.cursor/hooks.json`. The 21 camelCase event names were confirmed against the cursor-agent 2026.07.16 binary validator. Cursor's flat entry shape (command entries directly in the event array, no inner `"hooks"` nesting) is the author's responsibility to write correctly in the fragment.
+
+**File-mode ownership fix:** File-mode fragments were initially tracked by a parallel `hook-file:<name>` scheme that bypassed `surface_ownership.rs`. This produced the exact ownership violations the contract was written to prevent: untracked user files silently overwritten, hook removal deleting files the lock did not own. Fixed by making file fragments ordinary target outputs. See [../lessons/residue-cleanup-discipline.md](../lessons/residue-cleanup-discipline.md) Instance 3.
+
+**Copy-paste leniency:** If a fragment's top level is exactly `{"hooks": ...}` (optionally plus `"version"` or `"description"`), mars unwraps it. No harness has an event named `hooks`, `version`, or `description`, so the unwrap is unambiguous.
+
+**Codex trust churn accepted:** Index-keyed trust means adding a new package can shift indices and silently skip affected hooks until re-trusted via `/hooks`. Deterministic stable ordering minimizes churn; the residual prompt is Codex's model working as designed. No append-only ordering special case.
+
+**Migration:** `events`/`matcher`/`[action]`/target-`path` in `hook.toml` triggers a hard error naming the file with a fragment-migration hint. The v0.11.0 command-path removal sweep is restricted to lock records lacking structural emission data and joins the #130 one-release deletion ledger. Three meridian-base hooks migrated: `context-autosync` (gained per-event `timeout: 30` on `SessionEnd`), `deny-generic-agent` (gained explicit `matcher: "Agent"`), `deny-interactive-prompts` (unchanged behavior).
+
+**Alternatives rejected:**
+
+| Option | Why not |
+|---|---|
+| Coexist: keep `events`/`matcher` as sugar over generated fragments | Two ways to author; adapters keep entry-synthesis alive next to passthrough; every new harness field re-raises "add to sugar or force fragments?" |
+| TOML-inline fragments | Kills copy-paste-from-harness-docs; deep TOML nesting of Claude's shape is worse to read and diff |
+| Extend mars schema field-by-field (add `timeout`, `type`, per-event matcher) | Recreates the vocabulary treadmill one level down; mars permanently behind every harness release |
+| Marker field in emitted entries (`"_mars": ...`) for ownership | Depends on every harness tolerating unknown fields forever; lock-recorded emissions need no foreign bytes |
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution

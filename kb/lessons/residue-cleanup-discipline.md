@@ -40,6 +40,36 @@ removal sweep's `let-else` pattern preserved non-object entries, so the
 legacy strings survived. Fix: failing-first regression tests using the
 real prior-version shape; sweep extended to handle string-format entries.
 
+## Instance 3: Fragment transition ownership violations (mars-agents hook fragments, 2026-07)
+
+The fragment model (D91) replaced command-path heuristic removal with
+lock-recorded structural removal: `mars.lock` stores the exact emitted JSON
+entries, and removal matches by structural equality. Four review rounds
+found ownership violations that were not residue bugs in the classic sense
+but the same root cause -- the removal path does not match what was
+actually written:
+
+**Parallel ownership model.** File-mode fragments (OpenCode `.ts` plugins,
+Pi extensions) were tracked by a separate `hook-file:<name>` lock record
+scheme instead of ordinary `OutputRecord`s. Two sources of truth for
+ownership meant the surface-ownership contract (`src/surface_ownership.rs`)
+was bypassed entirely: untracked user files were silently overwritten and
+hook removal deleted files the lock did not own. Fix: make file fragments
+ordinary target outputs with normal `OutputRecord` tracking; delete the
+parallel scheme.
+
+**Cross-target key collision.** Same-name hook output records for different
+targets were matched by dest_path alone, without scoping to the target
+root. A `.codex/hooks/audit` directory was keyed under `.claude`'s
+ownership. Fix: scope hook ownership per `(target_root, dest_path)` pair,
+as the contract already states.
+
+**Legacy sweep too broad.** The one-release command-path sweep ran on every
+emission, not just records written by the prior schema. It deleted
+just-written fragment entries that happened to mention the hook name in
+their paths. Fix: restrict the legacy sweep to lock records that lack
+structural emission data (the `emitted_json` field).
+
 ## The Discipline
 
 1. **Verify against the real prior-version shape.** Read actual config files
@@ -59,7 +89,24 @@ real prior-version shape; sweep extended to handle string-format entries.
    the sweep cleans it. The test should fail first (red-green discipline)
    to prove it exercises the bug.
 
+5. **One ownership model.** When a new artifact class appears (file-mode
+   fragments, native agent surfaces, config entries), route it through the
+   existing ownership contract (`surface_ownership.rs`). A parallel tracking
+   scheme will diverge from the contract and produce the same violation
+   class it was meant to prevent. Instance 3 is the proof case.
+
+## Structural Resolution
+
+Lock-recorded structural removal (D91) is the design-level fix for this
+lesson. Prior to fragments, each emission-shape change required a new
+heuristic sweep to recognize the old shape. Lock-recorded emissions carry
+the actual bytes: future shape changes are automatically recognizable at
+removal time because the lock records what was written, not what the current
+code would write. The v0.11.0 command-path sweep is the last heuristic
+sweep; it joins the deletion ledger (mars-agents #130) in the next release.
+
 ## Related
 
 - [mars-compiler-cleanup.md](mars-compiler-cleanup.md) -- earlier Mars cleanup lessons
 - [../decisions/package-management.md](../decisions/package-management.md#d90-native-hook-passthrough-replaces-universal-event-vocabulary-mars-agents-pr-133-2026-07) -- D90 decision
+- [../decisions/package-management.md](../decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) -- D91 decision

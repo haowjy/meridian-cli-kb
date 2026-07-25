@@ -231,7 +231,14 @@ It is a Mars-compiled Claude hook that fires at harness `SubagentStop`
 and `SessionEnd`, discovers each enabled `git-autosync:*` instance via
 `meridian hooks list`, and runs them. This bridges Mars-compiled harness
 hooks (which fire at harness session events) with Meridian's builtin hook
-system (which runs the actual sync logic). See
+system (which runs the actual sync logic).
+
+The fragment authoring model (D91) is what made this hook reliable: Claude
+gives `SessionEnd` hooks a 1.5-second default budget, and the v0.11.0
+command-synthesis schema had no way to set a per-event `timeout`. The
+fragment carries `"timeout": 30` on its `SessionEnd` entry, raising the
+budget to 30 seconds -- the first concrete capability the fragment model
+unlocked for an existing hook. See
 [../ecosystem/prompt-packages/meridian-base.md](../ecosystem/prompt-packages/meridian-base.md#hooks).
 
 ### Failure Philosophy

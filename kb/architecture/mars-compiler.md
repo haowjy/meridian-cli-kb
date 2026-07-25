@@ -27,7 +27,7 @@ src/compiler/
     resolve.rs        # build current entry set from packages
     stale.rs          # diff vs lock → stale entry removal
   hooks/
-    mod.rs            # hook lowering: per-target platform-aware commands
+    mod.rs            # fragment discovery, event validation, substitution
   mcp/
     mod.rs            # MCP server lowering + collision resolution
   visibility/

@@ -134,18 +134,20 @@ Mars compiles the same source profile to each target's native format.
 
 MCP config and hooks are also compiled to native harness directories:
 
-| Harness | MCP location | Hook location |
-|---------|-------------|--------------|
-| Claude | `.mcp.json` (project root) | `.claude/settings.local.json hooks` |
-| Codex | `.codex/config.toml [mcp_servers.*]` | `.codex/hooks.json` |
-| OpenCode | `opencode.json mcp.<name>` | No command-hook mechanism (TypeScript plugins) — hard error |
-| Cursor | `.cursor/mcp.json` | Documented hook API exists — writing deferred (mars-agents#131) |
-| Pi | N/A | No command-hook mechanism (TypeScript extensions) — hard error |
+| Harness | MCP location | Hook mode | Hook destination |
+|---------|-------------|-----------|------------------|
+| Claude | `.mcp.json` (project root) | MergeJson | `.claude/settings.local.json` `hooks` key |
+| Codex | `.codex/config.toml [mcp_servers.*]` | MergeJson | `.codex/hooks.json` |
+| Cursor | `.cursor/mcp.json` | MergeJson | `.cursor/hooks.json` (mars-owned `version: 1` wrapper) |
+| OpenCode | `opencode.json mcp.<name>` | File | `.opencode/plugins/mars-<name>.ts` |
+| Pi | N/A | File | `.pi/extensions/mars-<name>.ts` |
 
 Mars manages its entries in these files without touching user-managed entries
-(append-and-lock approach). Hook event names are native passthrough: authors
-declare harness-native names per target; mars validates against per-target
-allowlists (D90).
+(append-and-lock approach). Authors write per-target native fragment files
+(JSON for merge-mode, TypeScript for file-mode) inside the hook directory;
+mars validates merge-mode event keys against per-target allowlists, substitutes
+`${MARS_HOOK_DIR}` with the absolute installed path, and records exact emitted
+entries in `mars.lock` for structural removal (D90, D91).
 
 ---
 
