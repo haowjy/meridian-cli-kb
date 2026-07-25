@@ -137,7 +137,7 @@ MCP config and hooks are also compiled to native harness directories:
 | Harness | MCP location | Hook mode | Hook destination |
 |---------|-------------|-----------|------------------|
 | Claude | `.mcp.json` (project root) | MergeJson | `.claude/settings.local.json` `hooks` key |
-| Codex | `.codex/config.toml [mcp_servers.*]` | MergeJson | `.codex/hooks.json` |
+| Codex | `.codex/codex_mcp.json` | MergeJson | `.codex/hooks.json` |
 | Cursor | `.cursor/mcp.json` | MergeJson | `.cursor/hooks.json` (mars-owned `version: 1` wrapper) |
 | OpenCode | `opencode.json mcp.<name>` | File | `.opencode/plugins/mars-<name>.ts` |
 | Pi | N/A | File | `.pi/extensions/mars-<name>.ts` |
@@ -157,9 +157,8 @@ The `.agents/` target is deprecated, not hard-broken:
 
 - Existing repos with `.agents/` as a link target see a deprecation warning on
   next `mars sync`: "Run `mars unlink .agents` to remove it."
-- Meridian reads `.mars/` first, falling back to `.agents/` during the
-  transition window
-- Future release: `.agents/` fallback removed from Meridian loader
+- Meridian reads only `.mars/`; the former catalog fallback has been removed
+- Mars may still warn about an explicitly configured legacy `.agents` target
 
 If you're migrating: run `meridian mars sync` once. The new `.mars/` directory
 is populated. Remove `.agents/` from `.gitignore` and add `.mars/` entries.

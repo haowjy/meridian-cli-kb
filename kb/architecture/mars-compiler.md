@@ -48,21 +48,30 @@ seam was redesigned (see below).
 
 ---
 
-## Compilation Pipeline
+## Compilation and Ownership Pipeline
 
 ```mermaid
 graph TD
-    TOML["mars.toml\n+ resolved sources"] --> CTX["CompilerContext\nbuild phase"]
-    CTX --> AGENTS["compile agents\n(agents/)"]
-    CTX --> CE["compile_config_entries()\n(config_entries/)"]
-    CE --> RESOLVE["resolve.rs\nbuild current entry set"]
-    CE --> STALE["stale.rs\ndiff vs lock provenance"]
-    RESOLVE --> WRITE["write to target configs\n(.mcp.json, settings.json, etc.)"]
-    STALE --> REMOVE["remove_config_entries()\nfor stale keys"]
-    RESOLVE --> LOCK["write config_entries\nto mars.lock"]
+    TOML["mars.toml + resolved sources"] --> PREFLIGHT["preflight_config_entries()
+validate all hook surfaces"]
+    PREFLIGHT --> COMPILE["compiler lanes
+agents / skills / MCP / hooks"]
+    COMPILE --> DESIRED["desired files and config entries"]
+    OLD["mars.lock v3 ownership"] --> PLAN["RemovalPlan::build()
+partition by target + surface"]
+    DESIRED --> PLAN
+    PLAN --> REMOVE["adapter removal
+retain evidence on failure"]
+    REMOVE --> PERMIT["RetentionPlan::write_permit()"]
+    PERMIT --> WRITE["apply replacement writes"]
+    WRITE --> LOCK["finalize mars.lock v3"]
 ```
 
----
+Config-entry preflight runs before apply so an invalid native hook fragment
+cannot partially mutate canonical or target state. Stale ownership is not a
+compiler submodule: `surface_ownership::retention::RemovalPlan` compares prior
+and desired records, partitions them by `(target_root, Surface)`, and gates
+replacement writes with `WritePermit`.
 
 ## MCP/Hook Conflict Resolution
 
@@ -92,47 +101,27 @@ is common and has an obvious resolution.
 
 ---
 
-## Config-Entry Provenance and Stale Cleanup
+## Config-Entry Ownership in `mars.lock`
 
-### The Problem
-
-Before this work, Mars installed MCP server and hook entries into target
-config files (`.mcp.json`, `settings.json`, `codex_mcp.json`, etc.) but
-never removed them. When a package was removed from `mars.toml` and
-`mars sync` ran, the config entries remained as stale orphans. The adapter
-removal APIs existed (`remove_config_entries()`) but were never called
-because Mars had no record of which entries each package had installed.
-
-### Solution: Provenance in `mars.lock`
-
-The lock file gains an optional `config_entries` section. On each sync,
-Mars writes a provenance record for every config entry installed:
+`mars.lock` v3 records config entries as nested maps: the outer key is target
+root and the inner key is the config identity. `ConfigEntryRecord` carries
+optional `emitted_json`; target and key are map coordinates, not fields in the
+record. For example:
 
 ```toml
-[config_entries."claude/.mcp.json"]
-source = "meridian-base"
-key = "some-mcp-server"
-target_root = "claude"
+[config_entries.".claude"]
+"hook:SessionStart:audit" = { emitted_json = "[...]" }
+"mcp:some-server" = {}
 ```
 
-On the next sync, the stale detection diff:
-1. Loads prior provenance from `mars.lock`
-2. Builds the current entry set from resolved packages
-3. Calls `remove_config_entries()` for keys present in the prior set but
-   absent from the current set
+The lock is the single ownership authority. On sync, the retention seam builds
+removal operations from prior and desired maps. Exact emitted JSON permits
+structural removal of merge-mode hook entries without claiming adjacent user
+configuration. If removal is unconfirmed, prior evidence is retained and no
+replacement write permit is issued for that target/surface pair.
 
-**Why extend `mars.lock` rather than a separate manifest:**
-- Single authority for "what did sync install?" prevents coherence risk
-- One atomic write = one crash-recovery path
-- Lock already owns content-item provenance; config entries are the same
-  concept for a different artifact kind
-- `#[serde(default)]` makes the section backwards-compatible — older mars
-  versions ignore it
-
-**Dry run:** `mars sync --diff` reports stale entries in diagnostics but
-does not remove them.
-
----
+The complete v3 schema, lifecycle states, recovery halt, and conflict policy
+are canonical in [Sync Model](../concepts/package-management/sync-model.md).
 
 ## Two-Surface Ownership Model
 

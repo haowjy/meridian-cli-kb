@@ -116,11 +116,11 @@ MCP server and hook entries are compiled into harness-specific config files:
 
 | Harness | MCP location | Hook location |
 |---|---|---|
-| Claude | `.mcp.json` (project root) | `.claude/settings.json hooks` |
-| Codex | `.codex/config.toml [mcp_servers.*]` | `.codex/config.toml [hooks]` |
-| OpenCode | `opencode.json mcp.<name>` | Plugin API (TypeScript) — mars warns, skips |
-| Cursor | `.cursor/mcp.json` | No public hook API — mars warns, skips |
-| Pi | N/A | Extension API — mars warns, skips |
+| Claude | `.mcp.json` (project root) | `.claude/settings.local.json` `hooks` key |
+| Codex | `.codex/codex_mcp.json` | `.codex/hooks.json` |
+| OpenCode | `opencode.json mcp.<name>` | `.opencode/plugins/mars-<name>.ts` (file fragment) |
+| Cursor | `.cursor/mcp.json` | `.cursor/hooks.json` (MergeJson) |
+| Pi | N/A | `.pi/extensions/mars-<name>.ts` (file fragment) |
 
 Mars manages its entries in these files without touching user-managed entries
 (append-and-lock approach). Stale entries from removed packages are cleaned up
@@ -142,10 +142,11 @@ to its harness-native format:
 ## .agents/ Deprecation
 
 The `.agents/` target is deprecated. Existing repos with `.agents/` as a link
-target see a deprecation warning on `mars sync`. Meridian reads from `.mars/`
-first, falling back to `.agents/` during the transition window. Run
-`meridian mars sync` once to populate `.mars/`, then migrate `.gitignore`
-entries from `.agents/` to `.mars/`.
+target see a deprecation warning on `mars sync`. Meridian reads only from `.mars/`; the catalog fallback window has ended.
+Mars still recognizes `.agents` as an explicit generic legacy target and
+`mars doctor` can warn about it, but that does not make `.agents/` a Meridian
+read path. Migrate by syncing `.mars/`, removing the explicit legacy target,
+and updating ignore rules.
 
 ## Platform Safety
 

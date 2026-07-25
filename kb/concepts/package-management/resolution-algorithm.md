@@ -145,16 +145,13 @@ For local (non-package) sources, `local_source::discover_local_items()` prefers
 
 ## Source Cache
 
-Fetched git sources are stored in a global cache at
-`~/.meridian/cache/mars/archives/` (archives) and `~/.meridian/cache/mars/git/`
-(git repos). `GlobalCache` in `src/source/mod.rs` manages this layout.
+Fetched git sources use a cache root resolved in this order: `MARS_CACHE_DIR`,
+the OS cache directory plus `mars/cache`, then `<cwd>/.mars/cache` when no OS
+cache directory is available. `archives/` and `git/` live below that root;
+`GlobalCache` in `src/source/mod.rs` manages those subdirectories.
 
-Path sources bypass the cache — they are read directly from the filesystem at
-sync time.
-
-GitHub archive download/extraction (`src/source/archive.rs`) includes retry
-logic and path-safety checks. Git fetch (`src/source/git.rs`) handles tag/branch/HEAD
-resolution and semver tag parsing.
+Path sources bypass the cache. Archive extraction includes retry and path-safety
+checks; git fetching handles tag, branch, HEAD, and semver resolution.
 
 ## Trait Boundary
 

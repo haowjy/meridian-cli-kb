@@ -15,7 +15,7 @@ graph TD
     SKILLS["compile skills + variants\nsrc/compiler/skills/\nsrc/compiler/variants.rs"]
     CE["compile_config_entries()\nsrc/compiler/config_entries/"]
     CE_RESOLVE["resolve.rs\nbuild current entry set"]
-    CE_STALE["stale.rs\ndiff vs lock provenance"]
+    RETAIN["surface_ownership::retention\nRemovalPlan + WritePermit"]
     HOOKS["compile hooks\nsrc/compiler/hooks/"]
     MCP["compile MCP servers\nsrc/compiler/mcp/"]
     VIS["validate visibility\nsrc/compiler/visibility/"]
@@ -27,13 +27,13 @@ graph TD
     CTX --> SKILLS
     CTX --> CE
     CE --> CE_RESOLVE
-    CE --> CE_STALE
+    CE --> RETAIN
     CTX --> HOOKS
     CTX --> MCP
     CTX --> VIS
     AGENTS --> NATIVE
     CE_RESOLVE --> LOCK
-    CE_STALE --> LOCK
+    RETAIN --> LOCK
     NATIVE --> LOCK
 ```
 
@@ -49,7 +49,6 @@ src/compiler/
   config_entries/
     mod.rs             ← entry: compile_config_entries()
     resolve.rs         ← build current entry set from packages
-    stale.rs           ← diff vs lock → stale entry removal
   hooks/
     mod.rs             ← hook lowering, per-target platform-aware commands
   mcp/
@@ -59,6 +58,9 @@ src/compiler/
   variants.rs          ← skills/<name>/variants/<harness>/<model>/SKILL.md indexing
   visibility/
     mod.rs             ← model visibility validation
+
+src/surface_ownership/
+  retention.rs         ← stale removal, evidence retention, write permits
 ```
 
 ## Compiler Lanes
@@ -112,18 +114,19 @@ order. Declaration-order precedence for dep-vs-dep collisions is implemented by
 reading `mars.toml` directly. See [architecture/mars-compiler.md](../../architecture/mars-compiler.md)
 for rationale.
 
-**stale.rs** — diffs the current entry set against provenance records in
-`mars.lock`. Calls `remove_config_entries()` for keys present in the prior lock
-but absent from the current set. This is how mars cleans up entries from removed
-packages without leaving orphans.
+**Ownership retention** — after desired entries are resolved,
+`surface_ownership::retention::RemovalPlan` compares them with lock-v3 records,
+partitions removal by target and surface, retains prior evidence on failure, and
+issues `WritePermit` only for pairs safe to replace. This is the stale-cleanup
+seam; there is no `config_entries/stale.rs` module.
 
 ### Hooks (`compiler/hooks/`)
 
-Parses `hook.toml` per-target `[targets."<name>"]` tables, validates native event
-names against `TargetAdapter::known_hook_events()` allowlists, checks path
-traversal, and emits deterministic ordering. Targets without declarative command
-hooks (OpenCode, Pi) produce hard errors. `unchecked = true` per target table
-opts out of allowlist validation for events newer than the mars binary.
+Discovers per-target native fragment files. MergeJson targets (Claude, Codex,
+Cursor) validate native event keys and merge exact JSON entries. File targets
+(OpenCode and Pi) substitute `${MARS_HOOK_DIR}` and materialize TypeScript
+files. `preflight_config_entries()` validates all hook surfaces before apply so
+an invalid fragment cannot leave partial state.
 
 ### MCP Servers (`compiler/mcp/`)
 
@@ -180,7 +183,7 @@ how the lock feeds the diff phase on the next sync.
 - Entry point: `src/compiler/mod.rs` lines 35–96
 - Agent emission policy: `src/compiler/mod.rs` lines 99–217
 - Config-entry resolution: `src/compiler/config_entries/resolve.rs`
-- Stale cleanup: `src/compiler/config_entries/stale.rs`
+- Ownership retention: `src/surface_ownership/retention.rs`
 - Hook compilation (native events): `src/compiler/hooks/mod.rs`
 - MCP lowering: `src/compiler/mcp/mod.rs`
 - Skill compilation: `src/compiler/skills/mod.rs`

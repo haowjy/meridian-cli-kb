@@ -35,7 +35,7 @@ how `.mars/` relates to per-harness directories.
 graph TD
     TOML["mars.toml\npackage declarations"]
     LOCK["mars.lock\npinned versions"]
-    CACHE["global source cache\n~/.meridian/cache/"]
+    CACHE["global source cache\nresolved Mars cache root"]
     RESOLVE["resolver\nversion + constraint graph"]
     COMPILER["compiler\nagents, skills, hooks, MCP"]
     MARS[".mars/\ncompiled store"]

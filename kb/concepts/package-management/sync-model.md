@@ -11,7 +11,9 @@ Top-level entry: `sync::execute()` in `src/sync/mod.rs` lines 132–140.
 
 ```mermaid
 graph LR
-    L["LoadedConfig"] --> R["ResolvedState"] --> T["TargetedState"] --> P["PlannedState"] --> A["AppliedState"] --> S["SyncedState"]
+    L["LoadedConfig"] --> R["ResolvedState"]
+    R -->|normal| T["TargetedState"] --> P["PlannedState"] --> A["AppliedState"] --> S["SyncedState"]
+    R -->|recovery blocker| H["RecoveryHalt\nconfig mutation persisted; exit before compile/apply"]
 ```
 
 | Struct | Produced by | Contains |
@@ -25,6 +27,14 @@ graph LR
 
 `SyncRequest` carries the resolution mode (normal, maximize, frozen), optional
 config mutation, and sync options (`src/sync/mod.rs` lines 59–81).
+
+### Recovery Halt
+
+Recovery commands may persist their requested config mutation and then return a
+`RecoveryHalt` when resolution finds a removed-schema hook surface that cannot
+be read. This branch exits before compiler, apply, target, and lock writes. The
+halt carries the persisted mutations, blockers, and next step. Strict `sync` is
+the only materializer; recovery never treats unreadable owned state as absence.
 
 ## Diff Classification
 
@@ -55,7 +65,7 @@ unless `--force` is passed.
 | `Add` | Install | Install |
 | `Update` | Overwrite | Overwrite |
 | `Unchanged` | Skip | Skip |
-| `Conflict` | Keep-local + warn | Overwrite |
+| `Conflict` | Overwrite + `conflict-overwrite` warning | Overwrite |
 | `Orphan` | Remove | Remove |
 | `LocalModified` | Keep-local + warn | Overwrite |
 
@@ -194,8 +204,9 @@ sync and released on completion or crash.
 - **I-2: Lock guards concurrency** — only one sync runs at a time per project root.
 - **I-3: Idempotent** — syncing twice with no source changes produces identical
   output and no warnings.
-- **I-4: Local modifications are preserved by default** — `LocalModified` and
-  `Conflict` items are kept unless `--force` is passed.
+- **I-4: Local-only modifications are preserved by default** — `LocalModified`
+  items are kept unless `--force` is passed. A `Conflict` means source and local
+  both changed; source wins even without force and Mars warns before overwrite.
 - **I-5: Orphan cleanup** — items that were installed in a prior sync but removed
   from the current graph are removed from both `.mars/` and native target dirs.
 - **I-6: v3 lock is always written** — v2 is promoted at read time by
