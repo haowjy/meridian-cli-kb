@@ -47,15 +47,15 @@ a full tool distribution system.
 
 ## 3. Hook Distribution
 
-**Status (2026-07): Resolved.** Mars hook compilation uses native passthrough (mars-agents PR #133, D90).
+**Status (2026-07): Resolved.** D90 (mars-agents PR #133) established native passthrough; D91 (mars-agents PR #138) replaced command synthesis with per-target native fragment files.
 
-`hook.toml` declares harness-native event names in per-target `[targets."<target>"]` tables. Mars validates each event against a static per-target allowlist (`TargetAdapter::known_hook_events()`) and passes names through verbatim. The universal event vocabulary, all five per-target translation tables, lossiness classification, and the legacy `codex_hooks.json` format are deleted. One-release removal-only residue sweeps strip fabricated OpenCode hooks and legacy Codex hooks from prior mars versions.
+Authors write the harness's own hook shape in per-target fragment files (`claude.json`, `codex.json`, `cursor.json`, or `.ts` for file-mode targets). Mars validates event keys against per-target allowlists, substitutes `${MARS_HOOK_DIR}` with the absolute installed path, merges entries into target config files (or places file-mode fragments whole), and records the exact emitted JSON in `mars.lock` for structural removal. Two modes: MergeJson (Claude, Codex, Cursor) and File (OpenCode, Pi). Two ownership surfaces: path ownership via `OutputRecord` for copied files, config-entry ownership via `ConfigEntryRecord` with `emitted_json` for merged entries.
 
-Allowlists: Claude 29 events, Codex 10 events (SessionEnd excluded after runtime probe proved it non-functional in 0.144.4; mars-agents#132 tracks re-add). Targets without declarative command hooks (OpenCode, Pi) produce hard errors. `unchecked = true` per target table opts out of validation for events newer than the mars binary.
+Allowlists: Claude 29 events, Codex 10 events (SessionEnd excluded after runtime probe proved it non-functional in 0.144.4; mars-agents#132 tracks re-add), Cursor 21 events. `unchecked = true` per target table opts out of validation for events newer than the mars binary.
 
-See [decisions/package-management.md](../decisions/package-management.md#d90-native-hook-passthrough-replaces-universal-event-vocabulary-mars-agents-pr-133-2026-07) for rationale and rejected alternatives.
+See [decisions/package-management.md](../decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) for design rationale, and [architecture/mars-compiler.md](../architecture/mars-compiler.md#two-surface-ownership-model) for the ownership model.
 
-**Deferred:** Delete residue sweeps next release (mars-agents#130). Cursor hook writing (mars-agents#131). Codex SessionEnd re-add when functional (mars-agents#132).
+**Deferred:** Delete residue sweeps and #130 legacy bridges (next release). Codex SessionEnd re-add when functional (mars-agents#132).
 
 ### Remaining gap: lifecycle hooks
 
@@ -186,7 +186,7 @@ If resources allow only a few of these to be built, the likely priority:
 1. Permission sync — most direct gap between packaged content and usable runtime behavior
 2. Tool definition distribution — tools are half the execution contract
 3. ~~MCP integration~~ — **partially resolved** (2026-05): config-entry sync and collision resolution shipped; remaining: capability validation
-4. ~~Hook distribution~~ — **resolved** (2026-07): native passthrough replaces universal event vocabulary (D90, mars-agents PR #133); remaining: lifecycle hooks, Cursor hook writing (#131)
+4. ~~Hook distribution~~ — **resolved** (2026-07): native passthrough (D90, PR #133) and native fragments (D91, PR #138); remaining: lifecycle hooks
 5. Distribution model — important eventually, premature without the capability schema
 
 ## Cross-References

@@ -4,6 +4,59 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-24 — Hook-fragment review lessons and two-surface ownership capture (mars-agents PR #138)
+
+### Trigger
+
+Eleven review rounds on the mars-agents hook-fragment implementation (PR #138)
+settled with a SHIP verdict. The review produced five generalizable engineering
+lessons and a significant architectural addition (the two-surface ownership
+model and retention seam) that the prior D91 capture did not cover.
+
+### What changed
+
+**New content:**
+- `lessons/verification-and-review-discipline.md`: five cross-cutting patterns
+  grounded in specific evidence -- capability token consumption, wrong-gate
+  regression tests, vacuous verification, diff-vs-run, convergence as a
+  redesign signal. These are general engineering knowledge that outlives
+  mars-agents.
+- `architecture/mars-compiler.md`: new "Two-Surface Ownership Model" section
+  documenting path ownership (`OutputRecord`) and config-entry ownership
+  (`ConfigEntryRecord` + `emitted_json`), plus the retention seam
+  (`surface_ownership/retention.rs`) that makes wrong states unrepresentable.
+
+**Stale content fixed:**
+- `architecture/mars-compiler.md`: module map updated -- removed deleted
+  `stale.rs` from `config_entries/`, added `surface_ownership/` directory
+  module with `mod.rs` and `retention.rs`.
+- `open-questions/mars-feature-gaps.md` section 3 (Hook Distribution):
+  updated from D90-only to cover D91 (native fragments). Cursor hook writing
+  (mars-agents#131) marked resolved. Priority list updated.
+- `decisions/package-management.md` D91: added the two-surface ownership
+  contract and retention seam as a key implementation paragraph.
+- `decisions.md`: D91 foundational entry expanded with two-surface ownership
+  model and retention seam reference.
+
+**Navigation updates:**
+- `lessons/overview.md`: added new lesson page.
+- `index.md`: added new lesson page to lessons section.
+
+### Colocated gaps reported (not edited)
+
+Mars-agents `src/surface_ownership/` lacks a `.context/CONTEXT.md`. The module
+doc in `mod.rs` covers both surfaces and the retention contract, but the
+retention seam's design rationale (why `RemovalPlan::build` partitions before
+mutation, why `WritePermit` binds rather than carries, why file-output removals
+are deliberately outside the outcome model) is not captured in colocated docs.
+Proposed content reported in the KB-lead's final message.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-24 — KB-autosync gap chain knowledge capture (reaper-scope-regression phase 2)
 
 ### Trigger
