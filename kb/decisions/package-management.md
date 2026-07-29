@@ -554,6 +554,48 @@ Every stage of the sync pipeline is a persistence site; an exception must be enf
 
 ---
 
+## Engine Version Constraints
+
+### D93: Hard-constraint-with-fallback engine requirements (2026-07)
+
+**Decision:** Packages declare minimum engine versions via optional `requires-mars` and `requires-meridian` fields in `[package]`. When the running engine does not satisfy a dependency's requirement, the resolver excludes that version and walks down to the newest compatible candidate. When no candidate is compatible, resolution fails before any mutation. Escape hatches: `--ignore-requires-mars` and `--ignore-requires-meridian`.
+
+**The model:** pip's `Requires-Python` — hard filter with emergent fallback. Every ecosystem studied (pip, Cargo, Bundler, npm, Go) filters or ranks by runtime compatibility; the pip/Bundler hard-filter model serves the "newest version that works" intent most cleanly. Mars packages compile into agent-facing trees; a wrong compile is worse than a stop, which rules out Cargo's soft-preference and npm's advisory-only defaults.
+
+**Two engines, one mechanism.** `requires-mars` checks against the compiled-in `CARGO_PKG_VERSION`; `requires-meridian` checks against the `MERIDIAN_VERSION` environment variable exported by `mars_passthrough.py` in meridian-cli. Both use the same parse, check, and walk-down code path (`src/resolve/requires.rs`). When `MERIDIAN_VERSION` is absent (standalone mars, or old meridian), `requires-meridian` checks are silently skipped. When present but malformed, resolution fails with a typed error — but only when the manifest actually declares `requires-meridian`; fieldless manifests never parse the environment.
+
+**Bare version rewrite.** A bare version like `"0.12"` is rewritten to `>=0.12.0` before parsing. Without this, semver's default caret interpretation (`^0.12`) would reject mars 0.13 — a trap every author would hit. Full ranges (`>=0.12, <2`) are accepted.
+
+**Prerelease handling.** Prerelease and build metadata are stripped from the running version before matching. Mars `0.12.0-rc.1` satisfies `>=0.12.0`, matching how RC builds are used in practice.
+
+**Exclusion state carries failure provenance.** Each excluded `(source, version)` pair records which engine requirements failed and why. When all candidates are exhausted, the unsatisfiable error names each candidate's requirement and the running engine version, not a generic semver conflict. Exclusions persist across resolver restarts — the restart algorithm's version overrides consult the exclusion map, so a restarted pass never re-proposes an already-excluded version.
+
+**Diagnostics derive from the final graph.** The `engine_fallbacks` sync report is reconciled against the completed `ResolvedGraph` after the restart loop settles. Moot fallback records (sources dropped by a restart) are pruned; `selected_version` is derived from final graph nodes. Two incremental-refresh attempts failed review before this structural fix: accumulating diagnostics during resolution passes produces stale or phantom entries whenever a restart changes which sources appear in the final graph.
+
+**Consumer's own package.** The consuming project's `[package].requires-mars` / `requires-meridian` is checked once during `load_config` (hard error, no fallback possible — there is no other version of the consumer's own manifest).
+
+**Lock interaction.** No lock schema change. When a locked version becomes engine-incompatible (mars downgraded after lock), the resolver treats it like a constraint-violating locked version: warns (`requires-mars-lock-fallback`), enters the walk-down, and rewrites the lock to the older selection. `--frozen` refuses the fallback as a `FrozenViolation`.
+
+**Single-candidate sources.** RefPin, path, and untagged (HEAD) sources have no alternative candidate to walk down to. An incompatible manifest there is a hard error; the escape hatch applies.
+
+**Migration.** Existing packages (no field) resolve exactly as before. Old mars binaries ignore the new fields via serde defaults. Protection is forward-only: the first mars release with this feature is the floor below which declarations are invisible. Adoption discipline for prompt packages: declare the field the first time a package uses a feature newer than the current floor, in the same commit as the feature use. No blanket backfill.
+
+**Alternatives rejected:**
+
+| Alternative | Why not |
+|---|---|
+| Soft preference (Cargo MSRV model) | "Install latest anyway with a note" is the silent breakage the feature prevents. Cargo moved away from this toward fallback-by-default in edition 2024. |
+| Advisory warning only (npm default) | Same failure mode; npm's own trajectory is a retreat from it (engine-strict, pickManifest ranking). |
+| Synthetic dependency (Bundler model) | Elegant in a general backtracking resolver; in mars's bottom-up+restart resolver it entangles engine state with `SourceName` registry identity for no capability gain. |
+| Engine auto-upgrade (Go model) | Mars downloading newer mars is a distribution/security problem beyond the resolver; the unsatisfiable error's upgrade hint captures the useful part. |
+| `[engines]` table section | A table for two keys, importing vocabulary that fits mars awkwardly. Flat `requires-mars` and `requires-meridian` under `[package]` follow the Cargo precedent. |
+| Out-of-band version metadata (tag annotations, side index) | Infrastructure mars does not have, solving a cost the global cache already bounds at mars's scale. |
+| Recording `requires-mars` in the lock | Redundant: the manifest is re-read from cache every resolution; a lock copy could only go stale. |
+
+**Source study evidence (pip, Cargo, Bundler, npm, Go):** pip's `package_finder.py` drops incompatible links in `LinkEvaluator.evaluate_link` (fallback is emergent: incompatible versions are invisible). Cargo's `version_prefs.rs` uses `msrv_compat_count` as sort rank (a sort, not a filter). Bundler appends `Gem::Dependency.new("Ruby\0", required_ruby_version)` to each spec. npm's `npm-pick-manifest` uses `engineOk` as both a filter and a tiebreak ladder. Go auto-downloads newer toolchains and hard-errors on older ones. Full source study in the work directory (`work/mars-version-constraints/design.md`).
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution

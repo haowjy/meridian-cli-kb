@@ -26,7 +26,11 @@ graph LR
 | `SyncedState` | `target_sync` | Native target dirs updated, lock written |
 
 `SyncRequest` carries the resolution mode (normal, maximize, frozen), optional
-config mutation, and sync options (`src/sync/mod.rs` lines 59–81).
+config mutation, and sync options (`src/sync/mod.rs` lines 59–81). `SyncReport`
+includes `engine_fallbacks`: a list of sources where engine requirements caused
+version fallback, each recording the skipped versions with their requirements,
+the final selected version, and which engines triggered the fallback. This list
+is reconciled against the completed `ResolvedGraph` to prune moot entries.
 
 ### Recovery Halt
 
@@ -177,8 +181,13 @@ for the policy rationale.
 | `--frozen` | Do not fetch new versions; fail if lock is insufficient |
 | `--refresh-models` | Force models.dev catalog refresh; run harness probes **synchronously** (no background `__refresh-probe` on stale cache) |
 | `--no-refresh-models` | Disk-only catalog (`RefreshMode::Offline`); probe **Skip** (stale probe JSON still used when present) |
+| `--ignore-requires-mars` | Skip package `requires-mars` compatibility checks |
+| `--ignore-requires-meridian` | Skip package `requires-meridian` compatibility checks |
 
 `--frozen` is the right mode for CI builds where reproducibility is required.
+
+The `--ignore-requires-*` flags are available on `sync`, `upgrade`, `add`, and
+`repair`. They emit a single warning noting the check is disabled.
 
 Model/probe refresh uses the same **`ModelsRefreshControl`** as `mars models list|resolve`
 and `mars build launch-bundle`. Full matrix: [../../architecture/mars-model-refresh.md](../../architecture/mars-model-refresh.md).

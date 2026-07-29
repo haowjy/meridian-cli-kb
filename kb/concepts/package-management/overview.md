@@ -69,6 +69,8 @@ Detailed phase behavior: [sync-model.md](sync-model.md).
 [package]                # present when this repo IS a mars package
 name = "my-pkg"
 version = "1.0.0"
+requires-mars = ">=0.12.0"      # optional: minimum mars version
+requires-meridian = ">=0.4.0"   # optional: minimum meridian version
 
 [dependencies]           # packages installed and exported to consumers
 meridian-base = { url = "https://github.com/org/pkg", version = ">=1.0" }

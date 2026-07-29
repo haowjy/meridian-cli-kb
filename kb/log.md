@@ -4,6 +4,35 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-07-29 — Engine version constraints knowledge capture (mars-agents PR #158, meridian-cli PR #485)
+
+### Trigger
+
+The `requires-mars` / `requires-meridian` feature settled: implemented, reviewed through four rounds, runtime-probed, and shipped as ready-for-review PRs. Mars-agents PR #158 (release:minor) adds the resolver walk-down, engine exclusion map, CLI escape hatches, and `engine_fallbacks` report. Meridian-cli PR #485 (release:patch) exports `MERIDIAN_VERSION` to the mars subprocess.
+
+### What changed
+
+**New content:**
+- `decisions/package-management.md` D93: hard-constraint-with-fallback engine requirements. Source study synthesis (pip/Cargo/Bundler/npm/Go), rejected alternatives table, parsing rules, exclusion provenance, diagnostics-derive-from-final-graph lesson, migration strategy.
+- `concepts/package-management/resolution-algorithm.md`: new "Engine Version Constraints" section with walk-down loop diagram, exclusion set mechanics, engine check placement, version parsing rules, and new invariant I-6 (engine exclusions are monotone).
+- `concepts/package-management/vocabulary.md`: three new terms (engine exclusions, engine fallback, engine requirement).
+- `concepts/package-management/overview.md`: `requires-mars` and `requires-meridian` added to `mars.toml` example.
+- `concepts/package-management/sync-model.md`: `--ignore-requires-mars` and `--ignore-requires-meridian` added to sync modes table; `engine_fallbacks` noted in SyncReport description.
+
+**Navigation updates:**
+- `decisions.md`: D93 entry added to both the chronological table and the Package Management domain row.
+- `decisions/overview.md`: D93 added to the package-management domain page listing.
+
+### Colocated (mars-agents, not this repo)
+
+- `src/resolve/AGENTS.md`: already updated on the feature branch. Verified accurate against final code: restart algorithm convergence argument includes engine exclusion monotone, engine check placement, walk-down semantics.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-25 — Release-sequencing failure capture and ecosystem staleness repair
 
 ### Trigger

@@ -12,6 +12,7 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 |---|---|---|---|
 | 2026-07, State Decision 3 | Current | Commit project identity as `[project].id` in `meridian.toml`; keep runtime state user-local. | [State](decisions/state.md#project-identity-in-meridiantoml-no-repo-local-state-decision-3-2026-07) |
 | 2026-07, PR #422 | Current | Every store mutation acquires its stable lock, re-reads, mutates, and atomically publishes. | [State](decisions/state.md#concurrency-by-construction-mutate-under-lock-seams-over-convention-enforced-write-tiers-pr-422-2026-07) |
+| 2026-07, D93 | Current | Engine version constraints: hard-filter-with-fallback for `requires-mars` / `requires-meridian`. | [Package management](decisions/package-management.md#d93-hard-constraint-with-fallback-engine-requirements-2026-07) |
 | 2026-07, D91 | Current | Native hook fragments and lock-v3 lifecycle records replace synthesized universal hooks. | [Package management](decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) |
 | 2026-07, D92 | Current | Recovery commands halt before compilation when removed-schema hook surfaces are unreadable. | [Package management](decisions/package-management.md#d92-shape-a-recovery-seam----halt-before-compilation-when-hook-surfaces-are-unreadable-2026-07) |
 | 2026-07-17 | Current | Support POSIX; retain native-Windows branches only as untested legacy best effort. | [Design principles](principles/design-principles.md) |
@@ -30,7 +31,7 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 | Waiting and sessions | Wait barriers, goals, output, continue/fork/from | [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) |
 | Harness compatibility | Harness-specific launch history and superseded platform work | [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) |
 | Startup / health / sandbox | Startup descriptors, doctor, bootstrap and projection policy | [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) |
-| Package management | Mars compilation, targeting, ownership, hooks, recovery | [decisions/package-management.md](decisions/package-management.md) |
+| Package management | Mars compilation, targeting, ownership, hooks, recovery, engine constraints | [decisions/package-management.md](decisions/package-management.md) |
 | Model resolution | Alias routing, candidate policy, prompting ownership | [decisions/model-resolution.md](decisions/model-resolution.md) |
 | Workspace | Schema, path resolution, permission projection and migration | [decisions/workspace.md](decisions/workspace.md) |
 | Telemetry | Envelopes, sinks, segments, querying and retention | [decisions/telemetry.md](decisions/telemetry.md) |

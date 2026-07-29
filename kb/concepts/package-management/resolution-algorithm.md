@@ -74,7 +74,8 @@ Git sources (`url = "https://..."`) use semver-based selection via
 Default algorithm is **MVS (Minimum Version Selection)**: when multiple
 constraints exist on a package, the highest *lower bound* wins. This matches
 Go module semantics. Maximize mode flips to highest available satisfying
-version.
+version. Engine-excluded versions are removed from the candidate set before
+selection (see [Engine Version Constraints](#engine-version-constraints)).
 
 ```mermaid
 graph LR
@@ -92,6 +93,63 @@ graph LR
 ```
 
 `select_version()` in `src/resolve/version.rs` lines 186–245 implements this.
+
+## Engine Version Constraints
+
+Packages may declare minimum engine requirements via `requires-mars` and
+`requires-meridian` in `[package]`. These are checked after manifest read
+and before dependency collection, at the same point where the walk-down loop
+runs.
+
+### Walk-Down Loop
+
+When the selected candidate's manifest declares an engine requirement the
+running engine does not satisfy, the resolver excludes that version and
+re-selects. This walk-down repeats until a compatible candidate is found or
+all candidates are exhausted.
+
+```mermaid
+flowchart TD
+    A["select_version:\nnewest satisfying semver\nminus exclusions"] --> B["fetch + stage tree"]
+    B --> C["read_manifest"]
+    C --> D{"requires-mars /\nrequires-meridian\nsatisfied?"}
+    D -- "yes or absent" --> E["register package,\ncontinue resolution"]
+    D -- no --> F["add version to\nexclusion set\nwarn requires-mars-fallback"]
+    F --> G{"more semver\ncandidates?"}
+    G -- yes --> A
+    G -- no --> H["error:\nengine-unsatisfiable"]
+```
+
+Walk-down exists only for semver sources with multiple candidates. Path,
+ref-pinned, and untagged (HEAD) sources have no alternative — an incompatible
+manifest is a hard error. `--ignore-requires-mars` and `--ignore-requires-meridian`
+disable the respective check.
+
+### Exclusion Set
+
+The exclusion map (`EngineExclusions`) lives in driver state alongside the
+restart overrides. Each entry records `(SourceName, Version)` with the
+`EngineRequirementFailure` that caused it. This provenance means exhaustion
+errors name the real engine requirement, not a generic semver conflict.
+Exclusions persist across resolver restarts — `select_version` receives them,
+and restart overrides are skipped when their version is excluded.
+
+### Engine Check Placement
+
+The check runs in `resolve_package_bottom_up` (`src/resolve/package.rs`)
+after `read_manifest` and before `collect_manifest_requests`. Both
+`requires-mars` and `requires-meridian` are checked; a version fails if
+either constraint is unsatisfied. The consumer project's own
+`[package]` requirements are checked once in `load_config` (hard error,
+no fallback).
+
+### Version Parsing
+
+Bare versions (`"0.12"`) are rewritten to `>=0.12.0`. Full semver ranges
+are accepted. Prerelease and build metadata are stripped from the running
+version before matching. Invalid syntax is a manifest error (strict
+`VersionReq::parse`, no RefPin fallback). Implementation:
+`src/resolve/requires.rs`.
 
 ## Constraint Validation
 
@@ -180,6 +238,10 @@ The resolver is decoupled from concrete source modules via four traits
 - **I-5: Traversal path safety** — `apply_subpath()` rejects escaping or missing
   subpaths; `SourceSubpath`/`DestPath` normalize separators and reject traversal
   sequences.
+- **I-6: Engine exclusions are monotone** — the exclusion set only grows across
+  restart passes. Combined with the constraint-driven selection monotone, this
+  guarantees termination: each walk-down step strictly shrinks the candidate list,
+  and the optimum can only move downward.
 
 ## Key References
 
