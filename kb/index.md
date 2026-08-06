@@ -49,7 +49,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/testing.md](decisions/testing.md) — Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
 - [decisions/workspace.md](decisions/workspace.md) — Why named workspace entries, permission-grant vs context-surfacing split, missing-path behavior, migration strategy
-- [decisions/spawn-cwd-worktree-anchor.md](decisions/spawn-cwd-worktree-anchor.md) — Authority/task domain split: single reference anchor, kb: resolution from authority_root, stale worktree hard error, managed vs manual worktree ownership
+- [decisions/spawn-cwd-worktree-anchor.md](decisions/spawn-cwd-worktree-anchor.md) — Authority/task domain split: single reference anchor, kb: resolution from authority_root, stale task-dir graceful fallback (supersedes hard error), managed vs manual worktree ownership
 
 ---
 

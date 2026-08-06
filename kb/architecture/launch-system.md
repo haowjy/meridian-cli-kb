@@ -115,7 +115,7 @@ Resolution priority (see `resolve_task_cwd()` in `cwd.py`):
 | 3.5 | caller cwd outside the project tree (ambient-cwd) | caller cwd |
 | 4 | default | `control_root` |
 
-**Stale worktree_path** (path no longer exists on disk) → hard error. NOT silent fallback to control_root.
+**Stale task_dir** (path no longer exists on disk) → warning + fallback to the next valid tier (inherited `MERIDIAN_TASK_DIR` if valid, then `control_root`). Work state is not mutated on read. `WorkTaskDirMissing` is raised only when even `control_root` does not exist. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
 
 **Explicit `--work` is a hard selection boundary.** When the user specifies `--work <item>`, only that item is consulted. If it has no worktree_path, task_cwd = control_root — the ambient session work attachment is NOT used as a fallback.
 

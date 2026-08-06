@@ -28,13 +28,27 @@ See [architecture/launch-system.md — Authority/Task Domain Split](../architect
 
 ---
 
-### D-stale-worktree-hard-error: Stale worktree_path is a hard error, not silent fallback
+### D-stale-worktree-hard-error: ~~Stale worktree_path is a hard error, not silent fallback~~
 
-**Decision:** If a work item has a configured `worktree_path` that no longer exists on disk (deleted, moved), spawn fails with a clear error. It does NOT silently fall back to `authority_root`.
+**Status: Superseded** by D-stale-task-dir-graceful-fallback (PR #486, 2026-08-06).
 
-**Rationale:** The user configured worktree isolation intentionally. Silent fallback risks editing the wrong checkout. Only `--no-worktree` explicitly opts out.
+**Original decision:** If a work item has a configured `worktree_path` that no longer exists on disk (deleted, moved), spawn fails with a clear error. It does NOT silently fall back to `authority_root`.
 
-**Only escape hatch:** `--no-worktree` flag bypasses the stale check and forces `task_cwd = authority_root`.
+**Why it was superseded:** The documented post-dev flow removes git worktrees after their branch merges. Under the original decision, every subsequent spawn under that work item hard-failed with a misleading `pre_init_failed` error, `meridian task-dir` crashed, and explicit `--task-dir` could not rescue the launch because the stale-path derivation raised before explicit-flag resolution ran. The `--no-worktree` escape hatch was removed prior to #486 (v0.4.0).
+
+---
+
+### D-stale-task-dir-graceful-fallback: Stale work-item task_dir degrades with warning, not hard error
+
+**Decision:** When a work item's configured `task_dir` no longer exists on disk, resolution skips the stale tier with a warning and falls through to the next valid tier: inherited `MERIDIAN_TASK_DIR` (if valid), then `authority_root`. Work state is never mutated on a read path. The warning names both the stale path and the fallback destination.
+
+**Supersedes:** D-stale-worktree-hard-error.
+
+**Rationale:** The crash-only principle prohibits hidden writes on read. Persisting a repaired `task_dir` into work state on read was the rejected alternative — it would silently mutate state as a side effect of resolution, violating the crash-only contract and making it impossible to distinguish intentional reassignment from automatic repair. Graceful degradation with a warning preserves the user's ability to diagnose the issue while keeping spawns operational.
+
+**Hard error retained for:** `WorkTaskDirMissing` — raised only when even the fallback `authority_root` does not exist. Mapped to error name `work_task_dir_missing` at the pre-init boundary (was misleadingly `pre_init_failed`).
+
+**Explicit `--task-dir` always wins:** The precedence fix ensures that `build_create_payload()` skips the inheritable-task-dir derivation when an explicit `--task-dir` flag is present, so the stale work-item value never blocks an explicit override.
 
 ---
 
