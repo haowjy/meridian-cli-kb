@@ -189,55 +189,13 @@ The `None`-vs-empty distinction is preserved through all config normalization la
 
 ### D73: Canonical launch-parameter compiler in `compiler.py` with pure-data contract
 
-> **Superseded.** PRIMARY/SPAWN_PREPARE routing now resolves through Mars
-> launch-bundle (`_resolve_policy_from_bundle()` → `bundle_adapter.request_and_resolve()`).
-> `compiler.py` is explicitly deprecated in its module docstring. This record is
-> preserved for historical context only.
-
-**Decision:** A dedicated module `src/meridian/lib/launch/compiler.py` owns all launch-parameter resolution: routing field tier walks, policy field tier walks, model-policy matching, overlay application, harness derivation, and provenance tracking. The compiler accepts `CompilerRequest` (pure data) and returns `CompilerResult` (pure data). A separate `materialize.py` converts `CompilerResult` to runtime objects (`SubprocessHarness`, loaded skills, etc.).
-
-**Why a dedicated compiler over continued growth of `resolve_policies()`:** `resolve_policies()` had become an implicit blob combining profile loading, model resolution, precedence, skill attachment, and harness derivation. Adding the new agent overlay tier would have made it worse. The compiler forces explicit typed inputs/outputs, testable in isolation, with clear provenance tracking.
-
-**Pure-data contract requirement (EARS-072):** `CompilerRequest` and `CompilerResult` contain only scalars, tuples, dicts, and enums — no `Path`, no adapters, no loaded content. This enables: (a) unit testing without Meridian runtime setup, (b) a migration path to Mars ownership if warranted (see D74).
-
-**`resolve_policies()` becomes a thin wrapper** that loads the profile, resolves the model via `CatalogSession`, builds a `CompilerRequest`, calls `compile_launch_params()`, calls `materialize_harness()`, and maps back to `ResolvedPolicies`. All existing callers continue working without changes.
-
-**`FieldProvenance` for observability:** Each resolved field carries a `ProvenanceLevel` enum value (`CLI`, `ENV`, `AGENT_OVERLAY_POLICY`, `AGENT_OVERLAY_DEFAULT`, `PROFILE_MODEL_POLICY`, `PROFILE_DEFAULT`, `CONFIG_DEFAULT`, `ALIAS_DEFAULT`, `UNSET`). This feeds `--dry-run` output and `config show`, making precedence visible without reading source code.
-
-**Effective model-policy source for harness availability fallback:** When the primary harness is unavailable and fallback is attempted, the compiler uses the *effective* model-policy source (overlay if overlay has a `model_policies` value, profile otherwise). This ensures overlay suppression/replacement of model-policies also controls which candidates are considered for fallback — otherwise a user suppressing profile model-policies would still have those policies applied during fallback selection.
+> **Superseded.** Routing now resolves through Mars launch-bundle. `compiler.py` is deprecated.
 
 ---
 
 ### D74: Compiler lives in Meridian, not Mars (Option C over B)
 
-> **Superseded.** The question of whether the compiler lives in Meridian vs. Mars
-> was resolved differently: Mars now owns routing via launch-bundle. The compiler
-> module (`compiler.py`) is deprecated. This record is preserved for historical context.
-
-**Decision:** After an explicit adversarial review (three agent spawns: pro-Mars p4321, pro-Meridian p4322, boundary/risk analysis p4324), Option C was confirmed: the launch-parameter compiler lives in Meridian now, behind a stable JSON-serializable contract, movable to Mars later if warranted.
-
-**Why Mars ownership (Option B) was rejected:**
-
-1. **Different compilation concerns at different times.** Mars compiles at sync-time to produce disk artifacts (`.mars/agents/*.md`). Meridian compiles at launch-time to resolve "what does this agent launch with right now?" Different timing, inputs, purposes — they share input data but not logic.
-
-2. **Mars lacks the runtime semantics the compiler needs.** Mars's `ModelPolicyEntry` is a marker struct with zero match logic. The model-policy matching engine (exact model > exact alias > model-glob, with precedence, with provenance) lives exclusively in Meridian. Mars has no concept of `[agents.<name>]` overlays or their three-state merge semantics.
-
-3. **Agent overlays are Meridian-native config.** The motivating feature is pure Meridian config (`meridian.toml`, `meridian.local.toml`). Making Mars the compiler requires either teaching Mars Meridian's config semantics or having Meridian pre-resolve everything and pass it through — which eliminates the claimed benefit of centralization.
-
-4. **Harness availability fallback cannot live in Mars.** Fallback depends on local `HarnessRegistry` state (which harness adapters are available on this machine), which is not a package-manager responsibility. Even with Mars as compiler, Meridian would apply post-compile corrections — the boundary stays muddy after paying the IPC/versioning cost.
-
-5. **Cross-repo coupling cost is not worth theoretical cleanliness.** Every new overlay field, precedence tier, or provenance change would require coordinated Mars + Meridian releases. That is ongoing tax for a boundary that doesn't match current ownership.
-
-**Conditions for revisiting Mars ownership:**
-- A second consumer besides Meridian needs agent launch-parameter compilation.
-- Mars gains its own runtime/launch semantics (Mars-native agent execution, not just artifact management).
-- The `CompilerRequest`/`CompilerResult` contract proves stable for 2+ major versions and migration becomes mechanically trivial.
-
-**Structural discipline required for Option C to stay correct:**
-- `CompilerRequest`/`CompilerResult` must remain pure DTO (no `Path`, no adapters).
-- Materialization stays fully separate from compile.
-- After compile, callers must not re-run precedence logic from raw data.
-- Contract shape tests prevent silent drift toward non-serializable types.
+> **Superseded.** Mars now owns routing via launch-bundle, resolving the Meridian-vs-Mars question differently than Option C proposed.
 
 ---
 

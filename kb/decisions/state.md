@@ -93,38 +93,19 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### StreamingRunConclusion replaces mutable sentinel locals
 
-**Decision (2026-05, spawn-finalization-refactor):** Six mutable local variables that accumulated execution outcome across retry attempts in `execute_with_streaming()` are replaced by a `StreamingRunConclusion` dataclass with `absorb_attempt()` and `resolve_terminal_state()` methods.
-
-**Why:** Scattered sentinels were error-prone across multiple code paths (retry loops, exception handlers, finally blocks). `resolve_terminal_state()` centralizes the "what terminal state does this outcome represent?" logic that was previously duplicated across multiple conditionals and hard to audit as a whole.
+**Decision (2026-05):** Execution outcome accumulation across retry attempts uses a `StreamingRunConclusion` dataclass instead of six mutable locals. Centralizes terminal-state resolution logic that was previously scattered across retry loops and exception handlers.
 
 ---
 
 ### PreparedExecutionHandoff with ExitStack ownership transfer
 
-**Decision (2026-05, spawn-finalization-refactor):** `_prepare_execution_handoff()` in `execute.py` uses an ExitStack ownership transfer pattern: a local stack enters all context managers; on success, ownership is transferred to the returned `PreparedExecutionHandoff`; on failure, the local stack is closed before re-raising.
-
-**Why:** Session scope (created in `_session_execution_context()`) must be cleaned up whether execution succeeds or fails, but the cleanup must happen in the caller's scope, not at preparation time. The transfer pattern guarantees no session scope leak on any failure path while ensuring the caller retains cleanup ownership during execution.
-
-**Pattern summary:**
-```python
-local_stack = ExitStack()
-try:
-    local_stack.enter_context(...)
-    handoff_stack = local_stack
-    local_stack = ExitStack()   # disarm — caller owns cleanup
-    return PreparedExecutionHandoff(session_exit_stack=handoff_stack, ...)
-except Exception:
-    local_stack.close()         # always cleans up on failure
-    raise
-```
+**Decision (2026-05):** `_prepare_execution_handoff()` uses ExitStack ownership transfer: a local stack enters context managers, transfers ownership to the returned handoff on success, and closes on failure. Guarantees no session-scope leak on any failure path.
 
 ---
 
 ### failure_policy.py consolidates launch-failure finalization sites
 
-**Decision (2026-05, spawn-finalization-refactor):** All launch-failure finalization routes through `ops/spawn/failure_policy.py`, which enforces a fixed terminal tuple: `status="failed"`, `exit_code=1`, `origin="launch_failure"`.
-
-**Why:** Eight scattered call sites previously each chose these values independently. Some used different exit codes for the same failure class, making diagnostics inconsistent. A single module with a fixed tuple ensures all launch failures look the same in spawn history, are identifiable by origin, and are auditable at one location.
+**Decision (2026-05):** All launch-failure finalization routes through `ops/spawn/failure_policy.py` with a fixed terminal tuple (`status="failed"`, `exit_code=1`, `origin="launch_failure"`). Replaced eight scattered call sites that used inconsistent exit codes.
 
 ---
 
@@ -158,13 +139,7 @@ O(1). The canonical dataset and timing provenance are recorded in
 
 ### Presentation vs storage field naming: harness-agnostic wire names over harness-specific storage names
 
-**Decision (2026-05, quality fixes):** When a storage field has a harness-specific name for historical reasons, the corresponding wire/presentation field uses a harness-agnostic name. The mapping lives in the query layer (e.g., `detail_from_row()` in `query.py`). The storage field is not renamed to avoid migration complexity.
-
-**Canonical example:** `SpawnRecord.claude_config_dir` (storage) maps to `SpawnDetailOutput.session_config_dir` (wire). The storage name predates harness-agnostic design; the wire name uses the correct abstraction level.
-
-**Why not rename storage too:** Renaming a storage field requires a migration for all existing `state.json` files. The benefit — a consistent name in one internal layer — is low; the cost — a one-time migration touching every spawn record — is real. The mapping in the query layer is cheap and the inconsistency is local.
-
-**Rule:** Storage field names may be harness-specific for historical reasons; wire/presentation field names must be harness-agnostic. When they diverge, map in the query layer, never in the model or the storage layer. Don't rename the storage field to cosmetically match — it is not worth the migration.
+**Decision (2026-05):** Storage fields may retain harness-specific names for historical reasons (e.g. `claude_config_dir`); wire/presentation fields use harness-agnostic names (e.g. `session_config_dir`). Mapping lives in the query layer. Storage fields are not renamed to avoid migration cost.
 
 ---
 
@@ -265,17 +240,13 @@ Two call sites use this primitive:
 
 ### Autosync AGENTS.md notice removal (PR #422, 2026-07)
 
-**Decision:** Per-conflict rewrites of user-owned AGENTS.md at the sync root were removed. Conflict JSON (`<sync-root>/.meridian/autosync/conflicts/<id>.json`) is the durable signal.
-
-**Why:** No agent ingestion contract existed to consume the AGENTS.md notices. The notices were committed locally and never propagated while behind origin (by design), but they modified user-owned files without a consuming contract — a write without a reader. The conflict JSON was already the authoritative record that CLI and dashboard read from.
+**Decision:** Per-conflict AGENTS.md rewrites removed; conflict JSON is the sole durable signal. The notices modified user-owned files without a consuming contract.
 
 ---
 
 ### Conftest git-config guard deletion (PR #422, 2026-07)
 
-**Decision:** The session-wide git-config snapshot/restore guard in `tests/conftest.py` was deleted.
-
-**Why:** Investigation (spawn p5328) proved no test writes the shared repo-local `.git/config`. The guard falsely attributed writes by VS Code's Git extension (which writes `branch.*.vscode-merge-base` to the shared common config on worktree creation) and restored stale bytes — itself an unlocked read-modify-write on an unowned file. The actual test isolation already lives at the correct ownership boundary: each test strips inherited `GIT_*` state and points global config to a temp file.
+**Decision:** Session-wide git-config snapshot/restore guard in `tests/conftest.py` deleted. No test writes repo-local `.git/config`; the guard falsely attributed VS Code extension writes and restored stale bytes. Test isolation already handled by stripping `GIT_*` state and temp-file global config.
 
 ---
 

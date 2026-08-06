@@ -1,6 +1,6 @@
 # Decisions: Startup, Health, and Sandbox Policy
 
-Startup decisions cover descriptor-driven CLI startup, read/write bootstrap separation, process-seam telemetry install, doctor behavior, and sandbox projection policy. See [state-and-launch.md](state-and-launch.md) for the split-domain map.
+Startup decisions cover descriptor-driven CLI startup, read/write bootstrap separation, process-seam telemetry install, doctor behavior, and sandbox projection policy.
 
 ## Doctor and Health Checks
 
@@ -93,41 +93,16 @@ that operation-layer setup was removed.
 
 ---
 
-### Selective command registration: import only the group needed for the current invocation (cli-lazy-import-startup)
+### Startup is import-lazy by design (2026-05)
 
-**Decision (2026-05):** `_register_commands_for_invocation()` in `main.py` reads the first positional token and registers only the command module group that token requires. `spawn` imports only spawn-related modules; `session` imports only session-related modules; etc. The full group-registration path fires only on `--help` (all commands needed for the help tree).
+**Decision:** The CLI startup pipeline defers all heavy imports (ops, harness, Pydantic models, domain types) until the moment they're needed. Four mechanisms work together:
 
-**Why:** The prior `_register_group_commands()` imported all command modules unconditionally at startup. Each module transitively pulled in ops, harness, and Pydantic models. Combined cost was ~300ms of import work even for read-only commands like `spawn list`.
+1. **Selective command registration** — `main.py` reads the first positional token and registers only that command group's module. `--help` is the only path that registers everything.
+2. **Lazy dispatch** — `lazy_dispatch.py` provides `make_lazy_command()` so command handler modules are imported only when actually invoked, not at registration time.
+3. **`__getattr__` on `meridian.lib`** — public exports (`Spawn`, `HarnessId`, etc.) are resolved lazily so `import meridian.lib` doesn't pull in `core.domain`/`core.types`.
+4. **App-tree inversion** — `app_tree.py` defines Cyclopts app instances; command modules import from it (not vice versa), breaking the circular import chain.
 
-**Performance:** `main.py` module-import time 460ms → 156ms. `--help` latency 140ms → 54ms.
-
----
-
-### `lazy_dispatch.py`: defer command handler imports until invocation
-
-**Decision (2026-05):** `src/meridian/cli/startup/lazy_dispatch.py` provides `make_lazy_command(lazy_target: str)` — returns a callable that imports and delegates to `"module.path:function_name"` only when invoked by Cyclopts. Command registration at startup is import-free.
-
-**Why:** Cyclopts resolves lazy commands (imports and calls the handler) only when the user runs that specific command. Parent `--help` can be rendered without resolving any child commands. Before this, registration imported the handler module, defeating selective registration.
-
-**Format:** `"module.path:function_name"` or `"module.path:group.function_name"`. The module and function path are separated by `:`. The function path supports attribute chains.
-
----
-
-### `meridian.lib.__getattr__` for lazy library exports
-
-**Decision (2026-05):** `src/meridian/lib/__init__.py` exports `Spawn`, `HarnessId`, `ModelId`, `SpawnId` via a module-level `__getattr__`. `import meridian.lib` no longer transitively imports `core.domain` or `core.types` unless a specific name is accessed.
-
-**Why:** Many modules imported `from meridian.lib import HarnessId` at the top level. Each such import triggered the full `core.types` import chain. `__getattr__` defers the underlying module import until the attribute is accessed, which may be after startup has completed or may never happen for paths that don't use that type.
-
----
-
-### `app_tree.py` defines app instances; command modules import from it, not vice versa
-
-**Decision (2026-05):** `src/meridian/cli/app_tree.py` defines the top-level Cyclopts app instances (`spawn_app`, `session_app`, `work_app`, `ext_app`, etc.) without importing any command implementations. Command modules (`spawn.py`, `session_cmd.py`, `ext_cmd.py`, …) import the app objects from `app_tree.py` when they register their commands.
-
-**Why:** The old pattern had `main.py` importing app objects, which required importing the modules that defined those objects, which pulled in all command implementations. The inversion breaks the circular dependency: `main.py` imports only `app_tree.py` (cheap); command modules are imported lazily by selective registration.
-
-**`ext_app` note:** `ext_app` is defined in `app_tree.py` and imported by `ext_cmd.py`. This is the canonical inversion pattern — the app object lives in the tree file, not in the implementation module.
+**Why:** The prior startup imported all command modules unconditionally. Combined cost was ~300ms+ of import work even for read-only commands. After these changes: `main.py` module-import time 460ms → 156ms; `--help` latency 140ms → 54ms.
 
 ---
 
@@ -246,4 +221,3 @@ Global doctor:
 - [../architecture/startup-pipeline.md](../architecture/startup-pipeline.md) — startup architecture
 - [../architecture/sandbox-projection.md](../architecture/sandbox-projection.md) — sandbox projection mechanism
 - [../operations/health-checks.md](../operations/health-checks.md) — doctor behavior
-- [state-and-launch.md](state-and-launch.md) — compatibility map for the previous combined decision page
