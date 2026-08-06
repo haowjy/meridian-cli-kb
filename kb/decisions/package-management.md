@@ -249,33 +249,15 @@ portable Meridian semantics. Mars resolves them into the bundle's `tools` field
 preserved simultaneously — neither side is dropped. Meridian projects both sides per
 harness.
 
-**The c859 bug:** Prior Meridian Claude projection only emitted `--allowedTools` when a
-wildcard `*: deny` was present. Mixed profiles without a wildcard deny silently lost the
-allowlist. Fix: emit `--allowedTools` whenever `tools.allowed` is non-empty; emit
-`--disallowedTools` whenever `tools.disallowed` is non-empty. No dependency between the
-two decisions.
+**The c859 bug:** Prior projection only emitted `--allowedTools` with wildcard deny. Fix: emit each side whenever non-empty, independently.
 
-**Why separate from harness passthrough:** Tool policy is portable (Claude, OpenCode have
-allow/deny surfaces). Encoding portable tool policy as target-native passthrough would require per-harness
-duplication and lose portability.
+**Why portable, not passthrough:** Tool policy is portable across harnesses. Encoding as passthrough would require per-harness duplication.
 
 ---
 
 ### D84: Cursor experimental, Pi future-first-class, Gemini out of scope
 
-**Decision:**
-- **Cursor:** Supported as experimental launch-bundle target. Bundle carries
-  `provenance.harness_stability: "experimental"` and a warning. Projection is
-  best-effort; contract may change.
-- **Pi:** Future first-class Meridian-owned harness. Pi contract is still being
-  developed. Not part of the launch-bundle first slice. Tool policy should be part
-  of the future Pi contract.
-- **Gemini:** Not a current Mars/Meridian target. Excluded from launch-bundle and
-  harness passthrough requirements.
-
-**Why Cursor experimental vs first-class:** Cursor's config surfaces are actively
-evolving. Committing to a stable projection contract prematurely creates maintenance
-debt.
+**Decision:** Cursor is experimental (config surfaces evolving), Pi is future first-class (contract in development), Gemini is out of scope.
 
 ---
 
