@@ -133,21 +133,35 @@ meridian doctor  # detects and repairs stale locks
 `error: pre_init_failed`. Often no spawn directory is created, so there is no
 log to read.
 
-**What happened:** The spawn failed before the harness process started. This
-error name covers multiple unrelated causes, which makes diagnosis harder
-(meridian-cli#482).
+**What happened:** The spawn failed before the harness process started.
 
 **Known causes and remedies:**
 
 | Cause | Diagnostic clue | Fix |
 |---|---|---|
-| Stale `task_dir` on the active work item | The `task_dir` path (e.g. a removed worktree) no longer exists. `meridian task-dir` fails the same way. An explicit `--task-dir` on the spawn does **not** override the stale work-item value. | `meridian work start <slug> --task-dir <valid-path>` to reset the work item's task_dir. |
 | Claude harness blocked by `deny_headless_harnesses` | `[spawn] deny_headless_harnesses` in `meridian.toml` blocks headless Claude spawns. The spawn needs the native Agent tool instead. | Use a different harness, or spawn through the Agent tool from within a Claude session. |
 
 **Diagnosis approach:** When `pre_init_failed` appears, read the line above
 the error in the spawn output -- it often names the cause directly. Do not
 assume a harness or provider problem before checking work-item state
 (`meridian work show`) and config (`meridian config show`).
+
+---
+
+### Work Task Dir Missing (`work_task_dir_missing`)
+
+**Symptom:** Spawn fails with `error: work_task_dir_missing`. The CLI
+`meridian task-dir` emits a warning and falls back to the project root.
+
+**What happened:** A work item's configured `task_dir` no longer exists on
+disk (the common case after a worktree is removed post-merge), AND the
+fallback project root also does not exist. Normally, stale task_dir degrades
+gracefully with a warning and fallback to the next valid tier; this error
+appears only when even the fallback fails.
+
+**Fix:** Restore the directory, or reassign the work item's task_dir:
+`meridian work start <slug> --task-dir <valid-path>`. An explicit `--task-dir`
+on the spawn command will also override the stale value.
 
 ---
 
