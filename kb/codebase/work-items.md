@@ -106,7 +106,7 @@ When a work item has a `worktree_path`, spawns attached to that item run in it:
 - Relative `-f` reference paths resolve from `worktree_path`
 - `kb:` reference paths still resolve from `authority_root` (the config root)
 
-If the `worktree_path` no longer exists on disk, spawn fails with a hard error rather than silently falling back to the authority root. Use `--no-worktree` to bypass this.
+If the configured `task_dir` no longer exists on disk (common after a worktree is removed post-merge), resolution skips the stale tier with a warning and falls through to the next valid tier (inherited `MERIDIAN_TASK_DIR`, then authority root). Work state is not mutated on read. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
 
 See [../architecture/launch-system.md](../architecture/launch-system.md) — Authority/Task Domain Split for the full model. See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for design rationale.
 

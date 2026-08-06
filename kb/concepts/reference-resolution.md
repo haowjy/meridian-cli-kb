@@ -66,13 +66,14 @@ This makes it clear whether the problem is a wrong path, a wrong anchor, or a mi
 
 `task_cwd` (= `reference_anchor`) follows this priority chain (highest wins):
 
-1. `--no-worktree` flag → `authority_root`
-2. `--worktree` flag → work item's `worktree_path` (error if none configured)
-3. `--work <item>` (explicit, hard boundary) → item's `worktree_path` if present; else `authority_root`. Ambient session work attachment NOT consulted.
-4. Ambient session work attachment → item's `worktree_path` if present
-5. Default → `authority_root`
+1. Explicit `--task-dir` override
+2. Explicit `--work <item>` task_dir (hard boundary — ambient work NOT consulted as fallback)
+3. Inherited task-dir (`MERIDIAN_TASK_DIR`)
+4. Ambient work item task_dir
+5. Caller cwd when outside the project tree
+6. Default → `authority_root`
 
-**Stale worktree_path** (directory no longer exists) → hard error, not silent fallback. Only `--no-worktree` bypasses this.
+**Stale task_dir** (directory no longer exists) → warning + fallback to the next valid tier (inherited `MERIDIAN_TASK_DIR`, then `authority_root`). Work state is not mutated on read. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
 
 ## Related
 
