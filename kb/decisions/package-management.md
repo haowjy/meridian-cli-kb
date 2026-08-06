@@ -80,11 +80,9 @@ Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test file
 
 **Decision:** The canonical SKILL.md frontmatter has six fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
 
-**Why `compatibility` was removed:** A `compatibility` field declaring which harnesses a skill supports would require Mars to understand harness semantics and would either block valid installs or produce false precision. Bootstrap docs can explain compatibility in prose with nuance.
+A `compatibility` field was rejected — would require Mars to understand harness semantics. `metadata` is pass-through for tooling use.
 
-**`metadata` is pass-through:** Agents can read `metadata`; harnesses and Mars ignore unknown frontmatter fields. This lets skill authors embed tooling metadata (authorship, versions, changelog URLs) without schema changes.
-
-> **Partially superseded (2026-05-02) by D71.** The `invocation` enum field was replaced by two independent booleans: `model-invocable` and `user-invocable`.
+> **Partially superseded by D71.** `invocation` enum replaced by `model-invocable` and `user-invocable` booleans.
 
 ---
 
@@ -92,11 +90,7 @@ Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test file
 
 **Decision:** Replace the single `invocation: explicit | implicit` enum in SKILL.md frontmatter with two independent booleans: `model-invocable` (default: `true`) and `user-invocable` (default: `true`). Remove all legacy alias fields (`invocation`, `disable-model-invocation`, `allow_implicit_invocation`) as hard errors with no deprecation period.
 
-**Why two booleans:** The old enum collapsed two orthogonal dimensions into one field. Every harness (Claude Code, Codex, OpenCode, Pi, Cursor) independently controls (1) whether the model can see and self-load a skill and (2) whether the user can trigger it via `/name`. `invocation: explicit` only ever controlled model-invocability in practice — user-invocability was not modeled at all.
-
-**Why hard errors, not deprecation:** Mars-agents had not shipped a release when this change was made. No consumer reads `invocation` from `.mars/skills/` at runtime (Meridian only reads it at compile time). Migration is find-and-replace in source packages followed by `mars sync`. A deprecation period with silent fallback would have masked author mistakes.
-
-**Presence is not a skill property:** Whether a skill is loaded at boot is determined by the agent profile's `skills:` list, not by skill-level metadata. No `presence:` field was added.
+**Why two booleans:** The old enum collapsed two orthogonal dimensions. `invocation: explicit` only ever controlled model-invocability — user-invocability was unmodeled. Hard errors (no deprecation) because no consumer reads `invocation` at runtime; migration is find-and-replace. Presence is determined by the agent profile's `skills:` list, not skill metadata.
 
 **Compilation:** Claude Code supports both natively. Codex supports `model-invocable` only. OpenCode drops both. Pi/Cursor support `model-invocable` via `disable-model-invocation`.
 
@@ -106,7 +100,7 @@ Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test file
 
 **Decision:** `mars sync` re-emits every native harness projection (e.g., `.claude/skills/<skill>/SKILL.md`) unconditionally — no content-hash optimization to skip unchanged files. If a native projection has diverged from what sync would produce, Mars emits a divergence warning.
 
-**Why:** Skipping unchanged projections would leave stale native files after frontmatter format changes or harness lowering changes. Staleness would only surface as subtle harness behavior differences. Always-refresh makes sync idempotent and keeps the invariant checkable: after sync, native dirs are byte-for-byte identical to lowering output.
+**Why:** Skipping unchanged projections would leave stale native files after format/lowering changes. Always-refresh keeps the invariant: after sync, native dirs are byte-for-byte identical to lowering output.
 
 ---
 
@@ -120,7 +114,7 @@ Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test file
 
 Exact match only — no glob or fuzzy matching.
 
-**Why exact match:** Fuzzy matching would make variant selection non-deterministic when multiple globs could match the same harness+model. Exact match makes the selected variant predictable and auditable. Two priority levels for model identity (requested token vs. canonical ID) exist because authors may write either form (`variants/claude/sonnet/SKILL.md` or `variants/claude/claude-sonnet-4-5/SKILL.md`).
+**Why exact match:** Fuzzy matching would be non-deterministic with multiple globs. Two model-identity levels exist because authors may write either form (`variants/claude/sonnet/` or `variants/claude/claude-sonnet-4-5/`).
 
 ---
 
@@ -218,16 +212,7 @@ prompt surface, scaffold slots, tool policy). Meridian injects per-spawn dynamic
 (prompt file, context files, goal, prior session history, spawn metadata) and launches
 the harness process.
 
-**Why:** Mars has access to the full compiled agent/skill graph at build time; it cannot
-see per-spawn content because that content is Meridian's runtime concern. Prompt files,
-context files, and session history are session-scoped — they change per spawn, not per
-agent version. Mars knowing about them would couple the build system to spawn runtime
-semantics.
-
-**Rejected alternative:** Mars receives the prompt file and produces a fully concrete
-launch command. Rejected: the prompt file is confidential per-spawn content; Mars is a
-shared CLI tool and should not receive it. Also, prompt injection (goal, prior session)
-is spawn-lifecycle policy that belongs in Meridian.
+**Why:** Mars sees the compiled graph at build time; per-spawn content (prompts, context, history) is Meridian's runtime concern. Coupling Mars to spawn semantics was rejected — prompt files are confidential per-spawn content.
 
 ---
 
@@ -252,14 +237,7 @@ NOT interpret key names, enforce key semantics, or use nested keys to replace to
 Mars fields. The matching block is carried in launch-bundle
 `execution_policy.native_config`; Meridian's harness adapter projects it at launch time.
 
-**Why:** Making Mars understand every harness's config surface would require Mars to track
-every harness version's config schema — unsustainable. The escape hatch gives profile
-authors direct access to the harness surface for cases with no portable equivalent. If a
-knob proves universally useful, promote it to a first-class top-level field later.
-
-**Rejected alternative:** Mars validates specific known passthrough key names per
-harness. Rejected: would require Mars to track every harness version's config schema,
-coupling Mars to harness implementation details.
+**Why:** Mars can't track every harness version's config schema. The escape hatch gives profile authors direct access; universally useful knobs get promoted to first-class fields later.
 
 ---
 
