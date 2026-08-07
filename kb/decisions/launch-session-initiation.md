@@ -223,7 +223,13 @@ See [../concepts/session-initiation.md](../concepts/session-initiation.md) — f
 
 **Sentinel design:** `__SELF__` is not a valid spawn ref (`pN`), chat ref (`cN`), or UUID. The sentinel is defined as a named constant (`SELF_FORK_REF_SENTINEL`), not a magic string, and checked explicitly in `resolve_optional_ref`.
 
-**Bare ref semantics:** All three flags default to `$MERIDIAN_SPAWN_ID` — the current spawn context. `$MERIDIAN_CHAT_ID` is available as an explicit ref for session-level context. `--continue` was intentionally excluded: bare `--continue` means "resume this session" which is a no-op, and its semantics differ from the optional-ref pattern.
+**Bare ref semantics:** All three flags default to `$MERIDIAN_SPAWN_ID` — the current spawn context. `$MERIDIAN_CHAT_ID` is available as an explicit ref for session-level context.
+
+> **Superseded for `--continue`:** The original decision excluded bare
+> `--continue` because "resume this session" without a ref is a no-op.
+> D-bare-continue-browse (below) supersedes this: bare `--continue` now
+> canonicalizes to `session browse`, giving the user an interactive picker
+> to find the session they want to continue.
 
 **Applies to both surfaces:** spawn and primary. The normalization runs in `main.py` before bootstrap and Cyclopts dispatch.
 
@@ -244,7 +250,92 @@ See [../concepts/session-initiation.md](../concepts/session-initiation.md) — f
 
 ---
 
+## Session Browse (2026-08, session-browse design)
+
+### D-bare-continue-browse: Bare `--continue` canonicalizes to `session browse`
+
+**Decision:** Bare `meridian --continue` (no ref) rewrites to
+`["session", "browse", ...]` inside `canonicalize_argv`, which runs before
+every classifier call. `--continue <ref>` is untouched. Both entry forms are
+identical by construction: same `READ_RUNTIME` bootstrap, same handler, same
+non-TTY table, same exit 0. No origin flag, no provenance-dependent behavior.
+
+**Why:** The user invokes bare `--continue` because they want to resume
+*something* but don't know the ref. The useful resolution is a picker that
+shows recent sessions, not a "missing argument" error. Session browse is that
+picker.
+
+**Why canonicalization, not a sentinel:** The bare-fork pattern inserts a
+`__SELF__` sentinel because the result is the same command with a resolved ref.
+Bare `--continue` is structurally different: it routes to a different command
+entirely (`session browse`). Argv rewriting before classification keeps the
+classifier's positional-tokens-only contract intact and avoids a flag-aware
+classification path.
+
+**Supersedes:** The D-argv-normalization-sentinel note that "`--continue` was
+intentionally excluded" from bare flag inference.
+
+**Alternatives rejected:**
+- `--bare-continue-origin` hidden flag — its only effect was a non-TTY exit-2
+  hint that R5 never asked for, at the cost of a hidden flag, a handler
+  parameter, an exit-code branch, and an origin-specific test matrix.
+- Sentinel resolved inside the root handler — probe-confirmed to classify as
+  PRIMARY_LAUNCH/RUNTIME_WRITE before the handler runs, causing auto-init and
+  telemetry installation on a read-only picker.
+- Flag-aware classification — breaks `classify_invocation`'s
+  positional-tokens-only contract.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) — bare
+`--continue` as session browse.
+
+---
+
+### D-session-reentry: Ops-owned re-entry decision (Resume / Fork / Blocked)
+
+**Decision:** The system resolves what activating a session does through a
+single ops-owned decision type:
+`SessionReentryDecision = Resume(chat_id) | Fork(chat_id) | Blocked(reason)`.
+A pure core (`decide_reentry`) computes the decision from session metadata;
+a resolver (`resolve_session_reentry`) re-reads fresh state at Enter time.
+Listing rows carry the advisory decision for display; Enter-time resolution is
+authoritative for action.
+
+**Why ops-owned:** The re-entry decision is policy (should this session be
+resumed, forked, or blocked?), not presentation. Keeping it in ops means the
+TUI never imports state-layer liveness functions, and any future surface
+(MCP, programmatic API) gets the same policy without reimplementing it.
+
+**Why fork-on-live, not block-on-live:** Fork allocates a new c-id, so it
+never double-attaches by construction. Blocking on live sessions would force
+the user to find another terminal and stop the live session before continuing,
+which is hostile UX for the common case of wanting to pick up where a session
+left off. The pre-keypress footer verb and row marker make the fork behavior
+visible.
+
+**Why advisory + authoritative:** Computing a fresh re-entry decision for every
+row on every highlight move would require lease reads on navigation. The
+advisory decision uses data the listing already read; the authoritative
+decision re-reads only on Enter. The divergence window is small (listing-to-
+Enter), and the worst case is a silent wait (resume on a just-went-live
+session) or a harmless fork of a just-stopped session.
+
+**Alternatives rejected:**
+- Confirm dialog on fork — adds a "press again to confirm" interaction for a
+  safe operation (fork never corrupts), with no requirement behind it.
+- Block on live with an error — forces the user to switch terminals and stop
+  the live session; hostile for the common resume-or-branch workflow.
+- Re-entry decision in the TUI layer — couples the picker to state-layer
+  liveness imports; breaks the TUI's role as pure presentation.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) — re-entry
+model, advisory vs authoritative resolution.
+
+`chat:c5810` `work:session-browse`
+
+---
+
 ## Related
 
 - [Launch composition decisions](launch.md)
 - [Launch process ownership](launch-process-ownership.md)
+- [TUI framework](tui-framework.md)

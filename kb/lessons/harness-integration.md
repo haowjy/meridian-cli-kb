@@ -256,6 +256,47 @@ widening where the new parameter controls correctness, not just convenience.
 
 ---
 
+## Codex Live-Fork Rollout Corruption
+
+**The bug (probe-proven):** Forking a live Codex session clones partial
+JSONL records. `CodexHarness.fork_session` reads the rollout file without
+coordination with the live writer, copies an unterminated partial final
+line, and inserts the fork into Codex's `state_5.sqlite` reporting success.
+Whether Codex tolerates the malformed tail is not a Meridian contract; the
+outcome ranges from a stale fork to an unresumable branch.
+
+Codex is the only harness where Meridian materializes the fork transcript.
+Claude, OpenCode, and Pi delegate fork to the harness binary (`--fork-session`,
+`--fork`, `--session --fork`), so their concurrent-write semantics are
+harness-owned and not subject to this bug.
+
+**Why it's subtle:** The copy reads to EOF without bounding to complete
+records. A writer mid-line produces a well-formed file prefix followed by a
+truncated JSON object. The insert into Codex's SQLite succeeds because the
+DB row does not validate rollout content. The corruption surfaces only when
+the forked session is later resumed and the harness tries to parse the last
+record.
+
+**Required fix:** `materialize_fork_rollout(...)` in
+`lib/harness/codex_rollout.py`: open the source, `fstat` the open
+descriptor for a snapshot bound, copy only through the last newline at or
+before the bound (complete newline-terminated records only), validate each
+copied line as JSON, atomic publish via tmp+rename, and compensation on DB
+insert failure (delete the published rollout, no orphan targets).
+
+**The lesson:** When one side of a file is append-only live and the other
+side copies it, the copy boundary must be a complete-records-only snapshot,
+not a raw byte copy to EOF. `fstat` on the open descriptor gives an
+immune-to-rename bound; truncation to the last newline gives record
+completeness. This is the same discipline as crash-only JSONL reads —
+partial trailing lines are expected and dropped.
+
+**Where this lives:** `src/meridian/lib/harness/codex_rollout.py` (owns
+rollout discovery/parsing), `src/meridian/lib/harness/codex.py`
+(`CodexHarness.fork_session`)
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism

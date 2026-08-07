@@ -4,6 +4,59 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-08-07 — Session-browse design knowledge capture (session-browse design, chat:c5810)
+
+### Trigger
+
+The session-browse design phase settled (four design rounds, a reversed TUI
+decision backed by three evidence lanes, and requirements sign-off). Implementation
+not started. Capturing durable decisions before implementation begins.
+
+### What changed
+
+**New content:**
+- `decisions/tui-framework.md`: D-tui-prompt-toolkit decision. prompt_toolkit
+  full-screen Application chosen for all Meridian TUI surfaces. Evidence synthesis
+  from POC bake-off (3 variants, measured), picker source study (6 tools, lifecycle
+  LOC quantified), and web stability research. Rejected: hand-rolled rich
+  Live+termios, textual, fzf subprocess, curses.
+
+**Updated content:**
+- `concepts/session-initiation.md`: new "Session Re-entry Model" section documenting
+  `Resume | Fork | Blocked(reason)`, advisory vs authoritative resolution, fork-on-live
+  semantics, per-harness fork safety table. Updated "Bare Flag Inference" section:
+  bare `--continue` now canonicalizes to `session browse` (supersedes "intentionally
+  excluded" note). Updated argv normalization for `canonicalize_argv`.
+- `decisions/launch-session-initiation.md`: D-bare-continue-browse decision (argv
+  rewrite, supersedes D-argv-normalization-sentinel exclusion note). D-session-reentry
+  decision (ops-owned re-entry model, fork-on-live rationale). Supersession note
+  added to D-argv-normalization-sentinel bare-ref semantics.
+- `codebase/session-operations.md`: new "Session Browse" section documenting the
+  command surface, entry forms, presentation gating, and ops-layer seams.
+- `lessons/harness-integration.md`: new "Codex Live-Fork Rollout Corruption" lesson
+  documenting probe-proven partial JSONL cloning on live sources, required fix shape,
+  and the complete-records-only snapshot discipline.
+
+**Navigation updates:**
+- `decisions.md`: three new chronological entries (D-tui-prompt-toolkit,
+  D-bare-continue-browse, D-session-reentry). TUI framework added as a domain row.
+  Waiting-and-sessions domain row updated.
+- `index.md`: `tui-framework.md` added to decisions section. Session-initiation
+  description updated with re-entry model.
+- `decisions/overview.md`: TUI framework domain page added.
+- `concepts/overview.md`: session-initiation description updated.
+
+**Colocated (meridian-cli, not this repo):**
+- `src/meridian/lib/harness/.context/CONTEXT.md`: new "Codex: Live-Fork Rollout
+  Corruption" section documenting the known bug and required fix, placed where the
+  next Codex-touching agent will see it.
+
+### Validation
+
+`meridian kg check .` and `meridian mermaid check .` run before committing.
+
+---
+
 ## 2026-07-29 — Engine version constraints knowledge capture (mars-agents PR #158, meridian-cli PR #485)
 
 ### Trigger

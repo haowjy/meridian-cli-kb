@@ -10,6 +10,9 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 
 | Date / ID | Status | Decision | Canonical record |
 |---|---|---|---|
+| 2026-08, D-tui-prompt-toolkit | Current | prompt_toolkit full-screen Application for all Meridian TUI surfaces; hand-rolled, textual, and fzf rejected on POC + source-study evidence. | [TUI framework](decisions/tui-framework.md) |
+| 2026-08, D-bare-continue-browse | Current | Bare `--continue` (no ref) canonicalizes to `session browse` before classification; supersedes the "intentionally excluded" note in D-argv-normalization-sentinel. | [Session initiation](decisions/launch-session-initiation.md#d-bare-continue-browse-bare---continue-canonicalizes-to-session-browse) |
+| 2026-08, D-session-reentry | Current | Ops-owned re-entry decision (`Resume \| Fork \| Blocked`); advisory on rows, authoritative at Enter; fork-on-live never double-attaches. | [Session initiation](decisions/launch-session-initiation.md#d-session-reentry-ops-owned-re-entry-decision-resume--fork--blocked) |
 | 2026-07, State Decision 3 | Current | Commit project identity as `[project].id` in `meridian.toml`; keep runtime state user-local. | [State](decisions/state.md#project-identity-in-meridiantoml-no-repo-local-state-decision-3-2026-07) |
 | 2026-07, PR #422 | Current | Every store mutation acquires its stable lock, re-reads, mutates, and atomically publishes. | [State](decisions/state.md#concurrency-by-construction-mutate-under-lock-seams-over-convention-enforced-write-tiers-pr-422-2026-07) |
 | 2026-07, D93 | Current | Engine version constraints: hard-filter-with-fallback for `requires-mars` / `requires-meridian`. | [Package management](decisions/package-management.md#d93-hard-constraint-with-fallback-engine-requirements-2026-07) |
@@ -28,7 +31,8 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 | State | Identity, stores, atomicity, locks, reconciliation, typed rows | [decisions/state.md](decisions/state.md) |
 | Launch composition | Prepare/bind, policy replay, inventory, capability gates | [decisions/launch.md](decisions/launch.md) |
 | Managed processes | Managed primaries, process scope, cancellation and cleanup | [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) |
-| Waiting and sessions | Wait barriers, goals, output, continue/fork/from | [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) |
+| Waiting and sessions | Wait barriers, goals, output, continue/fork/from, session browse re-entry | [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) |
+| TUI framework | Framework choice for full-screen interactive UI | [decisions/tui-framework.md](decisions/tui-framework.md) |
 | Harness compatibility | Harness-specific launch history and superseded platform work | [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) |
 | Startup / health / sandbox | Startup descriptors, doctor, bootstrap and projection policy | [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) |
 | Package management | Mars compilation, targeting, ownership, hooks, recovery, engine constraints | [decisions/package-management.md](decisions/package-management.md) |

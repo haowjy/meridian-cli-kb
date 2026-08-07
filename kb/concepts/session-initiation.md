@@ -189,33 +189,61 @@ changes.
 
 ## Bare Flag Inference
 
-All three optional-ref flags default to `$MERIDIAN_SPAWN_ID` when no REF is given:
+Three optional-ref flags default to `$MERIDIAN_SPAWN_ID` when no REF is given.
+Bare `--continue` has different semantics: it opens the session browse picker.
 
 | Flag | Bare form | Resolved to |
 |------|-----------|-------------|
 | `--fork` | `--fork` (no REF) | `$MERIDIAN_SPAWN_ID` |
 | `--fork-fresh` | `--fork-fresh` (no REF) | `$MERIDIAN_SPAWN_ID` |
 | `--from` | `--from` (no REF) | `$MERIDIAN_SPAWN_ID` |
+| `--continue` | `--continue` (no REF) | argv rewritten to `session browse` (see below) |
 
-If `MERIDIAN_SPAWN_ID` is not set, fails with:
+If `MERIDIAN_SPAWN_ID` is not set for `--fork`/`--fork-fresh`/`--from`, fails with:
 > `Cannot infer {flag} target: not inside a Meridian-managed session. Pass {flag} REF explicitly.`
 
 `$MERIDIAN_CHAT_ID` is available as an explicit ref when session-level context is
 wanted instead of spawn-level context.
+
+### Bare `--continue` as session browse
+
+Bare `meridian --continue` (no ref) opens the interactive session browse picker
+rather than failing. The canonicalization function `canonicalize_argv` rewrites
+`["--continue"]` to `["session", "browse", ...]` (preserving `-C`/`--config`
+flags) before any classifier call. `--continue <ref>` is untouched and resolves
+to `PRIMARY_LAUNCH` as before.
+
+Both entry forms produce the same invocation: bare `meridian --continue` *is*
+`meridian session browse` — same `READ_RUNTIME` bootstrap (no telemetry, no
+auto-init), same handler, same non-TTY table, same exit 0. There is no origin
+flag and no provenance-dependent behavior.
+
+This replaced an earlier design where bare `--continue` was excluded from bare
+flag inference because "resume this session" without a ref is a no-op. The
+browse picker is the useful resolution: the user wants to continue *something*
+but doesn't know the ref.
 
 ### Argv normalization: how bare flags work with Cyclopts
 
 Cyclopts requires a value token for `str | None` parameters. Bare `--fork`
 (without a ref) would cause a parse error.
 
-**Solution:** Pre-Cyclopts argv normalization (`normalize_optional_value_flags()`
+**Solution:** Pre-Cyclopts argv canonicalization (`canonicalize_argv()`
 in `cli/argv_normalization.py`), which runs before bootstrap parsing and Cyclopts
-dispatch. Bare forms are rewritten to insert a sentinel token:
+dispatch. This function combines two rewrites: the existing optional-value-flag
+sentinel insertion and the bare-continue-to-browse rewrite. It is idempotent and
+runs once at the top of each entry point.
+
+Sentinel insertion for `--fork`/`--fork-fresh`/`--from`:
 
 - `--fork` → `--fork __SELF__`
 - `--fork=` → `--fork __SELF__`
 - `--fork=p123` → `--fork p123`
 - `--fork-fresh -a x` → `--fork-fresh __SELF__ -a x`
+
+Bare-continue rewrite: `--continue` with no value token (last, followed by
+another flag, or `--continue=`) and no positional command tokens rewrites argv
+to `["session", "browse", *remaining_flags]`.
 
 **Sentinel:** `SELF_FORK_REF_SENTINEL = "__SELF__"`. Not a valid spawn ref (`pN`),
 chat ref (`cN`), or UUID. Bootstrap uses `SYNTHETIC_VALUE_TOKENS` to detect and
@@ -223,8 +251,8 @@ skip synthetic values. `resolve_optional_ref(raw_ref, flag_name)` maps sentinel
 to `MERIDIAN_SPAWN_ID` or raises with the flag-specific error message.
 
 **Applies to both surfaces:** spawn (`meridian spawn --fork`) and primary
-(`meridian --fork`). The normalization runs in the CLI entry point in `main.py`
-before any parsing.
+(`meridian --fork`). The normalization runs in the CLI entry point before any
+parsing.
 
 ---
 
@@ -286,6 +314,74 @@ prior output + sanitization) is shared.
 `sanitize_prior_output()` provides defense-in-depth by escaping content that could
 look like Meridian structural markers, but user-turn placement is the primary trust
 boundary.
+
+---
+
+## Session Re-entry Model
+
+When a user selects a session to activate (through `session browse` or
+programmatically), the system must decide which initiation mode to use. The
+re-entry model answers this with a three-variant decision:
+
+```
+SessionReentryDecision = Resume(chat_id) | Fork(chat_id) | Blocked(reason)
+```
+
+- **Resume:** the session is stopped (no active lease) and has a recorded
+  harness session — exec `meridian --continue <c-id>`.
+- **Fork:** the session is live (active lease, owner process alive) — exec
+  `meridian --fork <c-id>`. Fork allocates a new c-id, so the live session
+  is never double-attached by construction.
+- **Blocked:** the session has no recorded harness session id and cannot be
+  resumed or forked — the picker shows an inline message and stays open.
+
+The decision is ops-owned (`lib/ops/session_reentry.py`) with a pure core
+(`decide_reentry`) and a fresh-read resolver (`resolve_session_reentry`).
+
+### Advisory vs authoritative resolution
+
+The listing rows carry an **advisory** re-entry decision, computed at listing
+time from data the listing already read. This drives the UI: the footer verb
+(`[enter] resume` vs `[enter] fork -> new session (live)`), the row's live
+marker, and the blocked hint all render from the advisory decision.
+
+The **authoritative** decision is resolved fresh at Enter time from a re-read
+of lease liveness and harness session presence. The two can diverge in the
+window between listing and Enter (a session may go live or stop), but the
+authoritative decision governs the action. The worst case of advisory/
+authoritative divergence is a silent wait (resume on a session that just went
+live — the per-chat lifetime lock in the exec'd process blocks until the live
+owner exits) or a fork of a just-stopped session (legal and safe — a branch
+where a resume was possible; the source remains resumable).
+
+### Fork-on-live: never double-attach by construction
+
+The design deliberately forks live sessions rather than blocking or warning.
+Fork allocates a new c-id (`start_session` with `chat_id=None`), so it never
+touches `sessions/<source>.lock`. The user gets a branched copy of the
+transcript at the current point. The pre-keypress footer verb and row marker
+make the fork-not-resume behavior visible before the Enter keypress lands.
+
+The per-chat lifetime lock taken by `start_session` in the exec'd process is
+the real guard against double-attachment. The re-entry model is advisory for
+verb display and authoritative for action selection, but the lock is the
+safety invariant.
+
+### Per-harness fork safety
+
+How the transcript is branched at fork time differs by harness:
+
+| Harness | Fork mechanism | Live-source safety |
+|---|---|---|
+| Claude | Delegated: `claude --resume <id> --fork-session` | Harness-owned snapshot semantics |
+| OpenCode | Delegated: `opencode --session <id> --fork` | Harness-owned (DB transaction) |
+| Pi | Delegated: `pi --fork <id>` | Harness-owned |
+| Codex | Meridian-materialized: copies rollout JSONL + inserts into Codex's SQLite | Requires `materialize_fork_rollout` fix for live sources (see [lessons](../lessons/harness-integration.md)) |
+
+Delegated harnesses own their concurrent-write semantics. Codex is the only
+harness where Meridian copies the transcript file, and the current copy has a
+known corruption bug on live sources that must be fixed before fork-on-live
+ships.
 
 ---
 

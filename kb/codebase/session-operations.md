@@ -1,6 +1,37 @@
 # Codebase: Session Operations
 
-Session operations (`meridian session log`, `session search`, `session export`) read agent conversation transcripts and present them in human-readable form. They're the primary tool for understanding what a spawn or primary session did.
+Session operations (`meridian session log`, `session search`, `session export`, `session browse`) read agent conversation transcripts and present them in human-readable form. They're the primary tool for understanding what a spawn or primary session did.
+
+## Session Browse
+
+`meridian session browse` is an interactive full-screen picker over recent
+primary sessions. It lists recent c-ids (primary chats only, current project
+scope), lets the user filter by metadata or deep-search transcripts via `/`,
+preview the highlighted session's current segment, and on Enter exec's
+`meridian --continue <c-id>` for stopped sessions or `meridian --fork <c-id>`
+for live ones. A live session is never double-attached — fork allocates a new
+c-id by construction.
+
+Bare `meridian --continue` (no ref) opens the same picker. Both entry forms
+are identical after argv canonicalization; there is no origin flag and no
+provenance-dependent behavior.
+
+Non-TTY invocations or `--plain` degrade to a plain table listing (no
+interaction), so the command stays scriptable and testable. Invocations from
+inside a managed Meridian session (detected by `MERIDIAN_SPAWN_ID`) refuse
+interactive mode with an explicit message — exec-ing `--continue` from inside
+a running harness would nest the selected session under the original one.
+`--plain` still works inside managed sessions.
+
+The picker is built on prompt_toolkit's full-screen `Application`
+([decision rationale](../decisions/tui-framework.md)). The TUI is pure
+presentation over four ops-layer seams: `session_list_sync` (listing),
+`session_log_sync` (preview), `iter_session_subset_search` (deep search), and
+`resolve_session_reentry` (Enter-time re-entry decision). The TUI never touches
+`lib/state`, `lib/harness`, or transcript files directly.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) for
+the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
 
 ## Transcript Source Resolution
 
