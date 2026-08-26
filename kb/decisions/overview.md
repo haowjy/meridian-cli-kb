@@ -10,11 +10,9 @@ Decision records explain why durable architectural choices were made — what al
 | [dev-frontend.md](dev-frontend.md) | Unified dev setup for `meridian chat --dev`: portless, Vite, exposure model, env scrub, launcher strategy (DF-D1–DF-D7) |
 | [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, candidate-chain semantics (D52–D57, D72–D75) |
 | [package-management.md](package-management.md) | Mars compiler, skill schema, `.agents/` elimination, targeting, sync, bootstrap docs, collision resolution, convention-based source discovery, upgrades-available direct-deps fix, engine version constraints (D35–D40, D50–D51, D58–D63, D71, D77, D87, D93) |
-| [managed-command-references.md](managed-command-references.md) | `managed_cmd()` helper for MERIDIAN_MANAGED-aware user-facing output; correct `mars` vs `meridian mars` command references in hints and errors (D76) |
 | [state.md](state.md) | State roots, JSONL event stores, dual-root layout, crash-only design, WorkScope model (named vs ambient), CR1 fix, state v2 migration (foundational undated decisions + D-WorkScope PR #328) |
 | [launch.md](launch.md) | Launch pipeline, composition seam, harness identity env, spawn wait barrier, spawn-level goal authority and completion-contract composition (D32–D34, D57, D63-launch, 2026-05 spawn-goal) |
 | [startup-health-sandbox.md](startup-health-sandbox.md) | Descriptor-driven startup, bootstrap split, doctor/reaper, sandbox projection policy |
-| [state-and-launch.md](state-and-launch.md) | Compatibility map for links that used the previous combined state/launch decision page |
 | [testing.md](testing.md) | Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline |
 | [telemetry.md](telemetry.md) | Three-layer observability: envelope design, storage layout, readers vs. sinks, liveness, retention (D61–D70) |
 | [workspace.md](workspace.md) | Workspace config: `[workspace]` in `meridian.toml`, named entries, missing-path behavior, dedicated loader (D41–D46) |

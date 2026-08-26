@@ -42,9 +42,3 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 | Testing | Behavior-owned tiers and evidence gates | [decisions/testing.md](decisions/testing.md) |
 | Chat backend | Protocol and command-layer history | [decisions/chat-backend.md](decisions/chat-backend.md) |
 | Dev frontend | Portless/Vite exposure and launcher policy | [decisions/dev-frontend.md](decisions/dev-frontend.md) |
-| Managed command references | Managed-aware command rendering | [decisions/managed-command-references.md](decisions/managed-command-references.md) |
-
-## Compatibility Entry Points
-
-[decisions/state-and-launch.md](decisions/state-and-launch.md) exists for old
-inbound links. New links should target the domain record that owns the choice.

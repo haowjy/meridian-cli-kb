@@ -1,6 +1,6 @@
 # Decisions: State Layer
 
-State-layer decisions cover how Meridian stores project identity, runtime state, and crash recovery data. See [state-and-launch.md](state-and-launch.md) for the split-domain map.
+State-layer decisions cover how Meridian stores project identity, runtime state, and crash recovery data.
 
 ## State Layer
 
@@ -439,4 +439,3 @@ Meaning-carrying conflicts still quarantine: nested/top-level status disagreemen
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor and typed state contracts
 - [../architecture/state-system.md](../architecture/state-system.md) — state-system mechanism
 - [../concepts/state-model.md](../concepts/state-model.md) — state mental model
-- [state-and-launch.md](state-and-launch.md) — compatibility map for the previous combined decision page
