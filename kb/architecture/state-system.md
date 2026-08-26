@@ -1,6 +1,10 @@
 # Architecture: State System
 
-Meridian state is files. No database, no service, no hidden in-memory state. The state system enforces this by making writes atomic, reads crash-tolerant, and keeping recovery derivable from disk. Read paths can project a reconciled view without side effects; repair paths make the durable changes.
+Meridian's authoritative state is files. There is no state service or hidden
+in-memory authority; SQLite is allowed only as a disposable projection that can be
+rebuilt from authoritative files. The state system makes writes atomic, reads
+crash-tolerant, and recovery derivable from disk. Read paths can project a reconciled
+view without side effects; repair paths make the durable changes.
 
 See [concepts/state-model.md](../concepts/state-model.md) for the mental model. This page explains the mechanics.
 
@@ -16,12 +20,14 @@ meridian.toml
 ~/.meridian/projects/.locks/<id>.lock — project-lifetime gate
 ~/.meridian/projects/<id>/          — user runtime, never committed
   sessions.jsonl                    — session events
+  sessions-append-state.json        — derived append-continuity certificate
+  sessions-index.sqlite3            — rebuildable session metadata projection
   session-id-counter · spawn-id-counter
   sessions/ · locks/
   spawns/
     v2-format.json · .staging/<unique>/
     <spawn-id>/
-      state.json                    — authoritative spawn row
+      state.json                    — authoritative spawn row (schema v3)
       starting-prompt.md · prompt.md · report.md · heartbeat
       history.jsonl · stderr.log · params.json · tokens.json
       attempt-N/ · runner-lifecycle.jsonl · process_scopes.json
@@ -39,9 +45,12 @@ Control sockets live outside spawn directories in the per-user POSIX temp
 root. Work items live under `[context.work]` and archive beside that work root.
 See `docs/configuration.md` in meridian-cli for context-path resolution.
 
-## Spawn State: V2 Per-Spawn state.json
+## Spawn State: Per-Spawn state.json
 
-Since 2026-05 (spawn-state-v2 migration), spawn state lives in individual `state.json` files — one per spawn — rather than a single global `spawns.jsonl` event log.
+Since the 2026-05 spawn-state-v2 layout migration, spawn state lives in individual
+`state.json` files — one per spawn — rather than a single global `spawns.jsonl` event
+log. The layout name is historical; published rows now use schema v3, with a
+one-shot read upgrade for legacy v2 rows.
 
 **Why the migration:** the production global event log had grown enough that
 every status read replayed substantial project history. Per-spawn `state.json`
@@ -147,9 +156,35 @@ The original design used a global `spawns.jsonl` event log. Events were appended
 
 ## Session State
 
-Sessions track harness session IDs, work-item attachment, and lifecycle (created → active → closed). Session events in `sessions.jsonl` link `meridian_session_id` (c1, c2, …) to `harness_session_id` (harness-native identifier) and `work_id`.
+Sessions track harness session IDs, work-item attachment, primary-spawn relationships,
+and lifecycle (created → active → closed). `sessions.jsonl` is the sole authority
+for those facts. `sessions-index.sqlite3` is a metadata-only projection used for direct
+chat-ID reads, requested-subset reads, and bounded live-first pages of recent primary
+sessions; transcript summaries and full-text content are not part of the index.
 
-Session state remains event-sourced JSONL (no v2 migration for sessions). The session log is much smaller than spawn history and does not suffer the same O(n) performance problem.
+`session_journal.py` certifies ordinary appends with a derived epoch in
+`sessions-append-state.json`. The certificate records source identity and file state,
+not session facts. The index consumes only complete JSONL records and trusts suffix
+growth only when the current certificate matches both the source and the index's epoch.
+Replacement, truncation or rewrite, an absent or stale certificate, schema mismatch,
+and corruption force replay from authoritative JSONL. A busy or unavailable index
+falls back promptly to truncation-tolerant journal projection and is not deleted merely
+for being busy.
+
+New primary launches persist their canonical `spawn_id` in the journal. Historical
+sessions are enriched by `session_aggregate.py`, which joins missing relationships from
+authoritative spawn rows. The projection records the published-spawn generation around
+that join; publication changes the generation, so a cached negative result cannot hide
+a relationship that appears later. This aggregate owns the cross-store join and keeps
+the session and spawn persistence leaves from importing each other.
+
+Normal browse, preview, re-entry, and scoped-search paths use indexed session reads plus
+direct reads of recorded spawn rows. Legacy sessions without a recorded relationship
+may require one generation-aware batch scan. A recorded but unreadable relationship
+(missing primary row, wrong spawn kind, or wrong owning chat) is a separate exceptional
+case: transcript target resolution performs at most one batch-wide legacy scan so deep
+search can recover related histories. Readable recorded relationships never take that
+global-scan path.
 
 Session-ID counter (`session-id-counter`) is monotonically incremented under `platform.locking.lock_file()` so concurrent spawns never collide.
 
@@ -161,7 +196,7 @@ Per-session files under `sessions/<chat_id>/`:
 
 Every file write goes through one of three patterns:
 
-**JSONL append** (`state/event_store.py`): acquire `lock_file()` on `.flock` sidecar → repair any torn tail → append line → release. If the process dies mid-append, the next locked append repairs the torn tail before writing: a complete row missing only its delimiter is preserved; a genuinely torn partial row is dropped via atomic inode replacement (so unlocked readers never splice a fabricated hybrid event). The O(1) fast path (check last byte for newline) avoids a full-file read on clean tails. Session events, launch-boundary events, permission journals, and control-action journals all use `append_durable_jsonl_line`, which calls the shared repair before appending. `history.jsonl` is excluded (tracked under #376). Spawn state uses atomic overwrite (v2).
+**JSONL append** (`state/event_store.py`): acquire `lock_file()` on `.flock` sidecar → repair any torn tail → append line → release. If the process dies mid-append, the next locked append repairs the torn tail before writing: a complete row missing only its delimiter is preserved; a genuinely torn partial row is dropped via atomic inode replacement (so unlocked readers never splice a fabricated hybrid event). The O(1) fast path (check last byte for newline) avoids a full-file read on clean tails. Launch-boundary events, permission journals, control-action journals, and the session writer ultimately use `append_durable_jsonl_line`; session events additionally pass through `session_journal.append_session_event()` so the durable append and its derived continuity certificate share the session lock. `history.jsonl` is excluded (tracked under #376). Spawn state uses atomic overwrite.
 
 **Atomic file replacement** (`lib/platform/atomic.py:atomic_replace()`): the dependency-neutral platform primitive that `state/atomic.py`, `plugin_api/fs.py`, autosync, and the Codex streaming rewriter all delegate to. Writes to a same-directory temp, optionally fsyncs, then `os.replace()`. Permission policy: `permissions="preserve"` (default) keeps existing file mode; `permissions=0o600` enforces strict mode for runtime state. `AtomicReplaceDurabilityError` surfaces post-commit fsync failures so callers know the write is committed but not yet durable.
 
