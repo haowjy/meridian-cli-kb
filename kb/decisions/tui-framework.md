@@ -1,18 +1,20 @@
-# Decisions: TUI Framework
+# Decision: Session-Browse TUI Framework
 
-Decisions governing interactive full-screen terminal UI in Meridian.
+The session-browse picker uses prompt_toolkit because its terminal handoff and
+lifecycle behavior held up under the picker-specific POC and source study.
 
 ## D-tui-prompt-toolkit: prompt_toolkit for full-screen TUI (2026-08, session-browse design)
 
-**Decision:** Meridian's interactive TUI surfaces use prompt_toolkit's
-full-screen `Application` model (`prompt_toolkit>=3.0,<4`). The framework
-owns raw mode, input decoding, resize, and terminal restore. Dependency
-cost: pygments and wcwidth, both already transitive in the tree (rich pulls
-pygments; wcwidth is independent and tiny).
+**Decision:** The session-browse picker uses prompt_toolkit's full-screen
+`Application` model (`prompt_toolkit>=3.0,<4`). The framework owns raw mode,
+input decoding, resize, and terminal restore. Dependency cost: pygments and
+wcwidth, both already transitive in the tree (rich pulls pygments; wcwidth is
+independent and tiny).
 
-**Scope:** This decision governs any future Meridian TUI feature, not only
-session browse. New interactive full-screen surfaces should start from
-prompt_toolkit rather than re-litigating framework choice.
+**Scope:** This decision governs session browse. Its evidence is useful input
+for another full-screen terminal surface, but no global framework mandate was
+settled; a future surface must confirm that its interaction and handoff needs
+match this picker.
 
 **Evidence (three converging lanes, after a prior round-3 choice of
 hand-rolled rich Live + termios was reversed on user direction):**
@@ -58,11 +60,10 @@ Application without a terminal, replacing most PTY-only test requirements.
 | fzf subprocess (pyfzf pattern) | No programmatic control over preview, footer, or verb behavior. External binary dependency. |
 | Curses (hand-rolled) | Same lifecycle burden as rich/termios, without rich's rendering. |
 
-**Revisit when:** prompt_toolkit 3.x reaches end of life, or a new
-framework emerges with proven subprocess handoff, headless testing, and
-stability comparable to pgcli's dependency on prompt_toolkit. Do not
-revisit for aesthetic preferences — the decision is load-bearing on
-terminal safety and lifecycle code avoidance.
+**Revisit for session browse when:** prompt_toolkit 3.x reaches end of life, or
+a replacement offers comparable subprocess handoff, headless testing, and
+stability. Aesthetic preference alone does not outweigh the verified terminal
+safety and lifecycle-code reduction.
 
 `chat:c5810` `work:session-browse`
 

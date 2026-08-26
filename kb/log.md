@@ -12,7 +12,8 @@ used by both listing and Enter-time resolution. The Codex live-fork material is
 current truth: the earlier corruption remains as rationale, while the documented
 contract now describes bounded streaming, complete-record publication, and
 commit-aware compensation. Removed all live claims that the Codex fix was still
-pending.
+pending. Narrowed the prompt_toolkit decision from an agent-inferred global TUI
+mandate to the session-browse picker scope the human actually approved.
 
 No `DIVERGENCE/` log existed for this work item; the final review and runtime
 probe reported full requirements alignment.
@@ -33,7 +34,7 @@ not started. Capturing durable decisions before implementation begins.
 
 **New content:**
 - `decisions/tui-framework.md`: D-tui-prompt-toolkit decision. prompt_toolkit
-  full-screen Application chosen for all Meridian TUI surfaces. Evidence synthesis
+  full-screen Application chosen for the session-browse picker. Evidence synthesis
   from POC bake-off (3 variants, measured), picker source study (6 tools, lifecycle
   LOC quantified), and web stability research. Rejected: hand-rolled rich
   Live+termios, textual, fzf subprocess, curses.
