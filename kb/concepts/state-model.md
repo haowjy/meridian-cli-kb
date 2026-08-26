@@ -77,7 +77,7 @@ finalization and process cleanup. This keeps observation from becoming an
 unexpected destructive action.
 
 The exact lock order, state machine, migration codec, layouts, and repair paths
-are canonical in [Architecture: State System](../architecture/state-system.md).
+are canonical in [Architecture: State System](../architecture/state-system/overview.md).
 The rationale and superseded alternatives are in [State Decisions](../decisions/state.md).
 
 ## Root Resolution
@@ -93,7 +93,7 @@ allowed to initialize a project may create configuration before continuing.
 
 ## Related Pages
 
-- [Architecture: State System](../architecture/state-system.md) — current paths,
+- [Architecture: State System](../architecture/state-system/overview.md) — current paths,
   stores, locks, reconciliation, and migrations
 - [State Decisions](../decisions/state.md) — identity, store, and concurrency
   rationale

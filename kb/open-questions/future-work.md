@@ -159,7 +159,7 @@ Process-scope deferred work moved to [process-scope.md](process-scope.md) so the
 
 **Status:** Deferred until scale pressure recurs. Individual spawn reads are
 O(1), while listing is O(spawns) file reads. The measured migration dataset and
-timings live only in [Architecture: State System](../architecture/state-system.md#spawn-state-v2-per-spawn-statejson); this page does not duplicate them.
+timings live only in [Architecture: State System](../architecture/state-system/spawn-state.md#spawn-state-per-spawn-statejson); this page does not duplicate them.
 
 An index would require invalidation rules under concurrent writers, so the
 complexity is not justified without renewed evidence.
@@ -193,6 +193,8 @@ complexity is not justified without renewed evidence.
 **The issue:** This migration moves legacy runtime state from repo `.meridian/` to user `~/.meridian/projects/<uuid>/`. It was introduced as an intent in 0.0.34 when the dual-root split was deployed. The migration is registered in `migrations/registry.toml` with status `stub` — the framework exists but `migrate.py` is not yet implemented.
 
 **Impact:** Users who had spawn/session state under the old repo-level structure will not have it automatically migrated. Read paths fall back to repo `.meridian/` when no UUID exists, so the old data is not lost. But it won't appear in `meridian spawn list` until migrated.
+
+> [!FLAG] **Needs human review**: This entry says read paths fall back to repo-local `.meridian/`, but [State Model](../concepts/state-model.md) and [State System](../architecture/state-system/overview.md) say repo-local `.meridian/` is not an active state root. The pages may distinguish legacy identity fallback from legacy runtime-state fallback; confirm the current behavior. Flagged 2026-08-26.
 
 **What's needed:** Implement `migrations/v001_uuid_state_split/migrate.py`:
 1. Find legacy spawn/session JSONL files under `.meridian/`
@@ -547,7 +549,7 @@ All five targeted smoke tests passed (lifecycle, acquisition, normalizer parity,
 - [open-questions/mars-feature-gaps.md](mars-feature-gaps.md) — Mars package manager gaps
 - [open-questions/process-scope.md](process-scope.md) — process-scope cleanup follow-ups (PROC-004, PROC-007)
 - [lessons/state-design-lessons.md](../lessons/state-design-lessons.md) — why dual-root was introduced (v001 context)
-- [architecture/state-system.md](../architecture/state-system.md) — migration framework design
+- [architecture/state-system/overview.md](../architecture/state-system/overview.md) — migration framework design
 - [architecture/process-scope.md](../architecture/process-scope.md) — process-scope ownership design
 - [operations/health-checks.md](../operations/health-checks.md) — doctor flow (D-003, D-005 context)
 - [decisions.md](../decisions.md) — D27, D29

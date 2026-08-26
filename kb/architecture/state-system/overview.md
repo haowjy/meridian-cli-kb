@@ -6,7 +6,7 @@ rebuilt from authoritative files. The state system makes writes atomic, reads
 crash-tolerant, and recovery derivable from disk. Read paths can project a reconciled
 view without side effects; repair paths make the durable changes.
 
-See [concepts/state-model.md](../concepts/state-model.md) for the mental model. This page explains the mechanics.
+See [concepts/state-model.md](../../concepts/state-model.md) for the mental model. This page explains the mechanics.
 
 ## Split State Layout
 

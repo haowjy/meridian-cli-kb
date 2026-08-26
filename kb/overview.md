@@ -57,7 +57,7 @@ Meridian and Mars own different files:
 Repo-local `.meridian/id` is a legacy identity input only: reads may recognize
 it, and the first identity write migrates its value into `meridian.toml`.
 `.agents/` is not a Meridian catalog fallback. The exact layouts and migration
-rules belong to [the state architecture](architecture/state-system.md) and
+rules belong to [the state architecture](architecture/state-system/overview.md) and
 [the Mars targeting architecture](architecture/mars-targeting.md).
 
 ## Major Seams
@@ -66,7 +66,7 @@ rules belong to [the state architecture](architecture/state-system.md) and
 |---|---|---|
 | Launch policy and composition | `lib/launch/` prepare/bind pipeline | [Launch system](architecture/launch-system.md) |
 | Harness-specific behavior | Registered `HarnessBundle` objects | [Harness abstraction](concepts/harness-abstraction.md) |
-| Spawn and session persistence | `lib/state/` and store-specific locked mutation seams | [State system](architecture/state-system.md) |
+| Spawn and session persistence | `lib/state/` and store-specific locked mutation seams | [State system](architecture/state-system/overview.md) |
 | User-facing operations | Shared extension registry and ops layer | [Extension system](concepts/extension-system.md) |
 | Agent/model/package materialization | Mars compiler, ownership retention, and target adapters | [Package management](concepts/package-management/overview.md) |
 | Filesystem access beyond the task root | Workspace resolution and harness projection | [Workspace architecture](architecture/workspace/overview.md) |

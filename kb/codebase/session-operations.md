@@ -221,7 +221,7 @@ meridian session search "pattern" --global
 
 ## Related Pages
 
-- [../architecture/state-system.md](../architecture/state-system.md) — spawn directory layout, where history files live
+- [../architecture/state-system/spawn-state.md](../architecture/state-system/spawn-state.md) — spawn directory layout, where history files live
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how Claude session IDs are captured
 - [harness-adapters.md](harness-adapters.md) — per-harness transcript format differences; provider-specific prologue/handoff extraction
 - [../concepts/spawn-output-contract.md](../concepts/spawn-output-contract.md) — progressive disclosure: spawn report → session log → no-truncate

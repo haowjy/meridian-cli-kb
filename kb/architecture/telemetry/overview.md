@@ -10,7 +10,7 @@ state store.
 
 **Related:**
 - [concepts/state-model.md](../../concepts/state-model.md) — dual-root state model the telemetry layer sits alongside
-- [architecture/state-system.md](../state-system.md) — existing JSONL stores
+- [architecture/state-system/overview.md](../state-system/overview.md) — existing JSONL stores
 - [decisions/telemetry.md](../../decisions/telemetry.md) — why this architecture, rejected alternatives
 
 ---

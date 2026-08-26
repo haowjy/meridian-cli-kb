@@ -122,7 +122,7 @@ See [../concepts/hooks-and-plugins.md](../concepts/hooks-and-plugins.md) for the
 
 ## Related Pages
 
-- [../architecture/state-system.md](../architecture/state-system.md) — full state layout including work dirs
+- [../architecture/state-system/roots-and-work-items.md](../architecture/state-system/roots-and-work-items.md) — state roots and work-item storage
 - [../concepts/context-resolution.md](../concepts/context-resolution.md) — MERIDIAN_CONTEXT_WORK_DIR surfacing
 - [../architecture/workspace/overview.md](../architecture/workspace/overview.md) — workspace permission grants (different from work items)
 - [../operations/configuration-guide.md](../operations/configuration-guide.md) — configuring work root

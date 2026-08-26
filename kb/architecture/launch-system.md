@@ -308,7 +308,7 @@ registration failed is cleaned up rather than left unowned.
 The same rule applies after terminal publication: runner lifecycle records,
 history, harness journals, and other best-effort diagnostics may finish late,
 but they cannot reconstruct the deleted aggregate. The state layer owns the
-[published spawn artifact lifetime](state-system.md#published-spawn-artifact-lifetime)
+[published spawn artifact lifetime](state-system/spawn-state.md#published-spawn-artifact-lifetime)
 and supplies the guarded mutation seam; launch and harness code must cross that
 seam at the actual write point rather than checking before an `await`.
 
@@ -489,7 +489,7 @@ ops/spawn/execute.py
 ## Related Pages
 
 - [system-overview.md](system-overview.md) — where launch fits in the overall architecture
-- [state-system.md](state-system.md) — what happens to events after launch writes them
+- [state-system/overview.md](state-system/overview.md) — what happens to events after launch writes them
 - [../codebase/harness-adapters.md](../codebase/harness-adapters.md) — per-harness adapter notes
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn lifecycle mental model
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection

@@ -105,5 +105,5 @@ This design means:
 ## Related Pages
 
 - [launch-system.md](launch-system.md) — composition factory, three driving adapters
-- [state-system.md](state-system.md) — per-spawn state, reaper, work items
+- [state-system/overview.md](state-system/overview.md) — per-spawn state, reaper, work items
 - [../codebase/guide.md](../codebase/guide.md) — how to navigate and change things

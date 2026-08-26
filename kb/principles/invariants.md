@@ -171,5 +171,5 @@ Built-in commands import only from `src/meridian/lib/plugin_api/`. They do not i
 
 - [principles/design-principles.md](design-principles.md) — the design principles these invariants enforce
 - [architecture/launch-system.md](../architecture/launch-system.md) — launch composition architecture where I-1 through I-13 apply
-- [architecture/state-system.md](../architecture/state-system.md) — state model where JSONL session state, per-spawn `state.json`, and projection authority invariants apply
+- [architecture/state-system/overview.md](../architecture/state-system/overview.md) — state model where JSONL session state, per-spawn `state.json`, and projection authority invariants apply
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn status transitions and reaper logic

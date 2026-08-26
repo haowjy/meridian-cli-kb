@@ -116,7 +116,7 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 **What drove the migration:** replaying the global spawn event log made every
 status read O(total history). Per-spawn `state.json` makes an individual read
 O(1). The canonical dataset and timing provenance are recorded in
-[Architecture: State System](../architecture/state-system.md#spawn-state-v2-per-spawn-statejson).
+[Architecture: State System](../architecture/state-system/spawn-state.md#spawn-state-per-spawn-statejson).
 
 **Two-tier write model:**
 
@@ -133,7 +133,7 @@ O(1). The canonical dataset and timing provenance are recorded in
 - `decide_terminal_write()` is preserved as a pure function — application point shifted from read-time (v1 reducer) to write-time (v2 `write_state_locked()` mutator). The authority lattice and `CompleteSpawnOutcome` contract are unchanged.
 - Per-spawn locking in v2 eliminates the global `spawns.jsonl.flock` contention bottleneck.
 
-**Known remaining gap:** listing remains O(spawns) file reads. See the canonical measurement in [Architecture: State System](../architecture/state-system.md#spawn-state-v2-per-spawn-statejson).
+**Known remaining gap:** listing remains O(spawns) file reads. See the canonical measurement in [Architecture: State System](../architecture/state-system/spawn-state.md#spawn-state-per-spawn-statejson).
 
 ---
 
@@ -437,5 +437,5 @@ Meaning-carrying conflicts still quarantine: nested/top-level status disagreemen
 ## Related
 
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor and typed state contracts
-- [../architecture/state-system.md](../architecture/state-system.md) — state-system mechanism
+- [../architecture/state-system/overview.md](../architecture/state-system/overview.md) — state-system mechanism
 - [../concepts/state-model.md](../concepts/state-model.md) — state mental model

@@ -136,5 +136,5 @@ uv run pyright          # type check (must be 0 errors)
 
 - [../architecture/system-overview.md](../architecture/system-overview.md) — subsystem map
 - [../architecture/launch-system.md](../architecture/launch-system.md) — launch factory details
-- [../architecture/state-system.md](../architecture/state-system.md) — state internals
+- [../architecture/state-system/overview.md](../architecture/state-system/overview.md) — state internals
 - [harness-adapters.md](harness-adapters.md) — harness capability matrix

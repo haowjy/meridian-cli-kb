@@ -39,9 +39,9 @@ stateDiagram-v2
 
 Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `timed_out` is a failure class distinct from generic `failed`, so user-facing filters and statistics can separate deadline failures from other errors. `SpawnStatus` is a `StrEnum` (`core/domain.py`); lifecycle sets are derived from a member→class map.
 
-Lifecycle evidence is nested into frozen sub-models (`RunnerExitFacts`, `TerminalFacts`). Top-level `status` is the sole status authority; `TerminalFacts` carries exit code, timestamps, metrics, error, and origin but does not repeat status. When `status` is terminal, `terminal` must not be `None`; active rows must not carry `terminal`. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a nested `terminal.status` or stale flat fields are quarantined. Collection reads partition valid rows from quarantine reports in immutable `SpawnScan` envelopes. See [spawn-finalization.md](spawn-finalization.md) for the discriminated facts schema and quarantine contract.
+Lifecycle evidence is nested into frozen sub-models (`RunnerExitFacts`, `TerminalFacts`). Top-level `status` is the sole status authority; `TerminalFacts` carries exit code, timestamps, metrics, error, and origin but does not repeat status. When `status` is terminal, `terminal` must not be `None`; active rows must not carry `terminal`. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a nested `terminal.status` or stale flat fields are quarantined. Collection reads partition valid rows from quarantine reports in immutable `SpawnScan` envelopes. See [spawn-finalization.md](../spawn-finalization.md) for the discriminated facts schema and quarantine contract.
 
-**Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. See [spawn-finalization.md](spawn-finalization.md) for the full authority lattice.
+**Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. See [spawn-finalization.md](../spawn-finalization.md) for the full authority lattice.
 
 `mark_finalizing()` is a compare-and-swap from `running` → `finalizing`. It narrows the reaper's target from the full execution window to the drain/report window, enabling `orphan_finalization` vs `orphan_run` distinction.
 
@@ -89,7 +89,7 @@ already-published directory rather than creating one.
 
 This seam belongs above the persistence leaves because low-level atomic and
 JSONL writers cannot decide whether a spawn is still published. See the
-[state decision](../decisions/state.md#published-row-lifetime-owns-spawn-artifacts-issue-437-2026-07)
+[state decision](../../decisions/state.md#published-row-lifetime-owns-spawn-artifacts-issue-437-2026-07)
 for the rejected alternatives and rationale.
 
 ### Migration: ensure_v2_format()

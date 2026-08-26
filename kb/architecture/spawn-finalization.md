@@ -5,7 +5,7 @@ The spawn finalization subsystem owns the transition from an active spawn to a t
 For the spawn lifecycle itself, see
 [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md). For the full
 status machine and projection authority model, see
-[architecture/state-system.md](state-system.md).
+[spawn state](state-system/spawn-state.md).
 
 Drain-loop planning and resident completion behavior are documented in
 [drain-plans.md](drain-plans.md). This page owns terminal-write authority and
@@ -81,7 +81,7 @@ spawn from `cancelled` to `succeeded`.
 
 The per-spawn lock ensures the read-decide-write sequence is atomic across concurrent processes for one spawn without blocking writes to other spawns. Losers get `wrote=False` and do not write their event — they are genuinely no-op, not just logically overridden.
 
-(Legacy v1 used a global `spawns.jsonl.flock` — a single lock serialized all spawns. V2 replaces this with per-spawn locking, eliminating the global contention bottleneck. See [architecture/state-system.md](state-system.md) for the locked mutation seam.)
+(Legacy v1 used a global `spawns.jsonl.flock` — a single lock serialized all spawns. V2 replaces this with per-spawn locking, eliminating the global contention bottleneck. See [spawn state](state-system/spawn-state.md) for the locked mutation seam.)
 
 `write_state_locked()` returns a discriminated `LockedMutationResult`:
 - `Applied(before, after)` — the mutation persisted one atomic transition
@@ -440,6 +440,6 @@ decide_generic_reconciliation(record, snapshot, now):
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — projection authority model and status machine
 - [drain-plans.md](drain-plans.md) — streaming drain-plan composition and resident completion.
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary.
-- [architecture/state-system.md](state-system.md) — JSONL store, atomic writes, flock locking, and the published spawn artifact lifetime boundary
+- [architecture/state-system/overview.md](state-system/overview.md) — JSONL store, atomic writes, flock locking, and the published spawn artifact lifetime boundary
 - [decisions/state.md](../decisions/state.md) — design decisions for this subsystem
 - [principles/invariants.md](../principles/invariants.md) — projection authority rule as invariant

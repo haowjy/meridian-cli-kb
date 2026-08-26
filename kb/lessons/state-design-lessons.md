@@ -4,7 +4,7 @@ These are the choices that shaped Meridian's state layer, with the reasoning tha
 
 This page is historical: it records the reasoning and mistakes that shaped the
 state system. For the shipped layout and identity mechanism, use
-[Architecture: State System](../architecture/state-system.md). Some early
+[Architecture: State System](../architecture/state-system/overview.md). Some early
 choices below were later superseded; each section names what remains true.
 
 ## Why Separate Committed Identity from User Runtime
@@ -235,7 +235,7 @@ you all of them.
 
 ## Cross-References
 
-- [architecture/state-system.md](../architecture/state-system.md) — full state system architecture
+- [architecture/state-system/overview.md](../architecture/state-system/overview.md) — full state system architecture
 - [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — discriminated lifecycle facts and quarantine
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — reaper decision logic
 - [principles/design-principles.md](../principles/design-principles.md) — crash-only design, files as authority

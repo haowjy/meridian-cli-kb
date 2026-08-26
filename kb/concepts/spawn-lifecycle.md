@@ -376,7 +376,7 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
   JSONL preserve crash tolerance through atomic writes
 - [Harness Abstraction](harness-abstraction.md) — what the harness process
   actually is
-- [architecture/state-system.md](../architecture/state-system.md) — implementation details of the spawn store and reaper
+- [architecture/state-system/overview.md](../architecture/state-system/overview.md) — implementation details of the spawn store and reaper
 - [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — finalization subsystem: policy function, store-level flock, arbitration, conclude accumulator
 - [architecture/completion-drain-coordination.md](../architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary process roles and reaper/cancel boundary
