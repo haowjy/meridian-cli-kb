@@ -186,23 +186,25 @@ complexity is not justified without renewed evidence.
 
 ---
 
-### v001 `uuid_state_split` Migration — Still a Stub
+### v001 `uuid_state_split` Migration — Manual Helper, Not an Active Fallback
 
 **Where:** `migrations/v001_uuid_state_split/`
 
-**The issue:** This migration moves legacy runtime state from repo `.meridian/` to user `~/.meridian/projects/<uuid>/`. It was introduced as an intent in 0.0.34 when the dual-root split was deployed. The migration is registered in `migrations/registry.toml` with status `stub` — the framework exists but `migrate.py` is not yet implemented.
+**The issue:** Repo-local `.meridian/` is no longer an active runtime-state root.
+`migrations/v001_uuid_state_split/migrate.py` contains a manual copy helper for moving
+legacy runtime state to the user project root, but `migrations/registry.toml` still
+marks v001 as `stub` and production startup does not discover or run this registry.
 
-**Impact:** Users who had spawn/session state under the old repo-level structure will not have it automatically migrated. Read paths fall back to repo `.meridian/` when no UUID exists, so the old data is not lost. But it won't appear in `meridian spawn list` until migrated.
+**Impact:** Legacy repo-local spawn/session files do not appear on current read paths
+until copied into the user runtime root. The remaining `.meridian/id` compatibility
+path migrates project identity only; it does not make repo-local runtime files active.
 
-> [!FLAG] **Needs human review**: This entry says read paths fall back to repo-local `.meridian/`, but [State Model](../concepts/state-model.md) and [State System](../architecture/state-system/overview.md) say repo-local `.meridian/` is not an active state root. The pages may distinguish legacy identity fallback from legacy runtime-state fallback; confirm the current behavior. Flagged 2026-08-26.
+**What's needed:** Decide whether to validate and expose v001 as a supported manual
+migration or remove the dormant registry path. If retained, align the helper with the
+current project-ID model and atomic-write policy before marking it ready.
 
-**What's needed:** Implement `migrations/v001_uuid_state_split/migrate.py`:
-1. Find legacy spawn/session JSONL files under `.meridian/`
-2. Create the user-level runtime root (UUID creation if needed)
-3. Move or copy the JSONL files to `~/.meridian/projects/<uuid>/`
-4. Update `.meridian/.migrations.json` to record completion
-
-**Why deferred:** No urgent need — the fallback read path covers existing users. Migration tooling design was deprioritized relative to new feature work.
+**Why deferred:** Migration tooling design was deprioritized relative to active state
+work; there is no transparent legacy runtime fallback.
 
 ---
 
