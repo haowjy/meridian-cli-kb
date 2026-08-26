@@ -4,6 +4,23 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-08-26 — Session-browse implementation reconciliation (work:session-browse)
+
+Reconciled the pre-implementation capture against the approved implementation
+at `cfcd0e1a`. The re-entry decision now records the shared durable-id authority
+used by both listing and Enter-time resolution. The Codex live-fork material is
+current truth: the earlier corruption remains as rationale, while the documented
+contract now describes bounded streaming, complete-record publication, and
+commit-aware compensation. Removed all live claims that the Codex fix was still
+pending.
+
+No `DIVERGENCE/` log existed for this work item; the final review and runtime
+probe reported full requirements alignment.
+
+Validation: `meridian kg check .`; `meridian mermaid check .`.
+
+---
+
 ## 2026-08-07 — Session-browse design knowledge capture (session-browse design, chat:c5810)
 
 ### Trigger

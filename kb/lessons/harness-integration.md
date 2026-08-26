@@ -256,14 +256,13 @@ widening where the new parameter controls correctness, not just convenience.
 
 ---
 
-## Codex Live-Fork Rollout Corruption
+## Codex Live-Fork Rollout Snapshots
 
-**The bug (probe-proven):** Forking a live Codex session clones partial
-JSONL records. `CodexHarness.fork_session` reads the rollout file without
-coordination with the live writer, copies an unterminated partial final
-line, and inserts the fork into Codex's `state_5.sqlite` reporting success.
-Whether Codex tolerates the malformed tail is not a Meridian contract; the
-outcome ranges from a stale fork to an unresumable branch.
+**The failure (probe-proven):** Forking a live Codex session used to clone
+partial JSONL records. `CodexHarness.fork_session` read the rollout without a
+fixed boundary, copied an unterminated final line from the live writer, and
+could register the malformed fork in Codex's `state_5.sqlite`. The corruption
+surfaced only when the fork was resumed and Codex parsed the final record.
 
 Codex is the only harness where Meridian materializes the fork transcript.
 Claude, OpenCode, and Pi delegate fork to the harness binary (`--fork-session`,
@@ -277,12 +276,18 @@ DB row does not validate rollout content. The corruption surfaces only when
 the forked session is later resumed and the harness tries to parse the last
 record.
 
-**Required fix:** `materialize_fork_rollout(...)` in
-`lib/harness/codex_rollout.py`: open the source, `fstat` the open
-descriptor for a snapshot bound, copy only through the last newline at or
-before the bound (complete newline-terminated records only), validate each
-copied line as JSON, atomic publish via tmp+rename, and compensation on DB
-insert failure (delete the published rollout, no orphan targets).
+**Implemented contract:** `materialize_fork_rollout(...)` opens the source,
+uses `fstat` on that descriptor as a snapshot bound, and streams at most that
+many bytes through an atomic target. It copies only complete
+newline-terminated records, validates each record, rewrites the first
+`session_meta` id, and drops an incomplete tail at the bound. Memory therefore
+scales with one record rather than the whole rollout.
+
+File publication and SQLite registration are compensated rather than treated
+as an impossible cross-store transaction. If registration raises, Meridian
+checks the database again. A committed row wins; a target known to be
+unregistered is removed; failure to determine commit state preserves the file
+for recovery instead of risking deletion of a committed fork.
 
 **The lesson:** When one side of a file is append-only live and the other
 side copies it, the copy boundary must be a complete-records-only snapshot,

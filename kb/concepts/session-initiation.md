@@ -337,6 +337,11 @@ SessionReentryDecision = Resume(chat_id) | Fork(chat_id) | Blocked(reason)
 
 The decision is ops-owned (`lib/ops/session_reentry.py`) with a pure core
 (`decide_reentry`) and a fresh-read resolver (`resolve_session_reentry`).
+Both listing and re-entry use the same durable-state authority for the recorded
+harness id: session store, primary spawn row, then `primary_meta.json`. Native
+transcript discovery is deliberately excluded. A detected but unrecorded
+transcript cannot authorize re-entry, and using different recovery authorities
+for the displayed and fresh decisions would make the visible action unreliable.
 
 ### Advisory vs authoritative resolution
 
@@ -376,12 +381,13 @@ How the transcript is branched at fork time differs by harness:
 | Claude | Delegated: `claude --resume <id> --fork-session` | Harness-owned snapshot semantics |
 | OpenCode | Delegated: `opencode --session <id> --fork` | Harness-owned (DB transaction) |
 | Pi | Delegated: `pi --fork <id>` | Harness-owned |
-| Codex | Meridian-materialized: copies rollout JSONL + inserts into Codex's SQLite | Requires `materialize_fork_rollout` fix for live sources (see [lessons](../lessons/harness-integration.md)) |
+| Codex | Meridian-materialized: snapshots rollout JSONL + registers the fork in Codex SQLite | Complete-record, bounded snapshot with compensated publication (see [lessons](../lessons/harness-integration.md)) |
 
 Delegated harnesses own their concurrent-write semantics. Codex is the only
-harness where Meridian copies the transcript file, and the current copy has a
-known corruption bug on live sources that must be fixed before fork-on-live
-ships.
+harness where Meridian copies the transcript file. Its fork contract therefore
+owns concurrent append safety: snapshot the open descriptor at a fixed size,
+publish only complete validated JSONL records, and remove the target only when a
+failed registration is known not to have committed.
 
 ---
 

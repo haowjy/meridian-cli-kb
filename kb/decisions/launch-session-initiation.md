@@ -300,6 +300,12 @@ a resolver (`resolve_session_reentry`) re-reads fresh state at Enter time.
 Listing rows carry the advisory decision for display; Enter-time resolution is
 authoritative for action.
 
+The two paths share one recorded-id authority: durable session state, the
+primary spawn row, and `primary_meta.json`, without native transcript detection.
+This is part of the decision, not an optimization. It ensures the displayed
+action and fresh action can differ because liveness changed, not because one
+path discovered evidence the other path refused to trust.
+
 **Why ops-owned:** The re-entry decision is policy (should this session be
 resumed, forked, or blocked?), not presentation. Keeping it in ops means the
 TUI never imports state-layer liveness functions, and any future surface
