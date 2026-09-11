@@ -6,8 +6,9 @@ State-layer decisions cover how Meridian stores project identity, runtime state,
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
 
-**Status:** Settled design intent; not yet implemented or verified. The current
-CLI behavior documented elsewhere in this KB remains current checkout truth.
+**Status:** Settled design intent with a completed design; not yet implemented
+or verified. The current CLI behavior documented elsewhere in this KB remains
+current checkout truth.
 
 **Decision:** Retained transcripts are ordinary, independently readable and
 transferable files under Meridian's control. Those files, and ZIPs made from
@@ -39,14 +40,18 @@ locator-only retained-payload model. Database-file portability does not make a
 transcript an ordinary independently readable file, and a harness cleanup
 policy cannot own Meridian's promised retention lifetime.
 
-**Still open:** The exact transcript encoding, capture boundary, indexing
-freshness/catch-up protocol, and interrupted archive/restore behavior require
-design and verification. This decision sets authority and direction; it does
-not claim those mechanisms have shipped.
+**Design status:** The final design now specifies the transcript envelope and
+capture boundary, a single ledger-backed file-to-index catch-up/rebuild path,
+and independently verified ZIP publication before fingerprint-gated reclaim.
+These are implementation contracts to validate, not claims about shipped
+behavior or immutable product requirements. The canonical entry point is
+`work:next-minor-planning/design/overview.md`.
 
 **Provenance:** `work:next-minor-planning`, especially
-`design/storage-architecture.md`, `requirements.md`, and
-`DIVERGENCE/2026-09-11-file-transcript-authority.md`.
+`design/overview.md`, `design/storage-architecture.md`,
+`design/derived-index.md`, `design/retention-archive.md`,
+`design/implementation-plan.md`, `requirements.md`, and
+`DIVERGENCE/2026-09-11-file-transcript-authority.md`; `chat:c5884`.
 
 ## State Layer
 
