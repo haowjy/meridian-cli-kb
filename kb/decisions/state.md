@@ -2,6 +2,52 @@
 
 State-layer decisions cover how Meridian stores project identity, runtime state, and crash recovery data.
 
+## Intended History Storage
+
+### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
+
+**Status:** Settled design intent; not yet implemented or verified. The current
+CLI behavior documented elsewhere in this KB remains current checkout truth.
+
+**Decision:** Retained transcripts are ordinary, independently readable and
+transferable files under Meridian's control. Those files, and ZIPs made from
+them, preserve the transcript plus the essential identity and relationship
+metadata needed to recover and re-index it. A harness-owned payload locator can
+help ingestion, but cannot be the only surviving source for content Meridian
+retains.
+
+SQLite is a disposable projection for discovery and filtering, not a competing
+history store. Derivation runs one way—files and available ZIPs to the index—
+through one shared catch-up/rebuild path. Losing the database may cost query
+acceleration, but must not lose retained history. No bidirectional
+synchronization or resident archive/index service is required.
+
+**Why:** The transcript itself must remain easy to copy and read with standard
+file tools, without a database export, the original harness location, or a
+running Meridian process. Making the same files authoritative also keeps
+reconciliation bounded: the index can be recreated instead of synchronized as
+a second durable truth.
+
+**Archive policy:** ZIP automation is opt-in. When enabled, eligibility
+defaults to 30 days since last activity; active sessions are protected;
+publication is verified before source files are reclaimed; and the archive
+location is configurable. Available ZIPs support direct reads and selective,
+conflict-safe restore. Meridian never automatically expires archive ZIPs.
+
+**Withdrawn:** The proposed SQLite-authoritative transcript store and the
+locator-only retained-payload model. Database-file portability does not make a
+transcript an ordinary independently readable file, and a harness cleanup
+policy cannot own Meridian's promised retention lifetime.
+
+**Still open:** The exact transcript encoding, capture boundary, indexing
+freshness/catch-up protocol, and interrupted archive/restore behavior require
+design and verification. This decision sets authority and direction; it does
+not claim those mechanisms have shipped.
+
+**Provenance:** `work:next-minor-planning`, especially
+`design/storage-architecture.md`, `requirements.md`, and
+`DIVERGENCE/2026-09-11-file-transcript-authority.md`.
+
 ## State Layer
 
 ### Crash-only design: no graceful shutdown path
@@ -32,7 +78,11 @@ See [principles/design-principles.md](../principles/design-principles.md) for fu
 3. **Simplicity** — no service dependency, no connection management, no schema versioning in the hot path.
 
 **Alternatives rejected:**
-- SQLite — richer query capability, but introduces a service dependency (locked DB files on crash), requires schema migrations, and breaks the "files as authority" principle
+- SQLite as the authoritative session/spawn store — richer query capability,
+  but adds database locking and schema migration to the authoritative write
+  path and breaks the "files as authority" principle. Disposable derived
+  indexes remain compatible with that principle; see
+  [D-history-file-authority](#d-history-file-authority).
 - Mutable JSON per-spawn — reconsidered and adopted for spawn state in 2026-05 once the performance problem was measured (see spawn-state-v2 below)
 
 ---
