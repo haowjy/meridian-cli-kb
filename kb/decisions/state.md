@@ -47,6 +47,33 @@ These are implementation contracts to validate, not claims about shipped
 behavior or immutable product requirements. The canonical entry point is
 `work:next-minor-planning/design/overview.md`.
 
+**Source-study evidence (2026-09-13):** The current-source inventory at commit
+`66ab929f` confirms this design remains unimplemented. The external evidence
+validates the overall direction, not a redesign or implementation approval.
+Codex keeps rollout
+JSONL authoritative, reconciles a SQLite projection in-process, and repairs
+from files, which supports file authority, a derived index, and no resident
+daemon. Its database is not wholly disposable, however: selected rollout
+paths and paginated metadata can be SQLite-only, so Meridian must not import
+that broader claim and instead keeps every essential indexed fact
+reconstructible from files or archives. See the pinned
+[Codex reconciliation code](https://github.com/openai/codex/blob/a44454656459437fc8e2ffa9eca0646537b1fdfd/codex-rs/rollout/src/state_db.rs#L518-L675).
+
+Restic's normal prune sequence verifies replacement coverage, publishes the
+replacement index, and only then reclaims old packs. That supports Meridian's
+publish-before-reclaim ordering and conservative retry posture, not restic's
+deduplication machinery or manual stale-lock recovery. See the pinned
+[restic prune path](https://github.com/restic/restic/blob/ba802d42b7294c98b62c16d1157ea3e80820c019/internal/repository/prune.go#L588-L676).
+
+The segmented change ledger remains the current canonical proposal, but these
+studies prove neither that exact mechanism is mandatory nor that it can be
+removed. Indexing should come first, with a focused prototype to identify the
+smallest durable mechanism that detects and recovers crash gaps without
+silently weakening the documented completeness contract. No scope change was
+approved. Before implementation, the plan's historical-format accommodation
+should also be reconsidered against the repository's no-backward-compatibility
+policy rather than implemented by default.
+
 **Provenance:** `work:next-minor-planning`, especially
 `design/overview.md`, `design/storage-architecture.md`,
 `design/derived-index.md`, `design/retention-archive.md`,
