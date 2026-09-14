@@ -260,11 +260,12 @@ private instructions, or start a managed backend merely to describe the launch.
 This is not a promise that the CLI is write-free: root, telemetry, and static-cache
 setup may still write.
 
-Workspace projection preserves inherited OpenCode configuration as an object and
-adds only its workspace grants. Malformed or non-object inherited JSON is rejected,
-not silently replaced with an empty configuration before adapter validation. These
-full-CLI prelaunch changes are implemented at `f56d8131`; independent review and
-release-equivalent native/Pi closeout remain pending.
+The workspace-projection contract is to preserve inherited OpenCode configuration
+and add only its workspace grants. Source `f56d8131` specifically rejects malformed
+or non-object inherited JSON rather than replacing it with an empty configuration
+before adapter validation. The broader preserved-config behavior remains inside
+the pending independent prelaunch review; release-equivalent native/Pi closeout is
+also pending.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 
