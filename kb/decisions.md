@@ -10,7 +10,7 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 
 | Date / ID | Status | Decision | Canonical record |
 |---|---|---|---|
-| 2026-09-11, D-history-file-authority | Intended; not shipped | Retained transcripts and ZIPs are independently readable file authority; SQLite is a disposable one-way derived index. | [State](decisions/state.md#d-history-file-authority) |
+| 2026-09-11, D-history-file-authority | Intended; identity increment branch-only | Retained transcripts and ZIPs are independently readable file authority; SQLite is a disposable one-way derived index. | [State](decisions/state.md#d-history-file-authority) |
 | 2026-08, D-tui-prompt-toolkit | Current | prompt_toolkit full-screen Application for the session-browse picker; hand-rolled, textual, and fzf rejected on POC + source-study evidence. | [TUI framework](decisions/tui-framework.md) |
 | 2026-08, D-bare-continue-browse | Current | Bare `--continue` (no ref) canonicalizes to `session browse` before classification; supersedes the "intentionally excluded" note in D-argv-normalization-sentinel. | [Session initiation](decisions/launch-session-initiation.md#d-bare-continue-browse-bare---continue-canonicalizes-to-session-browse) |
 | 2026-08, D-session-reentry | Current | Ops-owned re-entry decision (`Resume \| Fork \| Blocked`); advisory on rows, authoritative at Enter; fork-on-live never double-attaches. | [Session initiation](decisions/launch-session-initiation.md#d-session-reentry-ops-owned-re-entry-decision-resume--fork--blocked) |

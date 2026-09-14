@@ -6,9 +6,11 @@ State-layer decisions cover how Meridian stores project identity, runtime state,
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
 
-**Status:** Settled design intent with a completed design; not yet implemented
-or verified. The current CLI behavior documented elsewhere in this KB remains
-current checkout truth.
+**Status:** Settled design intent. The first spawn-identity increment exists
+only on `feat/history-storage-index`; it is not released behavior, and the
+history index, transcript header, archive, and restore remain unimplemented.
+The current CLI behavior documented elsewhere in this KB remains main-branch
+truth.
 
 **Decision:** Retained transcripts are ordinary, independently readable and
 transferable files under Meridian's control. Those files, and ZIPs made from
@@ -40,16 +42,44 @@ locator-only retained-payload model. Database-file portability does not make a
 transcript an ordinary independently readable file, and a harness cleanup
 policy cannot own Meridian's promised retention lifetime.
 
-**Design status:** The final design now specifies the transcript envelope and
-capture boundary, a single ledger-backed file-to-index catch-up/rebuild path,
-and independently verified ZIP publication before fingerprint-gated reclaim.
-These are implementation contracts to validate, not claims about shipped
-behavior or immutable product requirements. The canonical entry point is
+**Design status:** The design specifies the transcript envelope and capture
+boundary, a single ledger-backed file-to-index catch-up/rebuild path, and
+independently verified ZIP publication before fingerprint-gated reclaim. These
+are implementation contracts to validate, not claims about shipped behavior
+or immutable product requirements. The canonical entry point is
 `work:next-minor-planning/design/overview.md`.
 
+The current source has no SQLite history index. Its existing session metadata
+index is a separate projection, and `session_list_sync()` replays session
+records rather than providing the planned history-index foundation.
+
+**First identity increment (branch only, 2026-09-13):** Commit `73bda018` on
+`feat/history-storage-index` adds `history_id` and `state_revision` to spawn
+state. New records receive a UUID before staged publication and begin at
+revision 1. The locked repository alone advances the revision; mutators cannot
+replace either field, and reads or declined mutations do not write. Older rows
+remain readable without bulk migration and acquire identity on their next
+accepted mutation. This does not add a transcript header, session-log identity
+mapping, SQLite discovery, ZIP retention, archive reads, or restore.
+
+Review `spawn:p6009` approved this bounded increment. Full verification passed
+with 1,477 tests and 2 skips, Ruff clean, and Pyright at zero errors. An
+eight-process smoke test preserved one UUID and all 160 accepted increments,
+ending at revision 161.
+
+**Alias cardinality correction (2026-09-13):** A chat ID is a local alias, not
+a transcript identity. Resuming the same chat can create another primary
+session generation and transcript aggregate, so two valid histories may share
+`c1` while retaining different `history_id` values. The planned unique chat
+constraint was rejected after a source-level probe reproduced the collision;
+the owning design now uses a non-unique chat lookup. Only the recent-session
+view may collapse generations to the newest row. Rebuild must retain every
+aggregate rather than replaying only the latest row per chat.
+
 **Source-study evidence (2026-09-13):** The current-source inventory at commit
-`66ab929f` confirms this design remains unimplemented. The external evidence
-validates the overall direction, not a redesign or implementation approval.
+`66ab929f` confirmed that the history index, archive, and restore were absent
+at that baseline. The external evidence validates the overall direction, not a
+redesign or implementation approval.
 Codex keeps rollout
 JSONL authoritative, reconciles a SQLite projection in-process, and repairs
 from files, which supports file authority, a derived index, and no resident
@@ -65,11 +95,15 @@ publish-before-reclaim ordering and conservative retry posture, not restic's
 deduplication machinery or manual stale-lock recovery. See the pinned
 [restic prune path](https://github.com/restic/restic/blob/ba802d42b7294c98b62c16d1157ea3e80820c019/internal/repository/prune.go#L588-L676).
 
-The segmented change ledger remains the current canonical proposal, but these
-studies prove neither that exact mechanism is mandatory nor that it can be
-removed. Indexing should come first, with a focused prototype to identify the
-smallest durable mechanism that detects and recovers crash gaps without
-silently weakening the documented completeness contract. No scope change was
+The segmented change ledger remains the current canonical proposal. A
+dirty-marker prototype established that a per-source coalescing work queue may
+be sufficient for latest-authoritative-state projection, but review
+`spawn:p6008` did not approve production adoption. Marker capture and temporary
+residue, corruption/reset semantics, WAL-safe database replacement, active
+stream and complete writer integration, and realistic contention evidence are
+still required. Until those gates pass and the owning design is revised as one
+coherent change, the prototype is feasibility evidence—not a replacement for
+the canonical ledger or a history-completeness claim. No scope change was
 approved. Before implementation, the plan's historical-format accommodation
 should also be reconsidered against the repository's no-backward-compatibility
 policy rather than implemented by default.
@@ -78,7 +112,10 @@ policy rather than implemented by default.
 `design/overview.md`, `design/storage-architecture.md`,
 `design/derived-index.md`, `design/retention-archive.md`,
 `design/implementation-plan.md`, `requirements.md`, and
-`DIVERGENCE/2026-09-11-file-transcript-authority.md`; `chat:c5884`.
+`DIVERGENCE/2026-09-11-file-transcript-authority.md`,
+`DIVERGENCE/2026-09-13-chat-alias-cardinality.md`, and the 2026-09-13
+implementation/review checkpoints; `chat:c5884`; `spawn:p6008`;
+`spawn:p6009`.
 
 ## State Layer
 
