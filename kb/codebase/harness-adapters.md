@@ -207,8 +207,10 @@ base implementation's priority chain without modification.
 
 - [../architecture/launch-system.md](../architecture/launch-system.md) — how adapters plug into the launch factory
 - [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — policy/mechanism split mental model
+- [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — resolved harness-model projection at the effective native boundary
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — project_content() semantic IR pattern
 - [../concepts/workspace-projection.md](../concepts/workspace-projection.md) — workspace root projection, Codex remote TUI attach, OpenCode env merging
-- [../decisions/launch.md](../decisions/launch-process-ownership.md#d-primary-approval) — D-primary-approval: managed-primary Codex approval routing design
+- [../decisions/launch-process-ownership.md](../decisions/launch-process-ownership.md#d-primary-approval) — D-primary-approval: managed-primary Codex approval routing design
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
+- [../decisions/model-resolution.md](../decisions/model-resolution.md#d76-harness-specific-model-ids-via-runnablepath) — D76: harness-specific model projection
 - [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination

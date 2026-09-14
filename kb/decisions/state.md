@@ -580,4 +580,5 @@ Meaning-carrying conflicts still quarantine: nested/top-level status disagreemen
 
 - [../architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — full subsystem architecture for the 2026-05 refactor and typed state contracts
 - [../architecture/state-system/overview.md](../architecture/state-system/overview.md) — state-system mechanism
+- [../architecture/state-system/portable-history.md](../architecture/state-system/portable-history.md) — archive publication, verification, and reclaim behavior
 - [../concepts/state-model.md](../concepts/state-model.md) — state mental model

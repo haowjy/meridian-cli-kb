@@ -408,5 +408,7 @@ Source: `src/cli/models.rs:run_prompting()` and `src/build/policy/mod.rs:resolve
 - [launch.md](launch.md) — harness identity env var decisions (D32, D33, D57, D63); background worker resolution refactor
 - [decisions/package-management.md](package-management.md) — Mars alias catalog, skill schema
 - [concepts/model-resolution/overview.md](../concepts/model-resolution/overview.md) — resolution mechanism
+- [concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — canonical and harness-specific model IDs
 - [concepts/config-precedence.md](../concepts/config-precedence.md) — how agent overlay tier fits in the precedence ladder
 - [architecture/launch-system.md](../architecture/launch-system.md) — where `resolve_policies()` fits in the full launch factory
+- [codebase/harness-adapters.md](../codebase/harness-adapters.md) — harness-specific managed-primary projection

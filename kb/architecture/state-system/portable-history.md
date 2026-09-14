@@ -208,6 +208,8 @@ latency SLA. Current commands, logs, scope, and limits live in
 - [State-system overview](overview.md)
 - [Session state](session-state.md)
 - [Spawn state](spawn-state.md)
+- [Session-log rendering](../../codebase/session-log-rendering.md) — why the
+  browser preview tail does not bound history-read or rendering work
 - [State decisions](../../decisions/state.md)
 
 **Provenance:** `work:next-minor-planning`; `spawn:p6019`; `spawn:p6020`;
