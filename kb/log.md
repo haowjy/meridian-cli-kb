@@ -17,8 +17,8 @@ PR #494's partial-stream capture/selection regression and corrects the stale Ope
 source-precedence description. It records the preferred
 separate atomic snapshot, raw OpenCode preservation, bounded shared validation, and
 the immutable original descriptor required across rearchive. Exact provider completion
-qualification remains explicitly open; the F2–F5 revisions are under independent
-re-review and are not represented as implemented or runtime-proven.
+qualification remains explicitly open; reviewer p6104 accepted F2–F5 at design-contract level only. They are not
+implemented or runtime-proven.
 
 PR #494 remains draft, all repair TODOs remain there, and #498 is excluded. Earlier
 suite/CI and pinned approvals do not close the newly discovered issues.

@@ -146,7 +146,8 @@ conversion. The index remains disposable metadata, not history authority.
 
 **Status:** Settled direction and safety constraints; not implemented. Exact
 provider completion qualification remains an open blocker, and the revised F2–F5
-contracts are undergoing independent re-review. PR #494 remains draft.
+contracts were accepted by reviewer p6104 at design-contract level only.
+PR #494 remains draft; no implementation/runtime approval was given.
 
 **Decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
 Qualified native-primary history is published atomically as a separate snapshot

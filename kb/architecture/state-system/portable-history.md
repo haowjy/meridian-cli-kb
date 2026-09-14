@@ -243,7 +243,8 @@ remains in that PR and #498 is excluded. Initialization and the minimal Pi parse
 repair can proceed independently, but native capture/reclaim cannot claim completion
 while the provider-frontier gap remains open. The F2–F5 contract revisions (raw
 OpenCode preservation, repeated-portability descriptor, warm deadline accounting,
-and bounded validation outcome) are under independent re-review.
+and bounded validation outcome) were accepted by reviewer p6104 at design-contract
+level only; no implementation/runtime approval was given.
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
