@@ -10,6 +10,8 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 
 | Date / ID | Status | Decision | Canonical record |
 |---|---|---|---|
+| 2026-09-14, D-native-transcript-snapshot | Settled direction; not implemented; completion qualification open | Keep stream evidence and atomically publish a separate canonical native snapshot; preserve raw OpenCode rows and immutable original capture binding. | [State](decisions/state.md#d-native-transcript-snapshot) |
+| 2026-09-14, D-history-index-initialization | Settled intent; not implemented | Missing/outdated index setup gets one 15-second gate with post-lock recheck, durable genuine-failure suppression, and explicit manual retry. | [State](decisions/state.md#d-history-index-initialization) |
 | 2026-09-14, D-managed-startup-gate | Approved on feature branch; unreleased | Managed startup, stop, and failure cleanup share one lifecycle owner; an OpenCode conflict restart stays inside that gate. | [Launch process ownership](decisions/launch-process-ownership.md#d-managed-startup-gate-startup-stop-and-cleanup-have-one-owner) |
 | 2026-09-14, OpenCode native commitment refinement to D76 | Approved on feature branch; unreleased | Explicit model selection is committed through launch-local config and native create/prompt shapes; native-agent conflict permits one verified restart. | [Model resolution](decisions/model-resolution.md#d76-harness-specific-model-ids-via-runnablepath) |
 | 2026-09-11, D-history-file-authority | Intended; retention and preview approved on feature branch, not released | Retained transcripts and ZIPs are independently readable file authority; SQLite metadata and previews are disposable one-way projections. | [State](decisions/state.md#d-history-file-authority) |

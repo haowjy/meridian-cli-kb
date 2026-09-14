@@ -5,6 +5,11 @@ and preview rows are disposable projections that can be rebuilt without losing
 history.** The same authority boundary governs discovery, preview, retention,
 transfer, and restore.
 
+The retention/index implementation on draft PR #494 has not converged on all of
+this contract. Investigation at source `7a2c9b81` found issues #499 and #500; the
+repairs below are settled intent, not implemented behavior. Existing suite and CI
+results predate those discoveries and do not close them.
+
 ```mermaid
 flowchart LR
     W["Managed writers"] --> F["Authoritative record files"]
@@ -31,9 +36,10 @@ foreign runtime ownership back on. This distinction prevents a portable identity
 from becoming permission to signal a process or resume a harness.
 
 New record streams are self-identifying and append-only across retries. Attempt
-boundaries remain in the transcript; only attempt-scoped diagnostics rotate. If a
-native primary transcript is unavailable during execution, a harness provider may
-capture it after stop. Rendered reports are never promoted to transcript authority.
+boundaries remain in the transcript; only attempt-scoped diagnostics rotate.
+`history.jsonl` remains stream/retry evidence. A native-primary conversation becomes
+portable authority only through a separately qualified atomic snapshot in the same
+record aggregate. Rendered reports are never promoted to transcript authority.
 
 ## One-way, rebuildable projections
 
@@ -59,6 +65,33 @@ Rejected alternatives are SQLite FTS, a resident indexing service, a second
 transcript parser, and full-conversation caching. They duplicate authority or
 interpretation, enlarge repair state, and make a disposable accelerator necessary
 for correctness.
+
+## Missing or outdated index initialization
+
+The first operation that needs a missing or incompatible index gets one 15-second
+automatic initialization phase, separate from the ordinary two-second query budget.
+Reuse the existing catch-up lock and recheck the database plus persisted failure
+state after acquiring it. A waiting caller uses a peer's successful publication;
+it does not build again.
+
+Workspace/global operations share one initialization deadline across roots. If all
+roots are already current, classification and work share the existing ordinary
+deadline without a reset. Only a real initialization phase permits a fresh ordinary
+deadline afterward. The 5 ms cache-only preview path does not join this gate, open
+transcript sources, or initialize anything.
+
+A genuine owned-build failure is recorded atomically outside the replaceable SQLite
+directory and suppresses later automatic attempts for the same schema/coordination
+generation. Manual metadata rebuild is the explicit retry and clears the failure on
+successful metadata publication. Another initializer, lock contention, cancellation,
+and crash before a recorded failure are not sticky. Status inspection must not create
+coordination state or initiate progress. There is no automatic progress UI, daemon,
+second index, or destructive transcript conversion.
+
+This contract responds to a real 1,093-record / 6,077-session corpus: automatic
+construction failed under the ordinary budget while explicit metadata construction
+finished in 5.68 seconds. Two concurrent missing-index callers also rebuilt twice
+serially because current code does not recheck after taking the lock.
 
 ## Bounded preview projection
 
@@ -93,6 +126,54 @@ bounded messages, clipping only at render time, parsing the full conversation in
 SQLite, adding a second parser, and hashing the full source on every append. The
 selected design keeps one interpretation path and treats a checkpoint witness as a
 narrow optimization rather than a generic mutation detector.
+
+## Native-primary authority requires a qualified atomic snapshot
+
+Issue #499 has two independent causes:
+
+1. **Preexisting Pi grammar:** native Pi stores nested messages as `type=message`,
+   but the canonical parser dispatches its Pi helper only for RPC `message_end`.
+   Existing native and retained Pi bytes can therefore render as zero messages. A
+   parser/checkpoint-version repair can recover those bytes without rewriting them.
+2. **PR-introduced capture and selection:** PR #494 can prefer an existing partial
+   stream and treats `history.jsonl` existence as completed capture. A probe archived
+   and reclaimed incomplete stream evidence while fuller OpenCode native history
+   existed. A message-count fallback would still fail for nonempty prefixes.
+
+Keep stream evidence untouched and publish `native-transcript.jsonl` atomically as
+the sole final native snapshot path inside the existing aggregate. This is preferred
+to appending begin/body/commit sections to `history.jsonl`: abandoned sections would
+need their own recovery protocol and can leak captured conversation into runner/report
+evidence. One shared source policy selects the canonical member for log, preview,
+search, export, archive, and restore.
+
+Capture must preserve raw provider authority, not only normalized display events.
+OpenCode therefore needs a harness-owned raw-row dialect that captures the exact
+session and all ordered message/part rows—including IDs, relationships, unsupported
+shapes, and original payloads—in one read-only transaction. The current event iterator
+is lossy and cannot be used as preservation input. Storage qualification and rendering
+support are distinct outcomes.
+
+The snapshot header binds the original portable identity, generation, harness/native
+identity, dialect, and provider frontier; a final seal binds frame count and digest.
+Validation streams bounded frames and checks deadlines between reads. An unread seal,
+budget-exhausted prefix, malformed record, or unsupported dialect is partial, corrupt,
+or unavailable—not verified empty. Retention requires complete validation before
+reclaim, while presentation may expose an explicitly labeled partial prefix.
+
+### Open blocker: exact provider completion qualification
+
+No current evidence proves, for any of Claude, Codex, OpenCode, or Pi, a provider
+observation that binds final persisted native bytes or rows to the exact completed
+Meridian generation. The completed spawn ID prevents selecting the wrong local
+generation, but it does not resolve provider persistence or continuation races.
+
+First test whether qualification and snapshot publication can happen together at an
+existing protected completion boundary. A stable later read, timestamp, native ID,
+or checksum must not be promoted into a completion frontier. If a provider cannot
+prove the binding, return unavailable or ambiguous and keep the record protected from
+reclaim, including manual apply. This F1 design gap is intentionally open; it is not
+a four-provider completion claim.
 
 ## Verified publication and short reclaim serialization
 
@@ -140,6 +221,14 @@ provenance. Local linkage added for an exported or restored capsule does not rew
 the source's historical identity. Changed content or exact session metadata
 conflicts instead of being overwritten.
 
+New portable records explicitly declare their canonical transcript member and bind
+an immutable original capture descriptor into the versioned portable digest. Restore
+may remap local aliases and clear live native ownership, but rearchive must carry that
+original descriptor unchanged. The required round trip is archive -> restore ->
+rearchive -> restore with the original native store and first ZIP unavailable. Old
+archives keep their implicit `history.jsonl` member and original digest recipe; they
+are never rewritten or given fabricated descriptors.
+
 ## Convergence status and provenance
 
 Retention commits `a8592210` and `80c37741` and preview commit `c44a3e81` plus the
@@ -149,11 +238,23 @@ separately scoped native matrix is complete. Release-equivalent native/Pi closeo
 passed for pinned `f56d8131`; later prelaunch corrections and their revalidation do
 not change the portable-history decisions on this page.
 
+Those earlier approvals do not cover #499/#500. PR #494 is draft; all repair work
+remains in that PR and #498 is excluded. Initialization and the minimal Pi parser/cache
+repair can proceed independently, but native capture/reclaim cannot claim completion
+while the provider-frontier gap remains open. The F2–F5 contract revisions (raw
+OpenCode preservation, repeated-portability descriptor, warm deadline accounting,
+and bounded validation outcome) are under independent re-review.
+
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
 `work:next-minor-planning/followup-implementation-progress.md`;
 `work:next-minor-planning/reviews/496-implementation-followup.md`;
 `work:next-minor-planning/reviews/495-final.md`; `spawn:p6053`; `spawn:p6062`.
+Investigation update: `work:next-minor-planning/investigation-499-500.md`;
+`work:next-minor-planning/design/history-repair-plan.md`;
+`work:next-minor-planning/design/index-initialization.md`;
+`work:next-minor-planning/design/native-transcript-capture.md`;
+`work:next-minor-planning/reviews/repair-design-review.md`.
 
 ## Related
 

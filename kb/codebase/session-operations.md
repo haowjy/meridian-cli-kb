@@ -72,18 +72,20 @@ Two rejected alternatives shaped this design:
   because overlays exist for concurrent session isolation; canonicalizing
   defeats that purpose.
 
-### OpenCode: SQLite Precedence
+### OpenCode: intended native precedence is currently bypassed
 
-OpenCode completed-session precedence is:
+The provider-local OpenCode order is SQLite (`opencode.db`), legacy native JSON,
+then Meridian `history.jsonl` fallback. Non-file sources are modeled explicitly as
+`TranscriptSource(kind="opencode_db", path=None)` rather than fabricated paths.
 
-1. OpenCode SQLite (`opencode.db`) when a matching `session.id` exists;
-2. harness-native transcript file (legacy `storage/session_diff/...` JSON) when present;
-3. Meridian spawn `history.jsonl` as fallback/debug/live output.
-
-Non-file sources are modeled explicitly (`TranscriptSource(kind="opencode_db", path=None)`);
-Meridian does not fabricate a session file path just to satisfy file-oriented code.
-Spawn history remains a fallback, not the preferred transcript for completed OpenCode
-sessions.
+At source `7a2c9b81`, tracked target resolution can return an indexed loose
+`history.jsonl` before reaching that provider-local order. The early return checks
+file existence, not transcript completeness, so partial stream evidence can mask a
+fuller OpenCode native conversation. The same existence-only assumption reaches
+capture/archive paths. This PR #494 regression is tracked as issue #499; the intended
+repair is one qualified canonical-source policy shared by log, preview, search,
+export, and retention. Until implemented, do not read the provider-local order above
+as guaranteed completed-session behavior.
 
 Test coverage is split along the same seams: target/source ordering and DB-backed
 rendering live in session-log integration/unit tests, resident drain scope behavior

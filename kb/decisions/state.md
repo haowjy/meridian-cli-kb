@@ -107,6 +107,100 @@ The mechanism is described in
 `work:next-minor-planning/reviews/495-final.md`; commits `a8592210`, `80c37741`,
 `c44a3e81`; `spawn:p6053`; `spawn:p6062`.
 
+### D-history-index-initialization: initialization has its own bounded gate (2026-09-14) {#d-history-index-initialization}
+
+**Status:** Settled intent; not implemented. PR #494 remains draft.
+
+**Decision:** A first operation that needs a missing or outdated history index gets
+one 15-second automatic initialization phase, separate from the ordinary two-second
+query budget. Workspace/global initialization shares one absolute 15-second deadline
+across roots. An all-warm operation never resets its ordinary deadline; only a real
+initialization phase permits a fresh ordinary deadline afterward. Cache-only preview
+peeks remain bounded independently and do not initialize.
+
+Automatic and manual construction reuse `history-catchup.lock` and the same
+lock-owned projection/publication body. They recheck compatibility and failure state
+after taking ownership, so a waiter consumes a peer's publication instead of
+rebuilding again. There is no daemon, second index, progress display, or per-attempt
+initialization ledger.
+
+A genuine owned-build failure is latched durably outside the replaceable SQLite
+directory, scoped to the target schema and coordination generation. Later automatic
+calls report the bounded reason and manual repair command rather than retrying.
+`session index rebuild --metadata-only` is the explicit retry; successful metadata
+publication clears the latch. Lock contention, another initializer, cancellation,
+and crash before a recorded failure are not sticky failures. Status inspection must
+not initialize the index or coordination state.
+
+**Why:** A real 1,093-record / 6,077-session corpus repeatedly exceeded the ordinary
+query budget while explicit metadata rebuild completed in 5.68 seconds. Two
+concurrent missing-index callers also performed two serialized builds because the
+second caller did not recheck under the existing lock. Globally raising query timeouts
+would make warm contention slower without fixing ownership or retry behavior.
+
+**Rejected:** silently incomplete results, automatic retry loops, progress UI,
+sticky busy/cancellation state, per-root 15-second resets, and destructive transcript
+conversion. The index remains disposable metadata, not history authority.
+
+### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
+
+**Status:** Settled direction and safety constraints; not implemented. Exact
+provider completion qualification remains an open blocker, and the revised F2–F5
+contracts are undergoing independent re-review. PR #494 remains draft.
+
+**Decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
+Qualified native-primary history is published atomically as a separate snapshot
+inside the same record aggregate and becomes canonical through one shared source
+selection boundary. This is preferred to append-only begin/body/commit sections,
+which contaminate runner evidence and require abandoned-section recovery. File
+existence, nonempty output, timestamps, and a stable post-stop read do not prove that
+the bytes belong to the completed generation.
+
+Capture preserves provider-native authority rather than normalized display events.
+In particular, OpenCode requires a harness-owned raw-row representation containing
+the exact session plus ordered message/part rows, identities, relationships, and
+original payloads from one read transaction; the current lossy display projection
+cannot be sealed as raw capture. Storage completeness and rendering support remain
+separate outcomes.
+
+New archives explicitly declare the canonical transcript member and bind a versioned,
+immutable original capture descriptor into portable identity. Restore may assign
+inert local aliases, but rearchive carries the original descriptor unchanged so
+archive -> restore -> rearchive -> restore still validates without the original
+native store or first ZIP. Old archives retain their original implicit
+`history.jsonl` recipe and are never rewritten.
+
+Canonical snapshot validation is incremental and deadline-aware. A prefix whose
+seal/count/digest has not been fully checked is partial, never verified-empty or
+complete; search, export, preview, and retention consume the same storage/rendering
+outcome rather than inventing surface-specific fallbacks. Retention requires full
+validation before reclaim.
+
+**Open design gap:** No provider has yet supplied a proven observation that binds
+its final persisted native frontier to the exact completed Meridian generation.
+Passing the completed spawn ID fixes generation selection but not continuation or
+persistence races. Qualification should be attempted with snapshot publication at
+an existing protected completion boundary. If Claude, Codex, OpenCode, or Pi cannot
+prove that boundary, capture returns unavailable/ambiguous and reclaim stays blocked;
+timestamps and later snapshots must not manufacture certainty.
+
+**Why:** Investigation separated two causes of issue #499. A preexisting Pi grammar
+bug dispatches only RPC `message_end`, while native on-disk `type=message` records
+normalize to zero. Independently, PR #494 introduced early indexed-stream selection
+and existence-only capture guards that can select, archive, and reclaim a partial
+stream while fuller native OpenCode/Codex history exists. Fixing the Pi discriminator
+does not repair the capture/selection regression.
+
+**Rejected:** overwriting the stream, append-section transactions, normalized-text
+capture, per-surface parsers, fallback based on message count, and treating ZIP byte
+integrity as proof that the selected transcript was complete.
+
+**Provenance:** `work:next-minor-planning/investigation-499-500.md`;
+`work:next-minor-planning/design/history-repair-plan.md`;
+`work:next-minor-planning/design/index-initialization.md`;
+`work:next-minor-planning/design/native-transcript-capture.md`;
+`work:next-minor-planning/reviews/repair-design-review.md`.
+
 ## State Layer
 
 ### Crash-only design: no graceful shutdown path

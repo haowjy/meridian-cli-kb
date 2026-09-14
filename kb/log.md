@@ -4,6 +4,29 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-09-14 — History #499/#500 investigation capture
+
+Captured settled repair intent from `work:next-minor-planning` without changing
+production or active design artifacts. The portable-history architecture and state
+decision trail now record the separate 15-second index-initialization gate, same-lock
+recheck, durable genuine-failure latch, manual retry, and non-sticky contention/
+cancellation contract for #500.
+
+For #499, the KB now separates the preexisting Pi native-message grammar defect from
+PR #494's partial-stream capture/selection regression and corrects the stale OpenCode
+source-precedence description. It records the preferred
+separate atomic snapshot, raw OpenCode preservation, bounded shared validation, and
+the immutable original descriptor required across rearchive. Exact provider completion
+qualification remains explicitly open; the F2–F5 revisions are under independent
+re-review and are not represented as implemented or runtime-proven.
+
+PR #494 remains draft, all repair TODOs remain there, and #498 is excluded. Earlier
+suite/CI and pinned approvals do not close the newly discovered issues.
+
+Validation: `meridian kg check .`; `meridian mermaid check .`.
+
+---
+
 ## 2026-08-26 — Session-browse implementation reconciliation (work:session-browse)
 
 Reconciled the pre-implementation capture against the approved implementation
