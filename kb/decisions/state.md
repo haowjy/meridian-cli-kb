@@ -52,7 +52,10 @@ evidence; the proposed write-only log identity sidecars were removed rather than
 given artificial readers.
 
 Discovery uses one canonical target resolver for ordinary and browse-subset
-search. SQLite or coordination failure is surfaced as an error with
+search. Browser scope is chosen before resolution: archived metadata stays in
+the list and a selected ZIP remains directly previewable, while `/` searches
+loose visible rows unless `session browse --include-archives` opts into ZIP
+content. SQLite or coordination failure is surfaced as an error with
 `complete=false`, retaining confirmed results from healthy scopes. Exact
 launch/control references are a different boundary: launch policy, native ID,
 and primary/Pi owner recovery read authoritative session/spawn files, including
@@ -90,13 +93,19 @@ index and archive retain them all.
 The mechanism and its boundaries are described in
 [Portable history](../architecture/state-system/portable-history.md). This KB
 records the settled target and branch convergence, not shipped behavior. The
-runtime implementation is pinned at `6c3249c4`; `8e8f588f` changes source-local
-guidance only. The final suite recorded 1,522 passed, 2 skipped and 10 warnings;
-Ruff/build passed and Pyright reported zero errors. Follow-up production probes
+quality-fix checkpoint is pinned at `6c3249c4`, followed by guidance-only
+`8e8f588f` and the narrow browser search-scope correction at `4adeb355`. The
+checkpoint suite recorded 1,522 passed, 2 skipped and 10 warnings; Ruff/build
+passed and Pyright reported zero errors. The final correction passed its
+red-before-fix regression, 43 focused tests, Ruff, and Pyright with zero errors;
+its full pre-push and independent review/runtime verdicts were pending at capture
+time. Follow-up production probes
 closed the reproduced retention, resolver, failure-boundary, staging, and exact
 control-path findings. Native lifecycle evidence is separately pinned to
 immutable `dfb3fa73`; it covers Codex, not every harness, and does not establish
-power-loss coverage. Final commands, logs, scope, performance measurements, and
+power-loss coverage. No native harness was rerun for `4adeb355`; the prior
+synthetic default ZIP-search match is superseded only for default scope, not
+direct ZIP preview or explicit archive resolution. Final commands, logs, scope, performance measurements, and
 remaining #495/#496/#497 work are retained under
 `work:next-minor-planning/probes/followup/`,
 `work:next-minor-planning/probes/quality-fixes-runtime.md`, and

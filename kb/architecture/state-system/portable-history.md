@@ -69,8 +69,12 @@ withheld until that member's checksum completes; confirmed matches from earlier
 members survive. SQLite and coordination failures likewise return explicit
 errors with `complete=false` rather than escaping or presenting an empty result
 as complete. Browse subset search uses the same canonical target resolver as
-preview and ordinary search, so a listed loose or ZIP record does not enter a
-second selection path.
+preview and ordinary search, so a selected loose or ZIP record does not enter a
+second selection path. Scope is explicit before resolution: the browser always
+lists archived metadata and can preview a selected ZIP, but `/` searches only
+loose visible rows unless `session browse --include-archives` opts into ZIP
+content. Search status labels the scope as `loose` or `+ZIP`. Corpus search keeps
+its existing explicit archive flag.
 
 Rebuild uses one rollback-journal stage owned by the per-runtime catch-up lock.
 The owner removes its own crash residue before rebuilding and cleans the stage
@@ -135,13 +139,17 @@ change.
 ## Delivery and evidence boundary
 
 The mechanism and its source-local documentation are complete on the feature
-branch (`6c3249c4` runtime, followed by guidance-only `8e8f588f`), but the feature
-is not merged or released. Independent review approved the earlier core/index
-and ZIP/restore lanes; follow-up reproduction and regression probes closed the
+branch through the narrow browser-scope correction at `4adeb355` (`6c3249c4`
+quality-fix checkpoint, then guidance-only `8e8f588f`), but the feature is not
+merged or released. Independent review approved the earlier core/index and
+ZIP/restore lanes; follow-up reproduction and regression probes closed the
 reported retention, resolver, error-boundary, staging, and exact-control defects.
 
-The final branch gate recorded 1,522 passed and 2 skipped with 10 warnings,
-Ruff and build success, and Pyright with zero errors and 34 warnings. Production
+The `6c3249c4` checkpoint gate recorded 1,522 passed and 2 skipped with 10
+warnings, Ruff and build success, and Pyright with zero errors and 34 warnings.
+For `4adeb355`, the red-before-fix policy regression plus 43 focused tests, Ruff,
+and Pyright with zero errors passed; its full pre-push and independent review/
+runtime verdicts were still pending at capture time. Production
 process-death, shared-destination, restore-publication, rebuild-lock/stage,
 dependency-order, SQLite failure, and I/O retry probes passed. The final native
 run is separately pinned to immutable `dfb3fa73`: an actual Codex response,
@@ -149,7 +157,10 @@ exit, loose preview, browse resume, automatic ZIP retention, ZIP preview/search,
 and repeat inert selective restore passed with the ZIP unchanged. Claude and Pi
 native turns were blocked by unavailable credentials, and the OpenCode
 requested-model/UI mismatch remains #497. These results are not exhaustive
-all-function/all-harness, physical-device, or power-loss guarantees.
+all-function/all-harness, physical-device, or power-loss guarantees. No native
+harness was rerun for the browser flag. The earlier synthetic default ZIP-search
+match is superseded only for default scope; direct ZIP preview and explicit
+archive-resolution evidence remain valid.
 
 On one generated 10,000-session authority, the actual browse-list function
 improved from a 200.18 ms median to 35.70 ms (about 5.6x). Preview still parses
