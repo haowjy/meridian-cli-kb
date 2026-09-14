@@ -4,7 +4,7 @@ Decisions about model alias authority, routing architecture, profile schema, pol
 
 For mechanism, see:
 - [concepts/model-resolution/overview.md](../concepts/model-resolution/overview.md) — how model names become concrete models
-- [concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — alias entries, pattern fallback, harness routing
+- [concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — alias entries, Mars-owned routing, and read-only inventory behavior
 - [concepts/model-resolution/agent-profiles.md](../concepts/model-resolution/agent-profiles.md) — profile loading, skill attachment, fallback chain
 - [concepts/model-resolution/model-policies.md](../concepts/model-resolution/model-policies.md) — visibility, superseded models, fanout
 
