@@ -2,6 +2,37 @@
 
 State-layer decisions cover how Meridian stores project identity, runtime state, and crash recovery data.
 
+## Native capture temporal boundary: evidence, decision still pending (2026-09-14)
+
+A real OpenCode 1.18.29 continuation overtook an immediate first-idle snapshot,
+which already included the next user turn. The universal read-at-completion
+qualification proposed for #499 is therefore not valid. The independent contract
+audit traced exact launch-end semantics to repair-design strengthening, not an
+explicit original product requirement.
+
+Recommended, not adopted: immutable capture-time native-session observation with
+exact completed-record association and explicit temporal/content scope. It may
+include later continuation and cannot certify that every output had persisted at
+the earlier stop. Human semantic approval is required before implementing that
+change. Exact aggregate selection/byte verification, active/dependent protection,
+stream preservation and inert provenance-safe restore remain unchanged.
+
+Codex paginated forks may depend on bounded ancestor rollouts. OpenCode's pinned
+MessageV2 transcript reader uses session/message/part tables; a raw snapshot of
+that scope is not a complete native-state backup. Neither a leaf-only fork copy
+nor lossy rendered OpenCode events can be certified as preserved native authority.
+
+Evidence limits: the Codex/Pi prober exhausted account usage before reporting;
+primary recovered evidence and cleaned its positively identified orphan backend
+and owned scratch. Codex persisted one startup response; Pi's current native
+probe had an isolated credential-path mismatch; Claude authenticated persistence
+remains untested. Do not claim four-harness runtime success. PR #494 remains draft.
+
+Provenance: `work:next-minor-planning/design/native-capture-boundary-decision.md`;
+`reviews/frontier-contract-audit.md`; `probes/frontier-opencode-claude.md`;
+`probes/frontier-codex-pi.md`; `probes/native-content-scope-followup.md`.
+
+
 ## Intended History Storage
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
