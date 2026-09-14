@@ -270,11 +270,39 @@ transform fires) and also neutralizes the legacy `models:` compatibility overrid
 
 ### D76: Harness-specific model IDs via RunnablePath
 
-**Decision:** Mars returns harness-specific model strings for aliases via a `RunnablePath` structure. `AliasEntry` carries `harness_candidates` (list of `RunnablePath` entries) and `runnable_paths` (dict of `{harness_id: model_id}` for fast lookup). At bind time, `select_harness_model_id()` looks up the resolved harness in `runnable_paths` and passes the harness-specific string to the harness adapter.
+**Decision:** Mars returns harness-specific model strings for aliases. The live
+launch-bundle path supplies the selected string as `routing.harness_model`, and
+Meridian carries it as `ModelSelectionContext.harness_model_id` to the adapter's
+effective native bootstrap boundary. The compiled alias representation uses
+ordered `RunnablePath` records; it is not a second routing authority in Meridian.
 
 **Why:** A model token like `gpt-5.5` may need to be `openai/gpt-5.5` when sent to OpenCode's HTTP API, but bare `gpt-5.5` for Codex. The canonical alias ID is the right handle for policy matching and user communication, but the harness command boundary needs the provider-prefixed form. Using the alias token uniformly sends the wrong string to harnesses that expect provider-prefixed IDs.
 
-**`ModelSelectionContext.harness_model_id`:** The resolved harness-specific model string threads from `resolve_policies()` through `LaunchContext` to `bind_launch_context()`. `context.py:bind_launch_context()` applies `harness_model_id` when building the harness subprocess command.
+**`ModelSelectionContext.harness_model_id`:** The resolved harness-specific model
+string threads through launch context. Adapters must project it wherever the
+native harness actually selects a model—subprocess argv, backend config, or a
+session API—not merely where a dry-run happens to display it.
+
+**Current #497 divergence:** At `4adeb355`, the OpenCode managed-primary path
+resolves and records the provider-qualified model correctly but loses it after
+switching from the dry-run's black-box command to `serve` + HTTP bootstrap +
+`attach`. Native OpenCode 1.18.29 rejects Meridian's flat session-create payload
+with HTTP 400; Meridian retries `{}`; and neither real child config nor argv
+selects the requested model. Correct nested session JSON alone did not fix the
+empty attached TUI, while projecting the requested model through
+`OPENCODE_CONFIG_CONTENT` did. The necessary repair therefore includes both the
+native config and session-protocol boundaries, plus honest managed-primary
+dry-run output. This is diagnosed current behavior, not a new approved design or
+a claim about every OpenCode version. Existing fake-backed tests currently
+assert the invalid payload and model-dropping fallback.
+
+Issue #74 recorded the earlier requested-versus-reported symptom and was closed
+by consolidation into #426, not by a fix. Issue #243 involved an earlier
+canonical/runnable-ID layer; the evidence does not prove that it had this exact
+managed-bootstrap cause.
+
+**Provenance for the current divergence:** `work:next-minor-planning`;
+`spawn:p6041`.
 
 **Alternatives rejected:**
 - Teach each harness adapter to do its own model-string transformation — puts transformation logic in the mechanism layer, not the policy layer. Fails when the same alias token maps to different provider paths across harnesses.

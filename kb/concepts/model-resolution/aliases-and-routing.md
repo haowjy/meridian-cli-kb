@@ -67,11 +67,33 @@ class ModelSelectionContext:
 `requested_token` preserves the original user input — important for `--dry-run`
 output that shows "you asked for X, resolved to Y via Z".
 
-`harness_model_id` is the string actually passed to the harness subprocess. It equals
-`canonical_model_id` for harnesses that use the canonical form, but diverges when
-`AliasEntry.runnable_paths` has a harness-specific entry (e.g. `openai/gpt-5.5` for
-OpenCode). Always use `harness_model_id` at the harness command boundary, never
-`canonical_model_id` directly.
+`harness_model_id` is the string that must be projected at the harness's effective
+native bootstrap boundary. It equals `canonical_model_id` for harnesses that use
+the canonical form, but can differ when the route has a harness-specific entry
+(for example `openai/gpt-5.5` for OpenCode). Always use `harness_model_id` at that
+boundary, never `canonical_model_id` directly. “Boundary” does not necessarily
+mean one subprocess argument: a managed primary may select its model through a
+backend config or session API before attaching a TUI.
+
+At `4adeb355`, managed OpenCode primaries violate this invariant even though
+resolution and Meridian's recorded selection are correct. The real topology is
+`opencode serve`, HTTP session creation, then `opencode attach`; neither child
+argv nor its config overlay carries the requested model. Against native OpenCode
+1.18.29, Meridian's flat `model`/`modelID` session payload receives HTTP 400 and
+the connection silently retries `{}`, erasing the requested model. The empty
+attached TUI then uses native config/default selection. In the isolated probe it
+selected `opencode-go/gpt-5.6-luna`; native message and runtime records confirmed
+the provider/model, while the tiny turn failed before generation with zero
+tokens.
+
+The same probe accepted the native nested session shape, but corrected session
+metadata alone did not change the empty attached TUI. Supplying the requested
+model through `OPENCODE_CONFIG_CONTENT` did. This establishes a missing managed
+config projection in addition to the malformed session payload and misleading
+black-box dry-run. It does not establish the behavior of every OpenCode version.
+Current fake-backed tests assert the invalid flat payload and `{}` fallback, so
+they encode the defect rather than the native contract. Issue #497 remains
+unfixed.
 
 In the bundle path, `harness_model_id` comes from `bundle_result.harness_model`
 returned by Mars; `harness_provenance` comes from the bundle provenance map

@@ -57,6 +57,29 @@ classification of quiet streams, active turns, in-flight requests, dead backend 
 and intentionally suppressed waits. Adapter code feeds it signals; callers consume
 its decisions.
 
+### OpenCode managed-primary model projection gap
+
+At `4adeb355`, the primary dry-run shows the adapter's black-box
+`opencode --model ...` command, but execution replaces it with a managed
+`opencode serve` backend, HTTP session creation, and `opencode attach`. Against
+native OpenCode 1.18.29, the managed session projector sends a flat
+`{"model":"provider/model","modelID":"provider/model"}` payload. The server
+returns HTTP 400 and the connection retries `{}`, silently dropping the requested
+model while Meridian state still records it.
+
+Neither managed child argv nor the generated OpenCode config contains the model,
+and `attach` has no model flag in the probed version. Native storage and runtime
+logs confirmed that the isolated attached TUI selected its default
+`opencode-go/gpt-5.6-luna`, not just a cosmetic Luna label. The attempted tiny
+turn failed before generation and used zero tokens. A schema-correct nested
+session model was accepted but did not change an empty attach; adding the model
+to `OPENCODE_CONFIG_CONTENT` did. Current tests fake success for the invalid
+payload and explicitly expect the `{}` fallback.
+
+Issue #497 is diagnosis-only: no adapter, test, or dry-run fix exists on this
+pin. The evidence establishes behavior for the pinned OpenCode 1.18.29 probe,
+not all native versions.
+
 ## Connection Death Diagnostics
 
 When a managed backend dies mid-turn, the connection must emit enriched

@@ -130,6 +130,37 @@ render_session_log(...)       # assemble output with navigation and hints
 
 **The anti-pattern avoided:** Truncating in the command layer (`session_log.py`) before handing off to the render layer would force the renderer to work with already-truncated strings. Typed `ToolCall` fields would be lost, tool collapsing would fall back to string parsing, and `clean_content` would operate on already-truncated raw XML.
 
+## Browser preview currently inherits exhaustive log work
+
+At `4adeb355`, browser preview reuses the complete addressable-log read path.
+The `tail=10` selection happens only after source resolution, full event decode,
+normalization, flattening, and grouping. It bounds interaction entries, not raw
+bytes or messages: 20,000 consecutive assistant messages form one entry, so all
+20,000 reach the renderer. Per-message truncation does not cap the number of
+messages rendered, and pane clipping happens only after the renderer has produced
+the list items. Those rendered list items are not necessarily physical terminal
+rows.
+
+The preview lane prevents an obsolete request from publishing, but it checks
+staleness only after parsing and rendering; obsolete work still delays the next
+request. Warm synthetic shape probes separated the costs: both 20,000-message
+fixtures spent about 190 ms in the ordinary read/group interval, while the
+assistant-only single-entry shape added about 687 ms of rendering and produced
+20,004 list items. These are ordinary wall-clock medians from a local fixture,
+not profiler timings, selection-to-visible measurements, terminal-row counts, or
+a native-TUI latency guarantee.
+
+Issue #495 remains diagnosis-only. A useful fast preview needs a bounded-content
+contract before decoding and expensive rendering, with cooperative cancellation
+and explicit omission semantics while reusing canonical normalization and tool
+rendering. A blanket oversized-source “preview unavailable” result is bounded
+work, but does not satisfy useful large-history preview. ZIP members also cannot
+publish partially consumed content as verified because their checksum is
+completed at EOF. No production fix or large-history performance claim has been
+established.
+
+**Provenance:** `work:next-minor-planning`; `spawn:p6043`.
+
 ---
 
 ## Related Pages

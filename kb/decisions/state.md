@@ -75,6 +75,17 @@ partial loose aggregate hiding the readable ZIP. One deterministic ZIP partial
 is owned per runtime under its archive lock; another runtime sharing the
 destination cannot clean it. ZIPs are not expired automatically.
 
+**Current #496 divergence:** The `4adeb355` implementation preserves those
+safety rules, but its exclusive reclaim interval includes a second full source
+hash and recursive retired-directory cleanup. A production-API contention probe
+measured unrelated writers waiting behind both size-dependent operations. The
+candidate correction is to carry an ephemeral exact witness with the existing
+fully hashed shared-lock capture, revalidate it and the complete protection
+closure before guarded durable retirement, then clean disposable retired bytes
+outside the root-exclusive gate. This is a measured repair direction, not an
+approved or verified implementation; it does not replace checksums with metadata
+checks and still requires concurrency, crash, and durability-error verification.
+
 Selective restore preserves the ZIP, remaps local aliases, and publishes inert
 historical records through a durable per-history plan and deterministic stage
 outside disposable spawn-stage GC. Ordinary failures clean extracted bytes but
@@ -109,6 +120,10 @@ power-loss coverage. No native harness was rerun for `4adeb355`; the prior
 synthetic default ZIP-search match is superseded only for default scope, not
 direct ZIP preview or explicit archive resolution. Final commands, logs, scope, performance measurements, and
 remaining #495/#496/#497 work are retained under
+`work:next-minor-planning/probes/root-cause-495.md`,
+`work:next-minor-planning/reviews/root-cause-495.md`,
+`work:next-minor-planning/probes/root-cause-496.md`,
+`work:next-minor-planning/probes/root-cause-497.md`, and
 `work:next-minor-planning/probes/followup/`,
 `work:next-minor-planning/probes/quality-fixes-runtime.md`, and
 `work:next-minor-planning/probes/native-tmux-final.md`.
@@ -123,7 +138,7 @@ remaining #495/#496/#497 work are retained under
 `DIVERGENCE/2026-09-14-remove-unused-log-identities.md`,
 `inputs/implementation-runtime-2026-09-14.md`; `chat:c5884`;
 `spawn:p6019`; `spawn:p6020`; `spawn:p6022`; `spawn:p6023`;
-`spawn:p6024`; `spawn:p6025`; `spawn:p6027`.
+`spawn:p6024`; `spawn:p6025`; `spawn:p6027`; `spawn:p6042`.
 
 ## State Layer
 

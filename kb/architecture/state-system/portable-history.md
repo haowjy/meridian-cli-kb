@@ -99,8 +99,27 @@ exclusive final check refuses to reclaim a dependency while any loose dependent
 —including one excluded by a limit or created after ZIP publication—still needs
 it. Aggregate retirement uses the existing atomic spawn-deletion seam before
 recursive cleanup, so cleanup failure cannot leave a partial loose record hiding
-the verified ZIP. Shortening the conservative exclusive window remains deferred
-under #496.
+the verified ZIP.
+
+At `4adeb355`, that safe reclaim path holds the root mutation gate exclusively
+while it repeats the complete source inventory and SHA-256 pass and while it
+recursively deletes the retired directory. A 10,001-file, 108,068,864-byte
+production-API probe measured a 786 ms exclusive interval: 472 ms in the rehash
+and 201 ms in recursive cleanup. Unrelated writers that ordinarily took about
+22 ms took 827 ms when started during hashing and 325 ms when started during
+cleanup, completing only after the exclusive gate was released. These durations
+include normal write work and lock polling; they establish contention rather than
+pure lock-wait time.
+
+Issue #496's smallest safe direction is proposed, not implemented or proven:
+bind the existing fully hashed shared-lock capture to an exact ephemeral
+membership/state/session witness, revalidate that witness plus current
+dependency, owner, and liveness protection under the exclusive gate, and keep
+only guarded durable atomic retirement there. Recursive cleanup can follow after
+exclusive release while the verified ZIP and prepared receipt preserve recovery.
+The witness detects change across the checksum-to-retirement interval; it must
+not replace byte verification. Implementation still needs interleaving, crash,
+and durability-error probes.
 
 The archive lock owns one deterministic destination partial per runtime.
 Ordinary failure removes it; same-runtime retry removes crash residue; another
@@ -159,7 +178,10 @@ run is separately pinned to immutable `dfb3fa73`: an actual Codex response,
 exit, loose preview, browse resume, automatic ZIP retention, ZIP preview/search,
 and repeat inert selective restore passed with the ZIP unchanged. Claude and Pi
 native turns were blocked by unavailable credentials, and the OpenCode
-requested-model/UI mismatch remains #497. These results are not exhaustive
+requested-model mismatch remains #497. A native OpenCode 1.18.29 probe established
+that the attached TUI selected the wrong provider/model, not merely the wrong
+label; the attempted tiny turn failed before generation with zero tokens. These
+results are not exhaustive
 all-function/all-harness, physical-device, or power-loss guarantees. No native
 harness was rerun for the browser flag. The earlier synthetic default ZIP-search
 match is superseded only for default scope; direct ZIP preview and explicit
@@ -167,10 +189,17 @@ archive-resolution evidence remain valid.
 
 On one generated 10,000-session authority, the actual browse-list function
 improved from a 200.18 ms median to 35.70 ms (about 5.6x). Preview still parses
-the full transcript: local warm medians were 14.98, 109.95, and 844.43 ms for
-100, 2,000, and 20,000 messages. Bounded preview parsing remains #495; the
-measurements are not general latency SLAs. Current commands, logs, scope, and
-limits live in `work:next-minor-planning/probes/followup/`,
+the full transcript before applying its entry tail. The earlier 14.98, 109.95,
+and 844.43 ms warm measurements for 100, 2,000, and 20,000 messages measured
+whole worker calls, not parsing alone or selection-to-visible latency. A later
+shape probe showed why message count and entry count differ: 20,000 consecutive
+assistant messages grouped into one returned entry and produced 20,004 rendered
+list items, whereas alternating roles returned ten one-message entries. Profiled
+timings are corroborating call-path evidence and must not replace ordinary
+wall-clock values; rendered list items are not necessarily terminal rows. Useful
+bounded large-history preview remains #495 with no implemented fix or general
+latency SLA. Current commands, logs, scope, and limits live in
+`work:next-minor-planning/probes/followup/`,
 `work:next-minor-planning/probes/quality-fixes-runtime.md`, and
 `work:next-minor-planning/probes/native-tmux-final.md`.
 
@@ -183,3 +212,4 @@ limits live in `work:next-minor-planning/probes/followup/`,
 
 **Provenance:** `work:next-minor-planning`; `spawn:p6019`; `spawn:p6020`;
 `spawn:p6022`; `spawn:p6023`; `spawn:p6024`; `spawn:p6025`; `spawn:p6027`.
+Root-cause follow-up: `spawn:p6041`; `spawn:p6042`; `spawn:p6043`.

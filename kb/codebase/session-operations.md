@@ -110,7 +110,11 @@ The interaction entries (1, 2, 3, …) within a segment are the turn-based conve
 
 ## Default Navigation Model
 
-Bare `meridian session log REF` applies safe defaults: **last 5 interaction entries from the current segment, shown oldest-to-newest (chronological)**. This is the right starting point for agents reading recent context — narrow enough to stay cheap, ordered correctly for understanding flow.
+Bare `meridian session log REF` defaults to **the last 5 interaction entries
+from the current segment, shown oldest-to-newest (chronological)**. This narrows
+the returned navigation window, not the underlying read work: at `4adeb355`, the
+source is fully decoded, normalized, flattened, and grouped before the tail is
+selected. One entry can contain arbitrarily many consecutive messages.
 
 ```bash
 meridian session log p107           # last 5 entries, current segment, chronological
@@ -156,6 +160,13 @@ All positional selectors are segment-local by default (operate within the select
 ## Content Truncation
 
 By default, oversized entries are preview-truncated (safe for reading in terminals and agents). Use `--no-truncate` to get full content for selected entries. `--no-truncate` combines with any navigation mode.
+
+This truncation is a presentation limit on each message's cleaned content. It
+does not bound source bytes, decoded messages, grouping, or the number of messages
+rendered inside an entry. Browser pane clipping likewise happens after rendering.
+Issue #495 tracks the still-unimplemented bounded-content preview contract; an
+oversized-source unavailable state alone is not the accepted substitute for a
+useful fast large-history preview.
 
 ## meridian session search
 
