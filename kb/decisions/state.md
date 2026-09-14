@@ -6,10 +6,9 @@ State-layer decisions cover how Meridian stores project identity, runtime state,
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
 
-**Status:** Settled intent, implemented on the unpushed
-`feat/history-storage-index` branch at `4859cc7b`. It is not on `main`, released,
-or approved for merge; shipped CLI documentation remains the current user-facing
-truth until that changes.
+**Status:** Settled intent with implementation and source-local documentation
+complete on the feature branch. It is not merged or released, so released CLI
+behavior remains unchanged.
 
 **Decision:** Retained transcripts are ordinary, independently readable and
 transferable files under Meridian's control. Those files, and ZIPs made from
@@ -71,10 +70,11 @@ index and archive retain them all.
 
 The mechanism and its boundaries are described in
 [Portable history](../architecture/state-system/portable-history.md). This KB
-records the settled target and branch convergence, not shipped behavior. The
-bounded ZIP/restore re-review approved the `4859cc7b` correction; an ordinary-CLI
-recheck was still pending at capture time, so the feature has no final readiness
-approval.
+records the settled target and branch convergence, not shipped behavior. Core/index
+and ZIP/restore review approved their complete lanes; ordinary CLI round-trip,
+direct read/export, and historical-mutation verification passed. Final commands,
+logs, and limits are retained under
+`work:next-minor-planning/probes/root-4859cc7b/`.
 
 **Provenance:** `work:next-minor-planning`, especially
 `design/overview.md`, `design/storage-architecture.md`,
@@ -85,7 +85,7 @@ approval.
 `DIVERGENCE/2026-09-14-dirty-source-protocol.md`, and
 `inputs/implementation-runtime-2026-09-14.md`; `chat:c5884`;
 `spawn:p6019`; `spawn:p6020`; `spawn:p6022`; `spawn:p6023`;
-`spawn:p6024`; `spawn:p6027`.
+`spawn:p6024`; `spawn:p6025`; `spawn:p6027`.
 
 ## State Layer
 

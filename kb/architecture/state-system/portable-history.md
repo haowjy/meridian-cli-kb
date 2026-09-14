@@ -107,23 +107,21 @@ local aliases, and only after raw validation. This prevents synthetic restore
 metadata from changing the portable digest or hiding an out-of-band authority
 change.
 
-## Implementation and evidence boundary
+## Delivery and evidence boundary
 
-The complete mechanism is implemented on the unpushed feature branch at
-`4859cc7b`; it is not on `main`, released, or approved for merge. The core/index
-lane was independently approved at `120b6d44`, and an isolated ordinary-CLI pass
-at that revision covered rebuild, archive, direct reads, archive search, restore,
-and archive→restore→archive identity preservation. The subsequent `4859cc7b`
-change corrects raw nullable session-authority validation; its bounded ZIP/restore
-re-review approved the correction. The ordinary-CLI recheck at that revision was
-still pending at capture time, so this is not final feature readiness approval.
+The mechanism and its source-local documentation are complete on the feature
+branch, but the feature is not merged or released. Independent review approved
+the core/index and ZIP/restore lanes. Isolated ordinary-CLI verification passed
+index rebuild, archive, direct log/export, restore, historical mutation rejection,
+and archive→restore→archive identity preservation.
 
-Recorded gates include a full run of 1,513 passed and 2 skipped at `120b6d44`,
-Ruff success, and Pyright with zero errors. Focused checks at `4859cc7b` reported
-66 passes and zero type errors. Real crash/restart, concurrent writer/projector,
-WAL-reader replacement, archive retirement, and restore-witness probes passed.
-They are production crash-boundary evidence, not guarantees for power loss,
-ENOSPC, network filesystems, or hardware failure.
+The final branch gate recorded 1,515 passed and 2 skipped, Ruff success, Pyright
+with zero errors, and a successful package build. Real crash/restart, concurrent
+writer/projector, WAL-reader replacement, archive retirement, and restore-witness
+probes also passed. These are production crash-boundary results, not guarantees
+for power loss, ENOSPC, network filesystems, or hardware failure. Current PR-phase
+commands, logs, and limits live in `work:next-minor-planning/probes/root-4859cc7b/`
+and `work:next-minor-planning/inputs/implementation-runtime-2026-09-14.md`.
 
 A synthetic 10,000-record metadata filter measured median scan 643.196 ms,
 indexed query 2.166 ms, and rebuild 3.412 s. It demonstrates the value of the
@@ -137,5 +135,4 @@ index on that corpus, not a general latency SLA.
 - [State decisions](../../decisions/state.md)
 
 **Provenance:** `work:next-minor-planning`; `spawn:p6019`; `spawn:p6020`;
-`spawn:p6022`; `spawn:p6023`; `spawn:p6024`; `spawn:p6027`; feature revisions
-`120b6d44` and `4859cc7b`.
+`spawn:p6022`; `spawn:p6023`; `spawn:p6024`; `spawn:p6025`; `spawn:p6027`.
