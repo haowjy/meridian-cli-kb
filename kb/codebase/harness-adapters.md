@@ -57,28 +57,27 @@ classification of quiet streams, active turns, in-flight requests, dead backend 
 and intentionally suppressed waits. Adapter code feeds it signals; callers consume
 its decisions.
 
-### OpenCode managed-primary model projection gap
+### OpenCode managed-primary model commitment
 
-At `4adeb355`, the primary dry-run shows the adapter's black-box
-`opencode --model ...` command, but execution replaces it with a managed
-`opencode serve` backend, HTTP session creation, and `opencode attach`. Against
-native OpenCode 1.18.29, the managed session projector sends a flat
-`{"model":"provider/model","modelID":"provider/model"}` payload. The server
-returns HTTP 400 and the connection retries `{}`, silently dropping the requested
-model while Meridian state still records it.
+Managed OpenCode execution uses `serve`, HTTP bootstrap, and `attach`; the
+black-box command is not its model-selection boundary. A fresh explicit model is
+projected into launch-local native config, then checked against the resolved
+primary agent and available model catalog. If that agent pins a conflicting
+model, the connection stops the still-uninitialized owned backend and restarts
+once with an override limited to that agent. It revalidates before creating the
+session and never edits user or project native config.
 
-Neither managed child argv nor the generated OpenCode config contains the model,
-and `attach` has no model flag in the probed version. Native storage and runtime
-logs confirmed that the isolated attached TUI selected its default
-`opencode-go/gpt-5.6-luna`, not just a cosmetic Luna label. The attempted tiny
-turn failed before generation and used zero tokens. A schema-correct nested
-session model was accepted but did not change an empty attach; adding the model
-to `OPENCODE_CONFIG_CONTENT` did. Current tests fake success for the invalid
-payload and explicitly expect the `{}` fallback.
+The native API uses different model shapes: session creation receives nested
+`{model: {id, providerID}}`, while prompt submission receives
+`{model: {modelID, providerID}}`. Rejection or ambiguous creation fails; there is
+no model-dropping `{}` retry. Later HTTP sends preserve the committed native
+agent/model/variant, explicitly including `default`; missing session fields fall
+back to the last committed user message rather than launch settings.
 
-Issue #497 is diagnosis-only: no adapter, test, or dry-run fix exists on this
-pin. The evidence establishes behavior for the pinned OpenCode 1.18.29 probe,
-not all native versions.
+The feature branch implements this boundary, but #497 final re-review and native
+verification are pending. In particular, an unsent TUI-local choice cannot be
+observed through HTTP, and GET followed by POST is not atomic against a concurrent
+TUI submission. Do not describe either limit as solved.
 
 ## Connection Death Diagnostics
 

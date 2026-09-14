@@ -75,25 +75,22 @@ boundary, never `canonical_model_id` directly. “Boundary” does not necessari
 mean one subprocess argument: a managed primary may select its model through a
 backend config or session API before attaching a TUI.
 
-At `4adeb355`, managed OpenCode primaries violate this invariant even though
-resolution and Meridian's recorded selection are correct. The real topology is
-`opencode serve`, HTTP session creation, then `opencode attach`; neither child
-argv nor its config overlay carries the requested model. Against native OpenCode
-1.18.29, Meridian's flat `model`/`modelID` session payload receives HTTP 400 and
-the connection silently retries `{}`, erasing the requested model. The empty
-attached TUI then uses native config/default selection. In the isolated probe it
-selected `opencode-go/gpt-5.6-luna`; native message and runtime records confirmed
-the provider/model, while the tiny turn failed before generation with zero
-tokens.
+For a managed OpenCode primary, commitment spans more than session metadata.
+Meridian applies an explicit provider-qualified model to launch-local native
+config, validates the resolved primary agent and available models, and creates
+the session with OpenCode's nested create shape. A conflicting native primary
+agent causes at most one owned backend restart with an override scoped to that
+agent. Remaining disagreement fails instead of silently choosing a default.
 
-The same probe accepted the native nested session shape, but corrected session
-metadata alone did not change the empty attached TUI. Supplying the requested
-model through `OPENCODE_CONFIG_CONTENT` did. This establishes a missing managed
-config projection in addition to the malformed session payload and misleading
-black-box dry-run. It does not establish the behavior of every OpenCode version.
-Current fake-backed tests assert the invalid flat payload and `{}` fallback, so
-they encode the defect rather than the native contract. Issue #497 remains
-unfixed.
+Continuation does not replay the launch model. Later HTTP prompts preserve the
+last committed native session or user-message agent/model/variant. An explicit
+default variant is material because omission can allow the native agent variant
+to win. Unsent TUI-local changes remain unobservable, and state observation plus
+prompt submission is not an atomic native operation.
+
+This is implemented on the feature branch, while #497 independent re-review and
+native verification remain pending. The contract is settled; the final evidence
+gate is not.
 
 In the bundle path, `harness_model_id` comes from `bundle_result.harness_model`
 returned by Mars; `harness_provenance` comes from the bundle provenance map

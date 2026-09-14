@@ -244,14 +244,13 @@ graph TD
 
 Two-phase context building is intentional: the preview context exists for `--dry-run` display; the runtime context drives actual execution with concrete paths.
 
-For an OpenCode primary at `4adeb355`, those phases also expose an unresolved
-topology mismatch. Dry-run displays the black-box `opencode --model ...` command,
-but real execution switches to managed `opencode serve`, HTTP session bootstrap,
-and `opencode attach`. Against pinned OpenCode 1.18.29, the real child argv and
-config omit the resolved model, the flat session payload receives HTTP 400, and
-the retry with `{}` discards it. The resulting empty attach selected a different
-native provider/model in the isolated probe. This is issue #497 current behavior,
-not a general claim about all OpenCode versions or an implemented repair.
+For an OpenCode primary, dry-run describes the actual managed sequence—serve,
+native inspection, HTTP bootstrap, and attach—rather than presenting a black-box
+command as execution truth. Fresh explicit models are committed through
+launch-local config and the native session API; a conflicting primary-agent model
+may cause one verified owned-backend replacement before session creation. Dry-run
+cannot claim a native-observed default or actual message model. This feature-branch
+implementation remains behind #497 final re-review and native verification.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 
