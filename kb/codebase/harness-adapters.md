@@ -209,7 +209,7 @@ base implementation's priority chain without modification.
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — resolved harness-model projection at the effective native boundary
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — project_content() semantic IR pattern
 - [../concepts/workspace-projection.md](../concepts/workspace-projection.md) — workspace root projection, Codex remote TUI attach, OpenCode env merging
-- [../decisions/launch-process-ownership.md](../decisions/launch-process-ownership.md#d-primary-approval) — D-primary-approval: managed-primary Codex approval routing design
+- [../decisions/launch.md](../decisions/launch.md#d-primary-approval-managed-primary-codex-approval-routing) — D-primary-approval: managed-primary Codex approval routing design
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
 - [../decisions/model-resolution.md](../decisions/model-resolution.md#d76-harness-specific-model-ids-via-runnablepath) — D76: harness-specific model projection
 - [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination
