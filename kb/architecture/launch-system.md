@@ -264,13 +264,16 @@ Codex authentication-status check.
 The workspace-projection contract is to preserve inherited OpenCode configuration
 and add only its workspace grants. Source `f56d8131` specifically rejects malformed
 or non-object inherited JSON rather than replacing it with an empty configuration
-before adapter validation. Independent review `p6072` found that current projection
-can still drop scalar permission denials and reorder last-match rules. It also found
-that static-alias lookup can refresh the catalog before the cache-only bundle
-request. These are current prelaunch divergences requiring remediation/re-review.
+before adapter validation. Independent review `p6072` found permission-preservation
+and static-alias-refresh defects. `p6080` approved the narrow permission repair
+against its pinned dirty source: scalar actions are normalized without losing
+last-match ordering, and unsupported shapes fail closed. That repair is not yet a
+final integrated commit. Static-alias lookup can still refresh the catalog before
+the cache-only bundle request and remains the active prelaunch divergence.
 A release-equivalent closeout passed the relevant cold dry-run, invalid/valid
 config, packaged Pi-extension, and cleanup cases on the pinned clean `f56d8131`
-wheel. Changes to reviewed prelaunch bytes require corresponding revalidation.
+wheel. Integrated changes to reviewed prelaunch bytes require corresponding
+revalidation.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 

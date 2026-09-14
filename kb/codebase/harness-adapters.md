@@ -89,8 +89,9 @@ it is not part of native model commitment.
 
 Later prelaunch source `f56d8131` rejects malformed or non-object inherited
 OpenCode configuration before native launch. Review `p6072` accepted that narrow
-change but found valid scalar/order-sensitive permission preservation and
-static-alias cache-only resolution still incomplete. Release-equivalent native/Pi
+change but found permission preservation and static-alias cache-only resolution
+incomplete. `p6080` approved the permission repair against pinned dirty source;
+the static-alias issue and final integration remain open. Release-equivalent native/Pi
 closeout passed for pinned `f56d8131`, including packaged Pi extension loading
 without fallback assets. Corrections to reviewed prelaunch bytes need re-review
 and corresponding runtime revalidation. The distinct
