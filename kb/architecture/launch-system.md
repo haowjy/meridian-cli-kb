@@ -262,18 +262,21 @@ setup may write, installed capability checks still occur, and Mars may perform a
 Codex authentication-status check.
 
 The workspace-projection contract is to preserve inherited OpenCode configuration
-and add only its workspace grants. Source `f56d8131` specifically rejects malformed
-or non-object inherited JSON rather than replacing it with an empty configuration
-before adapter validation. Independent review `p6072` found permission-preservation
-and static-alias-refresh defects. `p6080` approved the narrow permission repair
-against its pinned dirty source: scalar actions are normalized without losing
-last-match ordering, and unsupported shapes fail closed. That repair is not yet a
-final integrated commit. Static-alias lookup can still refresh the catalog before
-the cache-only bundle request and remains the active prelaunch divergence.
-A release-equivalent closeout passed the relevant cold dry-run, invalid/valid
-config, packaged Pi-extension, and cleanup cases on the pinned clean `f56d8131`
-wheel. Integrated changes to reviewed prelaunch bytes require corresponding
-revalidation.
+and add only its workspace grants. Source `f56d8131` rejects malformed or non-
+object inherited JSON rather than replacing it with an empty configuration.
+Commit `8377f0dc`, approved by `p6080`, preserves permission semantics: scalar
+actions become wildcard rules, native last-match order is retained, and unsupported
+shapes fail closed. Projected roots are placed last inside `external_directory`,
+but the inherited top-level block is not moved past a later global denial; forcing
+that move could weaken protection for unrelated paths.
+
+Commit `7a2c9b81`, approved by `p6083`, also carries dry-run's read-only choice
+through the existing static-alias list/cache path for fresh and snapshot policy
+resolution. `p6084` verified the current-source OpenCode full-CLI path made no
+catalog/network or native OpenCode invocation while normal inventory still
+refreshed. A release-equivalent native/Pi closeout remains separately pinned to
+the earlier clean `f56d8131` wheel; later focused evidence and broad source/build
+checks do not rewrite that historical artifact pin.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 

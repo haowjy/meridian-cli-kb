@@ -34,6 +34,21 @@ missing. `runnable_paths` is not a dict, and the entry has no
 `harness_model_id_for()` helper. The harness-specific model string used for a
 launch comes from `routing.harness_model` in the Mars launch bundle.
 
+## Read-only static inventory
+
+Dry-run does not use a second alias resolver. Its existing `models_readonly`
+choice reaches the same static `mars models list --json` path used by normal
+policy composition, adding `--no-refresh-models` for both fresh resolution and
+snapshot replay. Normal callers default to refresh-enabled behavior.
+
+`CatalogSession` keys its memoized alias map by the read-only boolean, and its
+operation-scoped `MarsResultCache` includes that boolean in the static-list key.
+Consequently a cache-only result or failure cannot poison a later normal lookup,
+and a normal result cannot masquerade as read-only. If cache-only listing cannot
+produce an inventory, the existing pinned `.mars/models-merged.json` fallback is
+used; automatic aliases that require Mars expansion remain unresolved. There is
+no error-triggered retry without the flag.
+
 ## Identity and Routing
 
 Model lookup establishes identity; Mars launch-policy resolution establishes a
@@ -47,7 +62,9 @@ Raw model IDs follow this same Mars path. There is no Python
 supply a required harness, Meridian fails rather than guessing from the model
 name.
 
-## ModelSelectionContext
+## Harness-Specific Model IDs
+
+### ModelSelectionContext
 
 After bundle resolution, the routing context is captured in a frozen
 `ModelSelectionContext`:

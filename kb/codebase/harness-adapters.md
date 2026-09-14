@@ -88,13 +88,14 @@ separate product gap is tracked in [#498 future work](../open-questions/future-w
 it is not part of native model commitment.
 
 Later prelaunch source `f56d8131` rejects malformed or non-object inherited
-OpenCode configuration before native launch. Review `p6072` accepted that narrow
-change but found permission preservation and static-alias cache-only resolution
-incomplete. `p6080` approved the permission repair against pinned dirty source;
-the static-alias issue and final integration remain open. Release-equivalent native/Pi
-closeout passed for pinned `f56d8131`, including packaged Pi extension loading
-without fallback assets. Corrections to reviewed prelaunch bytes need re-review
-and corresponding runtime revalidation. The distinct
+OpenCode configuration before native launch. Review `p6072`'s two subsequent
+findings are closed independently: committed permission repair `8377f0dc` was
+approved by `p6080`, and committed static-alias repair `7a2c9b81` was approved by
+`p6083` and passed current-source full-CLI runtime probe `p6084`. The alias repair
+uses the existing list/cache/fallback path with mode-isolated operation caches;
+it adds neither a resolver nor a live retry. Release-equivalent native/Pi closeout
+remains pinned to `f56d8131`, including packaged Pi extension loading without
+fallback assets. The distinct
 public-primary injection-control gap is tracked in
 [future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498).
 

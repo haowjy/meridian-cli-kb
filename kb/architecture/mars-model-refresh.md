@@ -135,17 +135,20 @@ See [mars-routing.md](mars-routing.md#routing-parity-pr-72).
 
 ## Meridian Impact
 
-Meridian's primary dry-run threads `--no-refresh-models` through its existing Mars
-launch-bundle request. Ordinary execution keeps Mars's live-enabled default. This
-cache-only flag suppresses model/probe refresh; it is not a universal no-subprocess
-mode, because harness-specific capability or authentication checks may still run.
+Meridian's primary dry-run threads `--no-refresh-models` through both its existing
+Mars launch-bundle request and the preceding static-alias inventory, including
+snapshot replay. Ordinary execution keeps Mars's live-enabled default. The
+read-only and normal alias results have separate keys in both operation-scoped
+caches, so a cache-only failure or fallback cannot suppress a later normal refresh.
+If cache-only listing is unavailable, the existing pinned
+`.mars/models-merged.json` fallback remains; no second resolver or live retry was
+added.
 
-At source checkpoint `f56d8131`, the earlier static-alias lookup still invokes
-`mars models list --json` without the dry-run refresh choice and can contact the
-catalog before the cache-only bundle request. Review `p6072` requested that the same
-read-only choice be threaded into this existing lookup rather than adding another
-resolver. Until that converges, do not describe all dry-run model resolution as
-offline or cache-only.
+The flag suppresses model/probe refresh; it is not a universal no-subprocess mode,
+because harness-specific capability or authentication checks may still run.
+Current full-CLI evidence establishes the no-native boundary only for the exercised
+OpenCode dry-run. Mars may still perform a Codex authentication-status check, and
+Meridian telemetry/root/static-cache setup means the whole CLI is not write-free.
 
 Operators who need deterministic or air-gapped behavior outside this path should
 still use Mars's `--no-refresh-models` / `MARS_OFFLINE=1` controls directly.
