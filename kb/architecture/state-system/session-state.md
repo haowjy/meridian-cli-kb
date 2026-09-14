@@ -3,9 +3,10 @@
 
 Sessions track harness session IDs, work-item attachment, primary-spawn relationships,
 and lifecycle (created → active → closed). `sessions.jsonl` is the sole authority
-for those facts. `sessions-index.sqlite3` is a metadata-only projection used for direct
-chat-ID reads, requested-subset reads, and bounded live-first pages of recent primary
-sessions; transcript summaries and full-text content are not part of the index.
+for those facts. `sessions-index.sqlite3` is a metadata-only projection used for
+direct chat-ID and requested-subset reads. Cross-record browse and history discovery
+use the separate disposable history index; transcript bodies and full-text content
+are in neither SQLite projection.
 
 `session_journal.py` certifies ordinary appends with a derived epoch in
 `sessions-append-state.json`. The certificate records source identity and file state,
@@ -23,13 +24,15 @@ that join; publication changes the generation, so a cached negative result canno
 a relationship that appears later. This aggregate owns the cross-store join and keeps
 the session and spawn persistence leaves from importing each other.
 
-Normal browse, preview, re-entry, and scoped-search paths use indexed session reads plus
-direct reads of recorded spawn rows. Legacy sessions without a recorded relationship
-may require one generation-aware batch scan. A recorded but unreadable relationship
-(missing primary row, wrong spawn kind, or wrong owning chat) is a separate exceptional
-case: transcript target resolution performs at most one batch-wide legacy scan so deep
-search can recover related histories. Readable recorded relationships never take that
-global-scan path.
+Normal browse uses the history index's recent-session view, which can include
+available ZIP and inert historical records. Preview and re-entry still resolve
+authoritative session/spawn facts before acting. Scoped search uses indexed
+associations to plan its corpus, then reads transcript authority. Legacy sessions
+without a recorded relationship may require one generation-aware batch scan. A
+recorded but unreadable relationship (missing primary row, wrong spawn kind, or wrong
+owning chat) is a separate exceptional case: transcript target resolution performs
+at most one batch-wide legacy scan so deep search can recover related histories.
+Readable recorded relationships never take that global-scan path.
 
 Session-ID counter (`session-id-counter`) is monotonically incremented under `platform.locking.lock_file()` so concurrent spawns never collide.
 
@@ -42,4 +45,5 @@ Per-session files under `sessions/<chat_id>/`:
 
 - [State system overview](overview.md) — state roots and subsystem map
 - [Spawn state](spawn-state.md) — per-spawn authority and artifact lifetime
+- [Portable history](portable-history.md) — cross-record discovery, exact identities, ZIP retention, and inert restore
 - [Reconciliation](reconciliation.md) — read-time projection and durable repair

@@ -6,11 +6,10 @@ State-layer decisions cover how Meridian stores project identity, runtime state,
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
 
-**Status:** Settled design intent. The first spawn-identity increment exists
-only on `feat/history-storage-index`; it is not released behavior, and the
-history index, transcript header, archive, and restore remain unimplemented.
-The current CLI behavior documented elsewhere in this KB remains main-branch
-truth.
+**Status:** Settled intent, implemented on the unpushed
+`feat/history-storage-index` branch at `4859cc7b`. It is not on `main`, released,
+or approved for merge; shipped CLI documentation remains the current user-facing
+truth until that changes.
 
 **Decision:** Retained transcripts are ordinary, independently readable and
 transferable files under Meridian's control. Those files, and ZIPs made from
@@ -42,80 +41,51 @@ locator-only retained-payload model. Database-file portability does not make a
 transcript an ordinary independently readable file, and a harness cleanup
 policy cannot own Meridian's promised retention lifetime.
 
-**Design status:** The design specifies the transcript envelope and capture
-boundary, a single ledger-backed file-to-index catch-up/rebuild path, and
-independently verified ZIP publication before fingerprint-gated reclaim. These
-are implementation contracts to validate, not claims about shipped behavior
-or immutable product requirements. The canonical entry point is
-`work:next-minor-planning/design/overview.md`.
+**Implementation shape:** The branch assigns UUID history identity before
+publication, preserves exact session generations and ancestry, keeps canonical
+JSONL append-only across retries, and projects files through durable per-source
+dirty markers. The production marker protocol replaces the proposed segmented
+ledger: one catch-up/rebuild projector captures a finite dirty set, commits the
+SQLite projection, and acknowledges only unchanged tokens. Writers never depend
+on SQLite, and no resident projector or FTS index was introduced.
 
-The current source has no SQLite history index. Its existing session metadata
-index is a separate projection, and `session_list_sync()` replays session
-records rather than providing the planned history-index foundation.
+ZIP retention uses the same settled safety boundary. Eligibility is opt-in and
+defaults to 30 days since defined last activity. Exact selection and member bytes
+are independently verified before reclaim. A prepared receipt precedes atomic
+retirement into disposable spawn staging, so failed cleanup cannot leave a
+partial loose aggregate hiding the readable ZIP. ZIPs are not expired
+automatically.
 
-**First identity increment (branch only, 2026-09-13):** Commit `73bda018` on
-`feat/history-storage-index` adds `history_id` and `state_revision` to spawn
-state. New records receive a UUID before staged publication and begin at
-revision 1. The locked repository alone advances the revision; mutators cannot
-replace either field, and reads or declined mutations do not write. Older rows
-remain readable without bulk migration and acquire identity on their next
-accepted mutation. This does not add a transcript header, session-log identity
-mapping, SQLite discovery, ZIP retention, archive reads, or restore.
+Selective restore preserves the ZIP, remaps local aliases, and publishes inert
+historical records through an interruption-safe plan. Slow checksums run outside
+the exclusive root gate; a revalidated POSIX metadata witness closes the
+checksum-to-publication gap. Raw exact session facts—including nullable identity
+fields and the absence of original session metadata—are validated before only
+the exported capsule is enriched with local aliases. Recapture therefore
+preserves portable identity instead of promoting synthetic restore facts.
 
-Review `spawn:p6009` approved this bounded increment. Full verification passed
-with 1,477 tests and 2 skips, Ruff clean, and Pyright at zero errors. An
-eight-process smoke test preserved one UUID and all 160 accepted increments,
-ending at revision 161.
+Chat IDs remain non-unique local aliases. Resuming one chat can produce multiple
+session generations and transcript aggregates, each with its own history UUID.
+Only recent-session presentation may collapse those generations; the history
+index and archive retain them all.
 
-**Alias cardinality correction (2026-09-13):** A chat ID is a local alias, not
-a transcript identity. Resuming the same chat can create another primary
-session generation and transcript aggregate, so two valid histories may share
-`c1` while retaining different `history_id` values. The planned unique chat
-constraint was rejected after a source-level probe reproduced the collision;
-the owning design now uses a non-unique chat lookup. Only the recent-session
-view may collapse generations to the newest row. Rebuild must retain every
-aggregate rather than replaying only the latest row per chat.
-
-**Source-study evidence (2026-09-13):** The current-source inventory at commit
-`66ab929f` confirmed that the history index, archive, and restore were absent
-at that baseline. The external evidence validates the overall direction, not a
-redesign or implementation approval.
-Codex keeps rollout
-JSONL authoritative, reconciles a SQLite projection in-process, and repairs
-from files, which supports file authority, a derived index, and no resident
-daemon. Its database is not wholly disposable, however: selected rollout
-paths and paginated metadata can be SQLite-only, so Meridian must not import
-that broader claim and instead keeps every essential indexed fact
-reconstructible from files or archives. See the pinned
-[Codex reconciliation code](https://github.com/openai/codex/blob/a44454656459437fc8e2ffa9eca0646537b1fdfd/codex-rs/rollout/src/state_db.rs#L518-L675).
-
-Restic's normal prune sequence verifies replacement coverage, publishes the
-replacement index, and only then reclaims old packs. That supports Meridian's
-publish-before-reclaim ordering and conservative retry posture, not restic's
-deduplication machinery or manual stale-lock recovery. See the pinned
-[restic prune path](https://github.com/restic/restic/blob/ba802d42b7294c98b62c16d1157ea3e80820c019/internal/repository/prune.go#L588-L676).
-
-The segmented change ledger remains the current canonical proposal. A
-dirty-marker prototype established that a per-source coalescing work queue may
-be sufficient for latest-authoritative-state projection, but review
-`spawn:p6008` did not approve production adoption. Marker capture and temporary
-residue, corruption/reset semantics, WAL-safe database replacement, active
-stream and complete writer integration, and realistic contention evidence are
-still required. Until those gates pass and the owning design is revised as one
-coherent change, the prototype is feasibility evidence—not a replacement for
-the canonical ledger or a history-completeness claim. No scope change was
-approved. Before implementation, the plan's historical-format accommodation
-should also be reconsidered against the repository's no-backward-compatibility
-policy rather than implemented by default.
+The mechanism and its boundaries are described in
+[Portable history](../architecture/state-system/portable-history.md). This KB
+records the settled target and branch convergence, not shipped behavior. The
+bounded ZIP/restore re-review approved the `4859cc7b` correction; an ordinary-CLI
+recheck was still pending at capture time, so the feature has no final readiness
+approval.
 
 **Provenance:** `work:next-minor-planning`, especially
 `design/overview.md`, `design/storage-architecture.md`,
 `design/derived-index.md`, `design/retention-archive.md`,
 `design/implementation-plan.md`, `requirements.md`, and
 `DIVERGENCE/2026-09-11-file-transcript-authority.md`,
-`DIVERGENCE/2026-09-13-chat-alias-cardinality.md`, and the 2026-09-13
-implementation/review checkpoints; `chat:c5884`; `spawn:p6008`;
-`spawn:p6009`.
+`DIVERGENCE/2026-09-13-chat-alias-cardinality.md`,
+`DIVERGENCE/2026-09-14-dirty-source-protocol.md`, and
+`inputs/implementation-runtime-2026-09-14.md`; `chat:c5884`;
+`spawn:p6019`; `spawn:p6020`; `spawn:p6022`; `spawn:p6023`;
+`spawn:p6024`; `spawn:p6027`.
 
 ## State Layer
 

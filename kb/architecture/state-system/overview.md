@@ -22,6 +22,9 @@ meridian.toml
   sessions.jsonl                    — session events
   sessions-append-state.json        — derived append-continuity certificate
   sessions-index.sqlite3            — rebuildable session metadata projection
+  history-index/                    — disposable cross-record discovery projection
+  history-archives/                 — ZIP receipts and private restore stages
+  locks/history-*.lock              — stable projection/mutation coordination
   session-id-counter · spawn-id-counter
   sessions/ · locks/
   spawns/
@@ -49,6 +52,7 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 
 - [Spawn state](spawn-state.md) — per-spawn rows, status transitions, publication lifetime, and legacy migration
 - [Session state](session-state.md) — authoritative session journal, index projection, and session files
+- [Portable history](portable-history.md) — transcript identity, dirty-source projection, verified ZIP retention, and inert restore
 - [Durability and locking](durability-and-locking.md) — atomic publication, lock semantics, and lock order
 - [Reconciliation](reconciliation.md) — read-time projections, explicit repair, and liveness checks
 - [State roots and work items](roots-and-work-items.md) — work-item store and project/runtime root resolution
