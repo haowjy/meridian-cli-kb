@@ -88,9 +88,9 @@ default variant is material because omission can allow the native agent variant
 to win. Unsent TUI-local changes remain unobservable, and state observation plus
 prompt submission is not an atomic native operation.
 
-This is implemented on the feature branch, while #497 independent re-review and
-native verification remain pending. The contract is settled; the final evidence
-gate is not.
+Core implementation `078d907a` is approved by `p6069`, and `p6060` completed its
+pinned native matrix. The contract is settled and implemented on the unreleased
+feature branch. Later prelaunch changes have separate gates.
 
 In the bundle path, `harness_model_id` comes from `bundle_result.harness_model`
 returned by Mars; `harness_provenance` comes from the bundle provenance map

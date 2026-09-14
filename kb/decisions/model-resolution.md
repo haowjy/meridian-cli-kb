@@ -301,8 +301,11 @@ can activate the selected agent's variant.
 
 The limits are part of the decision: unsent TUI-local state is not observable,
 and GET followed by POST is not atomic against a simultaneous TUI submission.
-The feature branch implements this contract, but independent re-review and native
-verification remain pending; implementation alone is not a passed #497 gate.
+Core implementation `078d907a` is approved by `p6069` against the pinned
+`opencode_http.py` hash, and `p6060` completed the separately scoped native
+matrix. Later full-CLI prelaunch changes at `f56d8131` have their own independent
+review and release-equivalent native-closeout gates; their status does not reopen
+the approved native commitment decision.
 
 Issue #74 recorded the earlier requested-versus-reported symptom and was closed
 by consolidation into #426, not by a fix. Issue #243 involved an earlier
@@ -311,8 +314,10 @@ managed-bootstrap cause.
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
-`work:next-minor-planning/reviews/497-implementation.md`; diagnosis
-`spawn:p6041`; pending gates `spawn:p6063` and `spawn:p6060`.
+`work:next-minor-planning/reviews/497-implementation.md`;
+`work:next-minor-planning/reviews/497-approved.md`;
+`work:next-minor-planning/probes/followup-497-native/REPORT.md`; diagnosis
+`spawn:p6041`; core approval `spawn:p6069`; native matrix `spawn:p6060`.
 
 **Alternatives rejected:**
 - Teach each harness adapter to do its own model-string transformation — puts transformation logic in the mechanism layer, not the policy layer. Fails when the same alias token maps to different provider paths across harnesses.

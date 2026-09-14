@@ -74,10 +74,21 @@ no model-dropping `{}` retry. Later HTTP sends preserve the committed native
 agent/model/variant, explicitly including `default`; missing session fields fall
 back to the last committed user message rather than launch settings.
 
-The feature branch implements this boundary, but #497 final re-review and native
-verification are pending. In particular, an unsent TUI-local choice cannot be
-observed through HTTP, and GET followed by POST is not atomic against a concurrent
-TUI submission. Do not describe either limit as solved.
+Core implementation `078d907a` is approved by `p6069`; the matching adapter hash
+is pinned in the review and `p6060` native report. That matrix verified the
+explicit conflict/replacement path, model-less launch, continuation, a committed
+native switch, unavailable-model failure, and exercised cleanup. An unsent
+TUI-local choice still cannot be observed through HTTP, and GET followed by POST
+is not atomic against a concurrent TUI submission.
+
+Adapter-level injection correctness is not public-primary CLI coverage. The
+managed primary currently exposes no live control endpoint to `spawn inject`, so
+the public command cannot reach the HTTP projector while the TUI is running. That
+separate product gap is tracked by #498; it is not part of native model commitment.
+
+Later prelaunch source `f56d8131` rejects malformed or non-object inherited
+OpenCode configuration before native launch. Its independent review and a
+release-equivalent native/Pi closeout remain separate pending gates.
 
 ## Connection Death Diagnostics
 

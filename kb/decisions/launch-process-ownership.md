@@ -8,13 +8,13 @@ reconciliation, cancellation, and cleanup.
 | Concern | Status | Canonical mechanism |
 |---|---|---|
 | Managed-primary passive reaping | Current | [Managed-primary lifecycle](../architecture/managed-primary-lifecycle.md) |
-| Managed connection startup/stop ownership | Intended; feature implementation pending final verification | [Managed-primary lifecycle](../architecture/managed-primary-lifecycle.md) |
+| Managed connection startup/stop ownership | Approved on feature branch; unreleased | [Managed-primary lifecycle](../architecture/managed-primary-lifecycle.md) |
 | Process-scope ownership and containment | Current | [Process scope](../architecture/process-scope.md) |
 | Codex interactive approval routing | Current | [Launch architecture](../architecture/launch-system.md) |
 
 ### D-managed-startup-gate: Startup, stop, and cleanup have one owner
 
-*2026-09-14; #497 feature branch, final verification pending*
+*2026-09-14; approved core implementation `078d907a`, unreleased*
 
 **Decided:** The existing managed-connection lifecycle gate spans initial process
 publication through connected state. Concurrent stop waits for startup or failure
@@ -38,8 +38,10 @@ open or introduces competing ownership.
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
-`work:next-minor-planning/reviews/497-implementation.md`; pending gates
-`spawn:p6063` and `spawn:p6060`.
+`work:next-minor-planning/reviews/497-implementation.md`;
+`work:next-minor-planning/reviews/497-approved.md`;
+`work:next-minor-planning/probes/followup-497-native/REPORT.md`; core approval
+`spawn:p6069`; native matrix `spawn:p6060`.
 
 ---
 

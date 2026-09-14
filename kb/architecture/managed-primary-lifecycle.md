@@ -61,9 +61,9 @@ call, but it is not another runtime and cannot initiate another attempt.
 
 This reuses the connection's existing lifecycle, stop lock, and durable process
 scope. A second task runtime or replacement-only lock was rejected: either would
-create another owner without closing the initial-publication race. The feature
-branch implements this contract for #497; final independent re-review and native
-verification remain pending.
+create another owner without closing the initial-publication race. Core
+implementation `078d907a` is approved by `p6069`; `p6060` exercised the native
+replacement and normal cleanup paths. The feature remains unreleased.
 
 ---
 

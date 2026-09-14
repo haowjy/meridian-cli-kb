@@ -249,8 +249,22 @@ native inspection, HTTP bootstrap, and attach—rather than presenting a black-b
 command as execution truth. Fresh explicit models are committed through
 launch-local config and the native session API; a conflicting primary-agent model
 may cause one verified owned-backend replacement before session creation. Dry-run
-cannot claim a native-observed default or actual message model. This feature-branch
-implementation remains behind #497 final re-review and native verification.
+cannot claim a native-observed default or actual message model. Core implementation
+`078d907a` is approved by `p6069`, with native matrix evidence from `p6060`.
+
+Dry-run preparation sends installed Mars's existing `--no-refresh-models` option
+through the ordinary bundle request instead of adding another resolver. Catalog
+routing may read static caches and check installed capability, but it must not run
+a native availability executable, create an OpenCode database/session, materialize
+private instructions, or start a managed backend merely to describe the launch.
+This is not a promise that the CLI is write-free: root, telemetry, and static-cache
+setup may still write.
+
+Workspace projection preserves inherited OpenCode configuration as an object and
+adds only its workspace grants. Malformed or non-object inherited JSON is rejected,
+not silently replaced with an empty configuration before adapter validation. These
+full-CLI prelaunch changes are implemented at `f56d8131`; independent review and
+release-equivalent native/Pi closeout remain pending.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 
