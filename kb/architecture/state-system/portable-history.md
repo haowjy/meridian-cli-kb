@@ -148,8 +148,11 @@ reported retention, resolver, error-boundary, staging, and exact-control defects
 The `6c3249c4` checkpoint gate recorded 1,522 passed and 2 skipped with 10
 warnings, Ruff and build success, and Pyright with zero errors and 34 warnings.
 For `4adeb355`, the red-before-fix policy regression plus 43 focused tests, Ruff,
-and Pyright with zero errors passed; its full pre-push and independent review/
-runtime verdicts were still pending at capture time. Production
+and Pyright with zero errors passed. Its full pre-push recorded 1,524 passed, 2
+skipped, and 10 warnings with a successful build. Independent bounded review
+approved with no findings, and immutable-wheel tmux verification passed the
+default/opt-in scope, ZIP preview/listing, resize, and plain/bare-continue paths.
+CI was still pending at capture time. Production
 process-death, shared-destination, restore-publication, rebuild-lock/stage,
 dependency-order, SQLite failure, and I/O retry probes passed. The final native
 run is separately pinned to immutable `dfb3fa73`: an actual Codex response,

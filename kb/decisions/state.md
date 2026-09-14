@@ -98,8 +98,10 @@ quality-fix checkpoint is pinned at `6c3249c4`, followed by guidance-only
 checkpoint suite recorded 1,522 passed, 2 skipped and 10 warnings; Ruff/build
 passed and Pyright reported zero errors. The final correction passed its
 red-before-fix regression, 43 focused tests, Ruff, and Pyright with zero errors;
-its full pre-push and independent review/runtime verdicts were pending at capture
-time. Follow-up production probes
+its full pre-push recorded 1,524 passed, 2 skipped and 10 warnings with a
+successful build. Independent bounded review approved with no findings, and the
+immutable-wheel tmux probe passed default and opt-in scope while preserving ZIP
+listing/preview. CI was still pending at capture time. Follow-up production probes
 closed the reproduced retention, resolver, failure-boundary, staging, and exact
 control-path findings. Native lifecycle evidence is separately pinned to
 immutable `dfb3fa73`; it covers Codex, not every harness, and does not establish
