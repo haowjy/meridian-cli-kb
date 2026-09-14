@@ -56,14 +56,28 @@ generation before discarding damaged coordination and rescanning authority.
 The index stores metadata, aliases, relationships, work/session projections,
 and independently addressable loose or ZIP locations—not transcript bodies.
 Lifecycle, dependency, reclaim, and conflict decisions re-read authoritative
-files or verified ZIP members. Deleting `history-index/` while a runtime is
-stopped loses acceleration only; deleting lock identities is unsafe.
+files or verified ZIP members. Exact launch/control references recover launch
+policy, native identity, and primary/Pi ownership from session/spawn files even
+for an unlinked primary; a damaged discovery database cannot block that known
+reference. Deleting `history-index/` while a runtime is stopped loses
+acceleration only; deleting lock identities is unsafe.
 
 Discovery operations share one deadline across corpus preparation, lock waits,
 database work, and content scanning. Exhaustion produces an explicitly incomplete
 result. Confirmed loose-file matches survive exhaustion. ZIP-member matches are
 withheld until that member's checksum completes; confirmed matches from earlier
-members survive.
+members survive. SQLite and coordination failures likewise return explicit
+errors with `complete=false` rather than escaping or presenting an empty result
+as complete. Browse subset search uses the same canonical target resolver as
+preview and ordinary search, so a listed loose or ZIP record does not enter a
+second selection path.
+
+Rebuild uses one rollback-journal stage owned by the per-runtime catch-up lock.
+The owner removes its own crash residue before rebuilding and cleans the stage
+and journal on ordinary failure without touching the published database or
+unrelated files. Session and archive-catalog projection use their authoritative
+logs plus cursor/receipt and dirty-generation evidence; no write-only log
+identity sidecars are maintained.
 
 ## ZIP publication and reclaim
 
@@ -75,10 +89,21 @@ threshold but not active-session and dependency protection.
 Archive publication computes an exact member inventory, writes the ZIP, and then
 independently verifies both the selected records and their bytes. Publication
 does not itself delete loose data. Reclaim requires the current source fingerprint
-to match, persists a prepared receipt, and atomically retires the aggregate into
-the existing disposable spawn staging area before recursive cleanup. A cleanup
-failure can therefore leave staging residue, but it cannot leave a partial loose
-record hiding the verified ZIP.
+to match and persists a prepared receipt before retirement. Selection orders
+dependents before their dependencies before applying record/byte limits. The
+exclusive final check refuses to reclaim a dependency while any loose dependent
+—including one excluded by a limit or created after ZIP publication—still needs
+it. Aggregate retirement uses the existing atomic spawn-deletion seam before
+recursive cleanup, so cleanup failure cannot leave a partial loose record hiding
+the verified ZIP. Shortening the conservative exclusive window remains deferred
+under #496.
+
+The archive lock owns one deterministic destination partial per runtime.
+Ordinary failure removes it; same-runtime retry removes crash residue; another
+runtime sharing the destination cannot remove it. A restore has a durable
+per-history plan and deterministic extraction stage outside disposable spawn
+stage GC. Ordinary restore failure cleans extracted bytes but retains the plan,
+and retry cleans only that plan's crash residue before continuing.
 
 The catalog records snapshots and physical locations separately. The selected
 portable digest determines current content; another location is interchangeable
@@ -110,22 +135,30 @@ change.
 ## Delivery and evidence boundary
 
 The mechanism and its source-local documentation are complete on the feature
-branch, but the feature is not merged or released. Independent review approved
-the core/index and ZIP/restore lanes. Isolated ordinary-CLI verification passed
-index rebuild, archive, direct log/export, restore, historical mutation rejection,
-and archive→restore→archive identity preservation.
+branch (`6c3249c4` runtime, followed by guidance-only `8e8f588f`), but the feature
+is not merged or released. Independent review approved the earlier core/index
+and ZIP/restore lanes; follow-up reproduction and regression probes closed the
+reported retention, resolver, error-boundary, staging, and exact-control defects.
 
-The final branch gate recorded 1,515 passed and 2 skipped, Ruff success, Pyright
-with zero errors, and a successful package build. Real crash/restart, concurrent
-writer/projector, WAL-reader replacement, archive retirement, and restore-witness
-probes also passed. These are production crash-boundary results, not guarantees
-for power loss, ENOSPC, network filesystems, or hardware failure. Current PR-phase
-commands, logs, and limits live in `work:next-minor-planning/probes/root-4859cc7b/`
-and `work:next-minor-planning/inputs/implementation-runtime-2026-09-14.md`.
+The final branch gate recorded 1,522 passed and 2 skipped with 10 warnings,
+Ruff and build success, and Pyright with zero errors and 34 warnings. Production
+process-death, shared-destination, restore-publication, rebuild-lock/stage,
+dependency-order, SQLite failure, and I/O retry probes passed. The final native
+run is separately pinned to immutable `dfb3fa73`: an actual Codex response,
+exit, loose preview, browse resume, automatic ZIP retention, ZIP preview/search,
+and repeat inert selective restore passed with the ZIP unchanged. Claude and Pi
+native turns were blocked by unavailable credentials, and the OpenCode
+requested-model/UI mismatch remains #497. These results are not exhaustive
+all-function/all-harness, physical-device, or power-loss guarantees.
 
-A synthetic 10,000-record metadata filter measured median scan 643.196 ms,
-indexed query 2.166 ms, and rebuild 3.412 s. It demonstrates the value of the
-index on that corpus, not a general latency SLA.
+On one generated 10,000-session authority, the actual browse-list function
+improved from a 200.18 ms median to 35.70 ms (about 5.6x). Preview still parses
+the full transcript: local warm medians were 14.98, 109.95, and 844.43 ms for
+100, 2,000, and 20,000 messages. Bounded preview parsing remains #495; the
+measurements are not general latency SLAs. Current commands, logs, scope, and
+limits live in `work:next-minor-planning/probes/followup/`,
+`work:next-minor-planning/probes/quality-fixes-runtime.md`, and
+`work:next-minor-planning/probes/native-tmux-final.md`.
 
 ## Related
 

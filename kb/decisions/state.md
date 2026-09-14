@@ -46,17 +46,36 @@ JSONL append-only across retries, and projects files through durable per-source
 dirty markers. The production marker protocol replaces the proposed segmented
 ledger: one catch-up/rebuild projector captures a finite dirty set, commits the
 SQLite projection, and acknowledges only unchanged tokens. Writers never depend
-on SQLite, and no resident projector or FTS index was introduced.
+on SQLite, and no resident projector or FTS index was introduced. Session and
+catalog projection use authoritative logs plus cursor/receipt and dirty-generation
+evidence; the proposed write-only log identity sidecars were removed rather than
+given artificial readers.
+
+Discovery uses one canonical target resolver for ordinary and browse-subset
+search. SQLite or coordination failure is surfaced as an error with
+`complete=false`, retaining confirmed results from healthy scopes. Exact
+launch/control references are a different boundary: launch policy, native ID,
+and primary/Pi owner recovery read authoritative session/spawn files, including
+when a primary has no recorded spawn link.
+
+Rebuild staging is owned by the per-runtime catch-up lock. Retry removes only
+its known stage/journal residue, and ordinary failure cleans it without changing
+the published database.
 
 ZIP retention uses the same settled safety boundary. Eligibility is opt-in and
 defaults to 30 days since defined last activity. Exact selection and member bytes
-are independently verified before reclaim. A prepared receipt precedes atomic
-retirement into disposable spawn staging, so failed cleanup cannot leave a
-partial loose aggregate hiding the readable ZIP. ZIPs are not expired
-automatically.
+are independently verified before reclaim. Dependents are ordered before their
+dependencies before bundle limits; the final exclusive check also blocks a
+dependency while any loose dependent remains. A prepared receipt precedes the
+existing atomic aggregate-retirement seam, so failed cleanup cannot leave a
+partial loose aggregate hiding the readable ZIP. One deterministic ZIP partial
+is owned per runtime under its archive lock; another runtime sharing the
+destination cannot clean it. ZIPs are not expired automatically.
 
 Selective restore preserves the ZIP, remaps local aliases, and publishes inert
-historical records through an interruption-safe plan. Slow checksums run outside
+historical records through a durable per-history plan and deterministic stage
+outside disposable spawn-stage GC. Ordinary failures clean extracted bytes but
+retain retry intent. Slow checksums run outside
 the exclusive root gate; a revalidated POSIX metadata witness closes the
 checksum-to-publication gap. Raw exact session facts—including nullable identity
 fields and the absence of original session metadata—are validated before only
@@ -70,11 +89,18 @@ index and archive retain them all.
 
 The mechanism and its boundaries are described in
 [Portable history](../architecture/state-system/portable-history.md). This KB
-records the settled target and branch convergence, not shipped behavior. Core/index
-and ZIP/restore review approved their complete lanes; ordinary CLI round-trip,
-direct read/export, and historical-mutation verification passed. Final commands,
-logs, and limits are retained under
-`work:next-minor-planning/probes/root-4859cc7b/`.
+records the settled target and branch convergence, not shipped behavior. The
+runtime implementation is pinned at `6c3249c4`; `8e8f588f` changes source-local
+guidance only. The final suite recorded 1,522 passed, 2 skipped and 10 warnings;
+Ruff/build passed and Pyright reported zero errors. Follow-up production probes
+closed the reproduced retention, resolver, failure-boundary, staging, and exact
+control-path findings. Native lifecycle evidence is separately pinned to
+immutable `dfb3fa73`; it covers Codex, not every harness, and does not establish
+power-loss coverage. Final commands, logs, scope, performance measurements, and
+remaining #495/#496/#497 work are retained under
+`work:next-minor-planning/probes/followup/`,
+`work:next-minor-planning/probes/quality-fixes-runtime.md`, and
+`work:next-minor-planning/probes/native-tmux-final.md`.
 
 **Provenance:** `work:next-minor-planning`, especially
 `design/overview.md`, `design/storage-architecture.md`,
@@ -83,6 +109,7 @@ logs, and limits are retained under
 `DIVERGENCE/2026-09-11-file-transcript-authority.md`,
 `DIVERGENCE/2026-09-13-chat-alias-cardinality.md`,
 `DIVERGENCE/2026-09-14-dirty-source-protocol.md`, and
+`DIVERGENCE/2026-09-14-remove-unused-log-identities.md`,
 `inputs/implementation-runtime-2026-09-14.md`; `chat:c5884`;
 `spawn:p6019`; `spawn:p6020`; `spawn:p6022`; `spawn:p6023`;
 `spawn:p6024`; `spawn:p6025`; `spawn:p6027`.
