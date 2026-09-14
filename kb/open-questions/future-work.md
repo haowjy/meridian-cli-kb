@@ -8,6 +8,31 @@ Items are organized by domain.
 
 ## Chat Backend
 
+### Live primary injection control endpoint (#498)
+
+**Where:** managed primary launch/attach and `spawn inject` control routing.
+
+**The issue:** OpenCode's connection adapter can project a later HTTP prompt using
+the committed native agent/model/variant, but a running native primary TUI does
+not expose a public control endpoint to `spawn inject`. A native probe therefore
+could not reach the adapter path while the primary was live; it failed after the
+primary ended. This is an endpoint/ownership gap, not evidence that model
+projection reset the native choice.
+
+**Boundary:** #498 owns any public primary control surface. Do not hide that work
+inside #497 or claim public-primary injection coverage from adapter-level tests.
+Unsent TUI-local choices remain unobservable, and GET followed by POST remains
+non-atomic against simultaneous native submission.
+
+**Related:** [OpenCode managed-primary model commitment](../codebase/harness-adapters.md#opencode-managed-primary-model-commitment)
+documents the adapter-level boundary; [launch-system.md](../architecture/launch-system.md)
+documents primary launch composition.
+
+**Provenance:** `work:next-minor-planning/probes/followup-497-native/REPORT.md`;
+`spawn:p6060`.
+
+---
+
 ### Scoped Nested Chat Runtime Roots {#scoped-nested-chat-runtime-roots}
 
 **Where:** `src/meridian/lib/chat/runtime.py` — `recover_all()` / `list_chats()`, `cli/chat_cmd.py` — runtime root construction

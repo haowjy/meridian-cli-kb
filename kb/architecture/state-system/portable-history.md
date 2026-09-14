@@ -145,9 +145,9 @@ conflicts instead of being overwritten.
 Retention commits `a8592210` and `80c37741` and preview commit `c44a3e81` plus the
 observed-size/UI follow-up are approved on the feature branch. They are not released.
 Core OpenCode work tracked alongside them is approved at `078d907a`, and its
-separately scoped native matrix is complete. Later full-CLI prelaunch and
-release-equivalent native/Pi closeout gates remain pending; they do not change the
-portable-history decisions on this page.
+separately scoped native matrix is complete. Release-equivalent native/Pi closeout
+passed for pinned `f56d8131`; later prelaunch corrections and their revalidation do
+not change the portable-history decisions on this page.
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;

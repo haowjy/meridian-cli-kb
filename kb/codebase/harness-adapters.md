@@ -84,11 +84,18 @@ is not atomic against a concurrent TUI submission.
 Adapter-level injection correctness is not public-primary CLI coverage. The
 managed primary currently exposes no live control endpoint to `spawn inject`, so
 the public command cannot reach the HTTP projector while the TUI is running. That
-separate product gap is tracked by #498; it is not part of native model commitment.
+separate product gap is tracked in [#498 future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498);
+it is not part of native model commitment.
 
 Later prelaunch source `f56d8131` rejects malformed or non-object inherited
-OpenCode configuration before native launch. Its independent review and a
-release-equivalent native/Pi closeout remain separate pending gates.
+OpenCode configuration before native launch. Review `p6072` accepted that narrow
+change but found valid scalar/order-sensitive permission preservation and
+static-alias cache-only resolution still incomplete. Release-equivalent native/Pi
+closeout passed for pinned `f56d8131`, including packaged Pi extension loading
+without fallback assets. Corrections to reviewed prelaunch bytes need re-review
+and corresponding runtime revalidation. The distinct
+public-primary injection-control gap is tracked in
+[future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498).
 
 ## Connection Death Diagnostics
 

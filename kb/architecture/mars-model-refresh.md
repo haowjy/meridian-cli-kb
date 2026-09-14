@@ -135,10 +135,20 @@ See [mars-routing.md](mars-routing.md#routing-parity-pr-72).
 
 ## Meridian Impact
 
-Meridian does not set Mars refresh flags today. Operators who need deterministic or
-air-gapped behavior should run `mars build launch-bundle` (or `mars sync`) with
-`--no-refresh-models` / `MARS_OFFLINE=1` **before** spawn, or upgrade the Mars binary
-Meridian invokes.
+Meridian's primary dry-run threads `--no-refresh-models` through its existing Mars
+launch-bundle request. Ordinary execution keeps Mars's live-enabled default. This
+cache-only flag suppresses model/probe refresh; it is not a universal no-subprocess
+mode, because harness-specific capability or authentication checks may still run.
+
+At source checkpoint `f56d8131`, the earlier static-alias lookup still invokes
+`mars models list --json` without the dry-run refresh choice and can contact the
+catalog before the cache-only bundle request. Review `p6072` requested that the same
+read-only choice be threaded into this existing lookup rather than adding another
+resolver. Until that converges, do not describe all dry-run model resolution as
+offline or cache-only.
+
+Operators who need deterministic or air-gapped behavior outside this path should
+still use Mars's `--no-refresh-models` / `MARS_OFFLINE=1` controls directly.
 
 Stale Mars without probe support still produces bundles without `candidate_slugs`;
 current Mars (≥0.6.4) bakes Cursor effort into **`routing.harness_model`** at build

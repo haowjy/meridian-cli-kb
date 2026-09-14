@@ -211,7 +211,7 @@ Tracked uncertainties, deferred work, and known future cleanup.
 - [open-questions/overview.md](open-questions/overview.md) — Open questions domain overview and deferred-work map
 - [open-questions/mars-feature-gaps.md](open-questions/mars-feature-gaps.md) — Known Mars capability gaps: permissions, tools, MCP integration, hook materialization (as of April 2026)
 - [open-questions/process-scope.md](open-questions/process-scope.md) — Process-scope cleanup follow-ups: dead-wrapper/live-child escapes and metadata-only lifecycle projection
-- [open-questions/future-work.md](open-questions/future-work.md) — Deferred items by domain: Jupyter Workbench structural follow-ups, decision follow-ups, longer-horizon design questions
+- [open-questions/future-work.md](open-questions/future-work.md) — Deferred items by domain, including the separate #498 live-primary injection-control gap, Jupyter Workbench structural follow-ups, decision follow-ups, and longer-horizon design questions
 
 ---
 

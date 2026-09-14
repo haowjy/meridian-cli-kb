@@ -253,19 +253,24 @@ cannot claim a native-observed default or actual message model. Core implementat
 `078d907a` is approved by `p6069`, with native matrix evidence from `p6060`.
 
 Dry-run preparation sends installed Mars's existing `--no-refresh-models` option
-through the ordinary bundle request instead of adding another resolver. Catalog
-routing may read static caches and check installed capability, but it must not run
-a native availability executable, create an OpenCode database/session, materialize
-private instructions, or start a managed backend merely to describe the launch.
-This is not a promise that the CLI is write-free: root, telemetry, and static-cache
-setup may still write.
+through the ordinary bundle request instead of adding another resolver. For the
+exercised OpenCode path, the cold CLI did not run a native availability executable,
+create an OpenCode database/session, materialize private instructions, or start a
+managed backend merely to describe the launch. This is not a promise that the CLI
+is write-free or universally subprocess-free: root, telemetry, and static-cache
+setup may write, installed capability checks still occur, and Mars may perform a
+Codex authentication-status check.
 
 The workspace-projection contract is to preserve inherited OpenCode configuration
 and add only its workspace grants. Source `f56d8131` specifically rejects malformed
 or non-object inherited JSON rather than replacing it with an empty configuration
-before adapter validation. The broader preserved-config behavior remains inside
-the pending independent prelaunch review; release-equivalent native/Pi closeout is
-also pending.
+before adapter validation. Independent review `p6072` found that current projection
+can still drop scalar permission denials and reorder last-match rules. It also found
+that static-alias lookup can refresh the catalog before the cache-only bundle
+request. These are current prelaunch divergences requiring remediation/re-review.
+A release-equivalent closeout passed the relevant cold dry-run, invalid/valid
+config, packaged Pi-extension, and cleanup cases on the pinned clean `f56d8131`
+wheel. Changes to reviewed prelaunch bytes require corresponding revalidation.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 
@@ -516,4 +521,5 @@ ops/spawn/execute.py
 - [../codebase/harness-adapters.md](../codebase/harness-adapters.md) — per-harness adapter notes
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn lifecycle mental model
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection
+- [mars-model-refresh.md](mars-model-refresh.md) — Mars catalog/probe refresh controls used by dry-run bundle preparation
 - [pi-lifecycle.md](pi-lifecycle.md) — Pi's quiescence-based completion model and extension architecture
