@@ -44,6 +44,29 @@ for Claude and for normal child spawns.
 
 ---
 
+## Startup, stop, and failure cleanup share one ownership gate
+
+A managed connection owns startup from the first process-publication boundary
+through connected-state publication. `stop()` waits for startup or its cleanup to
+settle before acknowledging shutdown, so it cannot observe “no process,” return,
+and allow an in-flight launch to publish a child afterward. A new `start()` also
+cannot cross failure cleanup that still owns and may mutate the old connection's
+fields.
+
+The gate covers initial launch as well as an OpenCode conflict replacement. One
+startup deadline covers both attempts, including the reserved process-termination
+wait. If bounded foreground failure handling stops waiting, shielded cleanup keeps
+the same gate until ownership is settled. That cleanup may outlive the startup
+call, but it is not another runtime and cannot initiate another attempt.
+
+This reuses the connection's existing lifecycle, stop lock, and durable process
+scope. A second task runtime or replacement-only lock was rejected: either would
+create another owner without closing the initial-publication race. The feature
+branch implements this contract for #497; final independent re-review and native
+verification remain pending.
+
+---
+
 ## Launcher Death Is Abnormal Evidence
 
 A managed-primary launcher dying before the TUI exits is abnormal. It means the

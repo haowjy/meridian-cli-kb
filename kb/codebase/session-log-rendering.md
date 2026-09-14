@@ -130,36 +130,29 @@ render_session_log(...)       # assemble output with navigation and hints
 
 **The anti-pattern avoided:** Truncating in the command layer (`session_log.py`) before handing off to the render layer would force the renderer to work with already-truncated strings. Typed `ToolCall` fields would be lost, tool collapsing would fall back to string parsing, and `clean_content` would operate on already-truncated raw XML.
 
-## Browser preview currently inherits exhaustive log work
+## Browser preview is a bounded projection, not a shortened full log
 
-At `4adeb355`, browser preview reuses the complete addressable-log read path.
-The `tail=10` selection happens only after source resolution, full event decode,
-normalization, flattening, and grouping. It bounds interaction entries, not raw
-bytes or messages: 20,000 consecutive assistant messages form one entry, so all
-20,000 reach the renderer. Per-message truncation does not cap the number of
-messages rendered, and pane clipping happens only after the renderer has produced
-the list items. Those rendered list items are not necessarily physical terminal
-rows.
+Full `session log` rendering still follows the exhaustive pipeline above. The
+browser uses a separate bounded DTO projected by the same canonical normalizer.
+Its SQLite cache holds recent normalized messages, setup and explicit clipping
+state; it does not persist a fully rendered conversation or interpret transcripts
+through a second parser.
 
-The preview lane prevents an obsolete request from publishing, but it checks
-staleness only after parsing and rendering; obsolete work still delays the next
-request. Warm synthetic shape probes separated the costs: both 20,000-message
-fixtures spent about 190 ms in the ordinary read/group interval, while the
-assistant-only single-entry shape added about 687 ms of rendering and produced
-20,004 list items. These are ordinary wall-clock medians from a local fixture,
-not profiler timings, selection-to-visible measurements, terminal-row counts, or
-a native-TUI latency guarantee.
+Selection performs a cache-only lookup first. A latest-only worker resolves and
+refreshes the selected source outside the UI path, with cancellation between
+records and expensive stages. Controlled append-only streams may resume at a
+complete-line checkpoint. Native mutable sources reparse from a consistent fresh
+snapshot. ZIP previews publish only after required members and bytes verify, so
+early iterator close cannot be mistaken for archive verification.
 
-Issue #495 remains diagnosis-only. A useful fast preview needs a bounded-content
-contract before decoding and expensive rendering, with cooperative cancellation
-and explicit omission semantics while reusing canonical normalization and tool
-rendering. A blanket oversized-source “preview unavailable” result is bounded
-work, but does not satisfy useful large-history preview. ZIP members also cannot
-publish partially consumed content as verified because their checksum is
-completed at EOF. No production fix or large-history performance claim has been
-established.
+Clipping has two layers and both remain visible: the bounded projection can omit
+earlier context or message text, and the pane can narrow the displayed status.
+Freshness is not hidden by the narrow rendering. An unavailable selected ZIP may
+show a previously verified preview only for the same selected digest and must be
+labeled offline.
 
-**Provenance:** `work:next-minor-planning`; `spawn:p6043`.
+**Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
+`work:next-minor-planning/reviews/495-final.md`; `spawn:p6062`.
 
 ---
 

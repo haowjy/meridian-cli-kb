@@ -6,139 +6,106 @@ State-layer decisions cover how Meridian stores project identity, runtime state,
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
 
-**Status:** Settled intent with implementation and source-local documentation
-complete on the feature branch. It is not merged or released, so released CLI
-behavior remains unchanged.
+**Status:** Settled intent. Retention and bounded-preview implementations are
+approved on the feature branch but are not merged or released.
 
 **Decision:** Retained transcripts are ordinary, independently readable and
-transferable files under Meridian's control. Those files, and ZIPs made from
-them, preserve the transcript plus the essential identity and relationship
-metadata needed to recover and re-index it. A harness-owned payload locator can
-help ingestion, but cannot be the only surviving source for content Meridian
-retains.
+transferable record files. Those files and verified immutable ZIPs preserve the
+transcript plus the identity and relationship facts needed to recover and re-index
+it. Harness-owned locators can aid ingestion but cannot be the only retained copy.
 
-SQLite is a disposable projection for discovery and filtering, not a competing
-history store. Derivation runs one way—files and available ZIPs to the index—
-through one shared catch-up/rebuild path. Losing the database may cost query
-acceleration, but must not lose retained history. No bidirectional
-synchronization or resident archive/index service is required.
+SQLite is a disposable, one-way projection from files and available ZIPs. It may
+hold discovery metadata and bounded preview checkpoints, but no unique historical
+fact. Losing the database may cost acceleration, not history or control authority.
+Writers publish dirty-source intent before mutation and do not need SQLite to finish.
 
-**Why:** The transcript itself must remain easy to copy and read with standard
-file tools, without a database export, the original harness location, or a
-running Meridian process. Making the same files authoritative also keeps
-reconciliation bounded: the index can be recreated instead of synchronized as
-a second durable truth.
+**Why:** History must remain readable and transferable without a database export,
+the original harness store, or a running Meridian service. One authoritative file
+model makes repair a rebuild instead of bidirectional reconciliation between two
+durable truths.
 
-**Archive policy:** ZIP automation is opt-in. When enabled, eligibility
-defaults to 30 days since last activity; active sessions are protected;
-publication is verified before source files are reclaimed; and the archive
-location is configurable. Available ZIPs support direct reads and selective,
-conflict-safe restore. Meridian never automatically expires archive ZIPs.
+**Rejected:** SQLite-authoritative transcripts, locator-only retention, SQLite FTS,
+a resident indexer, full-conversation caching, and a second transcript parser.
+Database-file portability does not make the transcript independently readable, and
+each additional interpretation or service becomes another correctness dependency.
 
-**Withdrawn:** The proposed SQLite-authoritative transcript store and the
-locator-only retained-payload model. Database-file portability does not make a
-transcript an ordinary independently readable file, and a harness cleanup
-policy cannot own Meridian's promised retention lifetime.
+### D-history-bounded-preview: previews are disposable projections of canonical history (2026-09-14)
 
-**Implementation shape:** The branch assigns UUID history identity before
-publication, preserves exact session generations and ancestry, keeps canonical
-JSONL append-only across retries, and projects files through durable per-source
-dirty markers. The production marker protocol replaces the proposed segmented
-ledger: one catch-up/rebuild projector captures a finite dirty set, commits the
-SQLite projection, and acknowledges only unchanged tokens. Writers never depend
-on SQLite, and no resident projector or FTS index was introduced. Session and
-catalog projection use authoritative logs plus cursor/receipt and dirty-generation
-evidence; the proposed write-only log identity sidecars were removed rather than
-given artificial readers.
+**Decision:** The browser caches a bounded recent-message projection produced by
+the same canonical normalizer as full reads. It does not cache grouped render
+entries as conversation authority. Selection is cache-first; refresh is selected-only
+and latest-only. Ordinary metadata catch-up does not parse transcript bodies, while
+explicit rebuild can warm previews through the same projector.
 
-Discovery uses one canonical target resolver for ordinary and browse-subset
-search. Browser scope is chosen before resolution: archived metadata stays in
-the list and a selected ZIP remains directly previewable, while `/` searches
-loose visible rows unless `session browse --include-archives` opts into ZIP
-content. SQLite or coordination failure is surfaced as an error with
-`complete=false`, retaining confirmed results from healthy scopes. Exact
-launch/control references are a different boundary: launch policy, native ID,
-and primary/Pi owner recovery read authoritative session/spawn files, including
-when a primary has no recorded spawn link.
+A cached offline preview is usable only for the same selected verified digest and
+must be labeled offline. Selection, preview, and direct ZIP reads never restore or
+launch history.
 
-Rebuild staging is owned by the per-runtime catch-up lock. Retry removes only
-its known stage/journal residue, and ordinary failure cleans it without changing
-the published database.
+Controlled append-only streams may resume from a complete-line checkpoint. The
+checkpoint records both consumed extent and observed source size: the former is the
+parsed boundary, while the latter includes any incomplete suffix seen at capture.
+Witness changes are accepted only for real controlled growth. Replacement,
+truncation, same-size rewrite, or other external editing requires rebuild; mutable
+native sources use fresh snapshots.
 
-ZIP retention uses the same settled safety boundary. Eligibility is opt-in and
-defaults to 30 days since defined last activity. Exact selection and member bytes
-are independently verified before reclaim. Dependents are ordered before their
-dependencies before bundle limits; the final exclusive check also blocks a
-dependency while any loose dependent remains. A prepared receipt precedes the
-existing atomic aggregate-retirement seam, so failed cleanup cannot leave a
-partial loose aggregate hiding the readable ZIP. One deterministic ZIP partial
-is owned per runtime under its archive lock; another runtime sharing the
-destination cannot clean it. ZIPs are not expired automatically.
+**Why:** Responsive selection does not justify a second history model. Separating
+consumed extent from observed size prevents an incomplete tail from being mistaken
+for already-consumed content, while retaining incremental work for the writer shape
+Meridian controls.
 
-**Current #496 divergence:** The `4adeb355` implementation preserves those
-safety rules, but its exclusive reclaim interval includes a second full source
-hash and recursive retired-directory cleanup. A production-API contention probe
-measured unrelated writers waiting behind both size-dependent operations. The
-candidate correction is to carry an ephemeral exact witness with the existing
-fully hashed shared-lock capture, revalidate it and the complete protection
-closure before guarded durable retirement, then clean disposable retired bytes
-outside the root-exclusive gate. This is a measured repair direction, not an
-approved or verified implementation; it does not replace checksums with metadata
-checks and still requires concurrency, crash, and durability-error verification.
+**Rejected:** full-conversation or FTS storage, render-only clipping, a second parser,
+full hashing on every append, and treating stat/tail witnesses as proof of arbitrary
+external mutation safety.
 
-Selective restore preserves the ZIP, remaps local aliases, and publishes inert
-historical records through a durable per-history plan and deterministic stage
-outside disposable spawn-stage GC. Ordinary failures clean extracted bytes but
-retain retry intent. Slow checksums run outside
-the exclusive root gate; a revalidated POSIX metadata witness closes the
-checksum-to-publication gap. Raw exact session facts—including nullable identity
-fields and the absence of original session metadata—are validated before only
-the exported capsule is enriched with local aliases. Recapture therefore
-preserves portable identity instead of promoting synthetic restore facts.
+### D-history-reclaim-gate: hash under shared capture, revalidate and retire briefly under exclusive ownership (2026-09-14)
 
-Chat IDs remain non-unique local aliases. Resuming one chat can produce multiple
-session generations and transcript aggregates, each with its own history UUID.
-Only recent-session presentation may collapse those generations; the history
-index and archive retain them all.
+**Decision:** Archive capture brackets a full hash with exact source witnesses under
+the shared root gate and source lock. The final exclusive phase recomputes protection
+and dependency closure, revalidates the witness, publishes reclaim intent, and
+atomically retires the aggregate. It does not repeat the hash. Recursive cleanup runs
+after root/spawn/scope locks are released.
 
-The mechanism and its boundaries are described in
-[Portable history](../architecture/state-system/portable-history.md). This KB
-records the settled target and branch convergence, not shipped behavior. The
-quality-fix checkpoint is pinned at `6c3249c4`, followed by guidance-only
-`8e8f588f` and the narrow browser search-scope correction at `4adeb355`. The
-checkpoint suite recorded 1,522 passed, 2 skipped and 10 warnings; Ruff/build
-passed and Pyright reported zero errors. The final correction passed its
-red-before-fix regression, 43 focused tests, Ruff, and Pyright with zero errors;
-its full pre-push recorded 1,524 passed, 2 skipped and 10 warnings with a
-successful build. Independent bounded review approved with no findings, and the
-immutable-wheel tmux probe passed default and opt-in scope while preserving ZIP
-listing/preview. CI was still pending at capture time. Follow-up production probes
-closed the reproduced retention, resolver, failure-boundary, staging, and exact
-control-path findings. Native lifecycle evidence is separately pinned to
-immutable `dfb3fa73`; it covers Codex, not every harness, and does not establish
-power-loss coverage. No native harness was rerun for `4adeb355`; the prior
-synthetic default ZIP-search match is superseded only for default scope, not
-direct ZIP preview or explicit archive resolution. Final commands, logs, scope, performance measurements, and
-remaining #495/#496/#497 work are retained under
-`work:next-minor-planning/probes/root-cause-495.md`,
-`work:next-minor-planning/reviews/root-cause-495.md`,
-`work:next-minor-planning/probes/root-cause-496.md`,
-`work:next-minor-planning/probes/root-cause-497.md`, and
-`work:next-minor-planning/probes/followup/`,
-`work:next-minor-planning/probes/quality-fixes-runtime.md`, and
-`work:next-minor-planning/probes/native-tmux-final.md`.
+Both retirement parents are synchronized before garbage collection disposes of the
+staging entry or recovery acknowledges an absent source. A persistent sync failure
+leaves the prepared receipt and retirement residue recoverable; it does not require a
+second ledger. Witnesses detect post-hash changes but never substitute for checksum
+verification.
 
-**Provenance:** `work:next-minor-planning`, especially
-`design/overview.md`, `design/storage-architecture.md`,
-`design/derived-index.md`, `design/retention-archive.md`,
-`design/implementation-plan.md`, `requirements.md`, and
-`DIVERGENCE/2026-09-11-file-transcript-authority.md`,
-`DIVERGENCE/2026-09-13-chat-alias-cardinality.md`,
-`DIVERGENCE/2026-09-14-dirty-source-protocol.md`, and
-`DIVERGENCE/2026-09-14-remove-unused-log-identities.md`,
-`inputs/implementation-runtime-2026-09-14.md`; `chat:c5884`;
-`spawn:p6019`; `spawn:p6020`; `spawn:p6022`; `spawn:p6023`;
-`spawn:p6024`; `spawn:p6025`; `spawn:p6027`; `spawn:p6042`.
+**Why:** Exact byte verification is necessary, but keeping repeated hashing and
+recursive deletion inside a global exclusive gate serializes unrelated writers.
+Shared capture plus a short exact revalidation preserves safety while narrowing the
+exclusive ownership interval.
+
+**Rejected:** stat-only verification, a second full hash at reclaim, recursive
+cleanup inside the writer gate, blind reversal after uncertain rename durability,
+and an additional failure ledger.
+
+A narrow decoder may drop the single obsolete capture-fingerprint field from
+previously published immutable ZIP metadata. New records neither compute nor emit it;
+unknown fields remain invalid, and archive member bytes still verify. This preserves
+immutable history rather than maintaining a legacy runtime.
+
+### Identity and restore boundaries
+
+History UUID is portable transcript identity. Local spawn/chat aliases, physical
+locations, and runtime ownership are separate concepts. A selected portable digest
+chooses content; an offline copy is interchangeable only if it verifies to that same
+digest. An older reachable snapshot is never an implicit fallback.
+
+Restore preserves raw portable session facts, assigns fresh local aliases, and marks
+the result historical and inert. Original process IDs, leases, scopes, and harness
+continuation identifiers remain provenance, not executable ownership. This keeps
+historical identity from becoming authority to control a current runtime.
+
+The mechanism is described in
+[Portable history](../architecture/state-system/portable-history.md).
+
+**Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
+`work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
+`work:next-minor-planning/followup-implementation-progress.md`;
+`work:next-minor-planning/reviews/496-implementation-followup.md`;
+`work:next-minor-planning/reviews/495-final.md`; commits `a8592210`, `80c37741`,
+`c44a3e81`; `spawn:p6053`; `spawn:p6062`.
 
 ## State Layer
 

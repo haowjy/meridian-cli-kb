@@ -283,30 +283,48 @@ string threads through launch context. Adapters must project it wherever the
 native harness actually selects a model—subprocess argv, backend config, or a
 session API—not merely where a dry-run happens to display it.
 
-**Current #497 divergence:** At `4adeb355`, the OpenCode managed-primary path
-resolves and records the provider-qualified model correctly but loses it after
-switching from the dry-run's black-box command to `serve` + HTTP bootstrap +
-`attach`. Native OpenCode 1.18.29 rejects Meridian's flat session-create payload
-with HTTP 400; Meridian retries `{}`; and neither real child config nor argv
-selects the requested model. Correct nested session JSON alone did not fix the
-empty attached TUI, while projecting the requested model through
-`OPENCODE_CONFIG_CONTENT` did. The necessary repair therefore includes both the
-native config and session-protocol boundaries, plus honest managed-primary
-dry-run output. This is diagnosed current behavior, not a new approved design or
-a claim about every OpenCode version. Existing fake-backed tests currently
-assert the invalid payload and model-dropping fallback.
+**OpenCode native commitment decision (#497, 2026-09-14):** An explicit Meridian
+model must control a fresh managed OpenCode primary even when the resolved native
+primary agent pins another model. Meridian projects the provider-qualified model
+through launch-local config, inspects the effective native agent/model state, and
+may restart its still-uninitialized backend once with an override limited to the
+conflicting agent. It then revalidates before session creation. It never edits
+native user/project config and never retries creation without the selected model.
+
+Session creation and prompt submission deliberately use OpenCode's distinct
+native shapes: nested `{model: {id, providerID}}` for create and
+`{model: {modelID, providerID}}` for prompt. Model-less launches retain native
+defaults. Continuations preserve the last committed native choice rather than
+replaying old launch policy; absent session fields fall back to the latest native
+user message. A committed `default` variant is sent explicitly because omission
+can activate the selected agent's variant.
+
+The limits are part of the decision: unsent TUI-local state is not observable,
+and GET followed by POST is not atomic against a simultaneous TUI submission.
+The feature branch implements this contract, but independent re-review and native
+verification remain pending; implementation alone is not a passed #497 gate.
 
 Issue #74 recorded the earlier requested-versus-reported symptom and was closed
 by consolidation into #426, not by a fix. Issue #243 involved an earlier
 canonical/runnable-ID layer; the evidence does not prove that it had this exact
 managed-bootstrap cause.
 
-**Provenance for the current divergence:** `work:next-minor-planning`;
-`spawn:p6041`.
+**Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
+`work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
+`work:next-minor-planning/reviews/497-implementation.md`; diagnosis
+`spawn:p6041`; pending gates `spawn:p6063` and `spawn:p6060`.
 
 **Alternatives rejected:**
 - Teach each harness adapter to do its own model-string transformation — puts transformation logic in the mechanism layer, not the policy layer. Fails when the same alias token maps to different provider paths across harnesses.
 - Store only one model ID and add per-harness prefix rules in adapter config — equivalent complexity, lower locality, harder to audit.
+- Treat schema-correct session creation as sufficient — an empty attached TUI may
+  still resolve a conflicting native agent model.
+- Retry session creation with an empty payload — silently discards an explicit
+  user choice and can make recorded policy disagree with native execution.
+- Rewrite native user or project config — turns a launch-local choice into a
+  persistent side effect.
+- Add an unbounded restart loop — obscures unresolved disagreement and weakens
+  startup ownership.
 
 ---
 

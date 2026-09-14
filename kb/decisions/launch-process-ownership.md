@@ -8,8 +8,40 @@ reconciliation, cancellation, and cleanup.
 | Concern | Status | Canonical mechanism |
 |---|---|---|
 | Managed-primary passive reaping | Current | [Managed-primary lifecycle](../architecture/managed-primary-lifecycle.md) |
+| Managed connection startup/stop ownership | Intended; feature implementation pending final verification | [Managed-primary lifecycle](../architecture/managed-primary-lifecycle.md) |
 | Process-scope ownership and containment | Current | [Process scope](../architecture/process-scope.md) |
 | Codex interactive approval routing | Current | [Launch architecture](../architecture/launch-system.md) |
+
+### D-managed-startup-gate: Startup, stop, and cleanup have one owner
+
+*2026-09-14; #497 feature branch, final verification pending*
+
+**Decided:** The existing managed-connection lifecycle gate spans initial process
+publication through connected state. Concurrent stop waits for startup or failure
+cleanup to settle, and a new start cannot cross cleanup that can still mutate the
+old connection. OpenCode's one allowed conflict restart remains inside this same
+gate and shared startup deadline.
+
+**Why:** Guarding only conditional replacement leaves the first backend launch
+unowned while awaiting publication. Stop can then return before the child becomes
+visible and the startup can publish it into an already-stopped connection. The
+same class of race occurs when a new start overlaps shielded cleanup from a failed
+start.
+
+**Cleanup rule:** Bounded foreground waiting may abandon a slow reap, but cleanup
+retains the gate and durable scope until it finishes. This is continuation of the
+failed attempt's ownership, not a new runtime or permission to restart.
+
+**Rejected:** a replacement-only lock, a state check after process assignment, and
+a second task/lifecycle subsystem. Each either leaves the first publication race
+open or introduces competing ownership.
+
+**Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
+`work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
+`work:next-minor-planning/reviews/497-implementation.md`; pending gates
+`spawn:p6063` and `spawn:p6060`.
+
+---
 
 ### D-managed-primary-reaper: Managed-primary passive reaper safety
 
