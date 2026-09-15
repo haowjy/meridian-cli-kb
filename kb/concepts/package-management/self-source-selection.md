@@ -193,8 +193,10 @@ and does not claim power-loss durability.
   pre-existing ignored test, and strict clippy passed
 - Review: `p6206` approved `2b2d696`, closing repeated-move and path-collision
   findings; `p6207` passed the interruption/runtime matrix at pinned `721495c`
-- A final current-head portable-alias and creative-package recheck remained in
-  progress at capture time; no result is inferred from the earlier lanes
+- Final runtime verification `p6213` passed at `2b2d696`: all eight ordinary
+  and diff portable-alias refusals preserved user content, lock, and outputs;
+  a non-overlapping custom path succeeded; and two creative-package syncs made
+  no mutations while preserving 404 selected paths plus lock bytes and mtimes
 
 ## Related
 
