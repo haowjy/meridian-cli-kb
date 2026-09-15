@@ -505,9 +505,12 @@ filesystem action would be `Skip`; reproducibility includes ownership state,
 not only output bytes.
 
 An interrupted destination move retains the old canonical claim until removal
-is confirmed. Final lock construction removes confirmed old paths even when
-they were carried by a skipped new output. A same-path pending-deletion claim is
-replaced by the recovered installed claim rather than duplicated.
+is confirmed. The temporary native-emission ownership view and final lock use
+the same physical-path removal after carry-forward and upserts. Confirmed old
+paths disappear without deleting the logical item's surviving canonical or
+native claims, and skipped/kept outcomes cannot resurrect them. A same-path
+pending-deletion claim is replaced by the recovered installed claim rather than
+duplicated.
 
 **Reserved recovery path:** `.mars/pending-canonical.json` cannot overlap a
 canonical output. Before config or output writes, including dry runs, preflight

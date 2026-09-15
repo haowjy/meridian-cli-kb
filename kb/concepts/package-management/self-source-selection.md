@@ -150,9 +150,12 @@ If repeated interrupted writes move one logical item through multiple canonical
 destinations, each physical path remains separately recoverable with its exact
 recorded provenance. Recovery merges those verified physical claims back into
 the logical lock item. Old canonical claims remain until removal is confirmed;
-lock finalization filters confirmed-removed records even if a skipped new path
-carried them forward, and a recovered install replaces a same-path
-pending-deletion record rather than duplicating it.
+both the temporary native-emission ownership view and final lock apply
+confirmed removal by physical path after carry-forward and upserts. Removing an
+obsolete canonical path therefore cannot erase the logical item's surviving
+canonical or native claims, while a skipped path cannot resurrect the removed
+claim. A recovered install replaces a same-path pending-deletion record rather
+than duplicating it.
 
 `.mars/pending-canonical.json` is reserved recovery state, not disposable
 compiled content. Preflight rejects any canonical output whose effective path
@@ -184,7 +187,7 @@ and does not claim power-loss durability.
   `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
   `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`, `cb2ccc1`,
   `a4d17a2`, `34889b5`, `2aa796a`, `721495c`, `2b2d696`
-- Current feature head: `4b576e0`; not merged, installed, or released
+- Current feature head: `c25ad36`; not merged, installed, or released
 - Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 - Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current

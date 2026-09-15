@@ -180,10 +180,13 @@ all-`Skip` plan, because unchanged output bytes do not make ownership committed.
 Repeated interrupted destination moves may leave several physical claims for
 one logical item. Recovery validates each path using its exact journaled
 provenance, then merges every verified physical claim into the logical lock
-item. Old claims remain authoritative until removal succeeds; final lock
-construction filters every confirmed-removed canonical record even when a
-`Skip` outcome carried it forward. A recovered installed record replaces,
-rather than accompanies, a same-path pending-deletion record.
+item. Old claims remain authoritative until removal succeeds. Both the
+temporary ownership view used for native emission and final lock construction
+apply canonical removals by physical path after carry-forward and upserts. A
+removed obsolete destination cannot erase other canonical or native outputs on
+the logical item, and a later `Skip` or `Keep` cannot resurrect it. A recovered
+installed record replaces, rather than accompanies, a same-path
+pending-deletion record.
 
 The journal path is reserved before config or output mutation. Plan validation
 rejects a canonical file, descendant, directory, or effective bootstrap root
