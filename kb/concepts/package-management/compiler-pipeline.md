@@ -1,15 +1,16 @@
 # Compiler Pipeline
 
-The Mars compiler transforms a resolved dependency graph into materialized
-output: agent profiles, skill files, MCP config entries, hook config entries,
-and model alias tables. Entry point: `compiler::compile()` in
-`src/compiler/mod.rs`.
+The Mars compiler transforms resolved dependencies plus selected
+current-project inputs into materialized output: agent profiles, skill files,
+MCP config entries, hook config entries, and model alias tables. Entry point:
+`compiler::compile()` in `src/compiler/mod.rs`.
 
 ## Pipeline Stages
 
 ```mermaid
 graph TD
     GRAPH["ResolvedGraph\n(from resolver)"]
+    SELF["selected self inputs\n.mars-src + declared package"]
     CTX["build CompilerContext\nshared resolution state"]
     AGENTS["compile agents\nsrc/compiler/agents/"]
     SKILLS["compile skills + variants\nsrc/compiler/skills/\nsrc/compiler/variants.rs"]
@@ -23,6 +24,7 @@ graph TD
     LOCK["finalize mars.lock + report"]
 
     GRAPH --> CTX
+    SELF --> CTX
     CTX --> AGENTS
     CTX --> SKILLS
     CTX --> CE
@@ -69,7 +71,7 @@ Each compiler lane handles one kind of output artifact:
 
 ### Agents (`compiler/agents/`)
 
-Reads agent profiles from the resolved graph and materializes them into
+Reads selected agent profiles from the target state and materializes them into
 `.mars/agents/*.md`. When agent emission is active, also lowers each profile to
 the format each native harness target requires (YAML frontmatter + Markdown for
 Claude/OpenCode/Cursor, TOML for Codex).
@@ -168,8 +170,9 @@ how the lock feeds the diff phase on the next sync.
 
 ## Invariants
 
-- **I-1: Compiler reads from resolved graph only** — no direct config re-reading
-  after `CompilerContext` is built.
+- **I-1: Compiler reads selected state only** — resolved dependencies and
+  selected self inputs are assembled before materialization; compiler lanes do
+  not independently rediscover source content.
 - **I-2: All writes are atomic** — tmp+rename, lock-guarded.
 - **I-3: Target sync is per-target non-fatal** — a failure in one harness target
   records a warning and continues; sibling targets are not aborted.

@@ -140,6 +140,21 @@ disk. Content resemblance without a lock record never establishes ownership.
 This covers merge-mode hook entries in `settings.local.json`, `hooks.json`,
 and similar config files.
 
+### Canonical self destinations
+
+Selected current-project agents and skills add a stricter canonical guard. If
+their `.mars` destination exists without a matching installed lock claim, sync
+fails before canonical/native apply and lock finalization. Matching bytes and
+`--force` do not establish ownership; the blocking destination must be
+relocated.
+
+For a managed destination whose selected source changes but whose bytes do
+not, an unmodified disk copy takes an `Update` so the lock records the new
+owner and retains native claims. A locally modified disk copy does not transfer
+ownership. See
+[Current-Package Source Selection](../concepts/package-management/self-source-selection.md)
+for source precedence and discovery boundaries.
+
 ### Retention Seam
 
 When a removal step fails, the question is: what ownership records are retained

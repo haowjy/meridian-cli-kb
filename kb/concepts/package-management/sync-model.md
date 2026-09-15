@@ -2,8 +2,9 @@
 
 `mars sync` runs the full package pipeline: load config, resolve, target, plan,
 apply, and sync managed targets. Each phase produces a typed handoff struct.
-The entire cycle is atomic at the file level and idempotent — running it twice
-produces the same result.
+Individual writes are atomic and the sync lock serializes runs, but the whole
+cycle is not a transaction with rollback. A completed run with unchanged
+inputs is idempotent.
 
 Top-level entry: `sync::execute()` in `src/sync/mod.rs` lines 132–140.
 
@@ -186,6 +187,10 @@ than have Mars adopt it. If a managed destination changes source but retains
 identical bytes, it is classified as `Update` only while disk still matches the
 old lock. This records the new owner and carries native claims forward without
 overwriting a local-only modification.
+
+Self items are staged before this ownership guard. A refusal can therefore
+refresh derived `.mars/staging` content while leaving canonical outputs, native
+outputs, and the lock unapplied. This is not a rollback guarantee.
 
 ## Sync Modes
 
