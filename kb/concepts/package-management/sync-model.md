@@ -3,9 +3,11 @@
 `mars sync` runs the full package pipeline: load config, resolve, target, plan,
 apply, and sync managed targets. Each phase produces a typed handoff struct.
 Individual writes are atomic and the sync lock serializes runs, but the whole
-cycle is not a transaction with rollback. Completed unchanged runs converge in
-managed bytes and ownership state; this does not promise stable mtimes for
-every generated or staging path.
+cycle is not a transaction with rollback. Durable intent makes new canonical
+writes recoverable across partial apply, while native/config writes remain
+outside that recovery boundary. Completed unchanged runs converge in managed
+bytes and ownership state; this does not promise stable mtimes for every
+generated or staging path.
 
 Top-level entry: `sync::execute()` in `src/sync/mod.rs` lines 132–140.
 
@@ -148,6 +150,33 @@ path becomes `pending-deletion`. v1 locks are unsupported. The v2 promotion
 preserves legacy config-entry records needed by the one-release #130 hook
 sweep; delete the promotion after that sweep lands.
 
+### Pending canonical writes
+
+`.mars/pending-canonical.json` is a versioned write-intent journal, not a lock
+or ownership registry. Immediately before apply, Mars records each planned new
+canonical output that was absent, including its expected installed checksum and
+provenance. The journal is bound to the checksum of the exact pre-write
+`mars.lock` bytes, or to the fact that no lock existed.
+
+During the next load, before current-package source selection, Mars validates
+the journal under the sync lock. It recovers a path into the in-memory lock only
+when the lock binding still matches and the output has the recorded bytes,
+expected file/directory shape, and no symlink in its ancestors or content tree.
+Published lock claims take precedence over residue from a crash between lock
+publication and journal cleanup. Changed bytes, links, changed lock state, or a
+malformed journal fail closed.
+
+Recovery is not published early. The retry journal keeps at most the verified
+current version and its planned replacement; `mars.lock` changes only during
+normal finalization, then the journal is removed. This ordering preserves exact
+corrupt-lock evidence if repair fails repeatedly. A no-op run creates no
+journal, while dry-run and resolution failure do not publish new intent.
+
+The journal covers new canonical outputs only. It does not cover native target
+or config writes, and it cannot authorize recovery for crashes that predate the
+journal. Those boundaries remain tracked in
+[mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149).
+
 `LockIndex` is a fast lookup overlay for repeated dest-path queries during
 the diff phase, with both target-scoped and broad unscoped methods.
 
@@ -192,9 +221,10 @@ overwriting a local-only modification.
 Self items are staged before this ownership guard. A refusal can therefore
 refresh derived `.mars/staging` content while leaving canonical outputs, native
 outputs, and the lock unapplied. This is not a rollback guarantee.
-If interruption or an unreadable lock leaves canonical self outputs without an
-ownership claim, `--force` does not bypass the guard. Relocate every blocked
-canonical destination, then run repair to rebuild ownership.
+If partial apply leaves a new canonical self output without final ownership,
+valid pending-canonical intent lets an ordinary retry recover it before this
+guard. Without matching intent, `--force` does not bypass the guard: inspect and
+relocate every blocked destination, then retry or repair.
 
 ## Sync Modes
 
@@ -251,8 +281,12 @@ sync and released on completion or crash.
 - **I-6: v3 lock is always written** — v2 is promoted at read time by
   consulting disk state; v1 is unsupported. Any write produces v3.
 - **I-7: Canonical self ownership is explicit** — selected self content never
-  adopts an unowned `.mars` destination, even under force. Native target
-  collision policy remains independent.
+  adopts an unowned `.mars` destination from disk bytes alone, even under
+  force. Recovery requires matching pre-write intent bound to the prior lock.
+  Native target collision policy remains independent.
+- **I-8: The lock publishes only at finalization** — canonical recovery is
+  reconstructed in memory; failed apply or repair does not checkpoint
+  `mars.lock` and therefore preserves corrupt lock evidence.
 
 ## Key References
 
@@ -266,6 +300,7 @@ sync and released on completion or crash.
 - Skill rewrite: `src/sync/rewrite.rs`
 - Lock build: `src/lock/mod.rs`
 - Lock index: `src/lock/mod.rs` (`LockIndex`)
+- Canonical write recovery: `src/sync/recovery.rs`
 - Surface ownership: `src/surface_ownership/mod.rs`, `src/surface_ownership/retention.rs`
 
 ## Related

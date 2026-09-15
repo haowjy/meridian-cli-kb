@@ -94,8 +94,11 @@ actually within that selected source root.
 The canonical `.mars` destination must already be owned by Mars or be absent
 before a selected self item can apply. An unowned path is a pre-apply error even
 when its bytes match, `--force` is present, or the command is a dry/frozen run.
-The remedy is to relocate every blocked canonical destination and retry or run
-repair; Mars does not silently adopt any of them.
+Valid canonical write intent is the only exception: if Mars recorded an absent
+destination before writing it, a retry can recover the matching regular output
+into in-memory ownership before this guard runs. Without that evidence, the
+remedy remains to inspect and relocate every blocked canonical destination
+before retry or repair. Mars never adopts a path from byte equality alone.
 
 When source ownership changes but bytes do not, diff emits `Update` only if the
 on-disk canonical content still matches the previous lock. That write records
@@ -118,23 +121,51 @@ This does not establish whole-tree mtime stability: generated
 
 Dry-run and export-style commands avoid canonical/native installation and lock
 finalization, but they are not filesystem-write-free: resolution may create
-`.mars/sync.lock` and refresh `.mars/staging`. Ownership-loss recovery is also
-manual by design; every blocked canonical self destination must be relocated
-before repair can rebuild ownership.
+`.mars/sync.lock` and refresh `.mars/staging`. They do not publish new canonical
+write intent. Resolution failure likewise occurs before new intent is
+published.
+
+Before applying new absent canonical outputs, the feature branch writes
+version 1 `.mars/pending-canonical.json`. It binds expected output bytes and
+source provenance to the exact prior `mars.lock` bytes (or recorded absence).
+On retry, Mars accepts only matching regular outputs with no ancestor or nested
+symlinks. A changed output, changed lock, malformed journal, or symlink fails
+closed rather than becoming ownership authority.
+
+Recovered ownership remains in memory until normal finalization publishes
+`mars.lock`. If the retry plans a replacement, the journal retains at most the
+verified current and planned versions so failure on either side of the next
+write stays recoverable. There is no early lock checkpoint: failed repair
+preserves corrupt lock bytes across repeated source updates or errors. A crash
+after lock publication but before journal cleanup is safe because published
+ownership wins on retry. A no-op run creates no journal.
+
+This journal covers canonical writes only. Native target and config outputs are
+not journaled; [mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149)
+remains open. Crashes from before the journal existed, or outputs that no longer
+match it, still require the safe manual inspection-and-relocation path.
 
 ## Non-goals
 
-This design does not add a lock schema, self-dependency, alternate runtime
-lookup, installed-package upgrade, live package mutation, content merge, or a
-new dependency rename/reference algorithm.
+This design does not change `mars.lock` v3 or `_self`, and it does not add a
+self-dependency, alternate runtime lookup, installed-package upgrade, live
+package mutation, content merge, or a new dependency rename/reference
+algorithm. Canonical recovery is not a transaction for native/config outputs.
 
 ## Provenance
 
 - Work item: `work:mars-self-package-sync`
 - Product baseline: `mars-agents` `a26e81ca`; feature commits `e519f5c`,
-  `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`
-- Settled source-selection refinement: 2026-09-15
+  `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
+  `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`
+- Current feature head: `cf86eb6`; not merged, installed, or released
+- Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
+- Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current
+  reproductions; exact June incident trigger remains unproven)
+- Local recovery verification: 10 focused recovery tests plus full format,
+  build, test, and clippy gates; independent review and probing were still in
+  progress at capture time
 
 ## Related
 

@@ -146,7 +146,11 @@ Selected current-project agents and skills add a stricter canonical guard. If
 their `.mars` destination exists without a matching installed lock claim, sync
 fails before canonical/native apply and lock finalization. Matching bytes and
 `--force` do not establish ownership; the blocking destination must be
-relocated.
+relocated. Before this guard runs, sync may reconstruct a claim in memory from
+valid pre-write intent for that exact absent destination, prior lock, and output
+bytes. The journal is evidence that Mars planned the write, not permission to
+adopt arbitrary matching content; see the
+[Sync Model](../concepts/package-management/sync-model.md#pending-canonical-writes).
 
 For a managed destination whose selected source changes but whose bytes do
 not, an unmodified disk copy takes an `Update` so the lock records the new

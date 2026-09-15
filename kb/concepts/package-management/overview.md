@@ -22,7 +22,8 @@ mars writes to it.
   bootstrap/*/BOOTSTRAP.md            ← package bootstrap docs
   models-merged.json                  ← merged model alias catalog
   hooks/*/                            ← hook scripts
-  mars.lock                           ← pinned version lock file
+  pending-canonical.json              ← transient canonical write intent
+mars.lock                             ← project-root ownership registry
 ```
 
 **`.mars/` is generated output.** Editing files in `.mars/` directly is
@@ -142,7 +143,7 @@ for isolated `uv tool` installs.
 | [resolution-algorithm.md](resolution-algorithm.md) | Version selection, constraint graph, filters |
 | [self-source-selection.md](self-source-selection.md) | How `.mars-src`, a declared package, and renamed dependencies combine |
 | [targeting.md](targeting.md) | Emission policy, TargetAdapter model, per-harness behavior |
-| [sync-model.md](sync-model.md) | Diff → plan → apply cycle, lock provenance |
+| [sync-model.md](sync-model.md) | Diff → plan → apply cycle, lock provenance, canonical write recovery |
 
 ## Related
 

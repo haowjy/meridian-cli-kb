@@ -460,6 +460,54 @@ new dependency rename/reference algorithm.
 
 ---
 
+### D95: Journal new canonical writes without checkpointing ownership (2026-09-15)
+
+**Status:** Settled and implemented on the `fix/package-self-sync` feature
+branch at `cf86eb6`; not merged, installed, or released.
+
+**Decision:** Before writing a new absent canonical output, Mars publishes
+version 1 `.mars/pending-canonical.json` with the expected output checksum and
+source provenance, bound to the exact prior `mars.lock` bytes or its absence.
+On retry, matching regular outputs are recovered into the in-memory lock before
+self-source selection. `_self` and `mars.lock` v3 do not change.
+
+**Why durable intent is necessary:** Canonical apply and later lock publication
+are separate phases. An ordinary apply installed `muse`, then failed on a skill
+behind a regular-file parent obstruction, leaving `muse` on disk without final
+ownership. The failure reproduced 12/12 across the pre-#103 and current feature
+implementations with fresh and established locks; it required neither process
+kill nor lock editing. Atomic individual writes do not close this phase-level
+gap. This establishes a real mechanism, not the exact trigger of the June
+incident, which remains unproven.
+
+**Recovery authority:** The journal is write intent, not an installed claim.
+Mars requires the corresponding prior lock plus exact expected bytes and
+regular output shape, rejecting ancestor or nested symlinks. Existing published
+claims win over finalized-lock journal residue. Missing or invalid evidence
+never turns byte equality or `--force` into adoption permission.
+
+**Retry ordering:** Recovered claims remain in memory until finalization. When
+a retry also plans an update, its journal retains at most the verified current
+and planned versions, covering another failure on either side of that write.
+Only finalization publishes `mars.lock`, then removes the journal. This preserves
+exact corrupt-lock bytes through repeated failed repair and source updates.
+Dry-run and resolution failure do not publish new intent; no-op sync creates no
+journal.
+
+**Boundary:** This decision covers new canonical outputs, including but not
+limited to `_self`; it does not make the whole sync transactional. Native and
+config outputs remain unjournaled under
+[mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149), and
+pre-journal crashes still require safe manual recovery.
+
+**Rejected alternatives:** Treating matching unowned bytes as ownership
+(adopts arbitrary user content), preflighting only the reproduced obstruction
+(does not close the general write/publication window), extending `mars.lock` v3
+(conflates pending intent with installed authority), and checkpointing the lock
+before finalization (destroyed corrupt-lock evidence when later repair failed).
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution

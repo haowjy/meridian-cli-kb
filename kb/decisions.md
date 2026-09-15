@@ -10,6 +10,7 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 
 | Date / ID | Status | Decision | Canonical record |
 |---|---|---|---|
+| 2026-09-15, D95 | Settled and implemented on feature branch; not installed or released | Journal new absent canonical outputs before apply; recover only exact regular bytes bound to the prior lock, and publish ownership only at finalization. | [Package management](decisions/package-management.md#d95-journal-new-canonical-writes-without-checkpointing-ownership-2026-09-15) |
 | 2026-09-15, D94 | Settled and implemented on feature branch; not installed or released | `[package]` contributes Mars-native agents and skills under `_self`; `.mars-src` wins, dependency renames remain authoritative, occupied-layer fallback stays, and unowned canonical destinations are refused. | [Package management](decisions/package-management.md#d94-package-opts-agents-and-skills-into-_self-2026-09-15) |
 | 2026-09-14, D-native-transcript-snapshot | Post-stop design approved; qualification finding closed at design level; not implemented | Keep stream evidence and atomically publish a separate canonical native snapshot; preserve raw OpenCode rows and immutable original capture binding. | [State](decisions/state.md#d-native-transcript-snapshot) |
 | 2026-09-14, D-history-index-initialization | Settled intent; not implemented | Missing/outdated index setup gets one 15-second gate with post-lock recheck, durable genuine-failure suppression, and explicit manual retry. | [State](decisions/state.md#d-history-index-initialization) |
