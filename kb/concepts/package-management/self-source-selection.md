@@ -184,7 +184,7 @@ and does not claim power-loss durability.
   `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
   `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`, `cb2ccc1`,
   `a4d17a2`, `34889b5`, `2aa796a`, `721495c`, `2b2d696`
-- Current feature head: `2b2d696`; not merged, installed, or released
+- Current feature head: `4b576e0`; not merged, installed, or released
 - Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 - Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current
