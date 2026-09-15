@@ -90,6 +90,11 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/package-management/targeting.md](concepts/package-management/targeting.md) — How compiled content lands in native harness dirs; conditional agent emission, per-harness target rules
 - [concepts/package-management/sync-model.md](concepts/package-management/sync-model.md) — `mars sync` pipeline: load → resolve → target → plan → apply; atomic, idempotent, lockfile behavior
 
+> [!FLAG] **Needs human review**: This catalog describes the full sync cycle
+> as atomic. `sync-model.md` says that individual writes are
+> atomic but the cycle is not a rollback transaction. Confirm the intended
+> catalog wording. Flagged 2026-09-15.
+
 ---
 
 ## Architecture
