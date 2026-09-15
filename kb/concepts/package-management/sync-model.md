@@ -159,15 +159,15 @@ provenance. The journal is bound to the checksum of the exact pre-write
 `mars.lock` bytes, or to the fact that no lock existed.
 
 During the next load, before current-package source selection, Mars validates
-the journal under the sync lock. It recovers a path into the in-memory lock only
-when the lock binding still matches and the output has the recorded bytes,
-expected file/directory shape, and no symlink in its ancestors or content tree.
-The journal key, item kind, and destination must describe the same identity;
-destinations must be unique, hooks retain their target scope, and valid custom
-dependency destinations remain recoverable. Published lock claims take
-precedence over residue from a crash between lock publication and journal
-cleanup. Changed bytes, links, changed lock state, mismatched identity, or a
-duplicate destination fail closed.
+the journal under the sync lock. Its `outputs` map is keyed by physical
+`DestPath`; each destination has at most a verified-current and planned version.
+It recovers a path into the in-memory lock only when the lock binding still
+matches and the output has the recorded bytes, expected file/directory shape,
+and no symlink in its ancestors or content tree. Shared read/write validation
+checks path identity and kind, preserves hook target scope, and permits valid
+custom dependency destinations. Published lock claims take precedence over
+residue from a crash between lock publication and journal cleanup. Changed
+bytes, links, changed lock state, or malformed identity fail closed.
 
 Recovery is not published early. The retry journal keeps at most the verified
 current version and its planned replacement; `mars.lock` changes only during
@@ -177,12 +177,19 @@ journal, while dry-run and resolution failure do not publish new intent.
 `--frozen` refuses recovered claims that are not yet published, including an
 all-`Skip` plan, because unchanged output bytes do not make ownership committed.
 
-Recovery of a destination move temporarily retains both the newly recovered
-canonical claim and the old canonical claim. The old claim remains authoritative
-until its removal succeeds; final lock construction filters every
-confirmed-removed canonical record even when a `Skip` outcome carried it
-forward. A recovered installed record replaces, rather than accompanies, a
-same-path pending-deletion record.
+Repeated interrupted destination moves may leave several physical claims for
+one logical item. Recovery validates each path using its exact journaled
+provenance, then merges every verified physical claim into the logical lock
+item. Old claims remain authoritative until removal succeeds; final lock
+construction filters every confirmed-removed canonical record even when a
+`Skip` outcome carried it forward. A recovered installed record replaces,
+rather than accompanies, a same-path pending-deletion record.
+
+The journal path is reserved before config or output mutation. Plan validation
+rejects a canonical file, descendant, directory, or effective bootstrap root
+that equals, contains, or falls beneath `pending-canonical.json`. This preflight
+also runs for dry-run requests: dry run does not publish intent, but it cannot
+approve a plan that would overwrite recovery evidence when applied.
 
 The journal covers new canonical outputs only. It does not cover native target
 or config writes, and it cannot authorize recovery for crashes that predate the

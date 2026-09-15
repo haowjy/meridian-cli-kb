@@ -129,11 +129,12 @@ Before applying new absent canonical outputs, the feature branch writes
 version 1 `.mars/pending-canonical.json`. It binds expected output bytes and
 source provenance to the exact prior `mars.lock` bytes (or recorded absence).
 On retry, Mars accepts only matching regular outputs with no ancestor or nested
-symlinks. Journal identity must also agree across its map key, item kind, and
-destination; destinations are unique, target-scoped hooks are validated, and
-dependency renames may use valid custom canonical paths. A changed output,
-changed lock, malformed identity, duplicate destination, or symlink fails closed
-rather than becoming ownership authority.
+symlinks. The journal is keyed by physical canonical destination, not logical
+item: every path carries at most its verified current and planned versions, with
+shared validation on journal read and write. Target-scoped hooks are validated,
+and dependency renames may use valid custom canonical paths. A changed output,
+changed lock, malformed path identity, or symlink fails closed rather than
+becoming ownership authority.
 
 Recovered ownership remains in memory until normal finalization publishes
 `mars.lock`. If the retry plans a replacement, the journal retains at most the
@@ -145,11 +146,19 @@ ownership wins on retry. `--frozen` refuses any uncommitted recovered claim,
 even when the resulting plan would otherwise contain only `Skip` actions; an
 ordinary sync must publish ownership first. A no-op run creates no journal.
 
-If the interrupted write moved a logical item to a new canonical destination,
-recovery retains the old canonical claim until removal is confirmed. Lock
-finalization filters confirmed-removed canonical records even if a skipped new
-path carried them forward, and a recovered install replaces a same-path
+If repeated interrupted writes move one logical item through multiple canonical
+destinations, each physical path remains separately recoverable with its exact
+recorded provenance. Recovery merges those verified physical claims back into
+the logical lock item. Old canonical claims remain until removal is confirmed;
+lock finalization filters confirmed-removed records even if a skipped new path
+carried them forward, and a recovered install replaces a same-path
 pending-deletion record rather than duplicating it.
+
+`.mars/pending-canonical.json` is reserved recovery state, not disposable
+compiled content. Preflight rejects any canonical output whose effective path
+equals, contains, or falls beneath the journal path; bootstrap validation uses
+the emitted bootstrap directory rather than only `BOOTSTRAP.md`. This check
+runs before config or output writes, including dry-run execution.
 
 This journal covers canonical writes only. Native target and config outputs are
 not journaled; [mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149)
@@ -169,15 +178,15 @@ algorithm. Canonical recovery is not a transaction for native/config outputs.
 - Product baseline: `mars-agents` `a26e81ca`; feature commits `e519f5c`,
   `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
   `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`, `cb2ccc1`,
-  `a4d17a2`, `34889b5`, `2aa796a`
-- Current feature head: `2aa796a`; not merged, installed, or released
+  `a4d17a2`, `34889b5`, `2aa796a`, `721495c`
+- Current feature head: `721495c`; not merged, installed, or released
 - Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 - Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current
   reproductions; exact June incident trigger remains unproven)
-- Local recovery verification: 15 recovery tests plus focused suites and
-  clippy; the final review and full runtime gate were still in progress at
-  capture time
+- Local recovery verification: 17 recovery tests plus full format, build, test,
+  and clippy gates; independent closure lanes `p6206` and `p6207` were still in
+  progress at capture time
 
 ## Related
 

@@ -463,7 +463,7 @@ new dependency rename/reference algorithm.
 ### D95: Journal new canonical writes without checkpointing ownership (2026-09-15)
 
 **Status:** Settled and implemented on the `fix/package-self-sync` feature
-branch at `2aa796a`; not merged, installed, or released.
+branch at `721495c`; not merged, installed, or released.
 
 **Decision:** Before writing a new absent canonical output, Mars publishes
 version 1 `.mars/pending-canonical.json` with the expected output checksum and
@@ -486,11 +486,13 @@ regular output shape, rejecting ancestor or nested symlinks. Existing published
 claims win over finalized-lock journal residue. Missing or invalid evidence
 never turns byte equality or `--force` into adoption permission.
 
-Journal identity is structural, not inferred from arbitrary serialized fields:
-the map key, item kind, and destination must agree; destinations are unique;
-hooks preserve target scope; and valid custom dependency destinations remain
-supported. This prevents malformed evidence from replacing an unrelated item's
-ownership.
+Journal identity is physical, not logical: its `outputs` map is keyed by
+canonical `DestPath`, with at most current and planned versions for each path.
+Read and write use the same path/kind validation, hooks preserve target scope,
+and valid custom dependency destinations remain supported. Recovery derives the
+logical item key only after verifying a physical output, then merges every
+verified path into that item. This lets repeated interrupted moves retain exact
+per-path provenance rather than overwriting evidence under one logical key.
 
 **Retry ordering:** Recovered claims remain in memory until finalization. When
 a retry also plans an update, its journal retains at most the verified current
@@ -507,6 +509,12 @@ is confirmed. Final lock construction removes confirmed old paths even when
 they were carried by a skipped new output. A same-path pending-deletion claim is
 replaced by the recovered installed claim rather than duplicated.
 
+**Reserved recovery path:** `.mars/pending-canonical.json` cannot overlap a
+canonical output. Before config or output writes, including dry runs, preflight
+rejects files, descendants, directories, and effective bootstrap roots that
+equal, contain, or fall beneath the journal path. Recovery evidence therefore
+cannot be overwritten by a custom canonical rename.
+
 **Boundary:** This decision covers new canonical outputs, including but not
 limited to `_self`; it does not make the whole sync transactional. Native and
 config outputs remain unjournaled under
@@ -518,6 +526,8 @@ pre-journal crashes still require safe manual recovery.
 (does not close the general write/publication window), extending `mars.lock` v3
 (conflates pending intent with installed authority), and checkpointing the lock
 before finalization (destroyed corrupt-lock evidence when later repair failed).
+Logical-item journal keys were also replaced: repeated moves need independent
+physical claims and provenance for every unfinished path.
 
 ---
 
