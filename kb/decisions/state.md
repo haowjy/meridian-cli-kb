@@ -2,7 +2,7 @@
 
 State-layer decisions cover how Meridian stores project identity, runtime state, and crash recovery data.
 
-## Native capture temporal boundary: evidence, decision still pending (2026-09-14)
+## Native capture temporal boundary: return to post-stop observation (2026-09-14)
 
 A real OpenCode 1.18.29 continuation overtook an immediate first-idle snapshot,
 which already included the next user turn. The universal read-at-completion
@@ -10,12 +10,14 @@ qualification proposed for #499 is therefore not valid. The independent contract
 audit traced exact launch-end semantics to repair-design strengthening, not an
 explicit original product requirement.
 
-Recommended, not adopted: immutable capture-time native-session observation with
-exact completed-record association and explicit temporal/content scope. It may
-include later continuation and cannot certify that every output had persisted at
-the earlier stop. Human semantic approval is required before implementing that
-change. Exact aggregate selection/byte verification, active/dependent protection,
-stream preservation and inert provenance-safe restore remain unchanged.
+After the user clarified that existing capture should be repaired rather than a
+new snapshot system invented, the selected design returns to post-stop observation
+with exact completed-record association and explicit temporal/content scope. It may
+include later continuation and does not certify past launch-end state. Keep the
+existing maintenance position; carry primary_spawn_id, not latest cN. No universal
+frontier ledger or new native ownership system. Exact aggregate selection/byte
+verification, active/dependent protection, stream preservation and inert provenance
+remain unchanged. This is a design correction, not implemented/runtime-approved.
 
 Codex paginated forks may depend on bounded ancestor rollouts. OpenCode's pinned
 MessageV2 transcript reader uses session/message/part tables; a raw snapshot of
@@ -175,9 +177,10 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
-**Status:** Settled direction and safety constraints; not implemented. Exact
-provider completion qualification remains an open blocker, and the revised F2–F5
-contracts were accepted by reviewer p6104 at design-contract level only.
+**Status:** Selected post-stop capture repair; not implemented. The universal
+exact-stop requirement is superseded by the explicit scope correction above, not
+proved. Revised F2–F5 contracts had p6104 design-level acceptance; the latest scope
+delta still needs independent review.
 PR #494 remains draft; no implementation/runtime approval was given.
 
 **Decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
@@ -185,8 +188,9 @@ Qualified native-primary history is published atomically as a separate snapshot
 inside the same record aggregate and becomes canonical through one shared source
 selection boundary. This is preferred to append-only begin/body/commit sections,
 which contaminate runner evidence and require abandoned-section recovery. File
-existence, nonempty output, timestamps, and a stable post-stop read do not prove that
-the bytes belong to the completed generation.
+existence or nonempty output does not prove capture completeness. Exact association
+comes from the completed record, while the descriptor states the native observation
+interval/scope rather than pretending to prove a past stop-time cutoff.
 
 Capture preserves provider-native authority rather than normalized display events.
 In particular, OpenCode requires a harness-owned raw-row representation containing
@@ -208,13 +212,13 @@ complete; search, export, preview, and retention consume the same storage/render
 outcome rather than inventing surface-specific fallbacks. Retention requires full
 validation before reclaim.
 
-**Open design gap:** No provider has yet supplied a proven observation that binds
-its final persisted native frontier to the exact completed Meridian generation.
-Passing the completed spawn ID fixes generation selection but not continuation or
-persistence races. Qualification should be attempted with snapshot publication at
-an existing protected completion boundary. If Claude, Codex, OpenCode, or Pi cannot
-prove that boundary, capture returns unavailable/ambiguous and reclaim stays blocked;
-timestamps and later snapshots must not manufacture certainty.
+**Scope correction:** The earlier exact-stop frontier requirement is superseded,
+not proved. The user asked to repair existing post-stop capture; its selected scope
+is a complete consistent native observation associated with the exact record. A
+real OpenCode counterexample and independent contract audit justify rejecting a
+new universal frontier/ownership protocol. Preserve known-incomplete/unavailable
+failures and exact reclaim checks. The latest design delta still needs review and
+integrated runtime evidence.
 
 **Why:** Investigation separated two causes of issue #499. A preexisting Pi grammar
 bug dispatches only RPC `message_end`, while native on-disk `type=message` records

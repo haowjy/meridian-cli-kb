@@ -155,25 +155,30 @@ is lossy and cannot be used as preservation input. Storage qualification and ren
 support are distinct outcomes.
 
 The snapshot header binds the original portable identity, generation, harness/native
-identity, dialect, and provider frontier; a final seal binds frame count and digest.
+identity, dialect, observation interval/scope and source revision; a final seal binds frame count and digest.
 Validation streams bounded frames and checks deadlines between reads. An unread seal,
 budget-exhausted prefix, malformed record, or unsupported dialect is partial, corrupt,
 or unavailable—not verified empty. Retention requires complete validation before
 reclaim, while presentation may expose an explicitly labeled partial prefix.
 
-### Open blocker: exact provider completion qualification
+### Post-stop observation, not exact-stop reconstruction
 
-No current evidence proves, for any of Claude, Codex, OpenCode, or Pi, a provider
-observation that binds final persisted native bytes or rows to the exact completed
-Meridian generation. The completed spawn ID prevents selecting the wrong local
-generation, but it does not resolve provider persistence or continuation races.
+The selected repair retains the existing post-stop capture path and passes the
+completed primary_spawn_id instead of looking up latest cN. It captures a consistent
+available native transcript observation, not exact native bytes at a past launch exit.
+A delayed observation may include later native continuation; metadata and read views
+must state that scope. No provider-wide writer fence, teardown callback or frontier
+ledger is added. The earlier F1 exact-stop requirement is superseded, not proven.
 
-First test whether qualification and snapshot publication can happen together at an
-existing protected completion boundary. A stable later read, timestamp, native ID,
-or checksum must not be promoted into a completion frontier. If a provider cannot
-prove the binding, return unavailable or ambiguous and keep the record protected from
-reclaim, including manual apply. This F1 design gap is intentionally open; it is not
-a four-provider completion claim.
+Capture still needs exact native identity, full supported scope, strict framing and
+positive valid-empty evidence. Missing/ambiguous/known-incomplete native input blocks
+new reclaim. OpenCode raw scope is its MessageV2 transcript, not all native state;
+Codex capture must follow declared paginated ancestor ranges. Preserve stream bytes
+and all required companions. A later external append does not invalidate a completed
+immutable capture; archive verification still covers the exact aggregate being removed.
+
+The latest design delta needs independent review and integrated runtime evidence.
+It is not a four-provider pass or permission to reclaim incomplete records.
 
 ## Verified publication and short reclaim serialization
 
@@ -240,8 +245,8 @@ not change the portable-history decisions on this page.
 
 Those earlier approvals do not cover #499/#500. PR #494 is draft; all repair work
 remains in that PR and #498 is excluded. Initialization and the minimal Pi parser/cache
-repair can proceed independently, but native capture/reclaim cannot claim completion
-while the provider-frontier gap remains open. The F2–F5 contract revisions (raw
+repair can proceed independently. Native capture/reclaim follows the selected
+post-stop observation contract; integrated correctness is not yet established. The F2–F5 contract revisions (raw
 OpenCode preservation, repeated-portability descriptor, warm deadline accounting,
 and bounded validation outcome) were accepted by reviewer p6104 at design-contract
 level only; no implementation/runtime approval was given.

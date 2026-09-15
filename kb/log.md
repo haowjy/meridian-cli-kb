@@ -4,6 +4,15 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 ---
 
+## 2026-09-14 — Post-stop capture scope correction
+
+The user clarified that existing capture should be repaired rather than a new
+snapshot system invented. Updated the current state decision, architecture and
+index to withdraw universal exact-stop reconstruction and select post-stop native
+observation with exact record association. No production implementation or fresh
+review approval is claimed; the latest reviewer account limit remains recorded.
+
+
 ## 2026-09-14 — History #499/#500 investigation capture
 
 Captured settled repair intent from `work:next-minor-planning` without changing
