@@ -74,25 +74,28 @@ roots avoid this feedback path; a general fix is tracked in
 
 ## Flat-root containment
 
-A root `SKILL.md` treats the package directory as its resource tree. Before
-walking that tree, staging excludes control and generated paths: the canonical
-and staging tree, `.mars-src`, standard native target roots, and resolved
-configured target paths. Existing paths are resolved as well as normalized so
-absolute paths, dot segments, and aliases cannot reintroduce an output tree.
-Filtering before traversal prevents staging from recursively copying its own
-destination while preserving authored resources.
+A flat declared-package `SKILL.md` treats the project directory as its resource
+tree. Before walking that tree, staging excludes project control and generated
+paths: the canonical and staging tree, `.mars-src`, standard native target
+roots, currently configured targets, and custom targets retained in the prior
+lock. Existing paths are resolved as well as normalized so absolute paths, dot
+segments, and aliases cannot reintroduce an output tree. Filtering before
+traversal prevents staging from recursively copying its own destination while
+preserving authored resources.
 
-The filter is relative to the selected source root. Project-relative target
-paths must not discard similarly named resources inside a separate
-`.mars-src` root.
+Exclusions are evaluated against the selected source root. A flat `.mars-src`
+skill therefore does **not** reserve project-level names such as `.codex`,
+`.agents`, or `.mars-src` inside its authored resource tree. Configured and
+prior target paths are excluded only when their resolved project paths are
+actually within that selected source root.
 
 ## Ownership transitions and collisions
 
 The canonical `.mars` destination must already be owned by Mars or be absent
 before a selected self item can apply. An unowned path is a pre-apply error even
 when its bytes match, `--force` is present, or the command is a dry/frozen run.
-The remedy is to relocate the blocking destination and retry; Mars does not
-silently adopt it.
+The remedy is to relocate every blocked canonical destination and retry or run
+repair; Mars does not silently adopt any of them.
 
 When source ownership changes but bytes do not, diff emits `Update` only if the
 on-disk canonical content still matches the previous lock. That write records
@@ -103,6 +106,21 @@ both changed, the established source-wins conflict behavior remains.
 Native target collisions are a separate ownership surface and retain their
 existing warning and explicit-force adoption semantics. The canonical self
 refusal does not change them.
+
+## Verification boundary
+
+An isolated retained-state package copy preserved its original manifest and
+dependency cache while sync restored current-package content: 22 `_self` items,
+11 skills, and all 43 authored resources were present, `muse` resolved, and a
+second run left self-item bytes, self-item mtimes, and `mars.lock` unchanged.
+This does not establish whole-tree mtime stability: generated
+`.codex/hooks.json` and transient staging mtimes still changed.
+
+Dry-run and export-style commands avoid canonical/native installation and lock
+finalization, but they are not filesystem-write-free: resolution may create
+`.mars/sync.lock` and refresh `.mars/staging`. Ownership-loss recovery is also
+manual by design; every blocked canonical self destination must be relocated
+before repair can rebuild ownership.
 
 ## Non-goals
 
@@ -116,6 +134,7 @@ new dependency rename/reference algorithm.
 - Product baseline: `mars-agents` `a26e81ca`; feature commits `e519f5c`,
   `b44b7bc`, `6ef8760`, `f04d0a1`
 - Settled source-selection refinement: 2026-09-15
+- Isolated runtime verification: `spawn:p6164`
 
 ## Related
 

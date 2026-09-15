@@ -3,8 +3,9 @@
 `mars sync` runs the full package pipeline: load config, resolve, target, plan,
 apply, and sync managed targets. Each phase produces a typed handoff struct.
 Individual writes are atomic and the sync lock serializes runs, but the whole
-cycle is not a transaction with rollback. A completed run with unchanged
-inputs is idempotent.
+cycle is not a transaction with rollback. Completed unchanged runs converge in
+managed bytes and ownership state; this does not promise stable mtimes for
+every generated or staging path.
 
 Top-level entry: `sync::execute()` in `src/sync/mod.rs` lines 132–140.
 
@@ -191,6 +192,9 @@ overwriting a local-only modification.
 Self items are staged before this ownership guard. A refusal can therefore
 refresh derived `.mars/staging` content while leaving canonical outputs, native
 outputs, and the lock unapplied. This is not a rollback guarantee.
+If interruption or an unreadable lock leaves canonical self outputs without an
+ownership claim, `--force` does not bypass the guard. Relocate every blocked
+canonical destination, then run repair to rebuild ownership.
 
 ## Sync Modes
 
@@ -198,7 +202,7 @@ outputs, and the lock unapplied. This is not a rollback guarantee.
 |---|---|
 | (default) | MVS version selection, replay locked commits; models.dev catalog **Auto** + probe **Background** |
 | `--force` | Overwrite locally-modified files |
-| `--diff` | Dry-run: report what would change, no writes |
+| `--diff` | Report planned installed-state changes without applying canonical/native outputs or finalizing `mars.lock` |
 | `--frozen` | Do not fetch new versions; fail if lock is insufficient |
 | `--refresh-models` | Force models.dev catalog refresh; run harness probes **synchronously** (no background `__refresh-probe` on stale cache) |
 | `--no-refresh-models` | Disk-only catalog (`RefreshMode::Offline`); probe **Skip** (stale probe JSON still used when present) |
@@ -206,6 +210,11 @@ outputs, and the lock unapplied. This is not a rollback guarantee.
 | `--ignore-requires-meridian` | Skip package `requires-meridian` compatibility checks |
 
 `--frozen` is the right mode for CI builds where reproducibility is required.
+
+Dry-run, frozen, and export-style resolution are not guaranteed to be
+filesystem-write-free. They may create `.mars/sync.lock` and refresh derived
+`.mars/staging` content even when canonical/native outputs and `mars.lock`
+remain unchanged.
 
 The `--ignore-requires-*` flags are available on `sync`, `upgrade`, `add`, and
 `repair`. They emit a single warning noting the check is disabled.
