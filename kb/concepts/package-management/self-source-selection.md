@@ -129,8 +129,11 @@ Before applying new absent canonical outputs, the feature branch writes
 version 1 `.mars/pending-canonical.json`. It binds expected output bytes and
 source provenance to the exact prior `mars.lock` bytes (or recorded absence).
 On retry, Mars accepts only matching regular outputs with no ancestor or nested
-symlinks. A changed output, changed lock, malformed journal, or symlink fails
-closed rather than becoming ownership authority.
+symlinks. Journal identity must also agree across its map key, item kind, and
+destination; destinations are unique, target-scoped hooks are validated, and
+dependency renames may use valid custom canonical paths. A changed output,
+changed lock, malformed identity, duplicate destination, or symlink fails closed
+rather than becoming ownership authority.
 
 Recovered ownership remains in memory until normal finalization publishes
 `mars.lock`. If the retry plans a replacement, the journal retains at most the
@@ -138,7 +141,15 @@ verified current and planned versions so failure on either side of the next
 write stays recoverable. There is no early lock checkpoint: failed repair
 preserves corrupt lock bytes across repeated source updates or errors. A crash
 after lock publication but before journal cleanup is safe because published
-ownership wins on retry. A no-op run creates no journal.
+ownership wins on retry. `--frozen` refuses any uncommitted recovered claim,
+even when the resulting plan would otherwise contain only `Skip` actions; an
+ordinary sync must publish ownership first. A no-op run creates no journal.
+
+If the interrupted write moved a logical item to a new canonical destination,
+recovery retains the old canonical claim until removal is confirmed. Lock
+finalization filters confirmed-removed canonical records even if a skipped new
+path carried them forward, and a recovered install replaces a same-path
+pending-deletion record rather than duplicating it.
 
 This journal covers canonical writes only. Native target and config outputs are
 not journaled; [mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149)
@@ -157,15 +168,16 @@ algorithm. Canonical recovery is not a transaction for native/config outputs.
 - Work item: `work:mars-self-package-sync`
 - Product baseline: `mars-agents` `a26e81ca`; feature commits `e519f5c`,
   `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
-  `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`
-- Current feature head: `cf86eb6`; not merged, installed, or released
+  `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`, `cb2ccc1`,
+  `a4d17a2`, `34889b5`, `2aa796a`
+- Current feature head: `2aa796a`; not merged, installed, or released
 - Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 - Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current
   reproductions; exact June incident trigger remains unproven)
-- Local recovery verification: 10 focused recovery tests plus full format,
-  build, test, and clippy gates; independent review and probing were still in
-  progress at capture time
+- Local recovery verification: 15 recovery tests plus focused suites and
+  clippy; the final review and full runtime gate were still in progress at
+  capture time
 
 ## Related
 

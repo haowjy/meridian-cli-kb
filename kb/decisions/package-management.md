@@ -463,7 +463,7 @@ new dependency rename/reference algorithm.
 ### D95: Journal new canonical writes without checkpointing ownership (2026-09-15)
 
 **Status:** Settled and implemented on the `fix/package-self-sync` feature
-branch at `cf86eb6`; not merged, installed, or released.
+branch at `2aa796a`; not merged, installed, or released.
 
 **Decision:** Before writing a new absent canonical output, Mars publishes
 version 1 `.mars/pending-canonical.json` with the expected output checksum and
@@ -486,13 +486,26 @@ regular output shape, rejecting ancestor or nested symlinks. Existing published
 claims win over finalized-lock journal residue. Missing or invalid evidence
 never turns byte equality or `--force` into adoption permission.
 
+Journal identity is structural, not inferred from arbitrary serialized fields:
+the map key, item kind, and destination must agree; destinations are unique;
+hooks preserve target scope; and valid custom dependency destinations remain
+supported. This prevents malformed evidence from replacing an unrelated item's
+ownership.
+
 **Retry ordering:** Recovered claims remain in memory until finalization. When
 a retry also plans an update, its journal retains at most the verified current
 and planned versions, covering another failure on either side of that write.
 Only finalization publishes `mars.lock`, then removes the journal. This preserves
 exact corrupt-lock bytes through repeated failed repair and source updates.
 Dry-run and resolution failure do not publish new intent; no-op sync creates no
-journal.
+journal. Frozen mode refuses recovered but unpublished ownership even when every
+filesystem action would be `Skip`; reproducibility includes ownership state,
+not only output bytes.
+
+An interrupted destination move retains the old canonical claim until removal
+is confirmed. Final lock construction removes confirmed old paths even when
+they were carried by a skipped new output. A same-path pending-deletion claim is
+replaced by the recovered installed claim rather than duplicated.
 
 **Boundary:** This decision covers new canonical outputs, including but not
 limited to `_self`; it does not make the whole sync transactional. Native and

@@ -162,15 +162,27 @@ During the next load, before current-package source selection, Mars validates
 the journal under the sync lock. It recovers a path into the in-memory lock only
 when the lock binding still matches and the output has the recorded bytes,
 expected file/directory shape, and no symlink in its ancestors or content tree.
-Published lock claims take precedence over residue from a crash between lock
-publication and journal cleanup. Changed bytes, links, changed lock state, or a
-malformed journal fail closed.
+The journal key, item kind, and destination must describe the same identity;
+destinations must be unique, hooks retain their target scope, and valid custom
+dependency destinations remain recoverable. Published lock claims take
+precedence over residue from a crash between lock publication and journal
+cleanup. Changed bytes, links, changed lock state, mismatched identity, or a
+duplicate destination fail closed.
 
 Recovery is not published early. The retry journal keeps at most the verified
 current version and its planned replacement; `mars.lock` changes only during
 normal finalization, then the journal is removed. This ordering preserves exact
 corrupt-lock evidence if repair fails repeatedly. A no-op run creates no
 journal, while dry-run and resolution failure do not publish new intent.
+`--frozen` refuses recovered claims that are not yet published, including an
+all-`Skip` plan, because unchanged output bytes do not make ownership committed.
+
+Recovery of a destination move temporarily retains both the newly recovered
+canonical claim and the old canonical claim. The old claim remains authoritative
+until its removal succeeds; final lock construction filters every
+confirmed-removed canonical record even when a `Skip` outcome carried it
+forward. A recovered installed record replaces, rather than accompanies, a
+same-path pending-deletion record.
 
 The journal covers new canonical outputs only. It does not cover native target
 or config writes, and it cannot authorize recovery for crashes that predate the
@@ -233,7 +245,7 @@ relocate every blocked destination, then retry or repair.
 | (default) | MVS version selection, replay locked commits; models.dev catalog **Auto** + probe **Background** |
 | `--force` | Overwrite locally-modified files |
 | `--diff` | Report planned installed-state changes without applying canonical/native outputs or finalizing `mars.lock` |
-| `--frozen` | Do not fetch new versions; fail if lock is insufficient |
+| `--frozen` | Do not fetch new versions; fail if lock is insufficient or pending recovery would publish ownership |
 | `--refresh-models` | Force models.dev catalog refresh; run harness probes **synchronously** (no background `__refresh-probe` on stale cache) |
 | `--no-refresh-models` | Disk-only catalog (`RefreshMode::Offline`); probe **Skip** (stale probe JSON still used when present) |
 | `--ignore-requires-mars` | Skip package `requires-mars` compatibility checks |
