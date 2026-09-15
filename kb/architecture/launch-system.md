@@ -79,6 +79,21 @@ C7 is still incomplete for primary provisional/trampoline identity and fork
 checks, streaming-serve recording, OpenCode streaming model transport, and
 coordinated final gates/PR/release.
 
+### Primary identity binding
+
+Primary fresh and native-fork paths defer selection binding until the
+authoritative harness identity is available. Generated seeds and the native
+fork's source parent are not bound from an early provisional identity. Claude
+continues to use its existing transcript/trampoline identity detector; no
+model discovery is performed here.
+
+Identity-binding failure propagates as the operation's error, while adapter
+cleanup and session stop remain in the cleanup path. This increment is
+verified with primary-identity seed/fork drivers, native-fork fake executable
+drivers, and binding-failure plus quiet-transcript controls. C7 remains open
+for streaming-serve recording, OpenCode streaming named-model transport,
+spawn native-fork/reference-form audit, and coordinated final gates/PRs.
+
 ## control_root / task_cwd Split
 
 `LaunchContext` carries two distinct path fields introduced in PR #210:

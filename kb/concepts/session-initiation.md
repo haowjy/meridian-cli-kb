@@ -401,6 +401,19 @@ failed registration is known not to have committed.
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how `--continue` and `--fork` work at the Claude harness level
 - [../decisions/session-reference-resolution.md](../decisions/session-reference-resolution.md) — how spawn/chat/session IDs are resolved for `--from`/`--fork`/`--continue`
 
+### Primary identity is authoritative before seed or parent binding
+
+For primary fresh and native-fork initiation, Meridian waits for the actual
+harness identity before binding launch selection. A generated identity is only
+a provisional seed and must not bind the source parent early; Claude's
+existing transcript/trampoline detector supplies identity observation. It does
+not discover a model.
+
+When binding fails, the error remains visible to the caller. Adapter cleanup
+and session stop still execute. This is a partial increment; streaming-serve
+recording, OpenCode streaming named-model transport, and spawn native-fork /
+reference-form audit remain open alongside coordinated final gates/PRs.
+
 ## Continuation model selection and identity
 
 Continuation is target-constrained rather than model-freeze or model-prohibition.

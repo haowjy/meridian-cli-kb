@@ -286,5 +286,25 @@ The remaining C7 work is primary provisional/trampoline identity and fork
 checks, streaming-serve recording, OpenCode streaming model transport, and
 coordinated final gates/PR/release.
 
+### D-primary-identity-delayed-binding: fresh and native-fork primary selection waits for identity
+
+**Decision (2026-09, target-constrained-fallback):** Primary fresh and
+native-fork launches do not bind a generated seed or source parent before the
+actual harness identity exists. Selection and persistence wait for the
+authoritative identity; a generated seed remains provisional and cannot bind
+the source parent early. Claude's existing transcript/trampoline identity
+detector remains the identity observation mechanism; this increment adds no
+model discovery.
+
+If identity binding fails, the failure propagates while adapter cleanup and
+session stop still run. This keeps the binding error visible without leaking a
+live adapter or masking the original error. This is a partial C7 increment:
+streaming-serve recording, OpenCode streaming named-model transport, spawn
+native-fork/reference-form audit, and coordinated final gates/PRs remain open.
+
+**Evidence:** `work:target-constrained-fallback` (primary-identity seed/fork
+drivers, native-fork fake executable drivers, binding-failure and quiet
+transcript controls; reviewer `p6231` closure and runtime `p6225`).
+
 **Evidence:** `work:target-constrained-fallback` (`c7-primary-review.md`,
 `c7-primary-probe.md`, `c7-spawn-probe-luna.md`, `c7-spawn-seed-closure-luna.md`).
