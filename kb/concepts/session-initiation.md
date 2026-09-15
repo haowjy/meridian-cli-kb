@@ -416,7 +416,16 @@ and attempt. Native-ID callbacks are authoritative; a freshly derived ID is only
 a provisional row hint. Append failure terminates continuation with a
 coordination error rather than switching the runtime model.
 
-The remaining C7 work is not represented as complete: legacy
-original-generation lookup/seeding, full native-ID ambiguity/recovery (including
-the primary Claude trampoline), streaming-serve recording, and OpenCode
-streaming model transport still need completion.
+Legacy original-generation lookup is read-only against baseline `c3087ceb`.
+The original snapshot or partial historical model travels through
+`SessionRequest` and is seeded at session scope under the store lock; failed
+continuation cannot become the initial value. Under the new protocol, missing
+acceptance or absent tracked original history requires an explicit model.
+
+Native raw IDs stay literal rather than becoming the latest chat ID. Ambiguous
+tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
+references keep their recorded harness, and file detection never silently
+replaces it. These increments are validated against native reference
+`833dc1f2`. Remaining C7 work is primary provisional/trampoline identity and
+fork checks, streaming-serve recording, OpenCode streaming model transport,
+and coordinated final gates/PR/release.

@@ -65,6 +65,20 @@ binds that selection to the same generation and attempt. Native-ID callbacks are
 authoritative; a derived fresh ID remains only a provisional row hint. Append
 failure is a coordination error and never triggers runtime model switching.
 
+The legacy increment (baseline `c3087ceb`) performs original-generation lookup
+read-only. An original snapshot or partial historical model is carried through
+`SessionRequest` and seeded once at session scope under the store lock; failed
+continuation is never used as the initial value. New-protocol continuation with
+missing acceptance or absent tracked original history requires an explicit model
+instead of guessing. Native raw IDs remain literal, and ambiguous
+tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
+references retain their recorded harness rather than being silently replaced
+by file detection. Native reference `833dc1f2` covers these rules.
+
+C7 is still incomplete for primary provisional/trampoline identity and fork
+checks, streaming-serve recording, OpenCode streaming model transport, and
+coordinated final gates/PR/release.
+
 ## control_root / task_cwd Split
 
 `LaunchContext` carries two distinct path fields introduced in PR #210:

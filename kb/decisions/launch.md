@@ -272,10 +272,19 @@ derived ID is only a provisional row hint until the authoritative callback
 arrives.
 
 If an append fails, continuation ends as a coordination error; it does not
-switch runtime models to recover. Legacy original-generation lookup/seeding,
-full native-ID ambiguity/recovery (including the primary Claude trampoline),
-streaming-serve recording, OpenCode streaming model transport, and coordinated
-acceptance remain incomplete paths.
+switch runtime models to recover. Legacy original-generation lookup is
+read-only against baseline `c3087ceb`; the original snapshot or partial
+historical model is carried through `SessionRequest` and seeded at session
+scope under the store lock. Failed continuation never becomes the initial
+value. New-protocol missing acceptance or absent tracked original history
+requires an explicit model—there is no guessing. Native raw IDs remain
+literal, and ambiguous tracked/untracked/mixed ownership requires explicit
+`--harness`; known p/c references retain their recorded harness and file
+detection does not silently replace it. Native reference is `833dc1f2`.
+
+The remaining C7 work is primary provisional/trampoline identity and fork
+checks, streaming-serve recording, OpenCode streaming model transport, and
+coordinated final gates/PR/release.
 
 **Evidence:** `work:target-constrained-fallback` (`c7-primary-review.md`,
 `c7-primary-probe.md`, `c7-spawn-probe-luna.md`, `c7-spawn-seed-closure-luna.md`).
