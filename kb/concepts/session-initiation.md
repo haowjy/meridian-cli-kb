@@ -45,8 +45,9 @@ or environment. See [model-resolution: model optional](../decisions/model-resolu
 Changing task location, work attachment, identity, or launch policy is a
 divergence, not continuation. Use `--fork`, `--fork-fresh`, `--from`, or a fresh
 session for that. Same-session continue rejects overrides such as `--work`,
-`--task-dir`, `--model`, `--agent`, `--skills`, execution-policy flags, env
-overrides, and passthrough args. Agent opt-out (`--agent ''`) is also a launch
+`--task-dir`, `--agent`, `--skills`, execution-policy flags, env overrides, and
+passthrough args. An explicit `--model` is accepted as a target-constrained
+request and warns; Mars revalidates it under the same harness. Agent opt-out (`--agent ''`) is also a launch
 identity mutation: when the source opted out, continue preserves that opt-out and
 must not reintroduce a configured default agent; when it did not, continue cannot
 opt out during replay.
@@ -399,3 +400,23 @@ failed registration is known not to have committed.
 - [../architecture/launch-system.md](../architecture/launch-system.md) — `build_launch_context()` as the sole composition seam; `resolve_task_context_inputs` placement
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how `--continue` and `--fork` work at the Claude harness level
 - [../decisions/session-reference-resolution.md](../decisions/session-reference-resolution.md) — how spawn/chat/session IDs are resolved for `--from`/`--fork`/`--continue`
+
+## Continuation model selection and identity
+
+Continuation is target-constrained rather than model-freeze or model-prohibition.
+Exact primary and spawn continuation accept explicit `--model` requests and warn
+for each explicit request. Mars revalidates current targets and exclusions under
+the same harness, and a literal canonical/provider pin prevents alias drift.
+Non-routing policy and the original launch snapshots are unchanged.
+
+A later plain continuation reads the Meridian selection recorded at
+`accepted-running`; it never uses the native harness's observed last-executed
+model as discovery. `SessionAttempt` binds that selection to the same generation
+and attempt. Native-ID callbacks are authoritative; a freshly derived ID is only
+a provisional row hint. Append failure terminates continuation with a
+coordination error rather than switching the runtime model.
+
+The remaining C7 work is not represented as complete: legacy
+original-generation lookup/seeding, full native-ID ambiguity/recovery (including
+the primary Claude trampoline), streaming-serve recording, and OpenCode
+streaming model transport still need completion.

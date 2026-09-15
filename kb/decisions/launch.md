@@ -134,7 +134,7 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 **Why:** Continue means re-entering the same conversation. Recomputing from current CWD/config/env can change the system prompt, workspace projection, or prompt-cache key.
 
-**Override boundary:** Policy-changing options are rejected on continue: model, agent, skills, harness, execution policy, passthrough args, env overrides, `--work`, `--task-dir`. Changing identity belongs to `--fork`, `--fork-fresh`, `--from`, or a fresh session.
+**Override boundary:** Continue preserves the recorded contract for ordinary replay. `--model` is the explicit target-constrained exception: primary and spawn continuation accept it and warn, then Mars revalidates current targets and exclusions under the same harness. Other policy-changing options remain rejected; changing identity belongs to `--fork`, `--fork-fresh`, `--from`, or a fresh session.
 
 **Session ID authority:** Continue/fork consume `ResolvedSessionReference.authoritative_harness_session_id`. See [session-reference-resolution.md](session-reference-resolution.md).
 
@@ -253,3 +253,29 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 - [Launch architecture](../architecture/launch-system.md)
 - [Launch concepts](../concepts/composition-pipeline.md)
 - [Decision index](../decisions.md)
+
+### D-continuation-target-constrained-selection: explicit continuation requests remain target-constrained
+
+**Decision (C7 settled):** Exact primary and spawn continuation accept an explicit
+`--model` request, and every such request emits a warning. Mars revalidates the
+current target and exclusion constraints under the same harness; the literal
+canonical/provider pin is retained so an alias cannot drift during continuation.
+This is target-constrained selection, not a model-freeze or model-prohibition
+rule. Non-routing policy and the original launch snapshots remain unchanged.
+
+After the explicit request is accepted, a later plain continuation uses the
+Meridian model selection recorded at `accepted-running`. It does **not** discover
+or infer the model from the last model executed by the native harness. A
+`SessionAttempt` binds that accepted selection to the same generation and
+attempt, while authoritative native-ID callbacks identify the session. A newly
+derived ID is only a provisional row hint until the authoritative callback
+arrives.
+
+If an append fails, continuation ends as a coordination error; it does not
+switch runtime models to recover. Legacy original-generation lookup/seeding,
+full native-ID ambiguity/recovery (including the primary Claude trampoline),
+streaming-serve recording, OpenCode streaming model transport, and coordinated
+acceptance remain incomplete paths.
+
+**Evidence:** `work:target-constrained-fallback` (`c7-primary-review.md`,
+`c7-primary-probe.md`, `c7-spawn-probe-luna.md`, `c7-spawn-seed-closure-luna.md`).

@@ -50,6 +50,21 @@ LaunchContext
 
 The primary CLI path is the canonical example of prepare-once/bind-twice: `prepare_launch_surface()` is called once before the session is opened, then `bind_launch_context()` runs for dry-run preview (display), then again with real spawn-id/paths for actual execution.
 
+## Continuation selection and attempt identity
+
+Primary and spawn continuation share target-constrained selection. An explicit
+`--model` is accepted and warned on every request; Mars revalidates current
+targets and exclusions under the same harness, while a literal
+canonical/provider pin prevents alias drift. The rule is not a model freeze or
+prohibition, and it does not change non-routing policy or original launch
+snapshots.
+
+Plain continuation uses the Meridian selection recorded at `accepted-running`,
+not a model observed from the native harness's last execution. `SessionAttempt`
+binds that selection to the same generation and attempt. Native-ID callbacks are
+authoritative; a derived fresh ID remains only a provisional row hint. Append
+failure is a coordination error and never triggers runtime model switching.
+
 ## control_root / task_cwd Split
 
 `LaunchContext` carries two distinct path fields introduced in PR #210:
