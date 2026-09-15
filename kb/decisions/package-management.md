@@ -1,10 +1,13 @@
 # Decisions: Package Management
 
-Decisions about the `.mars/` store, targeting architecture, compiler pipeline, agent and skill emission, the universal skill schema, and the bootstrap documentation model.
+Decisions about the `.mars/` store, source selection, targeting architecture,
+compiler pipeline, agent and skill emission, the universal skill schema, and
+the bootstrap documentation model.
 
 For mechanism, see:
 - [concepts/package-management/overview.md](../concepts/package-management/overview.md) — mars as a package manager
 - [concepts/package-management/compiler-pipeline.md](../concepts/package-management/compiler-pipeline.md) — reader → compiler → target sync
+- [concepts/package-management/self-source-selection.md](../concepts/package-management/self-source-selection.md) — current-package selection, discovery, and ownership
 - [concepts/package-management/targeting.md](../concepts/package-management/targeting.md) — native harness dir emission
 - [concepts/skill-schema.md](../concepts/skill-schema.md) — frontmatter, lowering, variants
 - [architecture/mars-targeting.md](../architecture/mars-targeting.md) — targeting architecture detail
@@ -398,12 +401,70 @@ as a preview tool.
 
 ---
 
+## Declared-Package Self-Sync
+
+### D94: `[package]` opts agents and skills into `_self` (2026-09-15)
+
+**Status:** Settled and implemented on the `fix/package-self-sync` feature
+branch; not installed or released.
+
+**Decision:** A project with `[package]` contributes its own agents and skills
+to sync under the synthetic `_self` lock owner. `.mars-src` remains an
+independent higher-precedence self layer. Declared-package content is
+Mars-native, while `.mars-src` and dependency dialect rules remain unchanged.
+The feature uses the existing lock schema and canonical pipeline rather than a
+self-dependency or runtime source lookup.
+
+**Precedence follows installed identity:** Dependency explicit renames and
+collision renames run before selected self items overlay matching destinations.
+Mars does not deduplicate raw dependency names or change reference rewriting.
+This preserves renamed dependency outputs while making the current package's
+unrenamed content available in its own checkout.
+
+**Discovery boundary:** Self selection reuses D87's shallowest occupied-layer
+rule. The declared-package contribution is filtered to agents and skills only,
+but other convention kinds still participate in grounding. A nested
+distribution becomes eligible if all shallower convention items disappear;
+there is no permanent `cw/` or distribution-directory exclusion. The owner
+explicitly chose this fallback over a new discovery policy.
+
+**Flat-root consequence:** A package-root `SKILL.md` uses the declared package
+name while retaining `_self` ownership. Its resources are filtered before
+traversal to exclude canonical/staging output, standard native roots, and
+resolved configured target paths. This prevents recursive self-copy, but it
+does not change discovery: a non-hidden generated output can still become an
+input on a later run. That general discovery problem is tracked separately in
+[mars-agents issue #161](https://github.com/haowjy/mars-agents/issues/161).
+
+**Ownership decision:** A selected self item cannot adopt an unowned canonical
+destination, even when bytes match or `--force` is present; sync fails before
+canonical/native apply with relocation guidance. For managed identical-byte
+source transitions, `Update` records the new owner only when disk is unmodified
+and carries native claims forward. Existing keep-local, source-wins, and native
+force/report behavior remains unchanged.
+
+**Why this shape:** The June 2026 removal of broad package-root scanning fixed
+unmanaged collision symptoms but left package authors unable to consume their
+own declared content. Restoring self availability through explicit source
+selection preserves the ownership repair: inputs are selected before staging,
+installed through the normal canonical plan, and refused rather than adopted
+when ownership is absent.
+
+**Rejected alternatives:** A self-dependency (recursive/versioned identity for
+the current checkout), alternate runtime lookup (bypasses canonical ownership),
+automatic adoption or merge (claims user content), permanent `cw/` exclusion
+(repository-specific policy), sticky source roots or a new lock schema, and a
+new dependency rename/reference algorithm.
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution
 - [launch.md](launch.md) — composition pipeline, harness adapters
 - [concepts/package-management/overview.md](../concepts/package-management/overview.md) — package model mechanism
 - [concepts/package-management/sync-model.md](../concepts/package-management/sync-model.md) — sync pipeline mechanics
+- [concepts/package-management/self-source-selection.md](../concepts/package-management/self-source-selection.md) — declared-package source-selection mechanism
 - [architecture/mars-compiler.md](../architecture/mars-compiler.md) — compiler internals
 - [architecture/mars-targeting.md](../architecture/mars-targeting.md) — targeting architecture
 - [architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — launch-bundle system

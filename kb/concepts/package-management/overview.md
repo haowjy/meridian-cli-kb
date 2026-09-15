@@ -86,6 +86,11 @@ sonnet = { model_id = "claude-sonnet-4-5", harness = "claude" }
 agent_emission = "auto"  # "auto" | "always" | "never"
 ```
 
+Declaring `[package]` also opts the checkout's own agents and skills into sync
+under the `_self` owner. See
+[self-source-selection.md](self-source-selection.md) for precedence and
+discovery boundaries.
+
 Source types:
 
 | Type | Key | Fetch |
@@ -135,6 +140,7 @@ for isolated `uv tool` installs.
 |---|---|
 | [compiler-pipeline.md](compiler-pipeline.md) | Compiler phases, lanes, module map |
 | [resolution-algorithm.md](resolution-algorithm.md) | Version selection, constraint graph, filters |
+| [self-source-selection.md](self-source-selection.md) | How `.mars-src`, a declared package, and renamed dependencies combine |
 | [targeting.md](targeting.md) | Emission policy, TargetAdapter model, per-harness behavior |
 | [sync-model.md](sync-model.md) | Diff → plan → apply cycle, lock provenance |
 

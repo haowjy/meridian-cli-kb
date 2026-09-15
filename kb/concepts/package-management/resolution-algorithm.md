@@ -197,9 +197,13 @@ Filter combinations are validated at config load time; incompatible combinations
 `discover_fallback()` handles packages that don't follow the conventional
 layout (flat roots, manifest-declared items, heuristic fallback).
 
-For local (non-package) sources, `local_source::discover_local_items()` prefers
-`.mars-src/` and optionally falls back to the repo root. Duplicate items by
-`ItemId` are deduplicated with warnings.
+Current-project source selection is separate from dependency resolution.
+`.mars-src/` is always eligible; when `[package]` is present, the declared
+package's agents and skills are also eligible and use Mars-native dialect.
+`.mars-src` wins matching self definitions before staging. Both roots retain
+the ordinary occupied-layer discovery contract. See
+[self-source-selection.md](self-source-selection.md) for precedence, flat-root
+naming, and generated-output boundaries.
 
 ## Source Cache
 
@@ -258,5 +262,6 @@ The resolver is decoupled from concrete source modules via four traits
 
 - [sync-model.md](sync-model.md) — how the resolved graph feeds the sync cycle
 - [compiler-pipeline.md](compiler-pipeline.md) — what happens to the resolved graph after resolution
+- [self-source-selection.md](self-source-selection.md) — current-package selection and self ownership
 - [overview.md](overview.md) — mars.toml format and dependency declaration syntax
 - [decisions/package-management.md](../../decisions/package-management.md) — why MVS, why trait-based resolver

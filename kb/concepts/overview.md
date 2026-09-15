@@ -24,4 +24,4 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 ## Subtrees
 
 - [model-resolution/](model-resolution/) — How model names become concrete models: aliases, routing, profiles, policies.
-- [package-management/](package-management/) — Mars package sync, `.mars/` compiled store, targeting, and sync model.
+- [package-management/](package-management/) — Mars package sync, current-package source selection, `.mars/` compiled store, targeting, and sync model.

@@ -43,7 +43,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) — Why descriptor-driven startup, doctor tiering, and sandbox projection policy work the way they do
 - [decisions/dev-frontend.md](decisions/dev-frontend.md) — Dev frontend decisions DF-D1 through DF-D7: portless default, explicit exposure, PORTLESS env scrub, allowed-hosts, launcher strategy
 - [decisions/model-resolution.md](decisions/model-resolution.md) — Why Mars owns alias authority, routing architecture, profile schema, policy matching, harness derivation, candidate-chain semantics, and OpenCode native model commitment
-- [decisions/package-management.md](decisions/package-management.md) — Why `.mars/` replaced `.agents/`, targeting design, compiler pipeline choices, universal skill schema, bootstrap doc model, upgrades-available direct-deps fix
+- [decisions/package-management.md](decisions/package-management.md) — Why `.mars/` replaced `.agents/`, targeting design, compiler pipeline choices, source discovery, and declared-package self-sync
 - [decisions/testing.md](decisions/testing.md) — Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
 - [decisions/workspace.md](decisions/workspace.md) — Why named workspace entries, permission-grant vs context-surfacing split, missing-path behavior, migration strategy
@@ -86,6 +86,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/package-management/overview.md](concepts/package-management/overview.md) — Mars as package manager: `mars.toml`, `.mars/` compiled store, harness native dir projection
 - [concepts/package-management/compiler-pipeline.md](concepts/package-management/compiler-pipeline.md) — Reader → compiler → target sync flow; `compiler::compile()` entry point, module map, collision resolution
 - [concepts/package-management/resolution-algorithm.md](concepts/package-management/resolution-algorithm.md) — Trait-based resolver: version selection, constraint validation, `ResolvedGraph` production
+- [concepts/package-management/self-source-selection.md](concepts/package-management/self-source-selection.md) — How `.mars-src`, declared-package content, dependency renames, discovery, and ownership combine
 - [concepts/package-management/targeting.md](concepts/package-management/targeting.md) — How compiled content lands in native harness dirs; conditional agent emission, per-harness target rules
 - [concepts/package-management/sync-model.md](concepts/package-management/sync-model.md) — `mars sync` pipeline: load → resolve → target → plan → apply; atomic, idempotent, lockfile behavior
 

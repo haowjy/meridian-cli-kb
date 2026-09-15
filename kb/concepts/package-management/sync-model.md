@@ -171,6 +171,22 @@ and
 [#D89](../../decisions/package-management.md)
 for the policy rationale.
 
+### Current-package self overlay
+
+When the project declares `[package]`, its selected agents and skills enter the
+target set after dependency renames. `.mars-src` has already won matching self
+definitions before staging. Self therefore overlays only matching installed
+destinations and does not undo explicit or automatic dependency renames. See
+[self-source-selection.md](self-source-selection.md) for the full selection
+contract.
+
+An unowned canonical destination blocks a selected self item before apply,
+including with identical bytes or `--force`; the user must relocate it rather
+than have Mars adopt it. If a managed destination changes source but retains
+identical bytes, it is classified as `Update` only while disk still matches the
+old lock. This records the new owner and carries native claims forward without
+overwriting a local-only modification.
+
 ## Sync Modes
 
 | Flag | Behavior |
@@ -220,6 +236,9 @@ sync and released on completion or crash.
   from the current graph are removed from both `.mars/` and native target dirs.
 - **I-6: v3 lock is always written** — v2 is promoted at read time by
   consulting disk state; v1 is unsupported. Any write produces v3.
+- **I-7: Canonical self ownership is explicit** — selected self content never
+  adopts an unowned `.mars` destination, even under force. Native target
+  collision policy remains independent.
 
 ## Key References
 
@@ -240,5 +259,6 @@ sync and released on completion or crash.
 - [compiler-pipeline.md](compiler-pipeline.md) — what runs during the compile phase
 - [targeting.md](targeting.md) — how the apply outputs are projected to harness dirs
 - [resolution-algorithm.md](resolution-algorithm.md) — how the ResolvedState is produced
+- [self-source-selection.md](self-source-selection.md) — how current-package inputs enter the target set
 - [decisions/package-management.md](../../decisions/package-management.md) — why sync is manual, why the lock extends to config-entry provenance
 - [../../architecture/mars-model-refresh.md](../../architecture/mars-model-refresh.md) — `ensure_fresh`, `ProbeRefreshMode`, refresh flags on sync
