@@ -132,7 +132,7 @@ new dependency rename/reference algorithm.
 
 - Work item: `work:mars-self-package-sync`
 - Product baseline: `mars-agents` `a26e81ca`; feature commits `e519f5c`,
-  `b44b7bc`, `6ef8760`, `f04d0a1`
+  `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`
 - Settled source-selection refinement: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 

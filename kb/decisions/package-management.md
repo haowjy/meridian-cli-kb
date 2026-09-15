@@ -434,7 +434,8 @@ traversal to exclude canonical/staging output, standard native roots, and
 current or previously owned target paths. Those project-root names are not
 reserved inside a flat `.mars-src` resource tree. This prevents recursive
 self-copy, but it does not change discovery: a non-hidden generated output can
-still become an input on a later run. That general discovery problem is tracked separately in
+still become an input on a later run. That general discovery problem is
+tracked separately in
 [mars-agents issue #161](https://github.com/haowjy/mars-agents/issues/161).
 
 **Ownership decision:** A selected self item cannot adopt an unowned canonical
