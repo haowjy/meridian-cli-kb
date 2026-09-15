@@ -463,7 +463,7 @@ new dependency rename/reference algorithm.
 ### D95: Journal new canonical writes without checkpointing ownership (2026-09-15)
 
 **Status:** Settled and implemented on the `fix/package-self-sync` feature
-branch at `721495c`; not merged, installed, or released.
+branch at `2b2d696`; not merged, installed, or released.
 
 **Decision:** Before writing a new absent canonical output, Mars publishes
 version 1 `.mars/pending-canonical.json` with the expected output checksum and
@@ -513,13 +513,18 @@ replaced by the recovered installed claim rather than duplicated.
 canonical output. Before config or output writes, including dry runs, preflight
 rejects files, descendants, directories, and effective bootstrap roots that
 equal, contain, or fall beneath the journal path. Recovery evidence therefore
-cannot be overwritten by a custom canonical rename.
+cannot be overwritten by a custom canonical rename. ASCII case variants and
+trailing-dot/space aliases are reserved on every platform so moving a checkout
+to a case-insensitive or Win32 filesystem cannot create a metadata collision.
+This is a portable CLI contract; it was not justified by a Windows runtime
+reproduction.
 
 **Boundary:** This decision covers new canonical outputs, including but not
 limited to `_self`; it does not make the whole sync transactional. Native and
 config outputs remain unjournaled under
 [mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149), and
 pre-journal crashes still require safe manual recovery.
+The design does not claim power-loss durability.
 
 **Rejected alternatives:** Treating matching unowned bytes as ownership
 (adopts arbitrary user content), preflighting only the reproduced obstruction

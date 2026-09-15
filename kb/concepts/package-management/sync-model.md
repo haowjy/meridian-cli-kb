@@ -189,11 +189,14 @@ The journal path is reserved before config or output mutation. Plan validation
 rejects a canonical file, descendant, directory, or effective bootstrap root
 that equals, contains, or falls beneath `pending-canonical.json`. This preflight
 also runs for dry-run requests: dry run does not publish intent, but it cannot
-approve a plan that would overwrite recovery evidence when applied.
+approve a plan that would overwrite recovery evidence when applied. ASCII case
+variants and trailing-dot/space aliases are reserved on every platform. The
+rule preserves checkout portability to case-insensitive and Win32 filesystems;
+its verification is a portable CLI contract, not a Windows runtime claim.
 
 The journal covers new canonical outputs only. It does not cover native target
 or config writes, and it cannot authorize recovery for crashes that predate the
-journal. Those boundaries remain tracked in
+journal. It also does not establish power-loss durability. Those boundaries remain tracked in
 [mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149).
 
 `LockIndex` is a fast lookup overlay for repeated dest-path queries during

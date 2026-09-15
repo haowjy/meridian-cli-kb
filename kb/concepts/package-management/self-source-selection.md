@@ -158,7 +158,11 @@ pending-deletion record rather than duplicating it.
 compiled content. Preflight rejects any canonical output whose effective path
 equals, contains, or falls beneath the journal path; bootstrap validation uses
 the emitted bootstrap directory rather than only `BOOTSTRAP.md`. This check
-runs before config or output writes, including dry-run execution.
+runs before config or output writes, including dry-run execution. Reservation
+also covers ASCII case variants and trailing-dot/space aliases on every
+platform, so a checkout cannot acquire a recovery-metadata collision when moved
+to a case-insensitive or Win32 filesystem. This is a portable path contract,
+not a claim of Windows runtime reproduction.
 
 This journal covers canonical writes only. Native target and config outputs are
 not journaled; [mars-agents issue #149](https://github.com/haowjy/mars-agents/issues/149)
@@ -170,7 +174,8 @@ match it, still require the safe manual inspection-and-relocation path.
 This design does not change `mars.lock` v3 or `_self`, and it does not add a
 self-dependency, alternate runtime lookup, installed-package upgrade, live
 package mutation, content merge, or a new dependency rename/reference
-algorithm. Canonical recovery is not a transaction for native/config outputs.
+algorithm. Canonical recovery is not a transaction for native/config outputs
+and does not claim power-loss durability.
 
 ## Provenance
 
@@ -178,15 +183,18 @@ algorithm. Canonical recovery is not a transaction for native/config outputs.
 - Product baseline: `mars-agents` `a26e81ca`; feature commits `e519f5c`,
   `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
   `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`, `cb2ccc1`,
-  `a4d17a2`, `34889b5`, `2aa796a`, `721495c`
-- Current feature head: `721495c`; not merged, installed, or released
+  `a4d17a2`, `34889b5`, `2aa796a`, `721495c`, `2b2d696`
+- Current feature head: `2b2d696`; not merged, installed, or released
 - Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 - Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current
   reproductions; exact June incident trigger remains unproven)
-- Local recovery verification: 17 recovery tests plus full format, build, test,
-  and clippy gates; independent closure lanes `p6206` and `p6207` were still in
-  progress at capture time
+- Local verification at `2b2d696`: full format/build, 1,906 tests with one
+  pre-existing ignored test, and strict clippy passed
+- Review: `p6206` approved `2b2d696`, closing repeated-move and path-collision
+  findings; `p6207` passed the interruption/runtime matrix at pinned `721495c`
+- A final current-head portable-alias and creative-package recheck remained in
+  progress at capture time; no result is inferred from the earlier lanes
 
 ## Related
 
