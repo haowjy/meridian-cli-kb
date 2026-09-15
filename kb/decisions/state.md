@@ -179,9 +179,12 @@ conversion. The index remains disposable metadata, not history authority.
 
 **Status:** Selected post-stop capture repair; not implemented. The universal
 exact-stop requirement is superseded by the explicit scope correction above, not
-proved. Revised F2–F5 contracts had p6104 design-level acceptance; the latest scope
-delta still needs independent review.
-PR #494 remains draft; no implementation/runtime approval was given.
+proved. Revised F2–F5 contracts had p6104 design-level acceptance. p6109 approved
+the scope direction with a medium qualification-result finding; after the primary's
+correction, p6110 closed it at design-contract level. The stage 3 and downstream
+stages 4–5 contract blocker is removed, not their implementation/acceptance gates.
+Prior account exhaustion did not block these reviews. PR #494 remains draft; no
+production implementation, runtime, reclaim, or PR-readiness approval was given.
 
 **Decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
 Qualified native-primary history is published atomically as a separate snapshot
@@ -217,8 +220,13 @@ not proved. The user asked to repair existing post-stop capture; its selected sc
 is a complete consistent native observation associated with the exact record. A
 real OpenCode counterexample and independent contract audit justify rejecting a
 new universal frontier/ownership protocol. Preserve known-incomplete/unavailable
-failures and exact reclaim checks. The latest design delta still needs review and
-integrated runtime evidence.
+failures and exact reclaim checks. One provider/materializer qualification result
+distinguishes complete observation, known incomplete, unavailable and unsupported.
+Existing lifecycle facts and supported native markers reject known unfinished input;
+consistent bytes alone do not qualify it. Delayed preparation retries the same checks
+and may qualify resolved output without discarding earlier interruption evidence;
+valid captures remain immutable. Integrated implementation/runtime evidence is still
+required.
 
 **Why:** Investigation separated two causes of issue #499. A preexisting Pi grammar
 bug dispatches only RPC `message_end`, while native on-disk `type=message` records
@@ -235,7 +243,9 @@ integrity as proof that the selected transcript was complete.
 `work:next-minor-planning/design/history-repair-plan.md`;
 `work:next-minor-planning/design/index-initialization.md`;
 `work:next-minor-planning/design/native-transcript-capture.md`;
-`work:next-minor-planning/reviews/repair-design-review.md`.
+`work:next-minor-planning/reviews/repair-design-review.md`;
+`work:next-minor-planning/DIVERGENCE/post-stop-capture-scope.md`;
+`work:next-minor-planning/reviews/post-stop-scope-review.md`; `spawn:p6109`; `spawn:p6110`.
 
 ## State Layer
 

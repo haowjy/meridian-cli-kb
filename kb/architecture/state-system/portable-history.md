@@ -177,8 +177,18 @@ Codex capture must follow declared paginated ancestor ranges. Preserve stream by
 and all required companions. A later external append does not invalidate a completed
 immutable capture; archive verification still covers the exact aggregate being removed.
 
-The latest design delta needs independent review and integrated runtime evidence.
-It is not a four-provider pass or permission to reclaim incomplete records.
+The provider/materializer qualification result distinguishes complete observation,
+known incomplete, unavailable and unsupported, with a bounded reason. Existing
+lifecycle facts and provider-owned supported-dialect markers reject positively known
+unfinished input; possible unobserved late writes do not require an external-writer
+proof. Delayed preparation retries that qualification; valid captures stay immutable.
+
+Review p6109 approved the direction with a medium qualification-contract finding.
+After the primary corrected that detail, p6110 closed it at design-contract level,
+removing the stage 3 and downstream stages 4–5 contract blocker. Implementation and
+runtime gates remain open; this is neither a four-provider pass nor publication,
+reclaim, or PR-readiness approval. Earlier account exhaustion did not block these
+reviews.
 
 ## Verified publication and short reclaim serialization
 
@@ -260,7 +270,9 @@ Investigation update: `work:next-minor-planning/investigation-499-500.md`;
 `work:next-minor-planning/design/history-repair-plan.md`;
 `work:next-minor-planning/design/index-initialization.md`;
 `work:next-minor-planning/design/native-transcript-capture.md`;
-`work:next-minor-planning/reviews/repair-design-review.md`.
+`work:next-minor-planning/reviews/repair-design-review.md`;
+`work:next-minor-planning/DIVERGENCE/post-stop-capture-scope.md`;
+`work:next-minor-planning/reviews/post-stop-scope-review.md`; `spawn:p6109`; `spawn:p6110`.
 
 ## Related
 

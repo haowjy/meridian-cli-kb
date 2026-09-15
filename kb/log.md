@@ -9,8 +9,12 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 The user clarified that existing capture should be repaired rather than a new
 snapshot system invented. Updated the current state decision, architecture and
 index to withdraw universal exact-stop reconstruction and select post-stop native
-observation with exact record association. No production implementation or fresh
-review approval is claimed; the latest reviewer account limit remains recorded.
+observation with exact record association. p6109 approved the direction with a medium
+qualification-result finding; the primary corrected it and p6110 closed it at design
+level. Updated architecture, decision and index summaries to remove pending-review
+wording. No production implementation, runtime or PR-readiness approval is claimed.
+The earlier account exhaustion remains historical evidence, not a blocker on these
+completed reviews. Source: `work:next-minor-planning/reviews/post-stop-scope-review.md`.
 
 
 ## 2026-09-14 — History #499/#500 investigation capture
@@ -25,9 +29,10 @@ For #499, the KB now separates the preexisting Pi native-message grammar defect 
 PR #494's partial-stream capture/selection regression and corrects the stale OpenCode
 source-precedence description. It records the preferred
 separate atomic snapshot, raw OpenCode preservation, bounded shared validation, and
-the immutable original descriptor required across rearchive. Exact provider completion
-qualification remains explicitly open; reviewer p6104 accepted F2–F5 at design-contract level only. They are not
-implemented or runtime-proven.
+the immutable original descriptor required across rearchive. At that review,
+exact provider completion qualification remained open; reviewer p6104 accepted F2–F5
+at design-contract level only. The post-stop scope correction above supersedes the
+exact-stop requirement; neither review establishes implementation or runtime proof.
 
 PR #494 remains draft, all repair TODOs remain there, and #498 is excluded. Earlier
 suite/CI and pinned approvals do not close the newly discovered issues.
