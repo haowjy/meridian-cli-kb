@@ -18,9 +18,9 @@ include later continuation and does not certify past launch-end state. Keep the
 existing maintenance position; carry primary_spawn_id, not latest cN. No universal
 frontier ledger or new native ownership system. Exact aggregate selection/byte
 verification, active/dependent protection, stream preservation and inert provenance
-remain unchanged. This is a design correction, not implemented/runtime-approved.
-
-> [!FLAG] **Needs human review**: This paragraph says the selected correction is “not implemented,” while D-native-transcript-snapshot below reports partial feature-branch implementation through `e2fea094`. Clarify whether “not implemented” applies only to the temporal-boundary correction. Flagged 2026-09-15.
+remain unchanged. The exact completed-primary handoff and capture-purpose identity
+selection now implement this temporal boundary. Provider qualification, snapshot
+publication, canonical validation, and integrated runtime approval remain open.
 
 Codex paginated forks may depend on bounded ancestor rollouts. OpenCode's pinned
 MessageV2 transcript reader uses session/message/part tables; a raw snapshot of
