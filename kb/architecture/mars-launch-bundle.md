@@ -60,12 +60,12 @@ inject per-spawn content before assembling the final system prompt.
 
 ## Bundle Structure
 
-Top-level fields in the full Mars JSON schema (version 3, mars-agents pinned at
-0.8.1 in Meridian):
+Top-level fields in the full Mars JSON schema (version 4, mars-agents pinned at
+0.14.0 in Meridian 0.4.6-rc.1):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `version` | integer | Schema version (currently `3`) |
+| `version` | integer | Schema version (currently `4`) |
 | `agent` | string \| null | Resolved agent name (`null` for ad-hoc mode) |
 | `agent_body` | string \| null | Agent body markdown when an agent is provided; omitted/null in ad-hoc mode |
 | `routing` | object | Routing result + Mars diagnostics (`model`, `model_token`, `harness`, `harness_model`, diagnostic fields) |
@@ -100,7 +100,10 @@ Meridian reads the following fields from the `routing` object:
 | `harness_model` | string \| null | Harness-specific model ID used at harness command-build time when present; otherwise Meridian launches with the canonical resolved model ID |
 | `candidate_slugs` | string[] | Diagnostic: raw probe slugs that matched during routing (mainly Cursor). **Consumers should run `harness_model` verbatim** — Mars resolves Cursor `model` + `effort` into `harness_model` at build time and clears `execution_policy.effort` when applied. Meridian may still read `candidate_slugs` for older Mars binaries; see [cursor-harness.md](cursor-harness.md). |
 
-Current Mars output also includes diagnostic routing fields such as `selection_kind`, `match_evidence`, `harness_model_source`, `harness_model_confidence`, and `route_trace`. These are Mars-internal diagnostics; Meridian ignores them.
+`routing.route_trace` is report schema 2: scope, model attempts, selected pointer,
+and outcome. Meridian validates it and keeps it as `selection_report`. It is
+diagnostic history, not a retry queue. Other diagnostic fields such as
+`selection_kind` and `match_evidence` travel with that report.
 
 ### Catalog refresh before build
 

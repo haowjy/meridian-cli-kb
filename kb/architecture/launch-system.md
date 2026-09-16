@@ -113,8 +113,11 @@ The split captures the divergence between *where project config lives* and *wher
 **continue replay:** Same-session continue enters launch through `continue_replay.py`.
 `ContinueReplayContract` is the shared internal seam for primary and spawn
 continue: it carries the source harness session, work/task context, replayed
-launch identity, passthrough args, and persisted launch-policy snapshot instead of
-letting callers recompute from current CWD/config/env. See
+launch identity, passthrough args, persisted launch-policy snapshot, and one
+`conversation_intent`. Explicit `--continue --model` is allowed and warned; the
+next plain continue uses the last JSONL `model_selection`, not the original
+snapshot model. Continue still asks Mars with a routing-only bundle so current
+target restrictions apply. Forks do not inherit later recorded selections. See
 [D-continue-replays-recorded-launch-contract](../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
 
 See [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split) for the rationale.

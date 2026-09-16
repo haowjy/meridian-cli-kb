@@ -12,7 +12,8 @@ Model policies are two distinct mechanisms that both use the word "policy":
 
 Agent profile frontmatter can declare a list of `model-policies` entries. A
 project/user config overlay (`[agents.<name>]`) can inherit, suppress, or prepend
-to those entries without editing generated `.mars/agents/` files. When the resolved
+those entries for **settings matching** without editing generated `.mars/agents/`
+files. Launch backups still come only from the profile list. When the resolved
 model matches a rule's selector, the rule's overrides are applied.
 
 ```yaml
@@ -88,8 +89,8 @@ runtime walks model-policies rules in list order and tries each eligible rule's
   - `model-glob` rules are **always** `no-fallback: true`. Glob rules apply
   overrides during primary launch resolution only and never become fallback
   candidates.
-- An empty `override: {}` is valid for a fallback-only rule (one that participates
-  in the fallback chain without applying any overrides).
+- An empty `override: {}` is valid for a candidate-only rule (backup without
+  extra settings).
 
 ### Overlay Prepend Semantics
 
@@ -99,12 +100,12 @@ runtime walks model-policies rules in list order and tries each eligible rule's
 |---|---|
 | Key absent | Inherit profile `model-policies` unchanged |
 | `model-policies = []` | Suppress all conditional model overrides |
-| One or more entries | Overlay rules **prepend** to profile rules |
+| One or more entries | Overlay rules **prepend** to profile rules for settings matching |
 
-When an overlay provides one or more entries, those rules are evaluated first
-(highest priority). Profile rules apply for tokens no overlay rule matched. This
-lets overlays add or override specific model routing without replacing the entire
-profile policy list.
+When an overlay provides one or more entries, those rules are tried first for
+**settings**. Profile rules apply for tokens no overlay rule matched. Overlay
+and global rules are not extra launch backups; Mars still scans the profile list
+in declaration order for fallback candidates.
 
 Use `model-policies = []` to fully suppress all profile rules when needed.
 

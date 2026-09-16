@@ -42,6 +42,12 @@ read precondition, not permission to resume or proof against external writers. N
 identity never changes re-entry authorization. See
 [Portable history](portable-history.md) for the remaining snapshot divergence.
 
+`sessions.jsonl` also records `model_selection` events (legacy `initial_seed` or
+`invocation_started`). That is Meridian-selected intent for later continue, not
+an observation of the last model that executed. Writes happen only at
+accepted-running. Native ID may bind later without moving the log row. The
+original launch-policy snapshot is not rewritten.
+
 Session-ID counter (`session-id-counter`) is monotonically incremented under `platform.locking.lock_file()` so concurrent spawns never collide.
 
 Per-session files under `sessions/<chat_id>/`:

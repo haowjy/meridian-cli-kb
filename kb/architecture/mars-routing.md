@@ -71,10 +71,12 @@ evidence) are held aside while later harnesses in the try-order are evaluated. A
 confirmed native catalog match (e.g. Codex for an OpenAI model) wins over an earlier
 universal passthrough harness.
 
-### Linked-harness fallback
+### Target permission
 
-When walking linked targets, Mars skips harnesses already rejected in the trace
-(`pi_incompatible`, `no_model_match`, etc.) instead of always picking the first link.
+Enabled `settings.targets` are harness permission, not “installed.” Empty
+`targets = []` is closed. Caller `--exclude-harness` is applied before probes.
+Rejected routes stay rejected: `default_harness`, missing binaries, and unknown
+auth cannot resurrect them. Unknown auth stays unverified.
 
 ### Bare model token provider inference
 

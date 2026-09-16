@@ -5,7 +5,7 @@ Decisions about model alias authority, routing architecture, profile schema, pol
 For mechanism, see:
 - [concepts/model-resolution/overview.md](../concepts/model-resolution/overview.md) — how model names become concrete models
 - [concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — alias entries, Mars-owned routing, and read-only inventory behavior
-- [concepts/model-resolution/agent-profiles.md](../concepts/model-resolution/agent-profiles.md) — profile loading, skill attachment, fallback chain
+- [concepts/model-resolution/agent-profiles.md](../concepts/model-resolution/agent-profiles.md) — profile loading, skill attachment, backup candidates
 - [concepts/model-resolution/model-policies.md](../concepts/model-resolution/model-policies.md) — settings rules, fallback candidates, native fanout
 
 ---
@@ -214,8 +214,7 @@ would duplicate the declarations. Native fanout remains independent: its purpose
 is emission, not runtime fallback, so flagged and glob candidates remain available.
 
 See [model policies](../concepts/model-resolution/model-policies.md#fallback-participation)
-for candidate and settings boundaries. These semantics are approved on the feature
-branch and await the coordinated engine release.
+for candidate and settings boundaries. Shipped in Mars 0.14.0 / Meridian 0.4.6-rc.1.
 
 ---
 

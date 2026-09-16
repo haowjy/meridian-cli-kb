@@ -3,6 +3,14 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-16 — Target-constrained fallback shipped
+
+Mars 0.14.0 / Meridian 0.4.6-rc.1. Updated model-policies overlay vs profile-backup
+boundary, launch-bundle schema 4 / report 2, routing target permission (deleted
+linked-harness fallback), continue recorded selection, and session `model_selection`
+events. Marked the fallback decision as shipped.
+
+---
 ## 2026-09-15 — Split history-storage decisions from state decisions
 
 Moved the self-contained history-authority, index, retention, restore, and native-capture

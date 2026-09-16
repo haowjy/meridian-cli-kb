@@ -84,7 +84,7 @@ for OpenCode) diverge here. See [aliases-and-routing.md](aliases-and-routing.md#
 - [agent-profiles.md](agent-profiles.md) — how profiles are loaded and how
   they feed into the bundle request
 - [model-policies.md](model-policies.md) — typed selector rules, visibility
-  filtering, and candidate-chain transform semantics
+   filtering, and whole-profile backup scan
 - [vocabulary.md](vocabulary.md) — glossary for model-resolution terms including prompting guidance and agent-first resolution
 - [concepts/config-precedence.md](../config-precedence.md) — how execution
   policy layers (CLI → bundle → profile → config) interact
