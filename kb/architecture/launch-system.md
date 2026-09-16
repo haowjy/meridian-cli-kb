@@ -75,8 +75,7 @@ tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
 references retain their recorded harness rather than being silently replaced
 by file detection. Native reference `833dc1f2` covers these rules.
 
-C7 is still incomplete for primary provisional/trampoline identity and fork
-checks, streaming-serve recording, OpenCode streaming model transport, and
+C7 is still incomplete for the spawn native-fork/reference-form audit and
 coordinated final gates/PR/release.
 
 ### Primary identity binding
@@ -90,9 +89,8 @@ model discovery is performed here.
 Identity-binding failure propagates as the operation's error, while adapter
 cleanup and session stop remain in the cleanup path. This increment is
 verified with primary-identity seed/fork drivers, native-fork fake executable
-drivers, and binding-failure plus quiet-transcript controls. C7 remains open
-for streaming-serve recording, OpenCode streaming named-model transport,
-spawn native-fork/reference-form audit, and coordinated final gates/PRs.
+drivers, and binding-failure plus quiet-transcript controls. C7 remains open for the spawn native-fork/reference-form audit and
+coordinated final gates/PRs.
 
 ## control_root / task_cwd Split
 
@@ -573,3 +571,25 @@ ops/spawn/execute.py
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection
 - [mars-model-refresh.md](mars-model-refresh.md) — Mars catalog/probe refresh controls used by dry-run bundle preparation
 - [pi-lifecycle.md](pi-lifecycle.md) — Pi's quiescence-based completion model and extension architecture
+
+## Accepted startup selection and OpenCode transport (2026-09)
+
+All three driving paths record accepted startup selection through the shared
+`SessionAttempt`. Streaming-serve binds its pending selection through the
+identity callback when available, otherwise through existing post-run artifact
+extraction. Native-spawn fork child isolation prevents the parent from being
+recorded as the child.
+
+OpenCode creation sends `{providerID, id}`. Every invocation's initial prompt—an
+explicit prompt or a plain recorded continuation—sends `{providerID, modelID}`;
+only subsequent resident/injected messages omit the model. Invalid or timed-out
+creation does not downgrade to `{}`. The existing outer same-model runtime
+retry policy remains unchanged and applies per startup attempt; this does not
+mean one create per invocation. Named-model resume remains unsupported, with no
+UI replacement.
+
+The raw native-ID form for `spawn --continue` still errors at runtime. The
+uniform reference contract therefore remains an open C7 audit, not a completed
+capability. Coordinated T1–T19 audit, full suites, readiness, final reviews,
+and PR/release gates also remain outstanding. No model-observation or index
+work is implied by these increments.
