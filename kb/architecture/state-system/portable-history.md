@@ -5,10 +5,14 @@ and preview rows are disposable projections that can be rebuilt without losing
 history.** The same authority boundary governs discovery, preview, retention,
 transfer, and restore.
 
-The retention/index implementation on draft PR #494 has not converged on all of
-this contract. Investigation at source `7a2c9b81` found issues #499 and #500; the
-repairs below are settled intent, not implemented behavior. Existing suite and CI
-results predate those discoveries and do not close them.
+The feature branch implements and verifies bounded index initialization, Pi grammar
+and preview compatibility, exact completed-primary handoff, archived-child warming,
+and OpenCode raw-row interpretation. Exact native-identity selection is implemented
+and review-approved through `e2fea094`. The branch has not converged on qualified
+native snapshot publication, canonical validated reads, versioned repeated
+portability, model observation, or integrated
+four-harness readiness. The sections below distinguish implemented preconditions
+from that remaining divergence.
 
 ```mermaid
 flowchart LR
@@ -88,10 +92,13 @@ and crash before a recorded failure are not sticky. Status inspection must not c
 coordination state or initiate progress. There is no automatic progress UI, daemon,
 second index, or destructive transcript conversion.
 
-This contract responds to a real 1,093-record / 6,077-session corpus: automatic
-construction failed under the ordinary budget while explicit metadata construction
-finished in 5.68 seconds. Two concurrent missing-index callers also rebuilt twice
-serially because current code does not recheck after taking the lock.
+This contract was selected after a real 1,093-record / 6,077-session corpus exceeded
+the ordinary budget while explicit metadata construction finished in 5.68 seconds,
+and two concurrent missing-index callers rebuilt twice serially. The feature-branch
+implementation now performs the under-lock recheck, preserves old-schema identities,
+publishes once for concurrent callers, and recovers from non-sticky interruption.
+These results establish behavior, not a controlled speed improvement across changing
+corpora and cache state.
 
 ## Bounded preview projection
 
@@ -129,16 +136,17 @@ narrow optimization rather than a generic mutation detector.
 
 ## Native-primary authority requires a qualified atomic snapshot
 
-Issue #499 has two independent causes:
+Issue #499 separated two independent causes:
 
-1. **Preexisting Pi grammar:** native Pi stores nested messages as `type=message`,
-   but the canonical parser dispatches its Pi helper only for RPC `message_end`.
-   Existing native and retained Pi bytes can therefore render as zero messages. A
-   parser/checkpoint-version repair can recover those bytes without rewriting them.
-2. **PR-introduced capture and selection:** PR #494 can prefer an existing partial
-   stream and treats `history.jsonl` existence as completed capture. A probe archived
-   and reclaimed incomplete stream evidence while fuller OpenCode native history
-   existed. A message-count fallback would still fail for nonempty prefixes.
+1. **Preexisting Pi grammar, repaired:** native Pi stores nested messages as
+   `type=message`; native and RPC records now share extraction. Compaction summaries,
+   append-order branch annotations, rendering limits, and prior-entry identity survive
+   preview checkpoints. A checkpoint-version change invalidates old cached-empty
+   interpretations without changing the metadata schema.
+2. **PR-introduced capture qualification, still open:** identity selection no longer
+   prefers presentation/index fallback, but state ingest still treats
+   `history.jsonl` existence as completed capture and writes the old envelope. A
+   message-count fallback would still fail for nonempty prefixes.
 
 Keep stream evidence untouched and publish `native-transcript.jsonl` atomically as
 the sole final native snapshot path inside the existing aggregate. This is preferred
@@ -148,11 +156,13 @@ evidence. One shared source policy selects the canonical member for log, preview
 search, export, archive, and restore.
 
 Capture must preserve raw provider authority, not only normalized display events.
-OpenCode therefore needs a harness-owned raw-row dialect that captures the exact
-session and all ordered message/part rows—including IDs, relationships, unsupported
-shapes, and original payloads—in one read-only transaction. The current event iterator
-is lossy and cannot be used as preservation input. Storage qualification and rendering
-support are distinct outcomes.
+OpenCode now emits a versioned harness-owned raw-row dialect for the exact session and
+all ordered message/part rows—including IDs, relationships, unsupported shapes,
+orphan parts, and original payload strings—in one read-only transaction. One ordered
+parts traversal plus a separate orphan pass avoids the former repeated session scan;
+native indexes remain untouched. Shared normalization supplies display and report
+consumers. This consistent raw input is not capture qualification: unfinished tails,
+attachments, strict payloads, and source identity/revision remain open.
 
 The snapshot header binds the original portable identity, generation, harness/native
 identity, dialect, observation interval/scope and source revision; a final seal binds frame count and digest.
@@ -164,31 +174,34 @@ reclaim, while presentation may expose an explicitly labeled partial prefix.
 ### Post-stop observation, not exact-stop reconstruction
 
 The selected repair retains the existing post-stop capture path and passes the
-completed primary_spawn_id instead of looking up latest cN. It captures a consistent
-available native transcript observation, not exact native bytes at a past launch exit.
+completed `primary_spawn_id` instead of looking up latest cN. That handoff is
+implemented. The final snapshot captures a consistent available native transcript
+observation, not exact native bytes at a past launch exit.
 A delayed observation may include later native continuation; metadata and read views
 must state that scope. No provider-wide writer fence, teardown callback or frontier
 ledger is added. The earlier F1 exact-stop requirement is superseded, not proven.
 
-Capture still needs exact native identity, full supported scope, strict framing and
-positive valid-empty evidence. Missing/ambiguous/known-incomplete native input blocks
-new reclaim. OpenCode raw scope is its MessageV2 transcript, not all native state;
-Codex capture must follow declared paginated ancestor ranges. Preserve stream bytes
-and all required companions. A later external append does not invalidate a completed
-immutable capture; archive verification still covers the exact aggregate being removed.
+Capture-purpose resolution now requires singleton agreement from normalized state,
+primary-sidecar, and exact-generation session candidates. Known same-runtime active
+spawn/session owners, exact-generation leases, and unreleased scopes block reading and
+are checked again before publication. Conflicting facts conservatively block a possible
+same-harness match; equal opaque IDs in distinct harnesses do not alias. An exact
+generation participates even when its native ID is present only in spawn metadata.
+These observations are preconditions, not an external-writer or cross-machine fence.
+Children prepare only existing retained streams and never use native-primary fallback.
+
+Capture still needs full supported scope, strict framing and positive valid-empty
+evidence. Missing/ambiguous/known-incomplete native input blocks new reclaim. OpenCode
+raw scope is its MessageV2 transcript, not all native state; Codex capture must follow
+declared paginated ancestor ranges. Preserve stream bytes and all required companions.
+A later external append does not invalidate a completed immutable capture; archive
+verification still covers the exact aggregate being removed.
 
 The provider/materializer qualification result distinguishes complete observation,
 known incomplete, unavailable and unsupported, with a bounded reason. Existing
 lifecycle facts and provider-owned supported-dialect markers reject positively known
 unfinished input; possible unobserved late writes do not require an external-writer
 proof. Delayed preparation retries that qualification; valid captures stay immutable.
-
-Review p6109 approved the direction with a medium qualification-contract finding.
-After the primary corrected that detail, p6110 closed it at design-contract level,
-removing the stage 3 and downstream stages 4–5 contract blocker. Implementation and
-runtime gates remain open; this is neither a four-provider pass nor publication,
-reclaim, or PR-readiness approval. Earlier account exhaustion did not block these
-reviews.
 
 ## Verified publication and short reclaim serialization
 
@@ -244,22 +257,16 @@ rearchive -> restore with the original native store and first ZIP unavailable. O
 archives keep their implicit `history.jsonl` member and original digest recipe; they
 are never rewritten or given fabricated descriptors.
 
-## Convergence status and provenance
+## Current divergence and provenance
 
-Retention commits `a8592210` and `80c37741` and preview commit `c44a3e81` plus the
-observed-size/UI follow-up are approved on the feature branch. They are not released.
-Core OpenCode work tracked alongside them is approved at `078d907a`, and its
-separately scoped native matrix is complete. Release-equivalent native/Pi closeout
-passed for pinned `f56d8131`; later prelaunch corrections and their revalidation do
-not change the portable-history decisions on this page.
-
-Those earlier approvals do not cover #499/#500. PR #494 is draft; all repair work
-remains in that PR and #498 is excluded. Initialization and the minimal Pi parser/cache
-repair can proceed independently. Native capture/reclaim follows the selected
-post-stop observation contract; integrated correctness is not yet established. The F2–F5 contract revisions (raw
-OpenCode preservation, repeated-portability descriptor, warm deadline accounting,
-and bounded validation outcome) were accepted by reviewer p6104 at design-contract
-level only; no implementation/runtime approval was given.
+The branch through `e2fea094` has implemented the initialization, interpretation,
+handoff, warming, raw-row, and exact-selection preconditions described above. It has
+not replaced the old `history.jsonl` existence no-op or envelope writer. Provider
+header/framing/revision/lineage/unfinished-tail/attachment qualification, fixed atomic
+snapshot and seal, canonical validated read/archive descriptor, repeated portability,
+last-executed-model metadata/index/defaults, real four-harness workflows, and final
+readiness remain open. PR #494 remains draft and unreleased; these completed substages
+do not complete the overall history goal.
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
@@ -272,7 +279,10 @@ Investigation update: `work:next-minor-planning/investigation-499-500.md`;
 `work:next-minor-planning/design/native-transcript-capture.md`;
 `work:next-minor-planning/reviews/repair-design-review.md`;
 `work:next-minor-planning/DIVERGENCE/post-stop-capture-scope.md`;
-`work:next-minor-planning/reviews/post-stop-scope-review.md`; `spawn:p6109`; `spawn:p6110`.
+`work:next-minor-planning/reviews/post-stop-scope-review.md`;
+`work:next-minor-planning/implementation-history-completion.md`;
+`work:next-minor-planning/reviews/499-opencode-closeout-review.md`;
+`work:next-minor-planning/reviews/499-capture-identity-review.md`.
 
 ## Related
 

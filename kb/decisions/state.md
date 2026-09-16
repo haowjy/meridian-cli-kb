@@ -142,7 +142,8 @@ The mechanism is described in
 
 ### D-history-index-initialization: initialization has its own bounded gate (2026-09-14) {#d-history-index-initialization}
 
-**Status:** Settled intent; not implemented. PR #494 remains draft.
+**Status:** Implemented and independently verified on the feature branch at
+`c3ffcaa0`; unreleased. PR #494 remains draft.
 
 **Decision:** A first operation that needs a missing or outdated history index gets
 one 15-second automatic initialization phase, separate from the ordinary two-second
@@ -177,14 +178,13 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
-**Status:** Selected post-stop capture repair; not implemented. The universal
-exact-stop requirement is superseded by the explicit scope correction above, not
-proved. Revised F2–F5 contracts had p6104 design-level acceptance. p6109 approved
-the scope direction with a medium qualification-result finding; after the primary's
-correction, p6110 closed it at design-contract level. The stage 3 and downstream
-stages 4–5 contract blocker is removed, not their implementation/acceptance gates.
-Prior account exhaustion did not block these reviews. PR #494 remains draft; no
-production implementation, runtime, reclaim, or PR-readiness approval was given.
+**Status:** Partially implemented on the feature branch through `e2fea094`; unreleased.
+Pi grammar and preview compatibility, exact completed-primary handoff, archived-child
+warming, OpenCode raw-row preservation/shared interpretation, and exact native-identity
+selection with same-runtime known-owner checks are implemented and independently
+reviewed. Qualified snapshot publication, canonical validation, portability, model
+observation, four-harness workflows, and PR readiness remain open. PR #494 remains
+draft.
 
 **Decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
 Qualified native-primary history is published atomically as a separate snapshot
@@ -196,11 +196,12 @@ comes from the completed record, while the descriptor states the native observat
 interval/scope rather than pretending to prove a past stop-time cutoff.
 
 Capture preserves provider-native authority rather than normalized display events.
-In particular, OpenCode requires a harness-owned raw-row representation containing
-the exact session plus ordered message/part rows, identities, relationships, and
-original payloads from one read transaction; the current lossy display projection
-cannot be sealed as raw capture. Storage completeness and rendering support remain
-separate outcomes.
+OpenCode now supplies a harness-owned raw-row representation containing the exact
+session plus ordered message/part rows, identities, relationships, unsupported
+material, and original payloads from one read-only transaction. Shared normalization
+interprets those records for display and report consumers. This raw input is not yet
+a qualified capture: storage completeness and rendering support remain separate
+outcomes.
 
 New archives explicitly declare the canonical transcript member and bind a versioned,
 immutable original capture descriptor into portable identity. Restore may assign
@@ -228,12 +229,23 @@ and may qualify resolved output without discarding earlier interruption evidence
 valid captures remain immutable. Integrated implementation/runtime evidence is still
 required.
 
-**Why:** Investigation separated two causes of issue #499. A preexisting Pi grammar
-bug dispatches only RPC `message_end`, while native on-disk `type=message` records
-normalize to zero. Independently, PR #494 introduced early indexed-stream selection
-and existence-only capture guards that can select, archive, and reclaim a partial
-stream while fuller native OpenCode/Codex history exists. Fixing the Pi discriminator
-does not repair the capture/selection regression.
+Capture-purpose selection already binds post-stop maintenance to the exact completed
+primary spawn rather than the latest chat generation. State, primary sidecar, and
+exact-generation session facts feed one normalized candidate helper. Selection
+requires singleton agreement; the owner guard conservatively refuses a possible
+same-harness match when recorded facts conflict. A distinct harness may reuse the
+same opaque native ID without aliasing. Exact-generation live leases and unreleased
+scopes block reading even when the native ID exists only in spawn metadata, and a
+second check runs before publication. These same-runtime observations are safety
+preconditions, not an external-writer or cross-machine fence. Children prepare only
+existing retained streams and never fall back to native-primary storage.
+
+**Why:** Investigation separated two causes of issue #499. The repaired Pi grammar
+had dispatched only RPC `message_end`, so native on-disk `type=message` records
+normalized to zero. Independently, PR #494 introduced existence-only capture guards
+that can certify a partial stream while fuller native history exists. The identity
+and source-selection preconditions are now repaired, but the old ingest guard and
+envelope writer still require the qualified snapshot implementation.
 
 **Rejected:** overwriting the stream, append-section transactions, normalized-text
 capture, per-surface parsers, fallback based on message count, and treating ZIP byte

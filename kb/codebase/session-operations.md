@@ -72,20 +72,25 @@ Two rejected alternatives shaped this design:
   because overlays exist for concurrent session isolation; canonicalizing
   defeats that purpose.
 
-### OpenCode: intended native precedence is currently bypassed
+### OpenCode source policy separates presentation from capture
 
 The provider-local OpenCode order is SQLite (`opencode.db`), legacy native JSON,
 then Meridian `history.jsonl` fallback. Non-file sources are modeled explicitly as
 `TranscriptSource(kind="opencode_db", path=None)` rather than fabricated paths.
 
-At source `7a2c9b81`, tracked target resolution can return an indexed loose
-`history.jsonl` before reaching that provider-local order. The early return checks
-file existence, not transcript completeness, so partial stream evidence can mask a
-fuller OpenCode native conversation. The same existence-only assumption reaches
-capture/archive paths. This PR #494 regression is tracked as issue #499; the intended
-repair is one qualified canonical-source policy shared by log, preview, search,
-export, and retention. Until implemented, do not read the provider-local order above
-as guaranteed completed-session behavior.
+Presentation may still select retained stream evidence through indexed and legacy
+routes. Capture-purpose resolution deliberately bypasses those routes: it requires an
+exact completed local primary, singleton agreement on normalized harness/native
+identity, and no known same-runtime matching owner before or after the native read.
+It never discovers a native session or falls back to an owned stream. Child archive
+preparation remains stream-only and never takes native-primary fallback.
+
+These selection and ownership preconditions do not qualify provider contents. The
+old ingest path still treats `history.jsonl` existence as a completed capture and
+writes the old envelope. Until the qualified atomic native snapshot and shared
+canonical validation are implemented, neither provider-local precedence nor a
+successful OpenCode transaction proves completed-session authority. Known-owner
+checks are not an external-writer fence.
 
 Test coverage is split along the same seams: target/source ordering and DB-backed
 rendering live in session-log integration/unit tests, resident drain scope behavior

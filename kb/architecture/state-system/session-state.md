@@ -34,6 +34,14 @@ owning chat) is a separate exceptional case: transcript target resolution perfor
 at most one batch-wide legacy scan so deep search can recover related histories.
 Readable recorded relationships never take that global-scan path.
 
+Native capture preparation is narrower than presentation discovery. It binds the
+exact completed primary aggregate and resolves normalized harness/native identity
+from state, primary metadata, and that generation's session facts. Ambiguous or
+conflicting selection refuses capture; known same-runtime owners are a conservative
+read precondition, not permission to resume or proof against external writers. Native
+identity never changes re-entry authorization. See
+[Portable history](portable-history.md) for the remaining snapshot divergence.
+
 Session-ID counter (`session-id-counter`) is monotonically incremented under `platform.locking.lock_file()` so concurrent spawns never collide.
 
 Per-session files under `sessions/<chat_id>/`:
