@@ -325,9 +325,12 @@ policy is unchanged; this is one create per startup attempt, not one create per
 invocation.
 
 The primary OpenCode named-model resume remains unsupported and has no UI
-replacement. Runtime evidence also shows `spawn --continue` with a raw native
-ID still errors; the uniform reference contract is therefore an open audit, not
-completed C7 work.
+replacement. Tracked raw native IDs for `spawn --continue` are now accepted.
+An explicitly supplied older native ID is retained when it matches the resolved
+session; otherwise the matched session's recorded spawn ID is used, with exact
+chat/harness checks. Untracked or pruned provenance fails honestly, and
+`--harness` disambiguates ownership rather than history. Native primary/spawn/
+c-prefixed sequences preserve recorded models.
 
 **Evidence:** `work:target-constrained-fallback` (streaming/OpenCode CLI and
 process red/green drivers; `evidence/c7-opencode-evidence-closure-luna.md`,

@@ -75,7 +75,7 @@ tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
 references retain their recorded harness rather than being silently replaced
 by file detection. Native reference `833dc1f2` covers these rules.
 
-C7 is still incomplete for the spawn native-fork/reference-form audit and
+The spawn native-ID reference form is now resolved for tracked provenance:
 coordinated final gates/PR/release.
 
 ### Primary identity binding
@@ -588,8 +588,12 @@ retry policy remains unchanged and applies per startup attempt; this does not
 mean one create per invocation. Named-model resume remains unsupported, with no
 UI replacement.
 
-The raw native-ID form for `spawn --continue` still errors at runtime. The
-uniform reference contract therefore remains an open C7 audit, not a completed
-capability. Coordinated T1–T19 audit, full suites, readiness, final reviews,
-and PR/release gates also remain outstanding. No model-observation or index
-work is implied by these increments.
+Tracked raw native IDs passed to `spawn --continue` now resolve against their
+recorded session provenance. An explicitly supplied older native ID is retained
+when it identifies the matched session; otherwise continuation uses that
+session's recorded spawn ID, with exact chat/harness checks. Untracked or pruned
+provenance fails honestly. `--harness` disambiguates ownership only; it does not
+invent history or override recorded identity. Primary, spawn, and c-prefixed
+native sequences preserve their recorded models. Coordinated T1–T19 audit, full
+suites, readiness, final reviews, and PR/release gates remain outstanding. No
+model-observation or index work is implied by this increment.

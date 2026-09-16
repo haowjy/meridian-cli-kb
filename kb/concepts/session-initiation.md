@@ -439,9 +439,15 @@ Native raw IDs stay literal rather than becoming the latest chat ID. Ambiguous
 tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
 references keep their recorded harness, and file detection never silently
 replaces it. These increments are validated against native reference
-`833dc1f2`. Remaining C7 work is primary provisional/trampoline identity and
-fork checks, streaming-serve recording, OpenCode streaming model transport,
-and coordinated final gates/PR/release.
+`833dc1f2`. For spawn continuation, tracked raw native IDs are accepted;
+explicit older native IDs remain authoritative when they match the session,
+otherwise the matched session's recorded spawn ID is used with exact
+chat/harness checks. Untracked or pruned provenance fails honestly, and
+`--harness` disambiguates ownership rather than history. Primary, spawn, and
+c-prefixed native sequences preserve recorded models. Remaining C7 work is
+primary provisional/trampoline identity and fork checks, streaming-serve
+recording, OpenCode streaming model transport, and coordinated final gates/PR.
+
 
 ## Accepted startup selection and native transport
 
