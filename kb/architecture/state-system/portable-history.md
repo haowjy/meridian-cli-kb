@@ -290,4 +290,4 @@ Investigation update: `work:next-minor-planning/investigation-499-500.md`;
 - [Session state](session-state.md)
 - [Spawn state](spawn-state.md)
 - [Session-log rendering](../../codebase/session-log-rendering.md)
-- [State decisions](../../decisions/state.md)
+- [History-storage decisions](../../decisions/history-storage.md)

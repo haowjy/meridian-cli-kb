@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-15 — Split history-storage decisions from state decisions
+
+Moved the self-contained history-authority, index, retention, restore, and native-capture
+records from `decisions/state.md` to `decisions/history-storage.md`. Updated the
+decision catalog, chronological links, and portable-history cross-reference; retained
+the original record anchors. The runtime-state page now links to the extracted page.
+
+Validation: `meridian kg check kb`; `meridian mermaid check kb`.
+
+---
+
 
 ## 2026-09-14 — Post-stop capture scope correction
 
