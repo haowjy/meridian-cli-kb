@@ -129,8 +129,8 @@ by Mars within the bundle. The `model-policies` rule schema (match type, list
 order, `no-fallback` flag) controls which rules Mars treats as fallback candidates.
 
 See [model-policies.md](model-policies.md#fallback-participation) for the
-candidate-chain semantics and
-[D75](../../decisions/model-resolution.md#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan)
+candidate semantics and the
+[target-constrained fallback decision](../../decisions/model-resolution.md#target-constrained-model-policy-fallback)
 for the decision rationale.
 
 ## Primary Agent

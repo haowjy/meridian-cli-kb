@@ -8,7 +8,7 @@ Decision records explain why durable architectural choices were made — what al
 |---|---|
 | [chat-backend.md](chat-backend.md) | Chat pipeline architecture: custom protocol, event model, acquisition, HITL, command layer, structural refactors (D1–D2, D8–D31) |
 | [dev-frontend.md](dev-frontend.md) | Unified dev setup for `meridian chat --dev`: portless, Vite, exposure model, env scrub, launcher strategy (DF-D1–DF-D7) |
-| [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, candidate-chain semantics (D52–D57, D72–D75) |
+| [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, target-constrained model-policy fallback (D52–D57, D72–D74) |
 | [package-management.md](package-management.md) | Mars compiler, skill schema, `.agents/` elimination, targeting, sync, bootstrap docs, collision resolution, convention-based discovery, engine constraints, and declared-package self-sync (D35–D40, D50–D51, D58–D63, D71, D77, D87, D93–D94) |
 | [state.md](state.md) | State roots, JSONL event stores, dual-root layout, crash-only design, WorkScope model (named vs ambient), CR1 fix, state v2 migration (foundational undated decisions + D-WorkScope PR #328) |
 | [history-storage.md](history-storage.md) | Transcript authority, disposable history index/preview projections, retention and restore, and post-stop native-capture decisions |

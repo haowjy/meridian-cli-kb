@@ -6,7 +6,7 @@ For mechanism, see:
 - [concepts/model-resolution/overview.md](../concepts/model-resolution/overview.md) — how model names become concrete models
 - [concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — alias entries, Mars-owned routing, and read-only inventory behavior
 - [concepts/model-resolution/agent-profiles.md](../concepts/model-resolution/agent-profiles.md) — profile loading, skill attachment, fallback chain
-- [concepts/model-resolution/model-policies.md](../concepts/model-resolution/model-policies.md) — visibility, superseded models, fanout
+- [concepts/model-resolution/model-policies.md](../concepts/model-resolution/model-policies.md) — settings rules, fallback candidates, native fanout
 
 ---
 
@@ -199,76 +199,23 @@ The `None`-vs-empty distinction is preserved through all config normalization la
 
 ---
 
-## Candidate Chain Semantics (2026-05-06)
+## Target-constrained model-policy fallback
 
-### D75: Candidate-chain semantics: transform and demotion, not hidden-scan {#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan}
+**Decision:** Enabled targets bound harness permission before installation, auth
+and model support are assessed. When an implicit primary has no eligible route,
+Mars scans all concrete profile `model-policies` entries in declaration order.
+`no-fallback` excludes only its entry from backup use; settings still apply when
+that model is selected as primary or explicitly. Empty overrides remain candidates.
 
-> **Superseded by the target-constrained model-policy semantics documented in
-> [model-policies.md](../concepts/model-resolution/model-policies.md).** This
-> record preserves the earlier fanout-based rationale; `model-policies` entries
-> are now the ordered fallback candidates and the whole profile list is scanned
-> independently of which rule supplies the primary settings.
+**Why:** Consumers must be able to change the primary without losing the profile's
+backup choices. Tying traversal to the active settings rule hid earlier candidates
+and let a primary rule's flag disable unrelated backups. A second fallback list
+would duplicate the declarations. Native fanout remains independent: its purpose
+is emission, not runtime fallback, so flagged and glob candidates remain available.
 
-**Historical decision:** When a harness is unavailable at spawn time, Meridian uses an
-ordered candidate chain. `model-policies` rules contribute at most one
-**policy-transformed candidate** at the head of that chain. The pre-transform
-base candidate is demoted to the next position rather than discarded. Fanout
-entries follow as raw availability-chain candidates compiled without policy
-re-application.
-
-**Rejected framing — hidden-scan:** Treat `model-policies` entries as an
-additional pool of alternative tokens to scan when the primary harness is
-unavailable. Under that framing, if the primary harness fails, Meridian would
-scan all `model-policies` rules to find any rule whose resulting harness is
-available, then walk `fanout`.
-
-**Why hidden-scan was rejected:**
-
-1. **Model-policies rules are context transforms, not token alternatives.** A
-   rule fires when the resolved model matches a selector. The rule says "when
-   you are using *this model*, apply these overrides." Scanning all rules for
-   any available harness breaks that meaning — it would launch the agent using
-   whatever harness a policy rule happens to specify, regardless of whether the
-   resolved model actually matches that rule's selector.
-
-2. **Demotion preserves the user's base intent.** The user asked for model X
-   (via profile or config). A policy rule transformed X's launch parameters.
-   If the policy-head's harness is unavailable, the right next step is "try X
-   without the policy transform" — still model X, just without the harness
-   override. Hidden-scan skips this and jumps to arbitrary policy entries,
-   which may correspond to completely different model tokens.
-
-3. **Fanout is the explicit availability-chain mechanism.** Profile authors
-   declare `fanout:` precisely to say "if my primary can't run, try these in
-   order." Conflating model-policies with fanout would make profiles harder to
-   reason about: policy rules would have dual semantics (transform AND fallback
-   candidate source).
-
-4. **Recursive policy re-application on fanout entries would be wrong.** If a
-   policy rule "reroute gpt55 to claude harness" applied when compiling a
-   `gpt55` fanout entry, the fanout chain would re-trigger the same rule that
-   failed. Fanout entries are compiled as base candidates to prevent this loop.
-
-**The candidate chain:**
-
-```
-[policy-transformed head]     if a model-policy rule matched
-[demoted base candidate]      pre-transform baseline, always retained
-[fanout[0], fanout[1], …]     profile fanout entries, policy-free base candidates
-```
-
-**When fallback fires:** Only when `model_explicit = False` (routing came from
-profile or config, not an explicit `-m` or `MERIDIAN_MODEL`). Explicit user
-choices are honored or fail loudly — no silent rerouting.
-
-**Overlay suppression scopes the chain:** Suppressing or replacing model-policies
-via `[agents.<name>]` overlay controls the chain at its source. An empty overlay
-`model-policies = []` removes the policy-transformed head from the chain (no
-transform fires) and also neutralizes the legacy `models:` compatibility overrides.
-
-**Implementation references:**
-- `src/meridian/lib/launch/compiler.py` — deprecated compiler-era implementation that still carries the historical candidate-chain mechanics
-- `src/meridian/lib/launch/policies.py` — live PRIMARY/SPAWN_PREPARE entry point that resolves and consumes the bundle-produced policy surface
+See [model policies](../concepts/model-resolution/model-policies.md#fallback-participation)
+for candidate and settings boundaries. These semantics are approved on the feature
+branch and await the coordinated engine release.
 
 ---
 
@@ -339,17 +286,17 @@ managed-bootstrap cause.
 
 ---
 
-### D77: Explicit harness = force; only adapter availability can reject
+### D77: Explicit harness pins routing, not permission or eligibility
 
-**Decision:** `validate_harness_compatibility()` no longer checks model compatibility for explicit harness selections. It only checks harness adapter availability (binary present/installed). An explicit harness selection via CLI `--harness`, `MERIDIAN_HARNESS` env, or a model-policy override is **never rejected for model incompatibility** — only for adapter unavailability.
+**Decision:** CLI `--harness` narrows the candidate harness set; it cannot enable
+an excluded target or bypass known auth/model-support rejection. An explicit
+model independently disables model backups. Ambient harness context is not a pin;
+profile, alias and model-policy harness choices remain scoped preferences.
 
-**Why:** Explicit overrides represent deliberate user or profile-author choice. Rejecting them for model incompatibility assumes the catalog is authoritative, but models are added to harnesses faster than catalogs update. Users who force a harness may have out-of-band knowledge (new model added before catalog refresh, custom harness config). The right failure mode is "harness adapter not installed," not "harness doesn't list this model."
-
-**Before (rejected behavior):** `validate_harness_compatibility()` checked whether the resolved model was in the harness's candidate list and raised `ValueError` if not — blocking any explicit override that referenced a model newer than the local catalog.
-
-**Alternatives rejected:**
-- Keep the compatibility check but add a `--force-harness` flag — adds surface area; `--harness` is already an explicit override with the same intent.
-- Warn instead of reject — warning noise for an explicit user choice that may be entirely valid.
+**Why:** Explicit intent must not silently run a different route, but intent does
+not prove permission or account readiness. Catalog uncertainty stays unverified
+rather than becoming an invented rejection or a verified success. Exhaustion is
+an honest failure, not a reason to clear the requested model.
 
 ---
 

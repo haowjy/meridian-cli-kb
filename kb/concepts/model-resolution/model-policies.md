@@ -127,12 +127,16 @@ the bundle. Execution-policy overrides from matched rules are returned in the bu
 payload and applied post-bundle in Meridian's `_resolve_bundle_execution_policy()`.
 See [config-precedence.md](../config-precedence.md#routing-vs-policy-fields).
 
-For harness-availability fallback, model-policies rules with `no-fallback != true`
-and `match_type` of `model` or `alias` serve as ordered fallback candidates. The
-pre-transform base candidate (if a policy rule matched) is demoted and tried first;
-then model-policies rules are walked in list order.
-See [D75](../../decisions/model-resolution.md#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan)
-for the decision rationale.
+For prelaunch fallback, Mars scans concrete profile rules in declaration order,
+independent of the primary's matched rule, index or settings layer. A per-entry
+`no-fallback` flag skips that entry, never the remaining search. Alias entries
+retain alias resolution; model entries retain literal identity. There is no
+policy-transform demotion step or separate fanout backup list.
+
+Enabled targets constrain eligible harnesses before auth and model support checks.
+Explicit model pins disable model backups; explicit harness pins only that dimension.
+See [the decision](../../decisions/model-resolution.md#target-constrained-model-policy-fallback)
+for the reason primary settings and backup enumeration are separate.
 
 ## Model Inventory and Visibility
 

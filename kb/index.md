@@ -43,7 +43,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) — Harness/platform compatibility history
 - [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) — Why descriptor-driven startup, doctor tiering, and sandbox projection policy work the way they do
 - [decisions/dev-frontend.md](decisions/dev-frontend.md) — Dev frontend decisions DF-D1 through DF-D7: portless default, explicit exposure, PORTLESS env scrub, allowed-hosts, launcher strategy
-- [decisions/model-resolution.md](decisions/model-resolution.md) — Why Mars owns alias authority, routing architecture, profile schema, policy matching, harness derivation, candidate-chain semantics, and OpenCode native model commitment
+- [decisions/model-resolution.md](decisions/model-resolution.md) — Why Mars owns alias authority, routing architecture, profile schema, policy matching, harness derivation, target-constrained fallback, and OpenCode native model commitment
 - [decisions/package-management.md](decisions/package-management.md) — Why `.mars/` replaced `.agents/`, targeting design, compiler pipeline choices, source discovery, declared-package self-sync, and canonical write recovery
 - [decisions/testing.md](decisions/testing.md) — Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
