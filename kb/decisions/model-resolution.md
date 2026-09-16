@@ -203,7 +203,13 @@ The `None`-vs-empty distinction is preserved through all config normalization la
 
 ### D75: Candidate-chain semantics: transform and demotion, not hidden-scan {#d75-candidate-chain-semantics-transform-and-demotion-not-hidden-scan}
 
-**Decision:** When a harness is unavailable at spawn time, Meridian uses an
+> **Superseded by the target-constrained model-policy semantics documented in
+> [model-policies.md](../concepts/model-resolution/model-policies.md).** This
+> record preserves the earlier fanout-based rationale; `model-policies` entries
+> are now the ordered fallback candidates and the whole profile list is scanned
+> independently of which rule supplies the primary settings.
+
+**Historical decision:** When a harness is unavailable at spawn time, Meridian uses an
 ordered candidate chain. `model-policies` rules contribute at most one
 **policy-transformed candidate** at the head of that chain. The pre-transform
 base candidate is demoted to the next position rather than discarded. Fanout
