@@ -308,3 +308,29 @@ transcript controls; reviewer `p6231` closure and runtime `p6225`).
 
 **Evidence:** `work:target-constrained-fallback` (`c7-primary-review.md`,
 `c7-primary-probe.md`, `c7-spawn-probe-luna.md`, `c7-spawn-seed-closure-luna.md`).
+
+### D-streaming-opencode-target-constrained-fallback: accepted startup selection is attempt-bound
+
+**Decision (2026-09, target-constrained-fallback):** All three driving drivers record
+accepted startup selection through the shared `SessionAttempt`. Streaming-serve
+binds a pending selection using the identity callback when available, or the
+existing post-run artifact extraction path. Native-spawn fork child isolation
+does not record the parent as the child.
+
+OpenCode preserves the native HTTP model contract: session creation uses
+`{providerID, id}`, while every invocation's initial prompt—including an
+explicit prompt or a plain recorded continuation—uses `{providerID, modelID}`.
+Only subsequent resident/injected messages omit the model. Invalid or timed-out
+creation does not downgrade to `{}`. Existing outer same-model runtime retry
+policy is unchanged; this is one create per startup attempt, not one create per
+invocation.
+
+The primary OpenCode named-model resume remains unsupported and has no UI
+replacement. Runtime evidence also shows `spawn --continue` with a raw native
+ID still errors; the uniform reference contract is therefore an open audit, not
+completed C7 work.
+
+**Evidence:** `work:target-constrained-fallback` (streaming/OpenCode CLI and
+process red/green drivers; `evidence/c7-opencode-evidence-closure-luna.md`,
+review approved; fake processes plus real CLI/Mars, not paid native execution).
+Codex changes in this increment are fixture snapshots only.

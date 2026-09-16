@@ -442,3 +442,22 @@ replaces it. These increments are validated against native reference
 `833dc1f2`. Remaining C7 work is primary provisional/trampoline identity and
 fork checks, streaming-serve recording, OpenCode streaming model transport,
 and coordinated final gates/PR/release.
+
+## Accepted startup selection and native transport
+
+Startup selection is recorded by the shared `SessionAttempt` for all three
+driving paths. Streaming-serve binds the pending selection through the identity
+callback or existing post-run artifact extraction. A native-spawn fork isolates
+the child without recording its parent as the child.
+
+For OpenCode, session creation uses `{providerID, id}`. Every invocation's
+initial prompt, whether explicit or a plain recorded continuation, uses
+`{providerID, modelID}`; only later resident/injected messages omit the model.
+Invalid or timed-out creation does not fall back to `{}`. The outer same-model
+runtime retry policy is unchanged and remains per startup attempt. Primary
+named-model resume remains unsupported and has no UI replacement.
+
+A runtime C7 probe still shows raw native IDs passed to `spawn --continue`
+erroring. The uniform reference contract is therefore still an audit item, not
+settled behavior. Coordinated audit, suites, readiness, review, and release
+work remain open.
