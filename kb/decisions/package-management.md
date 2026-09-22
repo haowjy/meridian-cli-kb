@@ -541,7 +541,8 @@ physical claims and provenance for every unfinished path.
 
 ### D96: Explicit force takes over a selected canonical self path (2026-09-22)
 
-**Status:** Settled; not implemented in Mars 0.14.1.
+**Status:** Implemented and verified on feature branch `f7a18fd`; not merged or
+released. Mars 0.14.1 retains the earlier refusal.
 
 **Decision:** Explicit `mars sync --force` should authorize takeover of an
 unowned canonical destination selected for a current-package `_self` item. The
@@ -554,6 +555,14 @@ canonical paths, merging user content, or bypassing selection. The policy is
 specific to `mars sync --force`; it must not be conflated with `mars version
 --force` validation behavior or with linked-target collision handling.
 
+The takeover is limited to a regular file for an agent or a real directory for
+a skill. A symlink at the canonical root, an ancestor, or the destination is
+never eligible. Skill replacement removes the selected destination tree rather
+than following a nested link. The installed claim records the exact output
+checksum only after the normal apply pipeline succeeds. Dry-run reports the
+prospective adoption without publishing it, and frozen mode refuses until the
+adoption is already current.
+
 **Why:** Ownership provenance can disappear while old canonical output remains,
 as happened when package commit `930bb37` removed the `architect` `_self` lock
 record even though its parent checksum matched the surviving output. Manual
@@ -562,9 +571,17 @@ explicitly selected force, requiring relocation as the only path adds ceremony
 without adding consent or protection; the resulting write must establish the
 ownership evidence needed for later updates and removals.
 
-**Implementation divergence:** Mars 0.14.1 rejects an unowned canonical self
-destination before apply even when `--force` is present. Until implementation
-converges, runtime and user-facing documentation must describe that refusal.
+**Recovery boundary:** Preexisting force-adopted paths do not enter the
+pending-canonical journal, which remains scoped to new absent outputs. If a
+later apply action fails, finalization publishes no ownership; an earlier
+written adoption remains unowned and retry requires `--force`. This preserves
+the existing source transitions and recovery design rather than extending the
+journal into a transaction.
+
+**Release divergence:** The implementation and its regression contract are on
+feature branch `f7a18fd` from baseline `347c472`. They are not merged or
+released, so Mars 0.14.1 runtime and user-facing documentation must still
+describe the earlier refusal.
 
 **Rejected alternatives:** Adopting on normal sync (weakens the safety default),
 adopting solely because bytes match (infers ownership from content), recording

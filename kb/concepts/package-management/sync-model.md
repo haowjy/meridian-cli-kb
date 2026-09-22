@@ -236,31 +236,43 @@ destinations and does not undo explicit or automatic dependency renames. See
 [self-source-selection.md](self-source-selection.md) for the full selection
 contract.
 
-In Mars 0.14.1, an unowned canonical destination blocks a selected self item
-before apply, including with identical bytes or `--force`; the user must
-relocate it rather than have Mars adopt it. If a managed destination changes
-source but retains identical bytes, it is classified as `Update` only while
-disk still matches the old lock. This records the new owner and carries native
-claims forward without overwriting a local-only modification.
+Default sync blocks an unowned canonical destination selected for a self item,
+including when its bytes match. The explicit-force exception implemented on
+feature branch `f7a18fd` allows only selected regular agent files and real skill
+directories to be replaced and adopted. It refuses a symlink at `.mars`, at an
+ancestor beneath it, or at the destination, and refuses wrong-shaped paths. A
+skill takeover replaces the whole destination tree rather than following a
+nested link. Mars 0.14.1 predates this exception and still refuses the path even
+with `--force`.
+
+If a managed destination changes source but retains identical bytes, it is
+classified as `Update` only while disk still matches the old lock. This records
+the new owner and carries native claims forward without overwriting a
+local-only modification. The force-takeover exception does not change these
+managed source transitions.
 
 Self items are staged before this ownership guard. A refusal can therefore
 refresh derived `.mars/staging` content while leaving canonical outputs, native
 outputs, and the lock unapplied. This is not a rollback guarantee.
 If partial apply leaves a new canonical self output without final ownership,
 valid pending-canonical intent lets an ordinary retry recover it before this
-guard. Without matching intent, `--force` does not bypass the guard: inspect and
-relocate every blocked destination, then retry or repair.
+guard. A preexisting output selected for force adoption is intentionally not
+added to that journal. If a later apply action fails, no lock ownership is
+published; an earlier written adoption remains unowned, ordinary retry refuses
+it, and retry requires `--force`.
 
-D96 settles a narrower target behavior that is not implemented in 0.14.1:
-explicit `mars sync --force` should overwrite the selected canonical self path
-and publish installed ownership, while default sync keeps this refusal.
+The feature implementation reports adoption only for an actual unowned
+collision. `--force --diff` reports that it would adopt without applying or
+publishing the lock. Frozen force refuses while adoption is required, then
+succeeds without lock churn after ownership is current. D96 records this
+policy; released Mars 0.14.1 retains the earlier refusal.
 
 ## Sync Modes
 
 | Flag | Behavior |
 |---|---|
 | (default) | MVS version selection, replay locked commits; models.dev catalog **Auto** + probe **Background** |
-| `--force` | Overwrite locally-modified files. Canonical self takeover is settled but not implemented in Mars 0.14.1. |
+| `--force` | Overwrite locally-modified files. On the unreleased feature implementation, also replace and adopt eligible unowned selected-self outputs; Mars 0.14.1 still refuses them. |
 | `--diff` | Report planned installed-state changes without applying canonical/native outputs or finalizing `mars.lock` |
 | `--frozen` | Do not fetch new versions; fail if lock is insufficient or pending recovery would publish ownership |
 | `--refresh-models` | Force models.dev catalog refresh; run harness probes **synchronously** (no background `__refresh-probe` on stale cache) |
@@ -310,12 +322,15 @@ sync and released on completion or crash.
 - **I-6: v3 lock is always written** — v2 is promoted at read time by
   consulting disk state; v1 is unsupported. Any write produces v3.
 - **I-7: Canonical self ownership is explicit** — selected self content never
-  adopts an unowned `.mars` destination from disk bytes alone, even under
-  force. Recovery requires matching pre-write intent bound to the prior lock.
-  Native target collision policy remains independent.
+  adopts an unowned `.mars` destination from disk bytes alone. Authority comes
+  from matching pre-write intent bound to the prior lock or from the user's
+  explicit force request for an eligible selected-self destination. Native
+  target collision policy remains independent.
 - **I-8: The lock publishes only at finalization** — canonical recovery is
   reconstructed in memory; failed apply or repair does not checkpoint
-  `mars.lock` and therefore preserves corrupt lock evidence.
+  `mars.lock` and therefore preserves corrupt lock evidence. Preexisting force
+  adoptions are not journaled, so failure before finalization leaves them
+  unowned and requires force again on retry.
 
 ## Key References
 

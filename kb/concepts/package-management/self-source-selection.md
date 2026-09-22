@@ -6,8 +6,9 @@ and dependencies, but records the selected current-project content under the
 synthetic `_self` owner rather than resolving a dependency on the project.
 
 This contract shipped in Mars 0.13.2. Its default ownership protection is
-implemented; the settled explicit-force takeover described below is not yet
-implemented in Mars 0.14.1.
+implemented. The explicit-force exception described below is implemented and
+verified on feature branch `f7a18fd`, but is not merged or released; Mars
+0.14.1 still has the earlier refusal behavior.
 
 ## Selection order
 
@@ -99,12 +100,26 @@ if Mars recorded an absent destination before writing it, a retry can recover
 the matching regular output into in-memory ownership before this guard runs.
 Mars never adopts a path from byte equality alone.
 
-Explicit `mars sync --force` is the settled second exception: it should permit
-takeover of the selected canonical self destination, overwrite that path, and
-publish an installed ownership record. This is a narrow, user-authorized
-takeover, not default adoption or permission to claim unrelated paths. Mars
-0.14.1 has not implemented this exception and still refuses the unowned path;
-until implementation ships, inspection and relocation remain the safe remedy.
+Explicit `mars sync --force` is the settled second exception: it permits
+takeover of an unowned destination for a selected canonical self item,
+overwrites that path through the normal plan/apply path, and publishes exact
+installed `_self` ownership only at finalization. Eligibility is deliberately
+narrow: an agent destination must be a regular file and a skill destination a
+real directory. A symlink at `.mars`, at any descendant ancestor, or at the
+destination is refused, as is a wrong-shaped path. Replacing a skill directory
+replaces its whole tree rather than following a nested link.
+
+This is a narrow, user-authorized takeover, not default adoption or permission
+to claim unrelated paths. `--force --diff` reports that it would adopt without
+changing canonical bytes or the lock. `--force --frozen` refuses when adoption
+would be required, then succeeds without lock churn after ownership is current.
+Known-owned outputs stay on the ordinary path and do not emit an adoption
+warning. Source-transition behavior and native target collision policy remain
+unchanged.
+
+This exception is implemented and verified on feature branch `f7a18fd`, but it
+is not yet merged or released. Mars 0.14.1 still refuses the unowned path, so
+released-product guidance must continue to prescribe inspection and relocation.
 See D96 in the [package-management decisions](../../decisions/package-management.md).
 
 When source ownership changes but bytes do not, diff emits `Update` only if the
@@ -178,6 +193,12 @@ not journaled; [mars-agents issue #149](https://github.com/haowjy/mars-agents/is
 remains open. Crashes from before the journal existed, or outputs that no longer
 match it, still require the safe manual inspection-and-relocation path.
 
+Force adoption of a preexisting output also remains outside the journal. If a
+later apply action fails after an earlier adopted path was written, finalization
+publishes no ownership. The written path is therefore still unowned: an
+ordinary retry refuses it and the user must retry with `--force`. This is the
+existing recovery boundary, not a transactional redesign.
+
 ## Non-goals
 
 This design does not change `mars.lock` v3 or `_self`, and it does not add a
@@ -206,6 +227,9 @@ and does not claim power-loss durability.
   and diff portable-alias refusals preserved user content, lock, and outputs;
   a non-overlapping custom path succeeded; and two creative-package syncs made
   no mutations while preserving 404 selected paths plus lock bytes and mtimes
+- Force-takeover implementation: feature branch `f7a18fd` from Mars 0.14.1
+  baseline `347c472`; targeted sync suites, formatting, strict Clippy, and build
+  passed. The branch is not merged or released.
 
 ## Related
 

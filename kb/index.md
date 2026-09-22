@@ -87,7 +87,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/package-management/overview.md](concepts/package-management/overview.md) — Mars as package manager: `mars.toml`, `.mars/` compiled store, harness native dir projection
 - [concepts/package-management/compiler-pipeline.md](concepts/package-management/compiler-pipeline.md) — Reader → compiler → target sync flow; `compiler::compile()` entry point, module map, collision resolution
 - [concepts/package-management/resolution-algorithm.md](concepts/package-management/resolution-algorithm.md) — Trait-based resolver: version selection, constraint validation, `ResolvedGraph` production
-- [concepts/package-management/self-source-selection.md](concepts/package-management/self-source-selection.md) — How `.mars-src`, declared-package content, dependency renames, discovery, default ownership refusal, explicit-force takeover intent, and interrupted-write recovery combine
+- [concepts/package-management/self-source-selection.md](concepts/package-management/self-source-selection.md) — How `.mars-src`, declared-package content, dependency renames, discovery, default ownership refusal, bounded explicit-force takeover, and interrupted-write recovery combine
 - [concepts/package-management/targeting.md](concepts/package-management/targeting.md) — How compiled content lands in native harness dirs; conditional agent emission, per-harness target rules
 - [concepts/package-management/sync-model.md](concepts/package-management/sync-model.md) — `mars sync` pipeline: load → resolve → target → plan → apply; serialized runs, lock behavior, and pending canonical write recovery
 
