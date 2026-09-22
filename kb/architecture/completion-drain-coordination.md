@@ -11,7 +11,8 @@ flowchart LR
     C --> E[CompletionEvidence]
     C --> P[CompletionProfile]
     C --> X[CompletionCleanup]
-    E --> T[Reconciled transitive descendants]
+    E --> R[Cached descendant assessment]
+    R --> T[Indexed subtree plus authoritative loose rows]
     E --> W[Pi private-work ledger]
     L -->|classifies| M[SpawnManager._publish_terminal]
     M -->|resolve_terminal_outcome| O[Published terminal outcome]
@@ -20,16 +21,17 @@ flowchart LR
 
 ## The coordinator accepts evidence; it does not discover work
 
-The coordinator retains a successful parent terminal candidate, requests fresh
-work assessments, schedules one completion deadline, and manages any
-stabilization window. Assessments are `ready`, `blocked`, or `unknown`. A store
-or observation failure produces typed `unknown`; it never becomes an empty work
-set.
+The coordinator retains a successful parent terminal candidate, evaluates immutable
+work assessments, schedules one completion deadline, and manages any stabilization
+window. When policy proposes success, it requests a qualifying descendant refresh and
+does not publish until that request is covered. Assessments are `ready`, `blocked`, or
+`unknown`. A discovery, authoritative-read, or observation failure produces typed
+`unknown`; it never becomes an empty work set.
 
-Events, file notifications, and bounded polls only wake assessment. They carry
-no completion truth. A profile can allow evaluation before a terminal candidate
-through `allows_evaluation_without_candidate`, but the generic coordinator does
-not infer that policy from an event type.
+Events, file notifications, refresh completions, and bounded polls only wake policy
+evaluation or request refresh. They carry no completion truth. A profile can allow
+evaluation before a terminal candidate through `allows_evaluation_without_candidate`,
+but the generic coordinator does not infer that policy from an event type.
 
 The collaborators are cohesive boundaries:
 
@@ -48,12 +50,21 @@ state into an implicit API.
 
 ## One reconciled tree owns persisted descendants
 
-`ReconciledDescendantEvidence` is the sole persisted-descendant authority for
-both profiles. It reads valid spawn rows, applies the non-mutating reconciliation
-projection, then performs cycle-safe transitive traversal. A live grandchild
-beneath a terminal direct child therefore still blocks completion. A store-wide
-read failure returns `unknown`; an individual row that cannot establish a valid
-lineage is not admitted to the tree.
+Both profiles consume one immutable assessment owned by `DescendantRefreshOwner`.
+Readiness and blocker-count accessors read that cache, so streamed events never perform
+descendant discovery. The owner permits one off-event-loop read at a time, anchors the
+next periodic interval to read completion, and coalesces overlapping requests into one
+follow-up. Shutdown cannot stop an active Python worker thread; an epoch fence discards
+late results.
+
+`ReconciledDescendantEvidence` remains the sole persisted-descendant authority behind
+the cache. One history-index catch-up and recursive parent query selects the transitive
+subtree with cycle protection. Archived rows remain traversal edges, so a live loose
+grandchild stays discoverable beneath an archived or terminal intermediate. Projected
+lifecycle state never authorizes success: each selected loose row is read and reconciled
+from authoritative state. Missing selected state or incomplete discovery returns
+`unknown`. Warm work scales with the selected subtree, while a cold index build remains
+corpus-sized.
 
 Pi-private work remains separate because a `SpawnRecord` cannot represent it.
 `PiPrivateWorkLedger` owns immutable snapshots of:
@@ -68,16 +79,25 @@ tracker and process cleanup module were deleted. Descendant discovery now
 relies solely on the reconciled persisted spawn tree.
 
 `PiDiskWatcher` observes only the private bash and notification-marker files. It
-does not scan spawn directories or infer descendants. The reconciled tree is
-reassessed on a bounded poll while completion is pending.
+does not scan spawn directories or infer descendants. Finish-anchored polling provides
+progress without lifecycle notifications, and refresh completion reuses the drain's
+auxiliary wake path. No descendant ledger, counter, or notification bus participates in
+completion authority.
 
 ## Readability is required even for `done`
 
-Every success follows a fresh assessment. A `done` directive may override known
-blockers, but it cannot turn `unknown` into success. Transient unreadability
-waits for recovery. Persistent unreadability fails at the single completion
-deadline with `resident_evidence_unreadable` or `pi_evidence_unreadable`; the
-rendered failure directs the operator to the session log.
+Every proposed success receives a request sequence and waits for a refresh begun after
+that request before policy is reevaluated. A cached ready result cannot authorize
+publication. A `done` directive may override known blockers, but it cannot turn
+`unknown` into success. Transient unreadability waits for recovery. Persistent
+unreadability fails at the single completion deadline with
+`resident_evidence_unreadable` or `pi_evidence_unreadable`; the rendered failure directs
+the operator to the session log.
+
+Closing the event stream does not bypass this gate. Event reads stop, but the same drain
+waiter continues refresh, stabilization, nudge, and deadline arbitration. The qualifying
+refresh is still a snapshot, not atomic closure of child admission: a child admitted
+after it but before lifecycle publication remains a separate protocol question.
 
 Stabilization is generation-aware but not generation-only. An unchanged ready
 assessment after an early wake keeps the current window. Persisted activity may
@@ -133,12 +153,13 @@ reason, or cleanup-phase policy.
 
 ## Invariants
 
-1. Fresh evidence precedes every success.
+1. A request-sequenced, post-proposal refresh precedes every success.
 2. `unknown` blocks success, including a `done`-directed success.
 3. One completion cycle has at most one deadline expiry, one latched cleanup,
    and one published terminal outcome.
-4. Wakes trigger reassessment; they are not evidence.
-5. Persisted descendant authority is reconciled, cycle-safe, and transitive.
+4. Wakes trigger reevaluation or refresh; they are not evidence.
+5. Persisted descendant discovery is indexed and transitive; selected loose lifecycle
+   state is authoritative and reconciled.
 6. Profile precedence owns coincident directives, deadlines, readiness,
    stabilization, and profile timers.
 7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
@@ -154,6 +175,7 @@ reason, or cleanup-phase policy.
 - `work:drain-convergence`
 - `work:drain-streaming-cleanup` (PR #375: reconciliation decisions extraction, rearm budget, timeout carrier unification)
 - `work:drain-streaming-cleanup` follow-up (probe-fix cycle: publication barrier, `resolve_terminal_outcome`, per-spawn cleanup keying)
+- `work:pi-descendant-refresh`
 
 ## Related pages
 

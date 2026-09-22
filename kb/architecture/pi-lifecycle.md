@@ -182,20 +182,23 @@ agent processes notification → takes turn → agent_end #2
 `sendMessage({triggerTurn: true})`. `PiPrivateWorkLedger`, fed by
 `PiDiskWatcher`, requires `agent_end_ts > last_notification_ts` and no tracked
 bash work. Persisted descendants come only from
-`ReconciledDescendantEvidence`; a bounded poll reassesses that tree while
+the shared cached descendant assessment. Its single-flight worker uses
+`ReconciledDescendantEvidence` for indexed transitive discovery and authoritative
+selected-row reconciliation; finish-anchored polling refreshes that assessment while
 completion is pending.
 
 ### Drain Correctness Constraints
 
 `PiDiskWatcher` wakes the Python drain loop when Pi-private bash records or
-notification markers change. Those wakeups trigger a fresh assessment; a parent
-cannot rely only on stdout events after `agent_end`. Tree reassessment is driven
-by a bounded poll rather than watcher authority.
+notification markers change. Those wakeups refresh private state and reevaluate policy;
+they are not persisted-descendant authority, and a parent cannot rely only on stdout
+events after `agent_end`. Descendant refresh is periodic and request-sequenced rather
+than watcher- or event-driven.
 
 Current safeguards:
 
-- Micro-drain rechecks both reconciled tree and private-work evidence before
-  accepting terminal success.
+- Micro-drain rechecks private-work evidence and waits for a post-proposal descendant
+  refresh before accepting terminal success.
 - Spawn rows publish atomically as complete directories built beneath
   `spawns/.staging/<unique>/`; only valid reconciled parent links create
   descendant blockers.
