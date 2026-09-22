@@ -3,6 +3,16 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-22 — Canonical self force-takeover intent
+
+Corrected stale feature-branch status for declared-package self-sync and
+pending-canonical recovery: both shipped in Mars 0.13.2 through PR #164.
+Recorded D96, which keeps default sync protective while settling explicit
+`mars sync --force` as authority to overwrite a selected canonical self path
+and publish installed ownership. Mars 0.14.1 has not implemented D96, so the
+mechanism pages retain and label the runtime divergence.
+
+---
 ## 2026-09-16 — Target-constrained fallback shipped
 
 Mars 0.14.0 / Meridian 0.4.6-rc.1. Updated model-policies overlay vs profile-backup

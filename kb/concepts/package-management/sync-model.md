@@ -236,12 +236,12 @@ destinations and does not undo explicit or automatic dependency renames. See
 [self-source-selection.md](self-source-selection.md) for the full selection
 contract.
 
-An unowned canonical destination blocks a selected self item before apply,
-including with identical bytes or `--force`; the user must relocate it rather
-than have Mars adopt it. If a managed destination changes source but retains
-identical bytes, it is classified as `Update` only while disk still matches the
-old lock. This records the new owner and carries native claims forward without
-overwriting a local-only modification.
+In Mars 0.14.1, an unowned canonical destination blocks a selected self item
+before apply, including with identical bytes or `--force`; the user must
+relocate it rather than have Mars adopt it. If a managed destination changes
+source but retains identical bytes, it is classified as `Update` only while
+disk still matches the old lock. This records the new owner and carries native
+claims forward without overwriting a local-only modification.
 
 Self items are staged before this ownership guard. A refusal can therefore
 refresh derived `.mars/staging` content while leaving canonical outputs, native
@@ -251,12 +251,16 @@ valid pending-canonical intent lets an ordinary retry recover it before this
 guard. Without matching intent, `--force` does not bypass the guard: inspect and
 relocate every blocked destination, then retry or repair.
 
+D96 settles a narrower target behavior that is not implemented in 0.14.1:
+explicit `mars sync --force` should overwrite the selected canonical self path
+and publish installed ownership, while default sync keeps this refusal.
+
 ## Sync Modes
 
 | Flag | Behavior |
 |---|---|
 | (default) | MVS version selection, replay locked commits; models.dev catalog **Auto** + probe **Background** |
-| `--force` | Overwrite locally-modified files |
+| `--force` | Overwrite locally-modified files. Canonical self takeover is settled but not implemented in Mars 0.14.1. |
 | `--diff` | Report planned installed-state changes without applying canonical/native outputs or finalizing `mars.lock` |
 | `--frozen` | Do not fetch new versions; fail if lock is insufficient or pending recovery would publish ownership |
 | `--refresh-models` | Force models.dev catalog refresh; run harness probes **synchronously** (no background `__refresh-probe` on stale cache) |

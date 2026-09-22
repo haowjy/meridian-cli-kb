@@ -5,8 +5,9 @@ A project that declares `[package]` contributes its own agents and skills to
 and dependencies, but records the selected current-project content under the
 synthetic `_self` owner rather than resolving a dependency on the project.
 
-This contract is approved and implemented on the `fix/package-self-sync`
-feature branch; it is not yet an installed or released Mars capability.
+This contract shipped in Mars 0.13.2. Its default ownership protection is
+implemented; the settled explicit-force takeover described below is not yet
+implemented in Mars 0.14.1.
 
 ## Selection order
 
@@ -91,14 +92,20 @@ actually within that selected source root.
 
 ## Ownership transitions and collisions
 
-The canonical `.mars` destination must already be owned by Mars or be absent
-before a selected self item can apply. An unowned path is a pre-apply error even
-when its bytes match, `--force` is present, or the command is a dry/frozen run.
-Valid canonical write intent is the only exception: if Mars recorded an absent
-destination before writing it, a retry can recover the matching regular output
-into in-memory ownership before this guard runs. Without that evidence, the
-remedy remains to inspect and relocate every blocked canonical destination
-before retry or repair. Mars never adopts a path from byte equality alone.
+Default sync requires the canonical `.mars` destination to be owned by Mars or
+absent before a selected self item can apply. An unowned path is a pre-apply
+error even when its bytes match. Valid canonical write intent is one exception:
+if Mars recorded an absent destination before writing it, a retry can recover
+the matching regular output into in-memory ownership before this guard runs.
+Mars never adopts a path from byte equality alone.
+
+Explicit `mars sync --force` is the settled second exception: it should permit
+takeover of the selected canonical self destination, overwrite that path, and
+publish an installed ownership record. This is a narrow, user-authorized
+takeover, not default adoption or permission to claim unrelated paths. Mars
+0.14.1 has not implemented this exception and still refuses the unowned path;
+until implementation ships, inspection and relocation remain the safe remedy.
+See D96 in the [package-management decisions](../../decisions/package-management.md).
 
 When source ownership changes but bytes do not, diff emits `Update` only if the
 on-disk canonical content still matches the previous lock. That write records
@@ -106,9 +113,8 @@ the new `_self` owner while retaining native output claims. A locally modified
 canonical item stays on the established keep-local path; when source and disk
 both changed, the established source-wins conflict behavior remains.
 
-Native target collisions are a separate ownership surface and retain their
-existing warning and explicit-force adoption semantics. The canonical self
-refusal does not change them.
+Native target collisions remain a separate ownership surface. Canonical self
+takeover must not broaden or conflate their existing explicit-force semantics.
 
 ## Verification boundary
 
@@ -125,7 +131,7 @@ finalization, but they are not filesystem-write-free: resolution may create
 write intent. Resolution failure likewise occurs before new intent is
 published.
 
-Before applying new absent canonical outputs, the feature branch writes
+Before applying new absent canonical outputs, Mars writes
 version 1 `.mars/pending-canonical.json`. It binds expected output bytes and
 source provenance to the exact prior `mars.lock` bytes (or recorded absence).
 On retry, Mars accepts only matching regular outputs with no ancestor or nested
@@ -187,7 +193,7 @@ and does not claim power-loss durability.
   `b44b7bc`, `6ef8760`, `f04d0a1`, `256cdd0`, `bcf8930`, `1320260`,
   `9882e3c`; canonical-recovery commits `466f53e`, `cf86eb6`, `cb2ccc1`,
   `a4d17a2`, `34889b5`, `2aa796a`, `721495c`, `2b2d696`
-- Current feature head: `c25ad36`; not merged, installed, or released
+- Merged by `9dd16c7` (PR #164) and released in Mars 0.13.2
 - Settled source-selection and canonical-recovery decisions: 2026-09-15
 - Isolated runtime verification: `spawn:p6164`
 - Ownership-loss investigation: `spawn:p6161` (12/12 pre-#103/current

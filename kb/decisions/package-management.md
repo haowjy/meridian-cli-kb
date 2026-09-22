@@ -405,8 +405,7 @@ as a preview tool.
 
 ### D94: `[package]` opts agents and skills into `_self` (2026-09-15)
 
-**Status:** Settled and implemented on the `fix/package-self-sync` feature
-branch; not installed or released.
+**Status:** Current; merged by `9dd16c7` (PR #164) and released in Mars 0.13.2.
 
 **Decision:** A project with `[package]` contributes its own agents and skills
 to sync under the synthetic `_self` lock owner. `.mars-src` remains an
@@ -438,11 +437,13 @@ still become an input on a later run. That general discovery problem is
 tracked separately in
 [mars-agents issue #161](https://github.com/haowjy/mars-agents/issues/161).
 
-**Ownership decision:** A selected self item cannot adopt an unowned canonical
-destination, even when bytes match or `--force` is present; sync fails before
-canonical/native apply with relocation guidance. For managed identical-byte
-source transitions, `Update` records the new owner only when disk is unmodified
-and carries native claims forward. Existing keep-local, source-wins, and native
+**Ownership decision:** Default sync cannot adopt an unowned canonical
+destination, even when bytes match; sync fails before canonical/native apply
+with relocation guidance. D96 supersedes only the earlier decision that force
+must also refuse: explicit `mars sync --force` is now intended to authorize a
+selected canonical self takeover. For managed identical-byte source
+transitions, `Update` records the new owner only when disk is unmodified and
+carries native claims forward. Existing keep-local, source-wins, and native
 force/report behavior remains unchanged.
 
 **Why this shape:** The June 2026 removal of broad package-root scanning fixed
@@ -462,8 +463,7 @@ new dependency rename/reference algorithm.
 
 ### D95: Journal new canonical writes without checkpointing ownership (2026-09-15)
 
-**Status:** Settled and implemented on the `fix/package-self-sync` feature
-branch at `2b2d696`; not merged, installed, or released.
+**Status:** Current; merged by `9dd16c7` (PR #164) and released in Mars 0.13.2.
 
 **Decision:** Before writing a new absent canonical output, Mars publishes
 version 1 `.mars/pending-canonical.json` with the expected output checksum and
@@ -536,6 +536,40 @@ The design does not claim power-loss durability.
 before finalization (destroyed corrupt-lock evidence when later repair failed).
 Logical-item journal keys were also replaced: repeated moves need independent
 physical claims and provenance for every unfinished path.
+
+---
+
+### D96: Explicit force takes over a selected canonical self path (2026-09-22)
+
+**Status:** Settled; not implemented in Mars 0.14.1.
+
+**Decision:** Explicit `mars sync --force` should authorize takeover of an
+unowned canonical destination selected for a current-package `_self` item. The
+same operation must overwrite the selected path and publish an installed
+ownership record. Default sync remains protective and refuses the path.
+
+This is a scoped ownership transition, not automatic adoption. Byte equality
+alone remains insufficient, and force does not authorize claiming unrelated
+canonical paths, merging user content, or bypassing selection. The policy is
+specific to `mars sync --force`; it must not be conflated with `mars version
+--force` validation behavior or with linked-target collision handling.
+
+**Why:** Ownership provenance can disappear while old canonical output remains,
+as happened when package commit `930bb37` removed the `architect` `_self` lock
+record even though its parent checksum matched the surviving output. Manual
+inspection and relocation remain the safe default recovery. Once the user has
+explicitly selected force, requiring relocation as the only path adds ceremony
+without adding consent or protection; the resulting write must establish the
+ownership evidence needed for later updates and removals.
+
+**Implementation divergence:** Mars 0.14.1 rejects an unowned canonical self
+destination before apply even when `--force` is present. Until implementation
+converges, runtime and user-facing documentation must describe that refusal.
+
+**Rejected alternatives:** Adopting on normal sync (weakens the safety default),
+adopting solely because bytes match (infers ownership from content), recording
+ownership without overwriting the selected output (separates authority from the
+user-authorized write), and broad force adoption across unselected paths.
 
 ---
 
