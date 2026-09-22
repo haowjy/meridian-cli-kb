@@ -253,7 +253,11 @@ managed source transitions.
 
 Self items are staged before this ownership guard. A refusal can therefore
 refresh derived `.mars/staging` content while leaving canonical outputs, native
-outputs, and the lock unapplied. This is not a rollback guarantee.
+outputs, and the lock unapplied. With an in-project symlink at `.mars`, the
+refusal can likewise leave internal `cache/`, `staging/`, and `sync.lock` paths
+under the link referent. It does not change the selected destination or publish
+`mars.lock`, but it is not an all-filesystem-write-free safety gate or a rollback
+guarantee.
 If partial apply leaves a new canonical self output without final ownership,
 valid pending-canonical intent lets an ordinary retry recover it before this
 guard. A preexisting output selected for force adoption is intentionally not
