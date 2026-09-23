@@ -186,6 +186,7 @@ conversion. The index remains disposable metadata, not history authority.
 model below records the earlier choice and feature-branch work; clean `main` still
 writes runner history. Qualified snapshot preservation and inert legacy retention
 remain part of the replacement design.
+
 Pi grammar and preview compatibility, exact completed-primary handoff, archived-child
 warming, OpenCode raw-row preservation/shared interpretation, and exact native-identity
 selection with same-runtime known-owner checks are implemented and independently
@@ -193,7 +194,7 @@ reviewed. Qualified snapshot publication, canonical validation, portability, mod
 observation, four-harness workflows, and PR readiness remain open. PR #494 remains
 draft.
 
-**Decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
+**Superseded decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
 Qualified native-primary history is published atomically as a separate snapshot
 inside the same record aggregate and becomes canonical through one shared source
 selection boundary. This is preferred to append-only begin/body/commit sections,
