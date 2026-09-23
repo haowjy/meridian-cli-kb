@@ -181,7 +181,11 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
-**Status:** Partially implemented on the feature branch through `e2fea094`; unreleased.
+**Status:** Superseded as a future write-path decision by the approved, unimplemented
+[native-session-identity design](native-session-identity.md). The stream-and-snapshot
+model below records the earlier choice and feature-branch work; clean `main` still
+writes runner history. Qualified snapshot preservation and inert legacy retention
+remain part of the replacement design.
 Pi grammar and preview compatibility, exact completed-primary handoff, archived-child
 warming, OpenCode raw-row preservation/shared interpretation, and exact native-identity
 selection with same-runtime known-owner checks are implemented and independently

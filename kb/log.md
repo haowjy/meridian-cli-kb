@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-23 — Native session identity decision
+
+Added [decisions/native-session-identity.md](decisions/native-session-identity.md)
+as the canonical record for the approved, unimplemented cross-harness contract.
+Added it to the decision catalogs and vocabulary, and linked the earlier
+history-storage and session-reference-resolution records plus portable-history
+architecture to clarify their relationship to the new decision. No source or
+runtime behavior is claimed as changed.
+
+Provenance: `work:native-harness-session-identity`.
+
+---
 ## 2026-09-23 — Pi native session identity and readback
 
 Added [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md)

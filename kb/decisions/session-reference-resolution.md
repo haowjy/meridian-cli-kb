@@ -1,5 +1,10 @@
 # Decision: Centralize Session Reference Resolution
 
+**Status:** Describes the current recovery implementation. The approved, unimplemented
+[native-session-identity design](native-session-identity.md) replaces recorded-ID
+recovery as authority for tracked continuation with owned, attempt-specific proof
+of the exact native key. Do not infer that this replacement has shipped.
+
 ## Context
 
 Meridian had two divergent code paths for resolving the same session/spawn/chat IDs:

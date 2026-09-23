@@ -1,5 +1,11 @@
 # Portable history, derived discovery, and ZIP retention
 
+**Checkout/design boundary:** This page describes current and earlier feature-branch
+history mechanisms. Its direction to keep new runner-stream writes is superseded
+by the approved but unimplemented [native-session-identity decision](../../decisions/native-session-identity.md).
+Clean `main` still writes `history.jsonl`; do not read the new decision as shipped
+behavior or this page's stream-retention proposal as the current design target.
+
 **Readable record files and immutable ZIPs are history authority. SQLite metadata
 and preview rows are disposable projections that can be rebuilt without losing
 history.** The same authority boundary governs discovery, preview, retention,
