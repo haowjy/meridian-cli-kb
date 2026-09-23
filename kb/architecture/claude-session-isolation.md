@@ -9,6 +9,7 @@ Related pages:
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — Claude adapter PTY capture, system-prompt channel
 - [operations/health-checks.md](../operations/health-checks.md) — doctor overlay pruning
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn status transitions
+- [pi-native-sessions.md](pi-native-sessions.md) — the analogous shared-store identity hazard for Pi native sessions
 
 ---
 

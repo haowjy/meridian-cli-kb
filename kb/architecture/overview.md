@@ -11,6 +11,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [drain-plans.md](drain-plans.md) — Streaming drain-plan composition and resident completion behavior.
 - [completion-drain-coordination.md](completion-drain-coordination.md) — Shared composition-first Pi/resident completion, cached indexed descendant refresh, and publish-before-cleanup invariant.
 - [pi-lifecycle.md](pi-lifecycle.md) — Current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior.
+- [pi-native-sessions.md](pi-native-sessions.md) — Pi native session identity discovery, shared-directory collision hazard, and journal tree readback.
 - [atomic-child-row-publication.md](atomic-child-row-publication.md) — Nested-stage directory publication protocol, POSIX evidence, and remaining platform gates.
 - [managed-primary-lifecycle.md](managed-primary-lifecycle.md) — Codex/OpenCode managed-primary process roles, startup/stop ownership, passive reaper safety, and explicit cleanup boundary.
 - [mars-compiler.md](mars-compiler.md) — Mars compiler module map, config-entry pipeline, collision resolution, and stale cleanup.

@@ -314,3 +314,4 @@ Pi prompt/auth/crash failures persist a human-readable `# Spawn failed` Markdown
 - [../lessons/pi-rpc-quiescence-impl.md](../lessons/pi-rpc-quiescence-impl.md) — implementation lessons, Windows path handling, CI pitfalls
 - [launch-system.md](launch-system.md) — Pi dual launch path in the spawn subprocess path
 - [pi-runtime/vocab.md](pi-runtime/vocab.md) — canonical vocabulary for the pi-runtime background-work surface
+- [pi-native-sessions.md](pi-native-sessions.md) — how fresh primary native identities are discovered and how journals are read back

@@ -107,6 +107,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
+- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi native session identity discovery (shared-dir newest-mtime, collision hazard) and journal tree readback (physical-order flattening)
 - [architecture/pi-runtime/overview.md](architecture/pi-runtime/overview.md) — Pi runtime vocabulary for background work and extension coordination
 - [architecture/atomic-child-row-publication.md](architecture/atomic-child-row-publication.md) — nested staging and directory replacement for complete child-row visibility; Linux/POSIX proof and remaining platform gates
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode process roles, startup/stop ownership gate, passive reconciliation safety, and `orphan_primary` diagnosis

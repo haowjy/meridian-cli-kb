@@ -97,6 +97,17 @@ rendering live in session-log integration/unit tests, resident drain scope behav
 lives with streaming tests, and reusable OpenCode SQLite fixtures live in
 `tests/support/opencode_db.py`.
 
+### Pi: shared-dir discovery fallback
+
+Pi primaries have no pre-seeded native ID, and a fresh primary's journal is found
+by scanning the shared session directory for the newest same-`cwd` file. When a
+tracked primary has no recorded ID, `session_target.py` re-runs that same
+discovery (`DETECTED_UNVERIFIED`), so a chat's readback identity is recomputed
+from filesystem recency and can change as unrelated sessions write. Meridian
+still renders the selected journal's entries in physical order, so abandoned
+sibling branches can appear. See
+[../architecture/pi-native-sessions.md](../architecture/pi-native-sessions.md).
+
 ## Segment Model
 
 Claude compacts its conversation history when it grows beyond a threshold. Each compaction creates a new **segment**. The transcript is a sequence of segments, each being a self-contained window of conversation history:

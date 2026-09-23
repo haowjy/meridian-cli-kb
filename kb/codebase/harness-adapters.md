@@ -199,7 +199,7 @@ disk state (`spawns/<child>/state.json`, `pi-bash/<parent>/bash-records.json`,
 
 **Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
 
-**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected so extensions can gate quiescence machinery to spawned-only sessions.
+**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected so extensions can gate quiescence machinery to spawned-only sessions. Spawned sessions are per-spawn scoped, but fresh primaries share one default session root, so their native identity is discovered from disk rather than pre-seeded — see [pi-native-sessions.md](../architecture/pi-native-sessions.md).
 
 **Runtime resolution.** `PiRuntimeResolver` probes the installed `pi` binary before launch (`pi --version`, `pi --help` surface check). Fails fast with install guidance if binary is missing or incompatible. `MERIDIAN_PI_BINARY` env var overrides PATH discovery.
 

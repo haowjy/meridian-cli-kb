@@ -162,3 +162,4 @@ labeled offline.
 - [harness-adapters.md](harness-adapters.md) — Per-harness transcript format differences; how provider-specific events map to the `TranscriptMessage` type
 - [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — Policy/mechanism split that motivates harness-agnostic normalization
 - [../concepts/spawn-output-contract.md](../concepts/spawn-output-contract.md) — Progressive disclosure: spawn report → session log → no-truncate
+- [../architecture/pi-native-sessions.md](../architecture/pi-native-sessions.md) — Pi journal tree topology and why readback currently flattens physical order

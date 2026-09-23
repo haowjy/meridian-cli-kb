@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-23 — Pi native session identity and readback
+
+Added [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md)
+to record how fresh Pi primaries acquire a native session identity and how Pi
+journals are read back — the two mechanisms behind a confirmed cross-conversation
+leak and display mixing. The page documents current behavior only: primary
+identity is discovered from a shared session directory by newest-mtime among
+same-`cwd` candidates (collision hazard; persisted ID is not proof of a correct
+association), and readback renders physical JSONL order rather than Pi's active
+root-to-leaf branch. No correction is prescribed; the source work item remains
+open. Cross-linked from `harness-adapters`, `session-operations`,
+`session-log-rendering`, `pi-lifecycle`, and `claude-session-isolation`.
+
+Provenance: `work:investigate-pi-model-selection-for-luna`; `spawn:p6615`.
+
 ## 2026-09-22 — Canonical self force-takeover reconciliation
 
 Corrected stale feature-branch status for declared-package self-sync and
