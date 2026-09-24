@@ -1,6 +1,6 @@
 # Decision: Bound native source arguments; stop at route-dependent admission
 
-**Status: bounded grammar policy is settled; integration is stopped.** The unmerged, unpushed `fix/native-session-identity-v2` branch through `b61d6c04` contains four adapter-local grammars and their registrations, plus the typed primary-fork correction. The grammars are **not wired** into primary owner, public bind, or runner admission. Neither these commits nor focused grammar tests qualify a tracked transport. Clean `main` retains the shipped behavior described by [native session identity](native-session-identity.md) and [session operations](../codebase/session-operations.md).
+**Status: bounded grammar policy is settled; integration is stopped.** The unmerged, unpushed `fix/native-session-identity-v2` branch through `b61d6c04` contains four adapter-local grammars and their registrations, plus the typed primary-fork correction. The grammars are **not wired** into primary owner, public bind, or runner admission. Neither these commits nor focused grammar tests qualify a tracked transport. Clean `main` retains the behavior described by [current Pi readback](../architecture/pi-native-sessions.md) and [session operations](../codebase/session-operations.md); [native session identity](native-session-identity.md) records the unshipped target.
 
 ## Bounded input is not source authority
 
