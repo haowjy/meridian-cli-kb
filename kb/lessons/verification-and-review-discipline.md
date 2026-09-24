@@ -38,6 +38,29 @@ registration side effects, filesystem behavior, process races, or actual CLI
 output. Pair structural review with a runtime probe at the real seam whenever
 those behaviors matter.
 
+### Guard the process before importing launch tests
+
+When a test must not call Mars, a native harness, a model, or the network,
+mocking the expected bundle request is insufficient. Launch policy can query
+the catalog before the mocked bundle seam. In the native-session R1 review,
+unguarded p6941 runs may have invoked installed Mars catalog commands; the
+absence of an intended native/model call was not proof of isolation. A p6942
+probe also briefly launched an installed OpenCode TUI under a temporary HOME
+after a wrong binding patch. It was stopped without an observed model
+response, but its external effects are unknown. These are disclosed safety
+misses, not qualifying test evidence.
+
+For future fake-only launch verification, install hard process **and** network
+denial before pytest or application imports; isolate HOME, XDG, config and
+Meridian state; fake catalog/alias lookup **and** bundle resolution; stop the
+consumer before native startup; disable plugin autoload and parallel workers;
+and count attempted external effects. Synthetic Pi assets may be needed to
+reach the intended seam without building or launching Pi. A guard proves the
+bounded test interpreter attempted no external effect; it does not qualify
+installed runtime behavior. The accepted R1 recheck used this boundary and
+reported zero attempts across 146 focused checks (`work:native-harness-session-identity`,
+`review/b3b-r1-final.md`, `spawn:p6970`).
+
 ### Verify the search scope contains the fact
 
 A negative search result is evidence only when the search target can contain

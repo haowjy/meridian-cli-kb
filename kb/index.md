@@ -38,7 +38,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP transcript authority, disposable indexes, retention and restore, and post-stop native capture
 - [decisions/native-session-identity.md](decisions/native-session-identity.md) — Settled exact native chat binding/history; unmerged enabling work, no tracked transport qualified
-- [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Typed-source ordering, bounded raw grammars, chosen fresh-route C and its installed-resolver effect gate; no production ingress wiring
+- [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Late fresh-route C and bounded R1 selected-adapter raw admission; typed/public/final-emission and native-runtime gates remain open
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
 - [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) — Wait, goal, and session-mode decisions
@@ -203,7 +203,7 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 - [lessons/thermo-nuclear-audit.md](lessons/thermo-nuclear-audit.md) — Thermo-nuclear audit method: two-source adversarial panel, rejected alternatives with reasons, peer-benchmark defended strengths and dropped steals
 - [lessons/release-sequencing.md](lessons/release-sequencing.md) — Cross-repo release sequencing failure: breaking change shipped while consumer migration sat unpushed; structural gap, blast-radius search-scope error, runtime smoke as the only catch
 - [lessons/residue-cleanup-discipline.md](lessons/residue-cleanup-discipline.md) — When mars changes what it emits, removal paths must recognize prior versions' actual output shapes. Twice-learned: sweep ordering, legacy format misses, real-shape verification discipline
-- [lessons/verification-and-review-discipline.md](lessons/verification-and-review-discipline.md) — Verification validity, non-vacuous oracles, runtime evidence, search-scope validity, CWD/exit-status and measurement discipline
+- [lessons/verification-and-review-discipline.md](lessons/verification-and-review-discipline.md) — Verification validity, pre-import process/network denial for fake-only launch tests, non-vacuous oracles, runtime evidence and measurement discipline
 - [lessons/review-convergence-gate.md](lessons/review-convergence-gate.md) — Same-class recurrence, redesign escalation, total-intent invariant, and old-state runtime probe
 - [lessons/verification-campaign-history.md](lessons/verification-campaign-history.md) — Collapsed historical chronology and incident evidence
 
