@@ -37,8 +37,8 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP transcript authority, disposable indexes, retention and restore, and post-stop native capture
-- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Settled exact native chat binding/history; unmerged enabling work, no tracked transport qualified
-- [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Late fresh-route C and bounded R1 selected-adapter raw admission; typed/public/final-emission and native-runtime gates remain open
+- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Settled exact native chat binding/history; R2a metadata join built, R2b/R2c and tracked transport still open
+- [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Late fresh-route C and bounded R1 raw admission; R2a metadata does not close typed/public/final-emission gates
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
 - [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) — Wait, goal, and session-mode decisions
