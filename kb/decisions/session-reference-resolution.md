@@ -1,9 +1,10 @@
 # Decision: Centralize Session Reference Resolution
 
-**Status:** Describes the current recovery implementation. The approved, unimplemented
+**Status:** Describes the current recovery implementation. The settled
 [native-session-identity design](native-session-identity.md) replaces recorded-ID
 recovery as authority for tracked continuation with owned, attempt-specific proof
-of the exact native key. Do not infer that this replacement has shipped.
+of the exact native key. Enabling slices exist on an unmerged branch; the
+replacement has not shipped.
 
 ## Context
 

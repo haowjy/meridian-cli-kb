@@ -1,5 +1,11 @@
 # Pi Native Sessions: Identity and Readback
 
+**Shipped-behavior boundary:** This page describes clean `main`. An unmerged
+implementation branch has reviewed enabling state, notification, and pure
+lineage-projection slices, but has not wired an exact Pi reader or qualified
+tracked Pi launch. The [native-session-identity decision](../decisions/native-session-identity.md)
+records the target contract and phase limits; do not read it as current behavior.
+
 Two properties of Pi's session store shape every Meridian operation that touches
 a Pi conversation, and Meridian's current handling of both is heuristic:
 
@@ -100,10 +106,17 @@ view.
 
 ## Disposition
 
-Both behaviors are current, confirmed, and known-fragile. A correction is
-unresolved — no source change has been approved, and this page does not
-prescribe one. When the identity-binding or branch-projection behavior changes,
-update this page rather than layering a fix on top.
+Both shipped behaviors are confirmed and known-fragile. A correction is approved
+and partially implemented on `fix/native-session-identity-v2`, not shipped. Its
+I1a4 state/coordinator gate at `86e94f6b` retains v3 key-only occupancy but does
+not make legacy bindings resumable or readable through an exact file. Its B3a
+extension notification gate prevents known cross-generation sends; `agent_start`
+alone cannot prove the qualified owner was the sole starter. Its I2 pure projector
+selects a supported subset of legacy-v3 root-to-reopen-leaf lineages, but is
+unwired to the log/search provider and does not support all installed Pi dialects.
+Exact opened-file qualification, purpose-aware resolution, owned Pi entry/exit,
+and native read cutover remain gates. Until those land, the discovery and
+physical-order readback above remain the checkout's behavior.
 
 ## Related Pages
 

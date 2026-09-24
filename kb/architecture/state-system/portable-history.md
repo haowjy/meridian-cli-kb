@@ -2,7 +2,7 @@
 
 **Checkout/design boundary:** This page describes current and earlier feature-branch
 history mechanisms. Its direction to keep new runner-stream writes is superseded
-by the approved but unimplemented [native-session-identity decision](../../decisions/native-session-identity.md).
+by the settled, partially implemented but unshipped [native-session-identity decision](../../decisions/native-session-identity.md).
 Clean `main` still writes `history.jsonl`; do not read the new decision as shipped
 behavior or this page's stream-retention proposal as the current design target.
 

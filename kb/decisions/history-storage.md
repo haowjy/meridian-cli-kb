@@ -181,7 +181,7 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
-**Status:** Superseded as a future write-path decision by the approved, unimplemented
+**Status:** Superseded as a future write-path decision by the settled, partially implemented but unshipped
 [native-session-identity design](native-session-identity.md). The stream-and-snapshot
 model below records the earlier choice and feature-branch work; clean `main` still
 writes runner history. Qualified snapshot preservation and inert legacy retention
