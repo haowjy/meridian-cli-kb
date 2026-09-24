@@ -577,8 +577,9 @@ ops/spawn/execute.py
 
 ## Accepted startup selection and OpenCode transport (2026-09)
 
-All three driving paths record accepted startup selection through the shared
-`SessionAttempt`. Streaming-serve binds its pending selection through the
+All three driving paths record **model/policy** acceptance at startup through the shared
+`SessionAttempt`. This is not verified native entry/exit identity and does not
+qualify a transport for tracked cN binding under [native session identity](../decisions/native-session-identity.md). Streaming-serve binds its pending selection through the
 identity callback when available, otherwise through existing post-run artifact
 extraction. Native-spawn fork child isolation prevents the parent from being
 recorded as the child.
