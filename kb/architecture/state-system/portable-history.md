@@ -1,10 +1,11 @@
 # Portable history, derived discovery, and ZIP retention
 
-**Checkout/design boundary:** This page describes current and earlier feature-branch
-history mechanisms. Its direction to keep new runner-stream writes is superseded
-by the settled, partially implemented but unshipped [native-session-identity decision](../../decisions/native-session-identity.md).
-Clean `main` still writes `history.jsonl`; do not read the new decision as shipped
-behavior or this page's stream-retention proposal as the current design target.
+**Checkout/design boundary:** This page describes clean-`main` and earlier
+feature-branch portable-history mechanisms. Clean `main` still writes
+`history.jsonl`; the settled, partially implemented but unshipped
+[native-session-identity decision](../../decisions/native-session-identity.md)
+supersedes the earlier plan to retain new runner-stream writes. Neither plan's
+unfinished native capture is a shipped live-read capability.
 
 **Readable record files and immutable ZIPs are history authority. SQLite metadata
 and preview rows are disposable projections that can be rebuilt without losing
@@ -45,11 +46,12 @@ restored as historical, those fields remain provenance only: restore never turns
 foreign runtime ownership back on. This distinction prevents a portable identity
 from becoming permission to signal a process or resume a harness.
 
-New record streams are self-identifying and append-only across retries. Attempt
-boundaries remain in the transcript; only attempt-scoped diagnostics rotate.
-`history.jsonl` remains stream/retry evidence. A native-primary conversation becomes
-portable authority only through a separately qualified atomic snapshot in the same
-record aggregate. Rendered reports are never promoted to transcript authority.
+On clean `main`, record streams remain append-only across retries and
+`history.jsonl` remains stream/retry evidence. The earlier feature branch planned
+to make a separately qualified snapshot canonical inside the same aggregate;
+that is no longer the live-read target. Under the replacement decision, exact
+harness-native history serves live reads, while qualified sealed copies may
+preserve offline history. Rendered reports are never transcript authority.
 
 ## One-way, rebuildable projections
 
@@ -140,74 +142,33 @@ SQLite, adding a second parser, and hashing the full source on every append. The
 selected design keeps one interpretation path and treats a checkpoint witness as a
 narrow optimization rather than a generic mutation detector.
 
-## Native-primary authority requires a qualified atomic snapshot
+## Native-primary capture: earlier branch, not the live read target
 
-Issue #499 separated two independent causes:
+Clean `main` still treats runner `history.jsonl` as stream/retry evidence. Earlier,
+PR #494 explored a separate canonical native snapshot while preserving that stream.
+That **stream-plus-snapshot live-read plan is superseded** by the
+[native-session-identity decision](../../decisions/native-session-identity.md):
+future live reads use the exact pinned harness-native source, and new runner-stream
+writes are removed. Qualified sealed native snapshots remain useful for offline
+retention, not as a second live conversation authority.
 
-1. **Preexisting Pi grammar, repaired:** native Pi stores nested messages as
-   `type=message`; native and RPC records now share extraction. Compaction summaries,
-   append-order branch annotations, rendering limits, and prior-entry identity survive
-   preview checkpoints. A checkpoint-version change invalidates old cached-empty
-   interpretations without changing the metadata schema.
-2. **PR-introduced capture qualification, still open:** identity selection no longer
-   prefers presentation/index fallback, but state ingest still treats
-   `history.jsonl` existence as completed capture and writes the old envelope. A
-   message-count fallback would still fail for nonempty prefixes.
+The earlier feature branch implemented several preconditions, not a complete
+snapshot or the new native-history-only path. Pi native `type=message` grammar and
+preview handling were repaired; exact completed-primary handoff and
+capture-purpose identity selection were added; OpenCode gained a raw MessageV2
+row interpretation. Its old ingest path still treats `history.jsonl` existence as
+completed capture, and canonical snapshot publication, validation and integrated
+runtime qualification remain open. These are facts about that unreleased branch,
+not instructions to preserve new runner-history writes in the v2 redesign.
 
-Keep stream evidence untouched and publish `native-transcript.jsonl` atomically as
-the sole final native snapshot path inside the existing aggregate. This is preferred
-to appending begin/body/commit sections to `history.jsonl`: abandoned sections would
-need their own recovery protocol and can leak captured conversation into runner/report
-evidence. One shared source policy selects the canonical member for log, preview,
-search, export, archive, and restore.
-
-Capture must preserve raw provider authority, not only normalized display events.
-OpenCode now emits a versioned harness-owned raw-row dialect for the exact session and
-all ordered message/part rows—including IDs, relationships, unsupported shapes,
-orphan parts, and original payload strings—in one read-only transaction. One ordered
-parts traversal plus a separate orphan pass avoids the former repeated session scan;
-native indexes remain untouched. Shared normalization supplies display and report
-consumers. This consistent raw input is not capture qualification: unfinished tails,
-attachments, strict payloads, and source identity/revision remain open.
-
-The snapshot header binds the original portable identity, generation, harness/native
-identity, dialect, observation interval/scope and source revision; a final seal binds frame count and digest.
-Validation streams bounded frames and checks deadlines between reads. An unread seal,
-budget-exhausted prefix, malformed record, or unsupported dialect is partial, corrupt,
-or unavailable—not verified empty. Retention requires complete validation before
-reclaim, while presentation may expose an explicitly labeled partial prefix.
-
-### Post-stop observation, not exact-stop reconstruction
-
-The selected repair retains the existing post-stop capture path and passes the
-completed `primary_spawn_id` instead of looking up latest cN. That handoff is
-implemented. The final snapshot captures a consistent available native transcript
-observation, not exact native bytes at a past launch exit.
-A delayed observation may include later native continuation; metadata and read views
-must state that scope. No provider-wide writer fence, teardown callback or frontier
-ledger is added. The earlier F1 exact-stop requirement is superseded, not proven.
-
-Capture-purpose resolution now requires singleton agreement from normalized state,
-primary-sidecar, and exact-generation session candidates. Known same-runtime active
-spawn/session owners, exact-generation leases, and unreleased scopes block reading and
-are checked again before publication. Conflicting facts conservatively block a possible
-same-harness match; equal opaque IDs in distinct harnesses do not alias. An exact
-generation participates even when its native ID is present only in spawn metadata.
-These observations are preconditions, not an external-writer or cross-machine fence.
-Children prepare only existing retained streams and never use native-primary fallback.
-
-Capture still needs full supported scope, strict framing and positive valid-empty
-evidence. Missing/ambiguous/known-incomplete native input blocks new reclaim. OpenCode
-raw scope is its MessageV2 transcript, not all native state; Codex capture must follow
-declared paginated ancestor ranges. Preserve stream bytes and all required companions.
-A later external append does not invalidate a completed immutable capture; archive
-verification still covers the exact aggregate being removed.
-
-The provider/materializer qualification result distinguishes complete observation,
-known incomplete, unavailable and unsupported, with a bounded reason. Existing
-lifecycle facts and provider-owned supported-dialect markers reject positively known
-unfinished input; possible unobserved late writes do not require an external-writer
-proof. Delayed preparation retries that qualification; valid captures stay immutable.
+The selected capture timing remains **post-stop observation** associated with the
+exact completed primary, not reconstruction of bytes at a past launch-end instant.
+A delayed observation may include later native continuation and must state its
+scope. Existing lifecycle and same-runtime owner checks are safety preconditions,
+not a fence against external writers. Provider completeness, strict framing and
+positive valid-empty evidence remain necessary before a retained snapshot can
+justify reclaim; an incomplete native source cannot be relabeled complete because
+runner output exists.
 
 ## Verified publication and short reclaim serialization
 
@@ -263,7 +224,7 @@ rearchive -> restore with the original native store and first ZIP unavailable. O
 archives keep their implicit `history.jsonl` member and original digest recipe; they
 are never rewritten or given fabricated descriptors.
 
-## Current divergence and provenance
+## Earlier feature-branch status and provenance
 
 The branch through `e2fea094` has implemented the initialization, interpretation,
 handoff, warming, raw-row, and exact-selection preconditions described above. It has
@@ -271,8 +232,9 @@ not replaced the old `history.jsonl` existence no-op or envelope writer. Provide
 header/framing/revision/lineage/unfinished-tail/attachment qualification, fixed atomic
 snapshot and seal, canonical validated read/archive descriptor, repeated portability,
 last-executed-model metadata/index/defaults, real four-harness workflows, and final
-readiness remain open. PR #494 remains draft and unreleased; these completed substages
-do not complete the overall history goal.
+readiness remain open on that branch. PR #494 remains draft and unreleased; these
+completed substages neither implement the replacement decision nor complete the
+overall history goal.
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
