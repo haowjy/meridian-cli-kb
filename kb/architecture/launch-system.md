@@ -38,7 +38,7 @@ bind_launch_context()       ← cheap materialization, spawn-ID + paths + env
 LaunchContext
 ```
 
-**`prepare_launch_surface()`** — the expensive phase. Runs model/harness/profile/skill resolution, composition, prompt assembly, semantic IR projection, skill injection, continuation resolution, and policy gates (e.g. `deny_headless_harnesses`). Called once per spawn. Safe to call before the spawn ID is known — it produces no side effects. Policy decisions that can be evaluated before the spawn ID exists belong here, not in bind.
+**`prepare_launch_surface()`** — the expensive phase. Runs model/harness/profile/skill resolution, composition, prompt assembly, semantic IR projection, skill injection, continuation resolution, and policy gates (e.g. `deny_headless_harnesses`). Called once per spawn. It precedes spawn-row creation but is **not effect-free**: ordinary Mars resolution can touch caches, network and native status/probe subprocesses. Its placement does not by itself authorize moving it before raw-argument admission. The unmerged R0 split separates policy resolution from late work/reference assembly without changing caller order; [native-source admission](../decisions/native-source-argument-admission.md) records the chosen fresh-route C policy and installed-resolver effect gate. Policy decisions that can be evaluated before the spawn ID exists belong here, not in bind.
 
 **`PreparedLaunchSurface`** — frozen dataclass; the in-memory boundary between preparation and binding. Carries: resolved request, harness, seed session info, composition warnings, loaded references, agent inventory prompt, context prompt, alias catalog, model selection context. Deliberately excludes spawn IDs, report paths, env, argv, and permission outputs — everything that varies per bind.
 
@@ -396,7 +396,7 @@ seam at the actual write point rather than checking before an `await`.
 Sits above `SpawnLifecycleService` (sole state writer) and below driving adapters. Surfaces call the service; the service calls the lifecycle service.
 
 ```
-Layer 3: build_launch_context()     ← pure resolution, may fail, no side effects
+Layer 3: build_launch_context()     ← composition may fail; external policy resolution has effects
 Layer 4: SpawnApplicationService    ← lifecycle policy
 Layer 5: SpawnLifecycleService      ← sole state writer (spawn_store)
 ```

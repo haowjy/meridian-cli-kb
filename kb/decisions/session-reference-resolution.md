@@ -28,7 +28,7 @@ Four levels, in order of authority:
 3. `PRIMARY_META` — from primary spawn metadata
 4. `DETECTED_UNVERIFIED` — from harness adapter detection
 
-The first three are authoritative enough for `--continue`/`--fork`. `DETECTED_UNVERIFIED` is NOT — it is only usable by `session_log` for transcript verification.
+In the current shipped recovery implementation, the first three are treated as authoritative enough for `--continue`/`--fork`. `DETECTED_UNVERIFIED` is NOT — it is only usable by `session_log` for transcript verification. This is **not** the settled tracked-native authorization rule: [native session identity](native-session-identity.md) requires an accepted exact native key and qualified file pin, not merely an ID recovered from a row or metadata.
 
 ## API Changes
 
@@ -45,7 +45,7 @@ The first three are authoritative enough for `--continue`/`--fork`. `DETECTED_UN
 | `--continue` / `--fork` | `authoritative_harness_session_id` | No |
 | `--from` | `effective_harness_session_id` (best-effort) | Yes (omitted if unavailable) |
 
-`--continue` and `--fork` treat authoritative recovery as launch authority, not
+In the current shipped implementation, `--continue` and `--fork` treat authoritative recovery as launch authority, not
 diagnostic metadata. If the source row lacks a raw harness session ID but recovery
 finds one from session records, the spawn row, or primary metadata, the follow-up
 launch uses that recovered ID. `DETECTED_UNVERIFIED` remains excluded because a
