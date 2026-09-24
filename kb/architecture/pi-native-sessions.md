@@ -1,10 +1,9 @@
 # Pi Native Sessions: Identity and Readback
 
-**Shipped-behavior boundary:** This page describes clean `main`. An unmerged
-implementation branch has reviewed enabling state, notification, and pure
-lineage-projection slices, but has not wired an exact Pi reader or qualified
-tracked Pi launch. The [native-session-identity decision](../decisions/native-session-identity.md)
-records the target contract and phase limits; do not read it as current behavior.
+**Shipped-behavior boundary:** This page describes clean `main`, not the unmerged
+native-session-identity branch. The [native-session-identity decision](../decisions/native-session-identity.md)
+records settled intent, enabling implementation, and its incomplete phase gates;
+none of those changes qualify tracked Pi or replace the shipped read path here.
 
 Two properties of Pi's session store shape every Meridian operation that touches
 a Pi conversation, and Meridian's current handling of both is heuristic:
@@ -106,17 +105,13 @@ view.
 
 ## Disposition
 
-Both shipped behaviors are confirmed and known-fragile. A correction is approved
-and partially implemented on `fix/native-session-identity-v2`, not shipped. Its
-I1a4 state/coordinator gate at `86e94f6b` retains v3 key-only occupancy but does
-not make legacy bindings resumable or readable through an exact file. Its B3a
-extension notification gate prevents known cross-generation sends; `agent_start`
-alone cannot prove the qualified owner was the sole starter. Its I2 pure projector
-selects a supported subset of legacy-v3 root-to-reopen-leaf lineages, but is
-unwired to the log/search provider and does not support all installed Pi dialects.
-Exact opened-file qualification, purpose-aware resolution, owned Pi entry/exit,
-and native read cutover remain gates. Until those land, the discovery and
-physical-order readback above remain the checkout's behavior.
+Both shipped behaviors are confirmed and known-fragile. The approved correction
+is not shipped. The unmerged branch has enabling authority, exact-source,
+notification, and pure lineage-view work, but has not qualified owned Pi
+entry/exit or wired native readback. Primary Pi remains native TUI and refuses
+tracked resume/fork under the settled design; that refusal is not a claim that
+the shipped path already enforces it. Until the later gates land, the discovery
+and physical-order readback above remain clean `main` behavior.
 
 ## Related Pages
 

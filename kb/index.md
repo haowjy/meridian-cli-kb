@@ -37,7 +37,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP transcript authority, disposable indexes, retention and restore, and post-stop native capture
-- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Settled contract for exact native chat bindings, run entry/exit, and native-only conversation history; enabling branch slices are unmerged
+- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Settled exact native chat binding/history and source-selection policy; unmerged primary phase 1 is accepted, later gates remain
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
 - [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) — Wait, goal, and session-mode decisions
