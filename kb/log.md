@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — Native session identity decision split
+
+Moved the one-time legacy-key import rationale and policy from
+[native session identity](decisions/native-session-identity.md) into its own
+[decision page](decisions/legacy-native-import.md). The broader identity decision
+now links to it; the mechanics remain in
+[legacy native import architecture](architecture/legacy-native-import.md). Updated
+the architecture and native-only-history inbound links, decision overview, and
+catalog. The existing preview-rebuild inconsistency in history-storage remains
+flagged for content-owner review; no truth was changed.
+
+---
 ## 2026-09-25 — PR 1 restructure settled; native-only history (PR 2) captured
 
 PR 1 (#520) finished its foundation restructure (P0–P5, head `2eddcd68`). PR 2's

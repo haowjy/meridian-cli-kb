@@ -4,7 +4,7 @@
 
 Implemented on draft PR #520 (`fix/native-session-wrapper`), and run on the user's
 installed PR 1 build. The rules and the user decision behind them are in the
-[decision](../decisions/native-session-identity.md#chats-from-before-the-key-existed-import-once).
+[decision](../decisions/legacy-native-import.md).
 
 **Trigger.** `ops/runtime.py`'s `resolve_runtime_authority_for_read` and
 `resolve_runtime_authority_for_write` call

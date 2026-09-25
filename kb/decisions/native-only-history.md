@@ -92,7 +92,7 @@ history. They are unbound chats, mostly Pi runs from before Pi identity was trac
 
 Those files stay on disk as inert JSONL. The archive ZIPs that might have held other
 copies had already been reclaimed. Chats bound by the
-[one-time import](native-session-identity.md#chats-from-before-the-key-existed-import-once)
+[one-time import](legacy-native-import.md)
 read their native files, so C loses nothing for them.
 
 **Why not A or B.** The unique data is small and old. A keeps a decoder and a hint
