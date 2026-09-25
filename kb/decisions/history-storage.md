@@ -87,24 +87,25 @@ each additional interpretation or service becomes another correctness dependency
 **Decision:** The browser caches a bounded recent-message projection produced by
 the same canonical normalizer as full reads. It does not cache grouped render
 entries as conversation authority. Selection is cache-first; refresh is selected-only
-and latest-only. Ordinary metadata catch-up does not parse transcript bodies, while
-explicit rebuild can warm previews through the same projector.
+and latest-only. Neither metadata catch-up nor rebuild parses transcript bodies for
+previews; a preview is built when its row is selected.
 
 A cached offline preview is usable only for the same selected verified digest and
 must be labeled offline. Selection, preview, and direct ZIP reads never restore or
 launch history.
 
-Controlled append-only streams may resume from a complete-line checkpoint. The
-checkpoint records both consumed extent and observed source size: the former is the
+*Superseded 2026-09-25 (runner streams are no longer a preview source); kept for
+the reasoning:* controlled append-only streams could resume from a complete-line
+checkpoint. The checkpoint recorded both consumed extent and observed source size: the former is the
 parsed boundary, while the latter includes any incomplete suffix seen at capture.
 Witness changes are accepted only for real controlled growth. Replacement,
 truncation, same-size rewrite, or other external editing requires rebuild; mutable
 native sources use fresh snapshots.
 
 **Why:** Responsive selection does not justify a second history model. Separating
-consumed extent from observed size prevents an incomplete tail from being mistaken
-for already-consumed content, while retaining incremental work for the writer shape
-Meridian controls.
+consumed extent from observed size prevented an incomplete tail from being mistaken
+for already-consumed content, while keeping incremental work for the writer shape
+Meridian controlled.
 
 **Rejected:** full-conversation or FTS storage, render-only clipping, a second parser,
 full hashing on every append, and treating stat/tail witnesses as proof of arbitrary
