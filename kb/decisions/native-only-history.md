@@ -273,7 +273,8 @@ deleted.
 **Bounded replacements for stream readers.** Pi lifecycle phases move to a per-spawn
 sidecar instead of a `history.jsonl` scan; the reaper drops its "fresh history mtime
 means alive" leg; the transcript hint and the guardrail env vars stop naming
-`history.jsonl`; empty-output failures no longer write into the history path. Each
+`history.jsonl`. (`_MERIDIAN_GUARDRAIL_OUTPUT_LOG` was documented as `output.jsonl` but
+actually pointed at `history.jsonl`; guardrails now get the report path and chat ID.) empty-output failures no longer write into the history path. Each
 replacement is detailed in [attempt facts and
 delivery](../architecture/attempt-facts-and-delivery.md#other-stream-readers-removed).
 

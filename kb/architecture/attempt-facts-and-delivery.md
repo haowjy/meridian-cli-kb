@@ -3,8 +3,8 @@
 How usage, failure, "produced output" and the first session ID are computed from
 the events an attempt saw live, and how those events reach subscribers, without
 depending on the runner's `history.jsonl` stream. Why the stream stopped being the
-source: [native-only history](../decisions/native-only-history.md). How the
-resulting report is surfaced when reading a chat's transcript: [native transcript
+source: [native-only history](../decisions/native-only-history.md). How a chat's
+conversation is read from the harness's native transcript: [native transcript
 reads](native-transcript-reads.md).
 
 **State:** landed in PR 2, draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on
@@ -12,7 +12,7 @@ PR #520). It is not on `main`. Writers below stay until PR 3 deletes them.
 
 ## The emit path
 
-**The emit path.** `SpawnManager._emit(spawn_id, event)` is the one emit path for the
+`SpawnManager._emit(spawn_id, event)` is the one emit path for the
 drain loop and the manager's own events. Managed primary attach has the same shape. It
 runs three steps in order:
 1. inline event hooks, through `core/event_hooks.run_event_hooks`, which logs and
