@@ -44,7 +44,8 @@ meridian.toml
 `history.jsonl` is the runner's event stream. From PR 2 it is not read as a
 transcript, and from PR 3 it is not written: conversation content is the harness's
 native file ([native-only history](../../decisions/native-only-history.md)).
-`pi-lifecycle.json` holds the last Pi phase and cleanup status per attempt.
+`pi-lifecycle.json` holds the last Pi phase and cleanup status per attempt
+([attempt facts and delivery](../attempt-facts-and-delivery.md#pi-lifecycle-sidecar)).
 
 `[project].id` selects the runtime directory. `user_paths.py` still reads a
 legacy `.meridian/id` when config has no ID; the first write migrates that value
@@ -60,6 +61,7 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 - [Spawn state](spawn-state.md) — per-spawn rows, status transitions, publication lifetime, and legacy migration
 - [Session state](session-state.md) — authoritative session journal, index projection, and session files
 - [Native session binding](../native-session-binding.md) — immutable chat-to-native-key binding across harnesses
+- [Attempt facts and delivery](../attempt-facts-and-delivery.md) — emit path, per-harness attempt folds, and the Pi lifecycle sidecar
 - [Portable history](portable-history.md) — transcript identity, dirty-source projection, verified ZIP retention, and inert restore
 - [Durability and locking](durability-and-locking.md) — atomic publication, lock semantics, and lock order
 - [Reconciliation](reconciliation.md) — read-time projections, explicit repair, and liveness checks

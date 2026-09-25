@@ -3,6 +3,40 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — Structure pass after PR 2 reconciliation
+
+- **Split:** [architecture/native-transcript-reads.md](architecture/native-transcript-reads.md)'s
+  "Run facts and delivery" section (the emit path, per-harness attempt folds, report
+  precedence, the Pi lifecycle sidecar, other removed stream readers, and what PR 3
+  still has to delete) into a new page,
+  [architecture/attempt-facts-and-delivery.md](architecture/attempt-facts-and-delivery.md).
+  It reads as a separate concern from the resolver/reader and search projection that
+  remain in the original page: one is about finding and reading a chat's transcript,
+  the other is about computing and delivering a run's own facts from live events.
+  Repaired the three inbound `#run-facts-and-delivery` anchors
+  ([native-session-binding](architecture/native-session-binding.md),
+  [launch-system](architecture/launch-system.md),
+  [decisions/chat-backend](decisions/chat-backend.md)) to point at the new page's
+  `#attempt-folds` or `#the-emit-path` anchors, and added the new page to
+  [index.md](index.md), [state-system/overview.md](architecture/state-system/overview.md)
+  and [lessons/native-session-identity.md](lessons/native-session-identity.md).
+- **Trimmed duplication:** [decisions/native-only-history.md](decisions/native-only-history.md)
+  restated measurement tables and mechanism detail (the search projection's schema
+  and nomination/verification steps, the query-path timing breakdown, the emit path,
+  and the bounded stream-reader replacements) that now lives in the architecture
+  pages above. Replaced those passages with links; kept the rationale, rejected
+  alternatives, and incident narratives (the NF1 regression, the `sitecustomize`
+  argv-gate miss) that are decision-specific.
+- **Checked, no change needed:** [lessons/overview.md](lessons/overview.md) and
+  [index.md](index.md) already cataloged
+  [lessons/native-session-identity.md](lessons/native-session-identity.md) and
+  [lessons/spawn-lane-operations.md](lessons/spawn-lane-operations.md).
+  [state-system/session-state.md](architecture/state-system/session-state.md) and
+  [state-system/durability-and-locking.md](architecture/state-system/durability-and-locking.md)
+  already cross-reference correctly; their anchors into
+  `native-transcript-reads.md` were unaffected by the split.
+
+---
 ## 2026-09-25 — PR 2 (native reads) settled; KB reconciled with what landed
 
 PR 2 is draft PR #526 (`feat/native-reads` @ `3ae3fce8`). Reviews, fix lanes A–D, the

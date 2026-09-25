@@ -329,5 +329,6 @@ Provenance: `work:native-harness-session-identity` (`review/pr2-recheck.md` NF1;
 - [Pi native sessions](../architecture/pi-native-sessions.md)
 - [Native-only history decision](../decisions/native-only-history.md)
 - [Native transcript reads](../architecture/native-transcript-reads.md)
+- [Attempt facts and delivery](../architecture/attempt-facts-and-delivery.md)
 - [Review convergence gate](review-convergence-gate.md)
 - [Spawn lane operations](spawn-lane-operations.md)

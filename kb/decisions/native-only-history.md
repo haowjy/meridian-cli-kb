@@ -11,6 +11,8 @@ stacked PRs; old runner history option C (drop).
   `evidence/pr3-deletion-list.md`.
 
 How the reads work: [native transcript reads](../architecture/native-transcript-reads.md).
+How run facts are computed and delivered: [attempt facts and
+delivery](../architecture/attempt-facts-and-delivery.md).
 The identity rule this builds on: [native session identity](native-session-identity.md).
 
 ## Decision
@@ -179,25 +181,14 @@ the native bytes and the parser version.
   - ~200 MiB of projection is fine.
 
 **Measured on copies of this project's runtime** (V2, `evidence/pr2-v2-measure.md`;
-2,037 keys):
-
-| Case | Installed (PR 1 code) | PR 2 |
-|---|---|---|
-| Warm search, 7 queries | 2.8–3.1 s, truncated by its scan budget | 1.23–1.77 s |
-| Hit sets vs a brute-force full native parse | — | equal on 7 of 7 queries (0 missing, 0 extra) |
-| Cold first query | — | 15.9 s, with a coverage line |
-| Full `session index rebuild` | 985 s, prewarming 1,356 previews | 55 s |
+2,037 keys): the full before/after table is in [native transcript
+reads](../architecture/native-transcript-reads.md#search-projection).
 
 **The < 1 s warm target is missed, and the tech lead accepted the miss for PR 2.** The
-query path is about 0.44 s:
-- bindings 0.32 s;
-- witnesses 0.05 s;
-- FTS plus exact verification 0.05 s.
-
-The rest is the import and startup cost of `meridian session …`: 0.75 s on the installed
-PR 1 build and 0.85 s on PR 2. It predates PR 2, and PR 2 adds about 0.01 s. That cost
-is CLI-wide and is tracked as #527. The target came from the design, not the user; no
-user answer has yet accepted or waived it.
+query path itself is about 0.44 s (bindings, witnesses, FTS plus exact verification —
+breakdown in the architecture page above); the rest is the import and startup cost of
+`meridian session …`, which predates PR 2 and is tracked as #527. The target came from
+the design, not the user; no user answer has yet accepted or waived it.
 
 Also rejected during R2b:
 - **One SQL `OR` term per bound key for scoped search.** SQLite raised "Expression
@@ -250,16 +241,11 @@ Rejected:
 ## Run facts come from what the attempt saw
 
 Usage, failure, "produced output" and the first session ID come from an in-memory
-fold over the events the runner already received live: one per-harness `AttemptFold`,
-holding one `AttemptFacts`, per attempt. The report comes from the first source that
-has one:
-1. an explicit `report.md`;
-2. a Pi typed failure;
-3. the exact native reply named by this attempt's events (OpenCode V2 only);
-4. the fold's final text;
-5. the failure reason.
-
-Otherwise the value is unknown (`None`, never zero).
+fold over the events the runner already received live, one per-harness `AttemptFold`
+per attempt, with a fixed report-source precedence. The fold, `AttemptFacts` and the
+precedence order are in [attempt facts and
+delivery](../architecture/attempt-facts-and-delivery.md#attempt-folds). Otherwise the
+value is unknown (`None`, never zero).
 
 The runner no longer re-reads its stream after exit. "The last assistant message
 after the attempt started" is never used: a time window is not attribution. On a copy,
@@ -277,31 +263,19 @@ exception or a malformed captured line marks the facts `incomplete`, which is lo
 - **Why:** a partial generic sum must not pass as a total, but a harness's own final
   total is not partial.
 
-To make this possible, event delivery stops depending on the history writer.
-Before, observer dispatch ran only after a successful history write, and managed
-primary attach raised when it had no writer. One emit path now runs three steps in
-order: inline hooks, then the optional write, then subscriber fan-out. The unused,
-lossy observer registry was deleted.
+To make this possible, event delivery stops depending on the history writer. Before,
+observer dispatch ran only after a successful history write, and managed primary
+attach raised when it had no writer. The new emit path (inline hooks, then the
+optional write, then subscriber fan-out — [detail](../architecture/attempt-facts-and-delivery.md#the-emit-path))
+no longer needs a writer to fan out, and the unused, lossy observer registry was
+deleted.
 
-**Bounded replacements for stream readers:**
-- **Pi lifecycle phases.** `spawn show` now reads a per-spawn
-  `pi-lifecycle.json` sidecar: last phase and cleanup status per attempt. Before, it
-  scanned `history.jsonl`.
-  - Pi's harness bundle declares it as an event sink, written only when a phase event
-    arrives. The manager and attach carry no Pi branch.
-  - The read-modify-write is lifetime-locked with the spawn row, so a late phase
-    cannot recreate a deleted spawn.
-  - Sinks outlive teardown, so cleanup phases survive shutdown.
-- **Staleness.** The reaper and the read-only stale check drop the "fresh history
-  mtime means alive" leg. Heartbeat, now also touched by managed primary attach,
-  plus process and report evidence remain.
-- **Transcript hint.** `spawn show`'s session-log hint appears only when the
-  continue chat has a native key.
-- **Guardrail env.** `_MERIDIAN_GUARDRAIL_OUTPUT_LOG` is removed. It was documented
-  as `output.jsonl` but actually pointed at `history.jsonl`. Guardrail scripts get
-  `_MERIDIAN_GUARDRAIL_REPORT` (the `report.md` path) and `_MERIDIAN_GUARDRAIL_CHAT_ID`
-  (for `meridian session log`) instead.
-- **Empty-output failures** no longer write an artifact into the history path.
+**Bounded replacements for stream readers.** Pi lifecycle phases move to a per-spawn
+sidecar instead of a `history.jsonl` scan; the reaper drops its "fresh history mtime
+means alive" leg; the transcript hint and the guardrail env vars stop naming
+`history.jsonl`; empty-output failures no longer write into the history path. Each
+replacement is detailed in [attempt facts and
+delivery](../architecture/attempt-facts-and-delivery.md#other-stream-readers-removed).
 
 ## PR 3 is pure deletion, and a test mode proves it
 
