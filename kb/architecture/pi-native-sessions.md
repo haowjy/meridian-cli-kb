@@ -183,7 +183,7 @@ salvaged from the comparison branch.
 
 - [native-session-binding.md](native-session-binding.md): cross-harness plan/bind/verify seams
 - [../decisions/native-session-identity.md](../decisions/native-session-identity.md): the rule, rejected alternatives, phases
-- [claude-session-isolation.md](claude-session-isolation.md): Claude's shared-store problem and isolated-overlay remedy
+- [claude-session-isolation.md](claude-session-isolation.md): Claude's shared-store problem, exact source seeding, trampoline exit
 - [../codebase/session-operations.md](../codebase/session-operations.md): transcript source resolution
 - [../codebase/session-log-rendering.md](../codebase/session-log-rendering.md): normalization and rendering pipeline
 - [../codebase/harness-adapters.md](../codebase/harness-adapters.md): Pi dual launch path

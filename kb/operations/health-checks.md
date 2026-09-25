@@ -188,7 +188,6 @@ for the explicit/passive cleanup boundary.
 
 - [../principles/design-principles.md](../principles/design-principles.md) — crash-only design and why artifacts accumulate
 - [../architecture/state-system/spawn-state.md](../architecture/state-system/spawn-state.md) — spawn artifact directory layout
-- [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — Claude overlay lifecycle, transcript materialization, and isolation rationale
 - [../architecture/sandbox-projection.md](../architecture/sandbox-projection.md) — why `~/.meridian/` is not globally projected into sandboxes
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — reaper reconciliation logic
 - [../decisions/startup-health-sandbox.md](../decisions/startup-health-sandbox.md#doctor-and-health-checks) — doctor cache deletion rationale, tier split decision

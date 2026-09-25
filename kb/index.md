@@ -37,7 +37,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP transcript authority, disposable indexes, retention and restore, and post-stop native capture
-- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry, no discovery, native transcripts as authority; rejected RPC-primary plan; phases
+- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; one recorded source key; identity only from qualified events; exit observed or unresolved; rejected RPC-primary plan; phases
 - [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Superseded raw-argument admission design
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
@@ -110,8 +110,8 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
-- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv, Pi 0.87.1 behaviors relied on), limits, and still-flattened journal readback
-- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: plan → finalize → bind before exec → verify; per-harness state
+- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv), session-boundary exit observation, real Pi 0.87.1 behaviors (lazy persistence, ctx invalidation), limits, still-flattened readback
+- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: source key → plan → finalize → bind before exec → verify → run boundary/exit chat; typed refusals; per-harness state
 - [architecture/pi-runtime/overview.md](architecture/pi-runtime/overview.md) — Pi runtime vocabulary for background work and extension coordination
 - [architecture/atomic-child-row-publication.md](architecture/atomic-child-row-publication.md) — nested staging and directory replacement for complete child-row visibility; Linux/POSIX proof and remaining platform gates
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode process roles, startup/stop ownership gate, passive reconciliation safety, and `orphan_primary` diagnosis
@@ -122,7 +122,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md) — Cross-repo launch-bundle: Mars scaffold, Meridian injection, bundle `routing` contract, schema v2
 - [architecture/mars-routing.md](architecture/mars-routing.md) — Mars-internal routing: slug primitive, default harness_order, routing parity with models CLI, acceptance layer (PR #58 + #72)
 - [architecture/mars-model-refresh.md](architecture/mars-model-refresh.md) — Models.dev catalog `ensure_fresh`, probe `ProbeRefreshMode`, `--refresh-models` / `--no-refresh-models` CLI surfaces
-- [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md) — Upstream Claude shared-config limitation, isolated overlay mechanism, transcript materialization lifecycle, primary vs child behavior, `--continue` flow
+- [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md) — Claude native sessions: shared-store hazard, exact source seeding, exact reads, TUI trampoline successor as exit key
 - [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe: raw-slug prefix routing, build-time `harness_model` effort resolution, legacy Meridian projector path
 
 ### Telemetry
@@ -197,7 +197,7 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 
 - [lessons/overview.md](lessons/overview.md) — Lessons domain overview and learning map
 - [lessons/state-design-lessons.md](lessons/state-design-lessons.md) — Why dual-root, why JSONL, what broke before the current design, what we'd do differently
-- [lessons/harness-integration.md](lessons/harness-integration.md) — Non-obvious discoveries from integrating Claude, Codex, and OpenCode: PTY capture, capability gaps, behavioral surprises, patterns that generalized
+- [lessons/harness-integration.md](lessons/harness-integration.md) — Non-obvious discoveries from integrating harnesses: PTY capture, capability gaps, behavioral surprises, seam defects green suites missed, removing carriers when fixes do not converge
 - [lessons/chat-normalization-repair.md](lessons/chat-normalization-repair.md) — Lessons from repairing chat normalization drift: harness compatibility mapping, completion dedupe, replay obligations, and smoke-test caveats
 - [lessons/mars-compiler-cleanup.md](lessons/mars-compiler-cleanup.md) — Lessons from the Mars compiler cleanup: Windows config artifacts, lock indexing, integration-test split, diagnostic routing
 - [lessons/source-simplification.md](lessons/source-simplification.md) — Lessons from Phase 8.6 source-seam and test-collapse work: deletion-first simplification, seam ownership moves, test contract discipline, over-collapse recovery

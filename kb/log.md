@@ -3,6 +3,29 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — Native session identity: source key, exit identity, real-Pi facts (phase 2 capture)
+
+Extended [decisions/native-session-identity.md](decisions/native-session-identity.md)
+with the one-recorded-source-key decision (and the two P1s that forced it),
+qualified-event-only identity for all harnesses, typed `ambiguous_native_file`, and
+observed exit identity (Pi quit, Claude trampoline successor as exit key); phases
+updated. Rewrote [architecture/native-session-binding.md](architecture/native-session-binding.md)
+for the source key, runner order, run boundary, typed refusals, and per-harness
+store→child mapping. Added exit observation and runtime-verified Pi 0.87.1 facts
+(lazy persistence, ctx invalidation on replacement, cost) to
+[architecture/pi-native-sessions.md](architecture/pi-native-sessions.md).
+Rewrote [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md)
+as Claude native sessions: config-dir overlays were removed from the code in May, so
+the overlay, materialization, and `--continue`-after-isolation content was deleted.
+Removed the matching overlay-pruning content from
+[operations/health-checks.md](operations/health-checks.md). Corrected Claude
+transcript resolution (no trust-ordered root chain) in session-operations, and the
+trampoline status in launch-harness-compatibility and harness-adapters. Added two
+process lessons to [lessons/harness-integration.md](lessons/harness-integration.md).
+
+Provenance: `work:native-harness-session-identity`.
+
+---
 ## 2026-09-24 — Native session identity structure and continuation model selection
 
 Clarified page ownership across the native identity decision, cross-harness
