@@ -10,20 +10,21 @@ This page covers what goes wrong, why, and how to recover. Each pattern includes
 
 **What happened:** The runner process (PID recorded in the spawn row) died during normal execution — hard kill, OOM, host reboot. The heartbeat file went stale (no update within 120s window), the reaper confirmed the PID is dead, and finalized the spawn as failed.
 
-**Likelihood of work product:** Low. The harness was killed mid-execution. Any partial output is in `history.jsonl` but may be truncated.
+**Likelihood of work product:** Low. The harness was killed mid-execution. Whatever the harness wrote before the kill is in its native transcript. The runner's in-memory attempt facts are lost, so the spawn is finalized from `report.md` and lifecycle facts only.
 
 **Diagnosis:**
 ```bash
 # Check what the spawn produced
 meridian spawn show p42
-meridian session log p42 --last 30
+meridian session log p42 --tail 30   # the chat's native transcript, labeled as the entry-based view
 
-# Inspect raw output
+# Inspect raw runner stderr
 cat ~/.meridian/projects/<uuid>/spawns/p42/stderr.log
-cat ~/.meridian/projects/<uuid>/spawns/p42/history.jsonl | tail -20
 ```
 
-**Recovery:** Relaunch the spawn. The previous spawn's `history.jsonl` preserves what was emitted before the kill; pass it as context if needed.
+`session log p42` never reads runner `history.jsonl`. If the chat was never bound to a native session, it reports `unbound`, and there is no transcript to recover ([native-only history](../decisions/native-only-history.md)).
+
+**Recovery:** Relaunch the spawn, or continue its chat with `--continue cN` when the chat is bound. Pass the relevant part of the native transcript as context if needed.
 
 ---
 

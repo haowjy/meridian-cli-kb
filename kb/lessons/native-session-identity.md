@@ -270,10 +270,64 @@ merged into PR 1; PR 2 gate red on two F2-stale tests";
 
 ---
 
+## An argv Gate in `sitecustomize` Misses `python -m` Children
+
+**What happened:** PR 2's history-blind test mode (`pytest --runner-history=off`) must
+reach subprocesses. It does this through a test-only `sitecustomize`. To avoid
+importing Meridian into every Python child, fix lane C gated the writer patches on
+`sys.argv[0]` looking like the Meridian entry point.
+
+Under `python -m meridian`, `argv[0]` is `'-m'` while site runs; `runpy` rewrites it
+later. So CLI subprocess tests ran with **real writers** in blind mode. The failure
+count even improved, from 15 to 3, which looked like progress. The tech lead caught it
+by reading the gate, not the count.
+
+**What worked:** decide by import, not by argv. `sitecustomize` installs a meta-path
+hook, and the hook patches the writer modules right after they load. This covers
+`python -m`, console scripts and `runpy` alike, and costs about 17 ms per child. A test
+now asserts that a `python -m meridian` child sees the patched writers.
+
+**The lesson:** a test mode that silently stops applying reports *better* numbers.
+Prove that the mode reached the process under test with a positive assertion, not with
+a lower failure count. `sys.argv` is not reliable at site time.
+
+Provenance: `work:native-harness-session-identity` (`decision.md` "Fix pass: A merged;
+B authorized; C's blind-mode change sent back"; `evidence/pr2-fix-c-report.md`;
+`review/pr2-recheck.md` N11).
+
+---
+
+## A Diagnostic Flag Must Not Discard Authoritative Data
+
+**What happened:** the thermo review found that `AttemptFacts.incomplete` was set but
+never read (F2). Fix lane A made finalization persist `usage=None` whenever facts were
+incomplete, so a partial generic sum could not pass as a total.
+
+But `incomplete` was also set by any unparseable stdout line. In the recheck probe, one
+`Warning:` line before a Claude `--print` result dropped its `total_cost_usd`. Budget
+enforcement read the same value, so it went blind too (NF1). The 200-run replay could
+not catch it: none of those runs had a malformed line.
+
+**What worked:** move the rule into the fold, where the cause is known. A failed fold
+step drops only generic fallback usage. A harness-specific total survives, and a
+malformed line only marks the diagnostic. The probe became a red-first test.
+
+**The lesson:** when a fix makes a flag consequential, list every place that sets the
+flag. Each one must justify the new consequence. A replay corpus proves agreement only
+for the inputs it contains.
+
+Provenance: `work:native-harness-session-identity` (`review/pr2-recheck.md` NF1;
+`evidence/pr2-fix-d-report.md`).
+
+---
+
 ## Cross-References
 
 - [Native session identity decision](../decisions/native-session-identity.md)
 - [Native session binding](../architecture/native-session-binding.md)
 - [Claude native sessions](../architecture/claude-native-sessions.md)
 - [Pi native sessions](../architecture/pi-native-sessions.md)
+- [Native-only history decision](../decisions/native-only-history.md)
+- [Native transcript reads](../architecture/native-transcript-reads.md)
 - [Review convergence gate](review-convergence-gate.md)
+- [Spawn lane operations](spawn-lane-operations.md)

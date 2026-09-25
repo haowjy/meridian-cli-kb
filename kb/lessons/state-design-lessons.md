@@ -101,7 +101,7 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 **The problem:** A runner that crashes while writing `stderr.log` or `history.jsonl` — just before writing the heartbeat — would be reaped immediately on the 120-second window, even though it was active a moment ago.
 
-**The fix:** The recency check applies to any of: `{heartbeat, history.jsonl, output.jsonl, stderr.log, report.md}`. A write to any of these resets the recency window.
+**The fix:** The recency check applies to a set of activity artifacts, and a write to any of them resets the recency window. The set is now `{heartbeat, bash-records.json, stderr.log, report.md}`. PR 2 dropped `history.jsonl` from it, because the runner stream is no longer read for anything and PR 3 stops writing it. Managed primary attach now touches the heartbeat as well, so no attached run relied on the stream for liveness ([native-only history](../decisions/native-only-history.md)).
 
 **The lesson:** Use the broadest safe set of liveness signals. The heartbeat is the primary signal (written every 30s unconditionally), but last-gasp activity on other artifacts should prevent premature reaping.
 

@@ -47,6 +47,8 @@ All three would require `CUSTOM` for the highest-value events. Building custom f
 
 **Decided:** SpawnManager owns the HarnessConnection lifecycle, drain loop, `history.jsonl` persistence, heartbeat, and cleanup. The chat pipeline observes events through the R4 observer seam (`EventObserverRegistry`). No separate `HarnessAdapter` wrapper class.
 
+> **Partly superseded (PR 2, 2026-09-25).** The single-consumer ownership still holds, but the observer seam does not. `EventObserverRegistry` and its queued observer had no remaining users and were deleted. `SpawnManager._emit` now runs inline hooks, then the optional history write, then subscriber fan-out; delivery no longer depends on a successful write. PR 3 removes the `history.jsonl` persistence. See [native transcript reads](../architecture/native-transcript-reads.md#run-facts-and-delivery).
+
 **Why:** Claude's `HarnessConnection` enforces single `events()` consumption. SpawnManager already owns the drain loop — that is the sole consumer. Creating a second consumer of the same stream is not feasible. The "adapter" concept is realized by three collaborators:
 - **SpawnManager** — owns connection and drain loop
 - **ChatEventObserver** — normalizes HarnessEvent → ChatEvent
@@ -123,7 +125,7 @@ Runtime semantics (when does a drain end?) and projection semantics (which `Chat
 
 **Decided:** Three refactors complete before chat implementation begins:
 1. **R5** — HITL seam on `HarnessConnection`. Safety-critical: Codex was auto-accepting all approval requests and returning empty answers to user input. Non-technical users need HITL as primary safety mechanism.
-2. **R4** — Observer seam from SpawnManager (`EventObserverRegistry`, `QueuedObserver`). Required for reliable event delivery without dual-consumer conflict.
+2. **R4** — Observer seam from SpawnManager (`EventObserverRegistry`, `QueuedObserver`). Required for reliable event delivery without dual-consumer conflict. (Deleted in PR 2 once unused; see [D15](#d15).)
 3. **R6** — Centralize harness semantic interpretation into `harness/semantics.py`.
 
 **Why refactor first:** Building chat on weak seams would compound structural debt. R5 in particular was dangerous — the auto-answer behavior silently approved file writes and command execution with no human visibility.

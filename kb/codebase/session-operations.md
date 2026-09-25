@@ -35,7 +35,7 @@ the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
 
 ## Transcript Source Resolution
 
-The current contract (PR 2, branch `feat/native-reads`) is **ref → chat → the chat's
+The contract from PR 2 (draft PR #526) is **ref → chat → the chat's
 bound native key → that harness's exact reader**, through one function,
 `ops/session_target.resolve_transcript_source`. `session log`, export, preview and
 `search REF` all use it. The full ref table, view labels and search projection are in

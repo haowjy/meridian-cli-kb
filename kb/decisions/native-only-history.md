@@ -1,20 +1,17 @@
 # Decision: Conversation history is native-only
 
-**Status: settled 2026-09-25.** User decisions: three stacked PRs; old runner history
-option C (drop). Reads, search and run facts move off runner `history.jsonl` in
-**PR 2** (branch `feat/native-reads`, stacked on PR #520). **PR 3** stops writing the
-stream. How the reads work:
-[native transcript reads](../architecture/native-transcript-reads.md). The identity
-rule this builds on: [native session identity](native-session-identity.md).
+**Status: settled 2026-09-25; PR 2 landed on its branch.** User decisions: three
+stacked PRs; old runner history option C (drop).
+- **PR 2** moves reads, search and run facts off runner `history.jsonl`. It is draft
+  PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on PR #520), not on `main`. Every
+  slice is merged: R1, R2a, R2b, R3, A1, F1a, F1b, F2 and V1. It went through a
+  thermo-nuclear review, a design-alignment review, fix lanes A–D, and a recheck that
+  passed. Before/after measurement on runtime copies is done.
+- **PR 3** stops writing the stream. It is not started; its scope is
+  `evidence/pr3-deletion-list.md`.
 
-**PR 2 state at `1124ef38`:**
-- **Merged:** R1 (one read resolver), R2a (projection store), F1a (emit path),
-  A1 (native-only archive capture), F2 (stream-backed diagnostics removed),
-  R2b (search).
-- **In flight:** R3 (the metadata index calls the shared fold) and F1b (run facts
-  from the live fold). Until F1b lands, report, usage and output checks still read
-  the stream.
-- **Last:** V (history-blind suite, before/after measurement, docs).
+How the reads work: [native transcript reads](../architecture/native-transcript-reads.md).
+The identity rule this builds on: [native session identity](native-session-identity.md).
 
 ## Decision
 
@@ -151,9 +148,18 @@ rejection was aimed at FTS as transcript *storage* next to runner files. Here th
 projection stores nothing unique: its rows are a pure function of the bound keys,
 the native bytes and the parser version.
 
-**Accepted trade-offs** (the tech lead's calls on R2b, 2026-09-25):
-- **Correctness does not depend on the metadata index.** R2b reads bindings through
-  one `native_bindings()` seam over the authoritative session fold.
+**Accepted trade-offs** (the tech lead's calls on R2b, R3 and the reviews, 2026-09-25):
+- **Bindings come from the authority, not the metadata index.** `native_bindings()`
+  inverts the authoritative session fold with `session_fold.by_native_key` (about
+  0.32 s warm). Reading the metadata index's `sessions` table instead measured about
+  0.25 s faster. It was rejected because it adds a cold metadata dependency and alias
+  tie-break rules, and it still would not reach the < 1 s target.
+- **What `complete` means.** `complete` is true when every bound in-scope source was
+  searched and the 100-match cap did not truncate. Sources that were searched but carry
+  renderer warnings are a count line, with detail in `--json`; they never make a result
+  incomplete. Unsearched sources do, and text output collapses them per reason class.
+  This replaced R2b's output, where `complete` could never be true on real data and
+  each search printed ~91 reason lines (alignment review S1).
 - **Cold build order.** Unindexed keys are ordered by chat start time until a
   native locator is known. Strict native-mtime order would need a harness-owned
   bulk exact resolver; for a one-time cold build that is not worth it. An
@@ -174,18 +180,26 @@ the native bytes and the parser version.
   - loose spawns with no native source are accepted;
   - ~200 MiB of projection is fine.
 
-**Measured on a copy** (2,016 keys):
+**Measured on copies of this project's runtime** (V2, `evidence/pr2-v2-measure.md`;
+2,037 keys):
 
-| Case | Time |
-|---|---|
-| Warm p50 | 1.20–1.73 s, complete |
-| Installed 0.6.7 | 2.83–3.06 s, truncated |
-| Cold first query | ~15.8 s, with a coverage line |
-| Full rebuild | 65 s |
+| Case | Installed (PR 1 code) | PR 2 |
+|---|---|---|
+| Warm search, 7 queries | 2.8–3.1 s, truncated by its scan budget | 1.23–1.77 s |
+| Hit sets vs a brute-force full native parse | — | equal on 7 of 7 queries (0 missing, 0 extra) |
+| Cold first query | — | 15.9 s, with a coverage line |
+| Full `session index rebuild` | 985 s, prewarming 1,356 previews | 55 s |
 
-The warm time still misses the design's < 1 s gate. That gate came from the design,
-not from the user, and no user answer accepts or waives the miss. Folding bindings
-costs 0.39 s of it. A time breakdown after R3 decides what to optimize.
+**The < 1 s warm target is missed, and the tech lead accepted the miss for PR 2.** The
+query path is about 0.44 s:
+- bindings 0.32 s;
+- witnesses 0.05 s;
+- FTS plus exact verification 0.05 s.
+
+The rest is the import and startup cost of `meridian session …`: 0.75 s on the installed
+PR 1 build and 0.85 s on PR 2. It predates PR 2, and PR 2 adds about 0.01 s. That cost
+is CLI-wide and is tracked as #527. The target came from the design, not the user; no
+user answer has yet accepted or waived it.
 
 Also rejected during R2b:
 - **One SQL `OR` term per bound key for scoped search.** SQLite raised "Expression
@@ -216,6 +230,18 @@ and feeds only appended events through the same step. Gates:
 - `session_fold.py` stays under 500 lines;
 - `history_index.py` shrinks.
 
+**Landed (R3).** Metadata index `SCHEMA_VERSION` 6 persists two working sets: the
+generation rows and `session_chats`, the accepted records, with the blank-generation
+pointer as a column. The index feeds appended events through
+`project_session_generation`. Results:
+- `session_fold.py` is 487 lines, and `history_index.py` went from 1,700 to 1,473.
+- On a copy, index keys equal the authority's: 7,113 of 7,113 generations, and all
+  7,041 chat records.
+- Rebuilding with every `history.jsonl` deleted gives the same `records`, `sessions`,
+  `aliases` and `session_chats`.
+- One chat, `c248`, leaves the primary list. The old index had indexed a conflicting
+  primary start that the authority rejects, so this is a correction.
+
 Rejected:
 - **Letting the index fold keys its own way.** It drifts from the authority in
   exactly the cases above.
@@ -225,16 +251,33 @@ Rejected:
 
 ## Run facts come from what the attempt saw
 
-Report, usage, failure class, "produced output" and the first session ID come from
-the first source that has them:
+Usage, failure, "produced output" and the first session ID come from an in-memory
+fold over the events the runner already received live: one per-harness `AttemptFold`,
+holding one `AttemptFacts`, per attempt. The report comes from the first source that
+has one:
 1. an explicit `report.md`;
-2. an in-memory fold over the events the runner already received live, one
-   `AttemptFacts` per attempt;
-3. a native turn that this attempt's own events named;
-4. otherwise unknown (`None`, never zero).
+2. a Pi typed failure;
+3. the exact native reply named by this attempt's events (OpenCode V2 only);
+4. the fold's final text;
+5. the failure reason.
+
+Otherwise the value is unknown (`None`, never zero).
 
 The runner no longer re-reads its stream after exit. "The last assistant message
-after the attempt started" is never used: a time window is not attribution.
+after the attempt started" is never used: a time window is not attribution. On a copy,
+200 real finished runs replayed through the fold matched the old extraction with 0
+unexplained differences. The sample held no Pi runs, so Pi rests on a fake-harness
+differential and real shell-shim tests.
+
+**Incomplete facts never erase a harness total** (recheck NF1, fixed in lane D). A fold
+exception or a malformed captured line marks the facts `incomplete`, which is logged.
+- The first fix nulled all usage on `incomplete`. One `Warning:` line on a Claude
+  `--print` stdout then dropped the harness-reported `total_cost_usd` and blinded budget
+  enforcement. That is a cost regression.
+- **Now:** only generic fallback usage is dropped, and only after a fold step fails.
+  Harness-specific totals survive, and a malformed line alone drops nothing.
+- **Why:** a partial generic sum must not pass as a total, but a harness's own final
+  total is not partial.
 
 To make this possible, event delivery stops depending on the history writer.
 Before, observer dispatch ran only after a successful history write, and managed
@@ -244,9 +287,13 @@ lossy observer registry was deleted.
 
 **Bounded replacements for stream readers:**
 - **Pi lifecycle phases.** `spawn show` now reads a per-spawn
-  `pi-lifecycle.json` sidecar: last phase and cleanup status per attempt. An inline
-  hook writes it atomically, and only when a phase event arrives. Before, it
+  `pi-lifecycle.json` sidecar: last phase and cleanup status per attempt. Before, it
   scanned `history.jsonl`.
+  - Pi's harness bundle declares it as an event sink, written only when a phase event
+    arrives. The manager and attach carry no Pi branch.
+  - The read-modify-write is lifetime-locked with the spawn row, so a late phase
+    cannot recreate a deleted spawn.
+  - Sinks outlive teardown, so cleanup phases survive shutdown.
 - **Staleness.** The reaper and the read-only stale check drop the "fresh history
   mtime means alive" leg. Heartbeat, now also touched by managed primary attach,
   plus process and report evidence remain.
@@ -261,30 +308,57 @@ lossy observer registry was deleted.
 ## PR 3 is pure deletion, and a test mode proves it
 
 `pytest --runner-history=off` makes writers absent rather than silent: no
-`HarnessHistoryWriter` is constructed. Any read of a spawn or artifact
-`history.jsonl` raises, and subprocess tests inherit the trap through a test-only
-`sitecustomize`. Every failure in that mode is classified:
+`HarnessHistoryWriter` is constructed. Any read of a spawn, attempt or artifact
+`history.jsonl` raises. Every failure in that mode is classified:
 - a test of the runner-history format goes on PR 3's deletion list;
 - a user-visible fact that still depends on the stream blocks PR 2.
 
-PR 3 then deletes:
-- writer construction and every write;
-- the retry `meridian.attempt.completed` marker;
-- the direct header write;
-- `write_retained_child_stream`;
-- `last-observed-event.json`;
-- the dogfood-row translator.
+**Subprocesses are covered by a lazy import hook.** A test-only `sitecustomize` installs
+the read trap and a meta-path hook that patches the writer modules when they are
+imported.
+- **Rejected:** gating the patch on `sys.argv[0]`. Under `python -m meridian`,
+  `argv[0]` is `'-m'` at site time, so CLI subprocess tests silently ran with real
+  writers ([lesson](../lessons/native-session-identity.md#an-argv-gate-in-sitecustomize-misses-python--m-children)).
+- **Rejected:** importing Meridian eagerly in every child. It slows unrelated
+  children.
+
+A test asserts that `python -m meridian` children see absent writers.
+
+**Result at `3ae3fce8`:** 2,166 passed and 16 failed. Each failure was checked by name
+against PR 3's list, and all 16 are writer tests. No trap fires in a production frame.
+
+PR 3 then deletes (`evidence/pr3-deletion-list.md`):
+- writer construction and every write, including `_emit`'s `Written` and
+  `WriteFailed` arms;
+- the retry `meridian.attempt.completed` marker and the direct header write;
+- `write_retained_child_stream` and `ingest_portable_history`;
+- `last-observed-event.json` and the reaper's diagnostic read of it;
+- the dogfood-row translator;
+- the 16 writer tests and the F1b differential oracle (`tests/support/legacy_f1b/`).
+
+It also adds the approved archive rule. When a chat is bound, its exact native source
+resolves and the run is older than N days, the run's `history.jsonl` is dropped. A
+search-index row is not evidence that the native source exists.
+
+`history_codec` is not deleted wholesale: its portable header types also serve sealed
+native snapshots.
 
 ## Consequences
 
 - **Old `pN` refs.** An old spawn ref with a bound chat now shows the chat's whole
   native conversation, labeled, not that run's events alone. For a primary resumed
-  across many runs, that includes the other runs.
-- **Archives.** `--include-archives` goes away: archived chats keep their binding
-  and native file, so they are searched by default.
-- **Result caps.** Search results are complete, not truncated. Common words fill
-  the 100-match cap with the newest sessions' setup text: Codex embeds AGENTS.md in
-  every session.
+  across many runs, that includes the other runs. When the chat is unbound, the error
+  names the chat, not the spawn.
+- **Archives.** Archived chats keep their binding and native file, so corpus search
+  includes them, and search's `--include-archives` is removed.
+  `session browse --include-archives` stays, as a filter that adds archived rows to
+  the picker (V1's call; it filters rows and no longer selects a read source).
+- **Result caps.** Search no longer truncates because a time budget ran out, and
+  every hit is verified exactly. Common words still fill the 100-match cap with the
+  newest sessions' setup text, because Codex embeds AGENTS.md in every session. A
+  capped result is reported as truncated, so it is not `complete`.
+- **Disk.** A project keeps two index files, both disposable: the metadata index
+  (174 MB here) and the search projection (218 MB).
 - **Unarchivable spawns.** Spawns with no native source stay loose indefinitely:
   unbound spawns, launches that failed before a session existed, and bound chats
   whose native file is gone. Archive capture needs a transcript member.
@@ -297,8 +371,14 @@ PR 3 then deletes:
 - `decision.md` entries of 2026-09-25: "User decisions on old data + archive
   cron", "R2b done; its decisions accepted", "R3 escalation → fold extraction
   authorized", and "USER DECISION … three stacked PRs";
+- `decision.md` entries of 2026-09-25 from "R3 + F1b done" through "Codex harness auth
+  failure → Claude backups" (S1, the < 1 s acceptance, NF1, #527);
 - `DIVERGENCE/pr2-r2b-cost-and-rebuild.md`;
 - lanes R1 `spawn:p7117`, R2a `spawn:p7118`, F1a `spawn:p7119`, F2 `spawn:p7123`,
-  A1 `spawn:p7124`, R2b `spawn:p7125`/`spawn:p7127`, R3 `spawn:p7128`;
+  A1 `spawn:p7124`, R2b `spawn:p7125`/`spawn:p7127`, R3 `spawn:p7128`/`spawn:p7130`,
+  F1b `spawn:p7131`, V1 `spawn:p7139`;
+- reviews: thermo `spawn:p7140`, alignment `spawn:p7141`, recheck `spawn:p7147`;
+  fix lanes A `spawn:p7142`, B `spawn:p7146`, C `spawn:p7145`, D `spawn:p7151`;
+- V2 measurement `spawn:p7148`/`spawn:p7152` (`evidence/pr2-v2-measure.md`);
 - search-cost probe `spawn:p7101`;
 - conversation `chat:c6945`.

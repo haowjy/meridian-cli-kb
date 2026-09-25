@@ -3,6 +3,62 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — PR 2 (native reads) settled; KB reconciled with what landed
+
+PR 2 is draft PR #526 (`feat/native-reads` @ `3ae3fce8`). Reviews, fix lanes A–D, the
+recheck and the before/after measurement on runtime copies are done. Pages that
+described it at `1124ef38` as partly "designed" now describe the landed code.
+
+- **Rewritten:**
+  [architecture/native-transcript-reads.md](architecture/native-transcript-reads.md).
+  It now covers:
+  - `SessionLogTarget(source, view_label)` and the one `TranscriptSource.native`
+    constructor;
+  - the `NativeRead` reader;
+  - capture reading the exact generation's key;
+  - witness and snapshot modules in `harness/`, and `SearchProjection`;
+  - the S1 `complete` rule;
+  - `session index` status and rebuild;
+  - `EmitOutcome`, `AttemptFold` factories, the NF1 usage rule and report precedence;
+  - the Pi `event_sinks` sidecar;
+  - the lazy blind-mode hook;
+  - V2 measurements.
+- **Updated:**
+  - [decisions/native-only-history.md](decisions/native-only-history.md): status;
+    bindings from `by_native_key` with the index alternative rejected; the S1
+    `complete` rule; V2 numbers; the < 1 s miss accepted and attributed to CLI import
+    cost (#527); R3 landed results; NF1; blind-mode hook with rejected argv gate; PR 3
+    scope; `--include-archives` (search removed, browse filter kept).
+  - Status rows in [decisions.md](decisions.md),
+    [native-session-identity](decisions/native-session-identity.md),
+    [native-session-binding](architecture/native-session-binding.md) and
+    [session-operations](codebase/session-operations.md).
+  - [decisions/chat-backend.md](decisions/chat-backend.md): `EventObserverRegistry`
+    was deleted (D15 partly superseded).
+  - [decisions/history-storage.md](decisions/history-storage.md): PR #494 merged
+    (2026-09-18, v0.5.0); it is no longer a draft.
+  - [state-system/session-state.md](architecture/state-system/session-state.md),
+    [state-system/overview.md](architecture/state-system/overview.md) and
+    [durability-and-locking](architecture/state-system/durability-and-locking.md):
+    removed `sessions-index.sqlite3`, `session_journal.py`,
+    `sessions-append-state.json` and `session_aggregate.py`, which no code references;
+    documented the two `history-index/` projections.
+  - [codebase/test-determinism.md](codebase/test-determinism.md):
+    `wait_for_history_phase` → `wait_for_phase` over observed live events.
+  - [operations/troubleshooting.md](operations/troubleshooting.md),
+    [operations/health-checks.md](operations/health-checks.md),
+    [lessons/state-design-lessons.md](lessons/state-design-lessons.md),
+    [lessons/harness-integration.md](lessons/harness-integration.md) and
+    [architecture/launch-system.md](architecture/launch-system.md): no user or agent
+    guidance to read runner `history.jsonl`; the liveness artifact set is current.
+- **New lessons:** an argv-gated `sitecustomize` misses `python -m` children; a
+  diagnostic flag must not discard authoritative cost (in
+  [lessons/native-session-identity.md](lessons/native-session-identity.md)). New page
+  [lessons/spawn-lane-operations.md](lessons/spawn-lane-operations.md): declared
+  backups do not cover a mid-run 401, and a Claude-routed lane can end its turn before
+  a background gate finishes.
+
+---
 ## 2026-09-25 — Native session identity decision split
 
 Moved the one-time legacy-key import rationale and policy from

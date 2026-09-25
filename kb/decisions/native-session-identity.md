@@ -10,7 +10,7 @@
 
 The user runs it as their installed `meridian`, but it is not merged to `main`. Reads
 and search moving off runner history are the
-[native-only history](native-only-history.md) decision (PR 2, in progress). See
+[native-only history](native-only-history.md) decision (PR 2, draft PR #526). See
 [Phases](#phases). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
 [Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
@@ -322,7 +322,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | 1b | One-time exact legacy import of native keys (user decision "Auto-import once") | Merged into PR #520 |
 | 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification; post-run continue rule | Draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified (#521) |
 | 2b | Foundation restructure P0–P5 ([architecture](../architecture/native-session-binding.md)) | PR #520 at `2eddcd68`; thermo recheck and alignment review passed after one fix pass |
-| PR 2 | Native reads, native-keyed search, run facts off the stream ([decision](native-only-history.md)) | In progress on `feat/native-reads` |
+| PR 2 | Native reads, native-keyed search, run facts off the stream ([decision](native-only-history.md)) | Draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on #520); reviews and recheck passed; measured on runtime copies |
 | PR 3 | Stop writing runner `history.jsonl`; drop redundant runner history for bound chats by an archive rule; delete the dogfood-row translator; measure cost | Not started |
 
 Verification standard: POSIX `sh` harness shims at the real runner seams, CLI probes

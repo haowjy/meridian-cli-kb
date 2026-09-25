@@ -160,18 +160,21 @@ that fakes modeled EOF but never Pi's non-zero-exit
 `error/connectionClosed` event, so the exit predicate and precedence path
 were never exercised with realistic evidence.
 
-### Bounded History-Phase Polling: `wait_for_history_phase()`
+### Bounded Lifecycle-Phase Polling: `wait_for_phase()`
 
-After a terminal outcome, publication precedes async telemetry (phase events
-written to `history.jsonl`). Tests that assert on phase events must poll with
-`wait_for_history_phase()` rather than reading immediately after the outcome
-future resolves. The helper polls bounded with the fake clock so it does not
-introduce real-time waits.
+After a terminal outcome, publication precedes async teardown, so Pi lifecycle
+phase events keep arriving after the outcome future resolves. Tests observe the
+live events through the manager's event hook (a list they pass in as
+`observed`), not by re-reading runner `history.jsonl`: under
+`--runner-history=off` no stream exists. Poll with
+`tests/support/pi.wait_for_phase(events, phase, count=1)`, which wraps
+`wait_until` with a 5 s bound. The durable form of the same facts is the
+`pi-lifecycle.json` sidecar, which `spawn show` reads.
 
 ```python
-scenario = PiDrainScenario(...)
-# ... drive to terminal outcome ...
-await scenario.wait_for_history_phase("cleanup_completed")
+observed: list[RawHarnessEvent] = []
+# ... build the manager with event_hook=observed.append, drive to terminal outcome ...
+await wait_for_phase(observed, "cleanup_completed")
 ```
 
 ## Monkeypatchable Module Finals: A Flake Class

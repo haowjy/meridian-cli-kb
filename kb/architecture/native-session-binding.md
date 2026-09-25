@@ -87,9 +87,11 @@ source; `assigned` and `observed` obey the same immutability.
 - `Same` still appends when it carries a startup attempt ID. That update is the
   attempt→native link that model-selection lookups read.
 
-On `feat/native-reads` (PR 2), the per-event generation step is also public, as
-`project_session_generation(...)`, so the metadata index's incremental catch-up calls
-the same code instead of re-deriving it.
+In PR 2 (draft #526), the per-event generation step is also public, as
+`project_session_generation(...)`. The metadata index (schema 6) persists the fold's
+working state and feeds appended events through it, so its incremental catch-up
+calls the same code instead of re-deriving it. Search inverts the fold with
+`by_native_key` to map native keys to chats.
 
 **Runner-side writer.** `launch/session_scope.SessionAttempt.bind(attempted, source)`
 is the only one:
@@ -172,8 +174,9 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
 5. **`conclude_native_run(...)`**, once per attempt, **after the child exited and
    teardown was joined**. The first error wins, and later identity steps are
    skipped:
-   1. **Candidate first signal:** an ID extracted from artifacts. PR 2's F1b replaces
-      this with the live fold's first session ID.
+   1. **Candidate first signal:** on PR 1, an ID extracted from artifacts. In PR 2
+      it is the attempt fold's `first_session_id`, observed from live events
+      ([run facts](native-transcript-reads.md#run-facts-and-delivery)).
    2. **Current ID:** the connection's current ID goes to `note`.
    3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
       the run's entry is `NativeEntryMismatch`.
@@ -223,7 +226,7 @@ The history-index `SCHEMA_VERSION` is 5 at PR 1's head. It was bumped at each
 serialized record shape change so that older builds refuse the index with a typed
 rebuild instruction instead of crashing
 ([lesson](../lessons/dogfooding-pr-builds.md#a-pr-build-must-never-touch-a-real-runtime-root)).
-PR 2 bumps it to 6.
+PR 2 bumps it to 6, adding the `session_chats` working set.
 
 ## Source key
 

@@ -67,7 +67,7 @@ Global maintenance (`--global`) requires `is_root_side_effect_process()` to retu
 
 **Orphan project dirs** are project-level state dirs with no active spawns and no recent activity. Each UUID corresponds to one past project. Machine-wide pruning requires `--global` to avoid accidentally walking other active projects.
 
-**Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `history.jsonl`, `stderr.log`, `params.json`, `tokens.json`, `heartbeat`, etc.
+**Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `stderr.log`, `params.json`, `tokens.json`, `heartbeat`, `pi-lifecycle.json`, etc. Runner `history.jsonl` is still written until PR 3 but is never read.
 
 **Telemetry segments** are per-process JSONL event files under the current project's `telemetry/` directory. Local doctor scans them for retention cleanup: expired non-live segments are removed first, then older closed segments may be removed to enforce the total-size cap. Global orphan-project scanning is separate.
 

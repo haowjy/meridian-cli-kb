@@ -31,7 +31,8 @@ Evidence limits: the Codex/Pi prober exhausted account usage before reporting;
 primary recovered evidence and cleaned its positively identified orphan backend
 and owned scratch. Codex persisted one startup response; Pi's current native
 probe had an isolated credential-path mismatch; Claude authenticated persistence
-remains untested. Do not claim four-harness runtime success. PR #494 remains draft.
+remains untested. Do not claim four-harness runtime success. PR #494 was later
+merged to `main` (2026-09-18) and released in v0.5.0.
 
 Provenance: `work:next-minor-planning/design/native-capture-boundary-decision.md`;
 `reviews/frontier-contract-audit.md`; `probes/frontier-opencode-claude.md`;
@@ -42,8 +43,8 @@ Provenance: `work:next-minor-planning/design/native-capture-boundary-decision.md
 
 ### D-history-file-authority: readable transcript files are authoritative; SQLite is a derived index (2026-09-11) {#d-history-file-authority}
 
-**Status:** Settled intent. Retention and bounded-preview implementations are
-approved on the feature branch but are not merged or released.
+**Status:** Settled intent. Retention and bounded previews shipped with PR #494
+(merged 2026-09-18, v0.5.0).
 
 **Partly superseded 2026-09-25** by [native-only history](native-only-history.md):
 - **Content authority.** For a bound chat, the transcript is the harness's own native
@@ -164,7 +165,7 @@ The mechanism is described in
 ### D-history-index-initialization: initialization has its own bounded gate (2026-09-14) {#d-history-index-initialization}
 
 **Status:** Implemented and independently verified on the feature branch at
-`c3ffcaa0`; unreleased. PR #494 remains draft.
+`c3ffcaa0`; shipped when PR #494 merged (2026-09-18, v0.5.0).
 
 **Decision:** A first operation that needs a missing or outdated history index gets
 one 15-second automatic initialization phase, separate from the ordinary two-second

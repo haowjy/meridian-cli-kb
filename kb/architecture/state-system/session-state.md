@@ -12,45 +12,40 @@ arrays are ignored on read (see
 existed get their key only from the one-time
 [legacy import](../legacy-native-import.md#legacy-import). It binds through the same
 lock-scoped `state/session_binding.py` path with `source: legacy_import`, and it
-records its outcome in `legacy-native-import-v1.json` at the runtime root. `sessions.jsonl` is the sole authority
-for those facts. `sessions-index.sqlite3` is a metadata-only projection used for
-direct chat-ID and requested-subset reads. Cross-record browse and history discovery
-use the separate disposable history index; transcript bodies are in neither. Full-text
-search uses a third, native-keyed projection, `native-search-v<N>.sqlite3`. It holds
-normalized display text but no chat IDs and nothing that cannot be rebuilt from native
-files ([native transcript reads](../native-transcript-reads.md#search-projection)).
+records its outcome in `legacy-native-import-v1.json` at the runtime root.
 
-`session_journal.py` certifies ordinary appends with a derived epoch in
-`sessions-append-state.json`. The certificate records source identity and file state,
-not session facts. The index consumes only complete JSONL records and trusts suffix
-growth only when the current certificate matches both the source and the index's epoch.
-Replacement, truncation or rewrite, an absent or stale certificate, schema mismatch,
-and corruption force replay from authoritative JSONL. A busy or unavailable index
-falls back promptly to truncation-tolerant journal projection and is not deleted merely
-for being busy.
+`sessions.jsonl` is the sole authority for these facts. There is no session SQLite
+index: `session_store` replays the journal on each read. `get_session_record` and
+`get_session_records` filter events down to the requested chats before folding, so a
+one-chat lookup does not fold the whole journal. `list_all_session_records` folds
+everything. A `sessions-index.sqlite3` or `sessions-append-state.json` found in an old
+runtime root was left by an older build; no current code reads either one.
 
-New primary launches persist their canonical `spawn_id` in the journal. Historical
-sessions are enriched by `session_aggregate.py`, which joins missing relationships from
-authoritative spawn rows. The projection records the published-spawn generation around
-that join; publication changes the generation, so a cached negative result cannot hide
-a relationship that appears later. This aggregate owns the cross-store join and keeps
-the session and spawn persistence leaves from importing each other.
+Two disposable projections sit beside the journal. Neither holds a fact the journal
+lacks:
+- **Metadata index** (`history-index/history.sqlite3`, schema 6): cross-record browse,
+  discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
+  `sessions` table folds native keys with the authority's own step,
+  `project_session_generation`, and persists the working state as `session_chats`.
+- **Search projection** (`history-index/native-search-v1.sqlite3`): normalized display
+  text keyed by native key, with no chat IDs. Chats are joined at query time from the
+  fold with `by_native_key`
+  ([native transcript reads](../native-transcript-reads.md#search-projection)).
 
-Normal browse uses the history index's recent-session view, which can include
-available ZIP and inert historical records. Preview and re-entry still resolve
-authoritative session/spawn facts before acting. Scoped search uses indexed
-associations to plan its corpus, then reads transcript authority. Legacy sessions
-without a recorded relationship may require one generation-aware batch scan. A
-recorded but unreadable relationship (missing primary row, wrong spawn kind, or wrong
-owning chat) is a separate exceptional case: transcript target resolution performs
-at most one batch-wide legacy scan so deep search can recover related histories.
-Readable recorded relationships never take that global-scan path.
+`state/session_identity.py` joins sessions and spawn rows: the owner chat of a spawn,
+a chat's recorded primary spawn, and `session_records_for_spawns`. That last one returns
+the exact session generation a run started, not the chat's current binding.
 
-Native capture preparation is narrower than presentation discovery. It binds the
-exact completed primary aggregate and resolves normalized harness/native identity
-from state, primary metadata, and that generation's session facts. Ambiguous or
-conflicting selection refuses capture; known same-runtime owners are a conservative
-read precondition, not permission to resume or proof against external writers. Native
+Normal browse uses the metadata index's recent-session view, which can include ZIP
+and inert historical records. `--include-archives` adds archived rows to the picker.
+Preview and re-entry resolve authoritative session and spawn facts before acting.
+Transcript reads go through one resolver to the chat's bound native key. There is no
+fallback scan, and a chat without a key is `unbound`
+([native transcript reads](../native-transcript-reads.md#one-resolver-one-reader)).
+
+Native capture preparation is narrower than presentation. It accepts only an
+identified terminal local spawn and reads the key of that run's exact session
+generation. A missing key refuses capture as `unbound`, and a conflict raises. Native
 identity never changes re-entry authorization. See
 [Portable history](portable-history.md#archive-capture-is-native-only).
 

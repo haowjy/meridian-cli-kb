@@ -20,9 +20,11 @@ meridian.toml
 ~/.meridian/projects/.locks/<id>.lock — project-lifetime gate
 ~/.meridian/projects/<id>/          — user runtime, never committed
   sessions.jsonl                    — session events
-  sessions-append-state.json        — derived append-continuity certificate
-  sessions-index.sqlite3            — rebuildable session metadata projection
-  history-index/                    — disposable cross-record discovery projection
+  legacy-native-import-v1.json      — one-time legacy key import outcome
+  history-index/                    — disposable projections
+    history.sqlite3                 — metadata index (schema 6): discovery, aliases, previews
+    native-search-v1.sqlite3        — native-keyed FTS5 search projection
+    pending/                        — dirty-source intent
   history-archives/                 — ZIP receipts and private restore stages
   locks/history-*.lock              — stable projection/mutation coordination
   session-id-counter · spawn-id-counter
