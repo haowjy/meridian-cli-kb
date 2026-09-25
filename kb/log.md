@@ -24,7 +24,9 @@ session-operations, decisions.md, and index.md. Added lessons: "Terminal Status 
 Not Process Exit" (harness-integration), "Lane Reviews Do Not Review the
 Composition" (review-convergence-gate), and "Mirror CI prerequisites in the local
 gate" (verification-and-review-discipline); extended "Green Suites Did Not Find the
-Seam Defects".
+Seam Defects". Split the three native-session lessons (Green Suites…, Terminal
+Status…, When a Fix Pass Is Not Converging…) out of harness-integration into
+[lessons/native-session-identity.md](lessons/native-session-identity.md).
 
 Provenance: `work:native-harness-session-identity` (`review/integrated-pr1.md`,
 `evidence/integrated-fix-report.md`, `evidence/lane-q3-report.md`,
