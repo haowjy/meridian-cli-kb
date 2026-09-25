@@ -6,7 +6,7 @@ unresolved). Exact entry for all four tracked harnesses and Pi exit mapping are
 implemented on `fix/native-session-wrapper` (draft PR #520, head `95db4d03`), which
 passed a whole-change review on recheck. They are not merged to `main`. The one-time
 [legacy import](#chats-from-before-the-key-existed-import-once) is on slice branch
-`slice/pr1-legacy-import` (`8e8fe485`), which will merge into PR #520. Native readers
+`slice/pr1-legacy-import` (implementation `8e8fe485`, docs head `fc234735`), which will merge into PR #520. Native readers
 and runner-history removal have not started (see [Phases](#phases)). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
 [Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
@@ -237,10 +237,16 @@ the dry-run continues of c6945 and c6992. The real `sessions.jsonl` was not writ
 **Pi scope is a brief constraint, not a harness limit.** Pi candidates are limited to
 Meridian's per-spawn Pi session dirs for the chat's own spawns, as the implementation
 brief required. PR 1 records the unscoped Pi session root for interactive primaries.
-The real root holds 32 top-level session files that one header match would bind.
-Those chats stay `missing` under the current scope. Whether to widen the candidate
+The real root holds 32 top-level Pi session files; most belong to no recorded chat.
+A read-only comparison against the IDs on this project's own chat and spawn rows
+matched 7 of those files to 9 chats (c6386, c6424, c6435, c6463, c6518, c6689,
+c6907, c6936, c6959; one file is shared by c6518, c6689, and c6907). Those 9 chats
+stay `missing` under the current scope. The comparison shows where a widened scope
+would find candidates. It is not a bind result: no import has run under a wider
+rule. Whether to widen the candidate
 set is an open decision for the work-item lead. Treat these chats as out of scope,
-not as unbindable.
+not as unbindable. Evidence: `evidence/pr1-legacy-import/pi-root-only-matches.json`
+in the work item.
 
 ## Rejected alternatives
 
@@ -328,4 +334,5 @@ whole-change review `spawn:p7072` and recheck `spawn:p7077`
 in `decision.md` ("USER DECISION — legacy chats — auto-import once"), brief
 `prompts/pr1-legacy-import.md`, commits `96e146d0`, `ce8b6df5`, `8e8fe485`; review
 `spawn:p7091` (`evidence/pr1-legacy-review.md`), recheck `spawn:p7093`
-(`evidence/pr1-legacy-recheck.md`).
+(`evidence/pr1-legacy-recheck.md`), report `evidence/pr1-legacy-import-report.md`,
+Pi root comparison `evidence/pr1-legacy-import/pi-root-only-matches.json`.

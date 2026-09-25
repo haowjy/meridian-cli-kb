@@ -24,6 +24,10 @@ Permanent Ones", goes in
 [lessons/native-session-identity.md](lessons/native-session-identity.md). The rows
 in decisions.md and index.md are updated to match.
 
+Reconciled at `fc234735` (documentation only after `8e8fe485`): the Pi scope
+paragraph no longer implies that all 32 top-level Pi root files would bind. A
+read-only comparison matched 7 files to 9 recorded chats.
+
 ---
 ## 2026-09-25 — Native session identity: whole-change review, fix pass, real-Pi one turn (phase 3 capture)
 
