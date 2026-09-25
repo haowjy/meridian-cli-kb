@@ -86,3 +86,8 @@ development entry point, not a CLI command.
 while holding the sessions lock. A synthetic run of 3,000 Claude imports took 180.9 s.
 Batching the append in one `SessionBindings` commit brought that to about 0.5 s.
 
+
+**Provenance:** `work:native-harness-session-identity` (user decision "Auto-import
+once" in `decision.md`; brief `prompts/pr1-legacy-import.md`); commits `96e146d0`,
+`ce8b6df5`, `8e8fe485`; review `spawn:p7091` (`evidence/pr1-legacy-review.md`),
+recheck `spawn:p7093` (`evidence/pr1-legacy-recheck.md`).
