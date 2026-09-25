@@ -3,6 +3,27 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — Native session identity: one-time legacy import (PR 1 slice)
+
+Captured the user decision "Auto-import once" and the slice at `8e8fe485`
+(`slice/pr1-legacy-import`, which merges into #520).
+[decisions/native-session-identity.md](decisions/native-session-identity.md) gains a
+new section on importing pre-key chats once: its rules, real-state counts, and the
+scope of Pi's own spawn dirs, which is recorded as an open decision and not as a
+harness limit. The section also adds two rejected alternatives and a phase-1b row. It
+narrows "incomplete keys are never repaired" so the rule excludes only the one-time
+import.
+[architecture/native-session-binding.md](architecture/native-session-binding.md)
+describes the shared lock-scoped `session_bindings()` path and adds a Legacy import
+section covering the trigger, sequence, crash recovery, a per-harness candidate table,
+the OpenCode copy snapshot with its fingerprint, deferral, report mode, and cost.
+[architecture/state-system/session-state.md](architecture/state-system/session-state.md)
+names the marker. A new lesson, "A Once-Only Marker Turns Transient Failures Into
+Permanent Ones", goes in
+[lessons/native-session-identity.md](lessons/native-session-identity.md). The rows
+in decisions.md and index.md are updated to match.
+
+---
 ## 2026-09-25 — Native session identity: whole-change review, fix pass, real-Pi one turn (phase 3 capture)
 
 Corrected phase-2 text that made the Claude `/tui fullscreen` trampoline successor

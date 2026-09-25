@@ -6,7 +6,11 @@ Sessions track one immutable native key per chat (`harness`, `native_store`,
 and lifecycle (created → active → closed). The key is bind-once:
 `update_session_harness_id()` returns `bound`, `already_bound`, or `conflict`. Legacy
 multi-ID arrays are ignored on read (see
-[native session binding](../native-session-binding.md)). `sessions.jsonl` is the sole authority
+[native session binding](../native-session-binding.md)). Chats from before the key
+existed get their key only from the one-time
+[legacy import](../native-session-binding.md#legacy-import). It binds through the same
+lock-scoped `state/session_binding.py` path with `source: legacy_import`, and it
+records its outcome in `legacy-native-import-v1.json` at the runtime root. `sessions.jsonl` is the sole authority
 for those facts. `sessions-index.sqlite3` is a metadata-only projection used for
 direct chat-ID and requested-subset reads. Cross-record browse and history discovery
 use the separate disposable history index; transcript bodies and full-text content

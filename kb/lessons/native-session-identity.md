@@ -118,6 +118,45 @@ one, and move per-consumer interpretation to the seam that owns the consumer.
 
 ---
 
+## A Once-Only Marker Turns Transient Failures Into Permanent Ones
+
+**What happened:** The one-time legacy import writes a completion marker, and after
+that the import never runs again. Two review rounds found three ways the marker made a
+temporary problem permanent, or a local problem global:
+
+- The first cut ran inside runtime-root resolution and wrote the marker only on
+  success. One quarantined `state.json` or a locked OpenCode DB raised on every
+  command. The import never finished, so it failed the CLI the same way each run.
+- OpenCode's lookup swallowed `sqlite3.Error` and reported "absent". A snapshot torn
+  by a checkpoint during the copy made 201 of 251 real sessions look absent in a
+  reproduction. The marker would have recorded them as `missing` forever.
+- Each bind did three fsyncs while holding the sessions lock. 3,000 imports took
+  181 s, and every live launch waited behind them.
+
+**What worked:** separate "could not look" from "looked and found nothing". Damaged
+or changing sources raise a typed error. The trigger catches it, writes no marker,
+and lets the command continue. Lookups on the import path are strict. The snapshot
+is fingerprinted before and after the copy. Slow native I/O runs outside the sessions
+lock, the lock-held part only rechecks identity, and all binds share one durable
+append (0.5 s for 3,000).
+
+**The lesson:** Before writing a marker that ends a migration, check each negative
+outcome it will record permanently. Every such negative must come from a successful
+read, not from an error that was swallowed. A migration that runs at a common startup
+point has to fail soft, and its per-item cost has to be measured at real scale while
+the relevant locks are held.
+
+A related trap: SQLite `mode=ro` does not mean the source files stay untouched. A
+read-only connection to a WAL database can still write shared-memory read marks. When
+an import promises not to write native stores, copy the files and open the copy.
+
+**Where this lives:** `ops/legacy_native_import.py`, `harness/legacy_native_stores.py`,
+`state/session_binding.py`, `tests/integration/ops/test_legacy_native_import.py`.
+Provenance: `work:native-harness-session-identity` (review `spawn:p7091`, recheck
+`spawn:p7093`, `evidence/pr1-legacy-recheck-wal-race.py`).
+
+---
+
 ## Cross-References
 
 - [Native session identity decision](../decisions/native-session-identity.md)

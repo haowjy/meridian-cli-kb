@@ -4,7 +4,9 @@
 qualified-event identity for every harness, observed exit identity, Claude exit
 unresolved). Exact entry for all four tracked harnesses and Pi exit mapping are
 implemented on `fix/native-session-wrapper` (draft PR #520, head `95db4d03`), which
-passed a whole-change review on recheck. They are not merged to `main`. Native readers
+passed a whole-change review on recheck. They are not merged to `main`. The one-time
+[legacy import](#chats-from-before-the-key-existed-import-once) is on slice branch
+`slice/pr1-legacy-import` (`8e8fe485`), which will merge into PR #520. Native readers
 and runner-history removal have not started (see [Phases](#phases)). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
 [Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
@@ -26,8 +28,10 @@ has open now."
   recorded harness refuses instead of guessing one. Reads follow the same rule: a
   tracked chat or spawn needs its complete recorded key `(harness, store, id)`, and
   a record missing its store is `unbound` even when a legacy `claude_config_dir`
-  hint would locate a same-ID file. Hints serve only explicitly untracked lookups,
-  and incomplete keys are never repaired.
+  hint would locate a same-ID file. Hints serve only explicitly untracked lookups.
+  Reads and launches never repair an incomplete key. The only repair is the one-time
+  [legacy import](#chats-from-before-the-key-existed-import-once), which runs once per
+  runtime root and then stops.
 - **Two typed failures, one route.** A contradiction (observed identity ≠ the key) is
   `NativeEntryMismatch` with stable code `entry_mismatch` and structured
   expected/observed evidence. Unavailability is
@@ -189,6 +193,55 @@ conversation. Exit evidence must be launch-owned (correlated to the child Meridi
 started, like Pi's nonce- and PID-checked record). The `exit_key` plumbing was
 deleted rather than guarded, so there is one exit source.
 
+## Chats from before the key existed: import once
+
+**User decision, 2026-09-25: "Auto-import once".** The exact-key rule makes every chat
+created before PR 1 unusable, because none of them recorded `native_store`. On the
+user's real project (about 7,000 chats; codex 4,758, claude 750, pi 683, opencode 481,
+cursor 320), every `session log cN` and `--continue cN` refused as `unbound`, although
+0.6.7 handled them. The design had said that old data is never upgraded into proof. The
+user chose a bounded upgrade instead. The rule that runner-history bytes never become
+proof still holds.
+
+The import's rules:
+
+- **Once per runtime root.** The first command that resolves the runtime root runs
+  the import. An atomic marker file then records the outcome, including every
+  chat left unbound and why. Nothing is inferred at runtime after that.
+- **The ID comes from the chat's own records.** Sources are the journal's recorded
+  session IDs (including historical multi-ID arrays), then the chat's own spawn rows. More than one distinct
+  ID is `ambiguous_id`, and the chat is skipped. No ID at all is `no_session_id`.
+- **Only the harness's own place for that ID is checked.** Candidate stores come
+  from recorded facts: the recorded cwds and config dir, or the default home when
+  nothing was recorded. Today's ambient environment is ignored. The import binds
+  only when exactly one candidate store holds a file or row whose native header
+  carries the ID. It uses the same exact validators as live reads. Zero matches is
+  `missing`. More than one match is `ambiguous`. It never picks the newest match
+  and never searches other projects.
+- **One bind path.** Accepted keys go through the same lock-scoped bind as
+  launches, with `source: legacy_import`. A chat that already has a complete key is
+  never touched, and the normal conflict rules apply.
+- **Unknown identity stays unsupported.** Cursor, which has no native identity in
+  PR 1, and restored historical records are counted `unsupported` and are not
+  changed.
+- **Damaged sources defer the import.** If the import meets a quarantined spawn row,
+  an I/O error, a torn or changing OpenCode snapshot, or a failed strict row query,
+  it writes no marker and prints one warning, and the command continues. A failed
+  source must not be recorded as a permanent `missing`, and the import must not
+  block the CLI.
+
+**Result on real state** (read-only report at `8e8fe485`): of 7,002 chats, 2,122 can
+be imported and 4,880 stay unresolved. A copy-based import found log c6988 and
+the dry-run continues of c6945 and c6992. The real `sessions.jsonl` was not written.
+
+**Pi scope is a brief constraint, not a harness limit.** Pi candidates are limited to
+Meridian's per-spawn Pi session dirs for the chat's own spawns, as the implementation
+brief required. PR 1 records the unscoped Pi session root for interactive primaries.
+The real root holds 32 top-level session files that one header match would bind.
+Those chats stay `missing` under the current scope. Whether to widen the candidate
+set is an open decision for the work-item lead. Treat these chats as out of scope,
+not as unbindable.
+
 ## Rejected alternatives
 
 - **Observed-entry-only rule with a Pi RPC primary.** Rejected for the reasons above.
@@ -205,6 +258,12 @@ deleted rather than guarded, so there is one exit source.
 - **A separate file-pin registry or conflict journal.** Resume re-resolves the exact
   file inside the recorded store and verifies its header. The store is already in the
   key.
+- **Leaving legacy chats unbound** (the design's original stance). Rejected by the
+  user: every existing chat would lose log and continue on upgrade.
+- **Repair at read or continue time.** The chosen option says explicitly that
+  nothing is guessed at runtime after the import. Repairing on read would make a
+  chat's identity depend on when it was first read, and it is the kind of runtime
+  guessing this decision rules out.
 - **Fail-closed UUID minting on unreadable siblings.** A single torn journal in the
   shared primary store would block every fresh launch. Minting skips unreadable
   headers with a warning. Source resolution and post-exit verification stay
@@ -234,6 +293,7 @@ deleted rather than guarded, so there is one exit source.
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Immutable binding, pre-exec plan seam, exact-only resolution; exact identity for Pi, Claude, Codex, OpenCode; one source key; header-validated locators; typed refusals | Implemented on draft PR #520; whole-change review PASS on recheck |
+| 1b | One-time exact legacy import of native keys (user decision "Auto-import once") | On slice branch `slice/pr1-legacy-import` (`8e8fe485`), reviewed and rechecked; final gate running; merges into PR #520 |
 | 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification | Implemented on draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified |
 | 3 (PR "E") | Native readers: `session log`/context/search on the exact key; Pi reopen-lineage view; rebuildable search; OpenCode report reads the recorded DB | Not started |
 | 4 (PR "F") | Remove runner-history (`history.jsonl`) writers/readers/checkpoints; measure cost | Not started |
@@ -264,4 +324,8 @@ whole-change review `spawn:p7072` and recheck `spawn:p7077`
 (`review/integrated-pr1.md`); whole-change fix pass `spawn:p7076`
 (`evidence/integrated-fix-report.md`); real-Pi probes `spawn:p7065` (zero-turn),
 `spawn:p7073` (stopped on credentials), `spawn:p7075` (one turn,
-`evidence/lane-q3-report.md`); incident `spawn:p6615`.
+`evidence/lane-q3-report.md`); incident `spawn:p6615`. Legacy import: user decision
+in `decision.md` ("USER DECISION — legacy chats — auto-import once"), brief
+`prompts/pr1-legacy-import.md`, commits `96e146d0`, `ce8b6df5`, `8e8fe485`; review
+`spawn:p7091` (`evidence/pr1-legacy-review.md`), recheck `spawn:p7093`
+(`evidence/pr1-legacy-recheck.md`).

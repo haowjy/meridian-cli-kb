@@ -37,7 +37,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP transcript authority, disposable indexes, retention and restore, and post-stop native capture
-- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; one recorded source key; identity only from qualified events; exit observed or unresolved; rejected RPC-primary plan; phases
+- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; one recorded source key; identity only from qualified events; exit observed or unresolved; legacy chats imported once; rejected RPC-primary plan; phases
 - [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Superseded raw-argument admission design
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
@@ -111,7 +111,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
 - [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv), session-boundary exit observation, real Pi 0.87.1 behaviors (lazy persistence, ctx invalidation, one-turn create, agent-dir credential route), limits, still-flattened readback
-- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: source key → plan → finalize → bind before exec; runner order (initial check → teardown join → verify → run boundary/exit chat); typed refusals; per-harness state
+- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: source key → plan → finalize → bind before exec; runner order (initial check → teardown join → verify → run boundary/exit chat); typed refusals; per-harness state; one-time legacy import (trigger, candidates, OpenCode snapshot, deferral)
 - [architecture/pi-runtime/overview.md](architecture/pi-runtime/overview.md) — Pi runtime vocabulary for background work and extension coordination
 - [architecture/atomic-child-row-publication.md](architecture/atomic-child-row-publication.md) — nested staging and directory replacement for complete child-row visibility; Linux/POSIX proof and remaining platform gates
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode process roles, startup/stop ownership gate, passive reconciliation safety, and `orphan_primary` diagnosis
@@ -198,7 +198,7 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 - [lessons/overview.md](lessons/overview.md) — Lessons domain overview and learning map
 - [lessons/state-design-lessons.md](lessons/state-design-lessons.md) — Why dual-root, why JSONL, what broke before the current design, what we'd do differently
 - [lessons/harness-integration.md](lessons/harness-integration.md) — Non-obvious discoveries from integrating harnesses: PTY capture, capability gaps, behavioral surprises, and seam-design pitfalls
-- [lessons/native-session-identity.md](lessons/native-session-identity.md) — Native-session work lessons: seam defects green suites missed, terminal status versus process exit, and removing carriers when fixes do not converge
+- [lessons/native-session-identity.md](lessons/native-session-identity.md) — Native-session work lessons: seam defects green suites missed, terminal status versus process exit, removing carriers when fixes do not converge, and once-only markers that make transient failures permanent
 - [lessons/chat-normalization-repair.md](lessons/chat-normalization-repair.md) — Lessons from repairing chat normalization drift: harness compatibility mapping, completion dedupe, replay obligations, and smoke-test caveats
 - [lessons/mars-compiler-cleanup.md](lessons/mars-compiler-cleanup.md) — Lessons from the Mars compiler cleanup: Windows config artifacts, lock indexing, integration-test split, diagnostic routing
 - [lessons/source-simplification.md](lessons/source-simplification.md) — Lessons from Phase 8.6 source-seam and test-collapse work: deletion-first simplification, seam ownership moves, test contract discipline, over-collapse recovery
