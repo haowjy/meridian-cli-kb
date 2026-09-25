@@ -14,9 +14,10 @@ harness limit. The section also adds two rejected alternatives and a phase-1b ro
 narrows "incomplete keys are never repaired" so the rule excludes only the one-time
 import.
 [architecture/native-session-binding.md](architecture/native-session-binding.md)
-describes the shared lock-scoped `session_bindings()` path and adds a Legacy import
-section covering the trigger, sequence, crash recovery, a per-harness candidate table,
-the OpenCode copy snapshot with its fingerprint, deferral, report mode, and cost.
+describes the shared lock-scoped `session_bindings()` path. The one-time migration
+details move to [architecture/legacy-native-import.md](architecture/legacy-native-import.md),
+which covers the trigger, sequence, crash recovery, candidate stores, the OpenCode
+copy snapshot with its fingerprint, deferral, report mode, and cost.
 [architecture/state-system/session-state.md](architecture/state-system/session-state.md)
 names the marker. A new lesson, "A Once-Only Marker Turns Transient Failures Into
 Permanent Ones", goes in

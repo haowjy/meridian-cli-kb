@@ -8,7 +8,7 @@ and lifecycle (created → active → closed). The key is bind-once:
 multi-ID arrays are ignored on read (see
 [native session binding](../native-session-binding.md)). Chats from before the key
 existed get their key only from the one-time
-[legacy import](../native-session-binding.md#legacy-import). It binds through the same
+[legacy import](../legacy-native-import.md#legacy-import). It binds through the same
 lock-scoped `state/session_binding.py` path with `source: legacy_import`, and it
 records its outcome in `legacy-native-import-v1.json` at the runtime root. `sessions.jsonl` is the sole authority
 for those facts. `sessions-index.sqlite3` is a metadata-only projection used for
