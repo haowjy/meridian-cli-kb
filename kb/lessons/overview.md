@@ -6,7 +6,8 @@ Lessons pages preserve hard-won context from failures, abandoned approaches, and
 
 - [state-design-lessons.md](state-design-lessons.md) — Why dual-root and JSONL, earlier failures, and state-design tradeoffs.
 - [harness-integration.md](harness-integration.md) — Claude, Codex, OpenCode, Cursor, and Pi integration surprises, test env var inheritance, optional-default seam-widening pitfall, and generalized patterns.
-- [native-session-identity.md](native-session-identity.md) — Seam defects missed by green suites, terminal status versus process exit, and removing redundant carriers when fix passes do not converge.
+- [native-session-identity.md](native-session-identity.md) — Seam defects missed by green suites, terminal status versus process exit, removing redundant carriers, once-only markers, restructure before stacking, projections that re-derive the authority's rule, and `pytest -x` hiding stale tests.
+- [dogfooding-pr-builds.md](dogfooding-pr-builds.md) — Running unreleased Meridian builds on a shared dev machine: copies only, schema bumps and rollback, nested-env pinning, `uv tool install` relinking, scratch placement, and pushing through a long pre-push gate.
 - [chat-normalization-repair.md](chat-normalization-repair.md) — Harness protocol drift lessons, completion-dedupe rules, replay implications, and live smoke cautions from the 2026 chat repair.
 - [mars-compiler-cleanup.md](mars-compiler-cleanup.md) — Mars cleanup lessons: Windows config artifacts, lock indexing, test splitting, dead-code deletion, and warning routing.
 - [mars-launch-bundle-lessons.md](mars-launch-bundle-lessons.md) — Mars/Meridian launch-bundle lessons: schema split discipline, contract-bound test splits, OpenCode env merging, and experimental Cursor signaling.

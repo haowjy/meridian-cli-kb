@@ -12,7 +12,7 @@ These are the non-obvious discoveries from integrating Claude, Codex, and OpenCo
 
 **The lesson:** When a tool is designed for humans, observation requires meeting it on its terms. PTY capture is the minimum machinery needed to observe session ID without reimplementing Claude's TUI. It's explicitly limited to that extraction use case — not used as a general control mechanism.
 
-**Where this lives:** `launch/process/pty_launcher.py`, `harness/adapters/claude.py:detect_primary_session_id()`
+**Where this lived:** `launch/process/pty_launcher.py`; the `detect_primary_session_id()` hook was deleted in the PR 1 restructure.
 
 **Identity no longer depends on this.** Claude accepts `--session-id <uuid>`, so
 Meridian now assigns the ID and binds it before exec. PTY-observed IDs can only

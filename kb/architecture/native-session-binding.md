@@ -1,231 +1,285 @@
 # Native Session Binding
 
-How a launch decides its native key, when that key is written, how the source of a
-resume or fork is carried, and how a run's exit is attributed. The rule and its
-rationale are in the [native session identity decision](../decisions/native-session-identity.md).
-Pi specifics are in [Pi native sessions](pi-native-sessions.md).
+How a launch decides its native key, when that key is written, how a run's
+observations are judged, and how a run's exit is recorded. The rule and its rationale
+are in the [native session identity decision](../decisions/native-session-identity.md).
+Harness specifics: [Pi](pi-native-sessions.md), [Claude](claude-native-sessions.md).
+How reads use the key: [native transcript reads](native-transcript-reads.md).
 
-State: implemented for Pi, Claude, Codex, and OpenCode on `fix/native-session-wrapper`
-(draft PR #520, head `95db4d03`), not yet on `main`. Cursor is untracked. The one-time
-[legacy import](legacy-native-import.md#legacy-import) is on a slice branch that merges into #520.
+**State:** implemented for Pi, Claude, Codex and OpenCode on `fix/native-session-wrapper`
+(draft PR #520, head `2eddcd68`), including the PR 1 foundation restructure P0–P5. Not
+yet on `main`. Cursor has no native identity.
+
+The design goal of the restructure: one value type, one pure binding rule, one
+adapter template, one post-exit hook, and one runner pipeline.
 
 ```mermaid
-flowchart TD
-    Ref["reference resolution: source chat key"] --> Req["SessionRequest: source_native_store + source ID"]
-    Req --> Plan["plan_native_identity: operation + source"]
-    Plan --> Fin["finalize_native_identity: final child env, store, mint or verify source header"]
-    Fin -->|source unavailable| Refuse["NativeSessionUnavailable"]
-    Fin -->|source header has another ID| Mis
-    Fin --> Bind["bind assigned key under sessions lock"]
-    Bind -->|conflict| Mis
-    Bind -->|bound or already_bound or no ID yet| Exec["project argv from same plan; exec harness"]
-    Exec --> Sig{"first owned identity"}
-    Sig -->|contradicts| Mis["NativeEntryMismatch: entry_mismatch, no attribution, no exit chat"]
-    Sig -->|matches, or first ID for an unbound plan| Run["attempt runs"]
-    Run --> Join["child exits; teardown joined"]
-    Join --> Ver["verify_native_identity"]
-    Ver -->|contradicts| Mis
-    Ver --> Obs["observe_primary_session_id: diagnostics only"]
-    Obs --> RB["finalize_run_boundary"]
-    RB -->|Pi initial contradicts entry| Mis
-    RB -->|Pi verified quit| Exit["get_or_create_exit_chat"]
-    RB -->|no owned boundary| Unres["exit unresolved"]
+flowchart LR
+  subgraph pre["pre-exec: launch/context.py"]
+    R["SpawnParams"] -->|"plan_native_identity"| I["LaunchIntent"]
+    I -->|"finalize_native_identity"| N["NativeIdentity"]
+  end
+  subgraph run["each runner: process, streaming, serve"]
+    N --> B["bind_entry: NativeRun"]
+    B -->|"owned session IDs"| O["NativeRun.observe / note"]
+    O --> J["child exited, teardown joined"]
+    J --> C["conclude_native_run"]
+  end
+  C -->|"SessionAttempt.bind"| S[("sessions.jsonl")]
+  C -->|"one update_spawn"| P[("spawn row run_boundary")]
+  C -->|"record_identity_failure"| L[("runner-lifecycle.jsonl")]
 ```
 
+## Types
 
-## Seams
+In `lib/core/native_identity.py`:
 
-**`NativeIdentityPlan`** (`lib/core/native_identity.py`). A frozen value with
-`harness_session_id`, `native_store`, `locator`, and
-`operation ∈ {create, resume, fork}`. It lives in `core` because importing the harness
-package from the launch-spec leaf caused a bootstrap cycle. It rides on
-`ResolvedLaunchSpec.native_identity_plan`, so projection, binding, and verification all
-read the same value. The same module holds `NativeSessionUnavailable`,
-`NativeEntryMismatch`, `NativeSessionKey(native_store, session_id)`, and `RunBoundary(entry_observed, exit)`.
 
-**Source key.** `SessionRequest.source_native_store` plus the requested native ID is
-the only description of a resume/fork source. Producers and consumers:
-`ops/reference.py` (from the chat binding or spawn row) → `launch/continue_replay.py`
-→ `ops/spawn/api.py` fork request builder → `ops/spawn/execute_runner.py` → the
-adapter's finalization or preparation. Continue model reads receive the same store.
-No launch or ops code carries a harness-specific source field. A tracked source with
-no recorded store refuses as `unbound`.
+| Name | Meaning |
+|---|---|
+| `NativeKey(harness, native_store, session_id)` | A complete binding. Tracked reads, continue and fork require one. |
+| `NativeKeyFields` | The partial key a record may hold: a legacy record has no store; a Codex or OpenCode create has no ID until observed. `complete()` returns a `NativeKey` or `None`. `render()` is the one formatter for lifecycle payloads and messages. |
+| `LaunchIntent(operation, source_session_id, preforked_session_id)` | What the caller asked for, before any store is known. |
+| `NativeIdentity` | What the child is launched with: harness, operation, store (always set), assigned `session_id` or `None`, fork source ID, verified source file. The only identity input to projection, `bind_entry` and `observe_after_exit`. |
+| `PostExit(entry_error, entry_observed, exit, trampoline_successor_id)` | What the adapter saw after exit. Pure; the runner pipeline decides. |
+| `NativeIdentityError` | Base of every typed refusal. Runners catch only this. |
+| `NativeSessionUnavailable(ref, unbound \| missing \| ambiguous_native_file)` | Nothing trustworthy to open. `missing` reports as `native_transcript_missing`. `for_ref()` re-targets the message at the user's ref. |
+| `NativeEntryMismatch(expected, observed, reason)` | A readable identity contradicts the key. Carries keys, not strings. `reason ∈ {key, fork_reused_source, source_changed, fork_parent}`. |
 
-**Adapter hooks** (`lib/harness/adapter.py`):
+`BindSource` is `assigned` (pre-exec), `observed` (an owned signal) or
+`legacy_import` (the [one-time import](legacy-native-import.md)).
 
-- `plan_native_identity(run)` picks the operation and source. It performs no I/O. A
-  plan may carry no ID when the harness assigns it after start (Codex/OpenCode create,
-  Claude fork).
-- `finalize_native_identity(plan, child_env, child_cwd, session, spawn_id, interactive)`
-  runs during launch binding, before argv projection (`launch/context.py`). It resolves
-  the store from the *final* child env, points the child at the recorded source store,
-  verifies the exact source file (including its native header ID), and mints where
-  the harness accepts an assigned ID.
-  Env and argv come from its result, so they cannot drift from the bound key. The base
-  composes `native_store_for_launch()`; Pi, Codex, and OpenCode override it.
-- `verify_native_identity(plan)` runs after the attempt. It checks only the planned
-  target and returns a typed `NativeEntryMismatch` or `NativeSessionUnavailable`,
-  never a string. It never selects or binds a replacement.
-- `observe_session_id()` / `observe_primary_session_id()` return **observations**
-  only. For plans without an ID the first owned observation binds. Otherwise an
-  observation confirms or conflicts. `PrimarySessionObservation` carries only
-  `trampoline_successor_id` (Claude), a diagnostic that never reaches binding or the
-  exit allocator. The earlier `HarnessSessionDiscovery` carrier and its primary
-  metadata fields were deleted.
-- `observe_run_boundary(child_env, pid)` returns a `RunBoundary` or `None`. Only Pi
-  implements it (see [Pi native sessions](pi-native-sessions.md#exit-observation)).
+Two key types exist because records legitimately hold partial keys. With a complete
+type, "tracked reads need the complete key" becomes a type check:
+`record.native_key() is None` means `unbound`.
 
-**Binding** (`state/session_binding.py`, `state/session_store.py`,
-`launch/session_scope.py`). All binding goes through one lock-scoped path. The
-`session_bindings(runtime_root)` context takes the shared history-mutation lock and
-the sessions lock, then replays the journal once into a `SessionBindings` snapshot.
-Each `bind()` checks the chat's generation, conflicts, and startup identity against
-that snapshot. On exit, the context appends every accepted update in one durable
-write, still inside the lock. `update_session_harness_id()` is that path with a single
-bind. It binds the first key and returns `NativeBindingResult(bound | already_bound |
-conflict)` with the *accepted* ID/store. A conflict never appends a rebind.
-`bind_harness_session_id(source=...)` accepts only `assigned` (pre-exec plan) or
-`observed` (owned signal) and mirrors the accepted ID onto the spawn row. The
-[legacy import](legacy-native-import.md#legacy-import) is the only writer that uses `legacy_import`. Callers must mirror the returned ID, never their
-candidate. The runner carries the finalized store on `SessionAttempt.native_store`,
-so an observed-only ID binds together with its store. Binding `(id, None)` would
-leave later reads to guess a root.
+## Binding
 
-**Refusals.** Two typed errors, both `ValueError` subclasses in
-`lib/core/native_identity.py` (`launch/errors.py` re-exports `NativeEntryMismatch`):
+In `lib/state/`:
 
-- `NativeEntryMismatch(expected, observed)`, `failure_code = "entry_mismatch"`: a
-  readable identity contradicts the key. Sources: an assigned-key conflict at bind,
-  a source header with another ID, a contradictory first owned identity (primary,
-  streaming, and managed-primary attach), Pi header/ancestry verification, and a Pi
-  boundary whose initial identity differs from the entry.
-- `NativeSessionUnavailable(ref, reason)` with
-  `reason ∈ {unbound, missing, ambiguous_native_file}`: nothing trustworthy to open.
-  `missing` reports as `native_transcript_missing` and also covers empty, torn, or
-  malformed native headers.
 
-Refusals before the runner (launch preparation) pass through
-`ops/spawn/execute_runner.py` into `ops/spawn/failure_policy.py`, which uses the
-typed `failure_code` as the terminal error and appends an `entry_mismatch` runner
-lifecycle event with expected/observed for contradictions. Refusals inside a run go
-through the runner's terminal branch with the same code and event. Pre-runner
-refusals keep the coarse origin `launch_failure`; stderr names the chat reference.
+**`native_binding.bind(prior, attempted) -> Bound | Same | Conflict`** is the one
+binding rule. It is pure and fieldwise:
+- an empty prior field fills;
+- a differing non-empty field is a `Conflict` naming the field;
+- no change is `Same`.
 
-**Reads and references** (`ops/session_target.py`, `ops/reference.py`,
-`ops/reference_recovery.py`). A tracked chat or spawn transcript resolves only its
-complete bound key: harness, recorded store, and ID. A record without a store is
-`unbound`, even if a legacy `claude_config_dir` hint would find a same-ID file. Only
-the one-time [legacy import](legacy-native-import.md#legacy-import) can supply the missing store, and reads
-never trigger it for a single chat;
-`resolve_session_file()` with hints serves only explicitly untracked references.
-Recovery reads the chat binding (chat refs) or the spawn row (spawn refs). Primary
-metadata and native-file detection are not recovery levels. A completed
-`session log pN` shows the verified exit chat. Otherwise it shows the entry chat with
-the label `entry-based view (exit identity unresolved)`.
+A conflict is never applied: the kept key stays. `bind` does not look at the bind
+source; `assigned` and `observed` obey the same immutability.
 
-**Spawned exact continue reuses the source chat.** `ops/spawn/execute_session.py`
-passes `continue_chat_id` into the spawn session scope for exact continues. Fresh and
-fork launches allocate new chats.
+**Who uses it.**
+- **Replay:** the pure replay fold, public as `state/session_fold.py`, uses `bind`
+  and never logs. `session_fold.by_native_key(records)` inverts the accepted keys
+  into `NativeKey → chats`. Incomplete keys are omitted, and aliases keep input
+  order.
+- **Writes:** writers go through `state/session_binding.py`. `session_bindings()`
+  takes the history-mutation lock and the sessions lock, and replays the journal
+  once. Each `bind()` checks the chat, its generation and `bind`. The batch commits
+  as one durable append.
+- **Conflict reporting:** `native_binding.report_conflict` is the only emitter of
+  `native_binding_conflict`. Only writers call it, so replay no longer repeats old
+  conflicts on every command.
 
-## Runner order
+**Replay rules** (byte-equal to the old fold on a copied 7,000-chat journal):
+- A conflicting update is dropped whole.
+- A start is rewritten with the chat's accepted key before its generation is
+  projected.
+- `Same` still appends when it carries a startup attempt ID. That update is the
+  attempt→native link that model-selection lookups read.
 
-Both runners (`launch/process/runner.py` for primaries,
-`launch/streaming_runner.py` for spawns) run the same sequence. The primary runner
-got it last: its lane review covered streaming only, and the whole-change review
-found the primary Claude path still completing and attributing a contradicted run.
+On `feat/native-reads` (PR 2), the per-event generation step is also public, as
+`project_session_generation(...)`, so the metadata index's incremental catch-up calls
+the same code instead of re-deriving it.
 
-1. **Assigned bind** before exec (`update_session_harness_id(source="assigned")`); a
-   conflict is `NativeEntryMismatch`.
-2. **Initial identity check.** The first owned identity is validated before the run
-   completes; a contradiction is `NativeEntryMismatch`. Invocation attribution waits
-   until validation passes.
-3. **Teardown join.** The child has exited and its cleanup is finished. The
-   streaming runner always awaits `SpawnManager.stop_spawn()`, which also joins an
-   already-terminal session; the primary runner has waited on the process.
-4. `verify_native_identity(plan)` (skipped once an identity error exists).
-5. `observe_primary_session_id()`: diagnostics. A Claude `trampoline_successor_id` is
-   persisted on the spawn row and goes nowhere else.
-6. `finalize_run_boundary(adapter, child_env, runtime_root, spawn_id, pid,
-   identity_error)` (`launch/run_boundary.py`).
+**Runner-side writer.** `launch/session_scope.SessionAttempt.bind(attempted, source)`
+is the only one:
+- it mirrors a `Bound` or `Same` ID onto the spawn row;
+- it never raises on `Conflict`, because the store already logged it.
 
-**Why the teardown join comes first.** Exit evidence is written by the child as it
-shuts down, so it can only be read after the child is gone. Real Pi under Meridian
-showed the failure: the streaming runner published terminal status when the RPC turn
-completed, and that hid the connection. A `get_connection(...) is not None` guard
-then skipped `stop_spawn`, and `finalize_run_boundary` read the record about 4 s
-before Pi's shutdown hook wrote `quit`. The run stayed `exit unresolved` even though
-the file on disk later held a valid quit. The fix removed the guard, so teardown is
-always joined before the read. No polling or timeout was added. A shim that
-publishes quit only during delayed termination now covers it.
+Raising belongs to `NativeRun`: whether a conflict is fatal depends on whether the
+signal was the attempt's first.
 
-**Run boundary.** When `identity_error` is already set, the finalizer does not ask
-the adapter for a boundary. Otherwise it calls `adapter.observe_run_boundary()`,
-which only Pi implements. If the boundary's initial identity differs from the entry
-chat's key (ID or store), the result is `NativeEntryMismatch`. Only with no identity
-error and a verified boundary exit does it call
-`session_store.get_or_create_exit_chat`, which finds the chat already owning that
-exact `(harness, store, id)`, including stopped chats, or creates one under the
-sessions lock. There is no other exit input: the Claude `exit_key` parameter was
-deleted. Spawn rows record `entry_chat_id`, `exit_chat_id`, and
-`exit_identity ∈ {verified, unresolved, mismatch}`. Streaming sets failed status on an
-identity error so a successful native terminal result cannot override it. Exit
-uncertainty alone is not an execution failure.
+## Adapter template
 
-## Per-harness state
+In `lib/harness/adapter.py`:
 
-| Harness | Create | Resume | Fork | Store → child |
-|---|---|---|---|---|
-| Pi | Minted `--session-id` in pinned `--session-dir` | `--session <abs verified path>` | `--fork <abs source> --session-id <new>` | `PI_CODING_AGENT_SESSION_DIR` and `--session-dir` |
-| Claude | `--session-id <uuid>` assigned (typed spec field) | `--resume <id>` after the source's first-line `sessionId` is validated | `--resume <id> --fork-session`; new ID from first owned signal | Store is `<config root>/projects/<slug>` from the child's `CLAUDE_CONFIG_DIR`; source `<store>/<id>.jsonl` is seeded into it (atomic copy, or symlink in the same root) |
-| Codex | No ID in plan; first owned `thread.started`/`thread/start` binds ID + store | `codex resume <uuid>` / `thread/resume` after the rollout's `session_meta.payload.id` is validated | Meridian-materialized rollout copy from the recorded store; plan `operation=fork` | `CODEX_HOME` = store parent (relative homes resolve against the child cwd) |
-| OpenCode | No ID in plan; first owned session event/`POST /session` binds ID + store | `-s <id>` / exact `GET /session/{id}` | `--fork` (streaming fork refused) | `OPENCODE_DB` = exact recorded DB path (`:memory:` refused) |
-| Cursor | Deferred, untracked | — | — | — |
 
-Residual inference outside identity: the Claude trampoline successor is still
-detected by matching Claude's own `~/.claude/history.jsonl` against transcripts. It
-names neither an entry nor an exit; it is a spawn-row diagnostic. OpenCode's report
-fallback (`opencode_report.py`) still reads the ambient DB. It affects `report.md`
-extraction, not transcript identity, and is tracked in `harness/.context/TODO` for
-the native-reader phase.
+**The two template methods.** `plan_native_identity` and `finalize_native_identity`
+are base-class templates that adapters never override.
+- **Plan** refuses `refused_identity_flags` in passthrough args. It builds a
+  `LaunchIntent` from the run's continue/fork request, or from the pre-forked ID
+  (Codex fork materialization).
+- **Finalize** runs at the launch-binding site in `launch/context.py`, before argv
+  projection, against the final child env:
+  1. resolves and pins the store;
+  2. verifies the exact source file and its native header for resume and fork;
+  3. assigns the session ID.
 
-## Legacy import
+  Argv and env are projected from its result, so they cannot drift from the bound
+  key.
 
-The one-time migration is documented in [Legacy Native Session Import](legacy-native-import.md#legacy-import). Its rules and user decision are in the [native session identity decision](../decisions/native-session-identity.md#chats-from-before-the-key-existed-import-once).
+Each harness supplies small primitives:
+
+| Primitive | Contract |
+|---|---|
+| `native_store_for_launch(...)` | Pure: no env or filesystem writes. Returns an absolute store. |
+| `pin_native_store(child_env, store)` | The only env writer; never touches the filesystem |
+| `assign_session_id(intent, store)` | Default: resume → source ID; fork → pre-forked ID or `None`; create → `None` |
+| `validate_intent(intent)` | Optional (Codex: UUID source) |
+| `resolve_native_session_file(session_id, native_store)` | Exact file for a key, header-checked; no project-root fallback |
+| `observe_after_exit(identity, entry, …) -> PostExit` | Post-exit observation only; never persists |
+| `continues_in_source_store`, `resolves_untracked_source`, `refused_identity_flags` | Class flags |
+
+| Harness | create ID | resume | fork ID | Store pinned via | `observe_after_exit` |
+|---|---|---|---|---|---|
+| Claude | minted UUID, `--session-id` | `--resume <id>` after the source's `sessionId` checks | harness-assigned (`--resume <src> --fork-session`) | none (store is `<config root>/projects/<slug(cwd)>`; the source is seeded into it) | trampoline successor, diagnostic only |
+| Codex | harness-assigned | exact rollout, `session_meta.payload.id` checked | pre-forked by Meridian before exec | `CODEX_HOME = store.parent` | default (nothing) |
+| OpenCode | harness-assigned | exact session row | harness-assigned (blackbox subprocess only; streaming and attach refuse forks) | `OPENCODE_DB = store` (`:memory:` is `unbound`) | default |
+| Pi | minted, `--session-id` | `--session <abs verified path>` | minted, `--fork <abs source> --session-id <new>` | `PI_CODING_AGENT_SESSION_DIR = store` (env only; Pi creates the dir) | header re-check plus the session-boundary record |
+| Cursor | no native identity | — | — | — | — |
+
+`continues_in_source_store` is `{resume, fork}` for Codex and OpenCode and `{resume}`
+for Pi. A continue then runs inside the recorded store. A recorded store that is not
+canonical refuses as `missing` before exec.
+
+## Runner pipeline
+
+In `lib/launch/native_run.py`:
+
+
+The process runner, the streaming runner and `streaming serve` call only these for
+identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
+
+1. **`bind_entry(attempt, spec, harness=…) -> NativeRun`**, once before exec. An
+   assigned ID binds as `assigned`; a `Conflict` raises `NativeEntryMismatch`. A
+   harness-assigned ID binds together with its store at the first observation, so
+   no chat ever holds an ID without a store.
+2. **`NativeRun.observe(id)`**: owned signals, live or the post-exit artifact ID.
+   Only the attempt's **first** signal can fail the run:
+   - if the harness was given a pre-exec ID, the first signal must equal it;
+   - a harness-assigned fork's first ID must differ from its source
+     (`fork_reused_source`).
+
+   Every signal then binds as `observed`. A later conflicting ID is diagnostic: the
+   store logs it once, and the run continues. This is the one drift rule that
+   replaced three runner copies that disagreed.
+3. **`NativeRun.note(id)`**: the connection's *current* ID after exit. It is always
+   diagnostic, because transports overwrite it on legitimate switches. Each
+   candidate is bound once per attempt.
+4. **`NativeRun.retry(attempt)`** re-arms the first-signal check for a new startup
+   attempt against the same pre-exec facts. On a Codex or OpenCode create retry,
+   attempt 2's new thread ID stays diagnostic, and the entry keeps attempt 1's ID.
+5. **`conclude_native_run(...)`**, once per attempt, **after the child exited and
+   teardown was joined**. The first error wins, and later identity steps are
+   skipped:
+   1. **Candidate first signal:** an ID extracted from artifacts. PR 2's F1b replaces
+      this with the live fold's first session ID.
+   2. **Current ID:** the connection's current ID goes to `note`.
+   3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
+      the run's entry is `NativeEntryMismatch`.
+   4. **Exit:** with no error and an exit key, `session_store.get_or_create_exit_chat`
+      allocates only when the exact resolver finds the file.
+   5. **One row write:** `run_boundary = RunBoundaryOutcome(status, exit_chat_id,
+      trampoline_successor_id)`.
+   6. **On error:** `record_identity_failure(...)`, the one lifecycle writer for
+      identity refusals.
+   7. **Otherwise:** `record_started`, with the accepted entry ID.
+
+**Why teardown comes first.** Exit evidence is written by the child as it shuts down.
+Real Pi showed the failure mode: the streaming runner read the boundary record about
+4 s before Pi wrote `quit`. The fix orders the read after `SpawnManager.join_teardown`;
+there is no polling or timeout
+([lesson](../lessons/native-session-identity.md#terminal-status-is-not-process-exit)).
+
+**Serve.** `streaming serve` concludes like the other runners. The original error
+survives, cleanup runs in `finally`, and the conclusion runs once.
+`LifecycleLog.for_spawn` builds the spawn-scoped lifecycle log.
+
+**Refusals before the runner** (launch preparation) pass through
+`ops/spawn/execute_runner.py`. There one `raise exc.for_ref(source_ref)` re-targets
+the message, and `ops/spawn/failure_policy.py` uses the typed `failure_code` as the
+terminal error.
+
+## Spawn row
+
+In `lib/state/spawn/model.py`:
+
+
+- **`chat_id`** is the entry chat, and it is immutable. There is no separate
+  `entry_chat_id`.
+- **`run_boundary: RunBoundaryOutcome | None`:**
+  - `status ∈ {verified, unresolved, mismatch}`;
+  - `exit_chat_id` is set exactly when `verified`; a validator enforces this;
+  - `trampoline_successor_id` is a Claude diagnostic that never binds.
+- **`SpawnRecord.continue_chat_id`** is the one post-run continue rule: a terminal
+  run's verified exit chat, otherwise the entry chat. The primary exit hint,
+  `--continue pN`/`--fork pN` and `session log pN` all use it.
+- **Dogfood rows.** A `model_validator(mode="before")` translates rows written by the
+  pre-restructure PR 1 dogfood build (`entry_chat_id`, `exit_chat_id`,
+  `exit_identity`, a top-level `trampoline_successor_id`). PR 3 deletes it.
+- **`run_boundary_summary(row)`** renders `entry cN (…) → exit …` for `spawn show`.
+
+The history-index `SCHEMA_VERSION` is 5 at PR 1's head. It was bumped at each
+serialized record shape change so that older builds refuse the index with a typed
+rebuild instruction instead of crashing
+([lesson](../lessons/dogfooding-pr-builds.md#a-pr-build-must-never-touch-a-real-runtime-root)).
+PR 2 bumps it to 6.
+
+## Source key
+
+`SessionRequest.source_native_store`, plus the requested native ID, is the only
+description of a resume or fork source. It flows:
+1. `ops/reference.py`, from the chat binding or the spawn row;
+2. continue replay;
+3. the fork request builder;
+4. `execute_runner`;
+5. the adapter template.
+
+`SessionRequest.source_ref` names the user's ref in refusals. A tracked source with no
+recorded store refuses as `unbound`. No launch or ops code carries a harness-specific
+source field ([why](../decisions/native-session-identity.md#one-recorded-source-key)).
+A spawned exact continue reuses the source chat; fresh and fork launches allocate new
+chats.
 
 ## Testing
 
-Reporting fakes must adopt `spec.native_identity_plan.harness_session_id`. A fixed
-fake ID correctly trips `entry_mismatch` (see `tests/AGENTS.md`). Native source
-fixtures must carry faithful headers (Claude `sessionId`, Codex `session_meta`); a
-`"{}\n"` stand-in now refuses as `missing`. The standard is POSIX `sh` harness shims
-at the real runner seams that emit real owned events, including prose, nested-key,
-no-event, contradictory-first-frame, and unrelated-concurrent-session negatives, for
-both runners. Add CLI probes against an isolated installed wheel
-(`--reinstall-package` with a unique wheel path so uv does not reuse a cached
-same-version build; inspect the installed source to confirm). For Pi, the built
-extension bundle runs in Node and the production Python reader consumes its record.
-`scripts/preflight.sh full` installs the locked Pi dependencies and builds the
-extension bundles before pytest and packaging, as CI does, so tests that run Node on
-the built bundle fail rather than skip when it is absent.
+- **Fakes.** Reporting fakes must adopt `spec.native_identity.session_id`; a fixed
+  fake ID correctly trips `entry_mismatch`.
+- **Fixtures.** Native source fixtures need faithful headers (Claude `sessionId`,
+  Codex `session_meta`); a `"{}\n"` stand-in refuses as `missing`.
+- **Shims.** The qualifying standard is POSIX `sh` harness shims at the real runner
+  seams. They emit real owned events, including negatives:
+  - prose;
+  - nested keys;
+  - no event;
+  - a contradictory first frame;
+  - an unrelated concurrent session.
+- **Refactor gates.** Refactors of the fold or the template are gated on real-data
+  equivalence:
+  - copied-journal byte equality;
+  - 1,000 generated histories;
+  - a launch-golden matrix of harness × operation × mode.
 
-That qualifies Meridian's boundary: bound key before exec, emitted argv, typed
-refusals, and exit mapping. It does not qualify a real harness's parser, lazy
-persistence, lifecycle races, credentials, or billing; the teardown-ordering defect
-above surfaced only in a real Pi run. See
-[native session identity lessons](../lessons/native-session-identity.md#green-suites-did-not-find-the-seam-defects).
+This qualifies Meridian's boundary. It does not qualify a real harness's lazy
+persistence, lifecycle races or credentials
+([lesson](../lessons/native-session-identity.md#green-suites-did-not-find-the-seam-defects)).
 
 ## Related
 
 - [Native session identity decision](../decisions/native-session-identity.md)
-- [Pi native sessions](pi-native-sessions.md)
+- [Native-only history decision](../decisions/native-only-history.md)
+- [Native transcript reads](native-transcript-reads.md)
+- [Legacy native import](legacy-native-import.md)
 - [Session state](state-system/session-state.md)
 - [Session reference resolution](../decisions/session-reference-resolution.md)
-- [Claude native sessions](claude-native-sessions.md)
 
-**Provenance:** `work:native-harness-session-identity`; lanes `spawn:p7038`,
-`spawn:p7040`, `spawn:p7041`, `spawn:p7054`; fix passes `spawn:p7043`, `spawn:p7048`,
-`spawn:p7058`, `spawn:p7061`, `spawn:p7064`; merges `spawn:p7057`, `spawn:p7063`;
-reviews `spawn:p7044`, `spawn:p7045`, `spawn:p7056`, `spawn:p7059`, `spawn:p7062`;
-merge `spawn:p7070`; whole-change review `spawn:p7072`, fix pass `spawn:p7076`,
-recheck `spawn:p7077`; real-Pi one-turn probe `spawn:p7075`. Legacy import: commits `96e146d0`, `ce8b6df5`, `8e8fe485`; review `spawn:p7091`,
-recheck `spawn:p7093` (`evidence/pr1-legacy-review.md`, `evidence/pr1-legacy-recheck.md`).
+**Provenance:** `work:native-harness-session-identity`:
+- `design/pr1-foundation-restructure.md`, revision 3 (reviews `spawn:p7092`,
+  `spawn:p7097`);
+- phase lanes P0 `spawn:p7100`, P1 `spawn:p7102`, P2 `spawn:p7114`, P4 `spawn:p7104`,
+  P3 `spawn:p7116`;
+- thermo recheck `spawn:p7120`, alignment review `spawn:p7121`, real-data probe
+  `spawn:p7122`, fix pass `spawn:p7126`;
+- earlier lanes and reviews are listed on the
+  [decision page](../decisions/native-session-identity.md);
+- code checked at `2eddcd68`, `spawn:p7133`.

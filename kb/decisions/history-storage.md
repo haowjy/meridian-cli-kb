@@ -45,6 +45,15 @@ Provenance: `work:next-minor-planning/design/native-capture-boundary-decision.md
 **Status:** Settled intent. Retention and bounded-preview implementations are
 approved on the feature branch but are not merged or released.
 
+**Partly superseded 2026-09-25** by [native-only history](native-only-history.md):
+- **Content authority.** For a bound chat, the transcript is the harness's own native
+  file. Meridian stops keeping its own runner copy: reads leave it in PR 2, and
+  writes stop in PR 3.
+- **Retained files.** Retained files and ZIPs now carry native snapshots of the bound
+  key. Old runner-history members restore as bytes but are not read.
+- **Still current:** SQLite is disposable and holds no unique fact.
+- **Reversed:** the "SQLite FTS" rejection below, for a disposable projection.
+
 **Decision:** Retained transcripts are ordinary, independently readable and
 transferable record files. Those files and verified immutable ZIPs preserve the
 transcript plus the identity and relationship facts needed to recover and re-index
@@ -60,12 +69,20 @@ the original harness store, or a running Meridian service. One authoritative fil
 model makes repair a rebuild instead of bidirectional reconciliation between two
 durable truths.
 
-**Rejected:** SQLite-authoritative transcripts, locator-only retention, SQLite FTS,
-a resident indexer, full-conversation caching, and a second transcript parser.
+**Rejected:** SQLite-authoritative transcripts, locator-only retention, SQLite FTS
+(reversed for search; see the status note), a resident indexer, full-conversation
+caching, and a second transcript parser.
 Database-file portability does not make the transcript independently readable, and
 each additional interpretation or service becomes another correctness dependency.
 
 ### D-history-bounded-preview: previews are disposable projections of canonical history (2026-09-14)
+
+**Partly superseded 2026-09-25** ([native-only history](native-only-history.md)):
+- **Checkpoints.** Previews read only native sources, so the append-only checkpoint
+  path for Meridian's runner streams is deleted.
+- **Rebuild.** `session index rebuild` no longer warms previews: the warm loop
+  re-folded and re-resolved every chat. Previews refresh lazily.
+- **Still current:** the rest (same normalizer, bounded cache, offline labeling).
 
 **Decision:** The browser caches a bounded recent-message projection produced by
 the same canonical normalizer as full reads. It does not cache grouped render
@@ -181,18 +198,13 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
-**Status:** Superseded as a future write-path decision by the settled, partially implemented but unshipped
-[native-session-identity design](native-session-identity.md). The stream-and-snapshot
-model below records the earlier choice and feature-branch work; clean `main` still
-writes runner history. Qualified snapshot preservation and inert legacy retention
-remain part of the replacement design.
-
-Pi grammar and preview compatibility, exact completed-primary handoff, archived-child
-warming, OpenCode raw-row preservation/shared interpretation, and exact native-identity
-selection with same-runtime known-owner checks are implemented and independently
-reviewed. Qualified snapshot publication, canonical validation, portability, model
-observation, four-harness workflows, and PR readiness remain open. PR #494 remains
-draft.
+**Status:** Superseded as a future write-path decision by
+[native-session-identity](native-session-identity.md) and
+[native-only history](native-only-history.md): runner history is neither read (PR 2)
+nor written (PR 3), and old runner-history files are not decoded. The stream-and-snapshot
+model below records the earlier choice. It is kept because it explains why the
+stream was once retained. Native snapshots survive in the replacement design as
+archive members of the bound key. Legacy runner-history members stay inert bytes.
 
 **Superseded decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
 Qualified native-primary history is published atomically as a separate snapshot

@@ -3,18 +3,22 @@
 
 Sessions track one immutable native key per chat (`harness`, `native_store`,
 `harness_session_id`), work-item attachment, primary-spawn relationships,
-and lifecycle (created → active → closed). The key is bind-once:
-`update_session_harness_id()` returns `bound`, `already_bound`, or `conflict`. Legacy
-multi-ID arrays are ignored on read (see
-[native session binding](../native-session-binding.md)). Chats from before the key
+and lifecycle (created → active → closed). The key only gains fields. Every write and
+replay goes through one pure rule, `bind(prior, attempted) → Bound | Same | Conflict`,
+and a conflict is never applied. The pure replay fold is public as
+`state/session_fold.py`, with `by_native_key` for the inverse lookup. Legacy multi-ID
+arrays are ignored on read (see
+[native session binding](../native-session-binding.md#binding)). Chats from before the key
 existed get their key only from the one-time
 [legacy import](../legacy-native-import.md#legacy-import). It binds through the same
 lock-scoped `state/session_binding.py` path with `source: legacy_import`, and it
 records its outcome in `legacy-native-import-v1.json` at the runtime root. `sessions.jsonl` is the sole authority
 for those facts. `sessions-index.sqlite3` is a metadata-only projection used for
 direct chat-ID and requested-subset reads. Cross-record browse and history discovery
-use the separate disposable history index; transcript bodies and full-text content
-are in neither SQLite projection.
+use the separate disposable history index; transcript bodies are in neither. Full-text
+search uses a third, native-keyed projection, `native-search-v<N>.sqlite3`. It holds
+normalized display text but no chat IDs and nothing that cannot be rebuilt from native
+files ([native transcript reads](../native-transcript-reads.md#search-projection)).
 
 `session_journal.py` certifies ordinary appends with a derived epoch in
 `sessions-append-state.json`. The certificate records source identity and file state,
@@ -48,7 +52,7 @@ from state, primary metadata, and that generation's session facts. Ambiguous or
 conflicting selection refuses capture; known same-runtime owners are a conservative
 read precondition, not permission to resume or proof against external writers. Native
 identity never changes re-entry authorization. See
-[Portable history](portable-history.md) for the remaining snapshot divergence.
+[Portable history](portable-history.md#archive-capture-is-native-only).
 
 `sessions.jsonl` also records `model_selection` events (legacy `initial_seed` or
 `invocation_started`). That is Meridian-selected intent for later continue, not

@@ -14,7 +14,7 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 **I-3 — DTO discipline.** `SpawnRequest` and `LaunchRuntime` are frozen Pydantic with JSON-safe field types. `LaunchContext` is a frozen dataclass. No `arbitrary_types_allowed`, no `Path` on `SpawnRequest`, no pre-composed intermediate DTOs that cache derived state. DTOs carry inputs; the factory produces outputs.
 
-**I-4 — Session ID observation is post-execution only.** `harness_adapter.observe_session_id()` is called once, after process exit, in the primary path. No mid-execution session ID extraction. Identity *assignment* is separate: an exact native key from the launch's identity plan is bound before exec, and observations can only confirm it or conflict with it ([native session binding](../architecture/native-session-binding.md)).
+**I-4 — One identity pipeline, concluded after teardown.** Every runner binds the finalized entry key once before exec (`bind_entry`). It feeds owned live session IDs to `NativeRun.observe`, and runs `conclude_native_run()` once per attempt, after the child exited and its teardown joined. The conclusion runs in a fixed order: post-exit IDs → adapter `observe_after_exit` → entry check → exit chat → one `run_boundary` write → failure record or attribution. Only an attempt's first owned signal can contradict a pre-exec fact; every later ID is diagnostic. Runners carry no identity code of their own ([native session binding](../architecture/native-session-binding.md#runner-pipeline)).
 
 **I-5 — Complete at construction.** `LaunchContext` is complete and immutable when the factory returns. No fields populated after construction by the caller.
 

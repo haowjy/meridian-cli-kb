@@ -1,13 +1,17 @@
 # Decision: Pin each chat to one native session; wrap native transcripts
 
-**Status: settled 2026-09-24; extended 2026-09-25** (one recorded source key,
-qualified-event identity for every harness, observed exit identity, Claude exit
-unresolved). Exact entry for all four tracked harnesses and Pi exit mapping are
-implemented on `fix/native-session-wrapper` (draft PR #520, head `95db4d03`), which
-passed a whole-change review on recheck. They are not merged to `main`. The one-time
-[legacy import](#chats-from-before-the-key-existed-import-once) is on slice branch
-`slice/pr1-legacy-import` (implementation `8e8fe485`, docs head `fc234735`), which will merge into PR #520. Native readers
-and runner-history removal have not started (see [Phases](#phases)). How the seams work:
+**Status: settled 2026-09-24; extended 2026-09-25.** Draft PR #520
+(`fix/native-session-wrapper`, head `2eddcd68`) implements all of it:
+- exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
+- the one-time [legacy import](#chats-from-before-the-key-existed-import-once);
+- Pi reopen-lineage reads;
+- the foundation restructure: one binding rule, one adapter template, one runner
+  pipeline.
+
+The user runs it as their installed `meridian`, but it is not merged to `main`. Reads
+and search moving off runner history are the
+[native-only history](native-only-history.md) decision (PR 2, in progress). See
+[Phases](#phases). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
 [Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
 [Claude native sessions](../architecture/claude-native-sessions.md).
@@ -48,10 +52,10 @@ has open now."
   `unresolved`, and the run's view stays on its entry chat.
 - **Meridian is a wrapper over harness-native transcripts.** The native journal is the
   conversation. Meridian's own `spawns/<id>/history.jsonl` runner stream is a second
-  copy that creates a second candidate authority, so new runner-stream writes are to
-  stop and existing files stay as labeled legacy evidence. SQLite stays a disposable
-  search/preview projection, never binding or transcript authority. The runner stream
-  is still written today; removal comes after native readers.
+  copy, and it creates a second candidate authority. Reads stop using it in PR 2 and
+  writes stop in PR 3. Old runner-history files are not decoded at all (the user
+  chose option C). SQLite stays a disposable search and preview projection, never
+  binding or transcript authority. See [native-only history](native-only-history.md).
 - **Not a new initiation mode.** `--from` (fresh session plus lightweight context),
   `--fork`/`--fork-fresh`, `-f`, and `spawn inject` keep their meanings. See
   [session initiation](../concepts/session-initiation.md).
@@ -157,6 +161,42 @@ the chat stays unbound until the first owned event, and that event binds ID *and
 store together. Binding an ID without its store left later reads to fall back to
 ambient roots.
 
+## One binding rule, one drift rule
+
+**Binding.** A chat's key only gains fields; it never changes them. One pure rule
+decides every write and every replay: `bind(prior, attempted)` returns
+- `Bound` when empty fields fill;
+- `Same` when nothing is new;
+- `Conflict` when a non-empty field differs.
+
+A conflict keeps the prior key and is logged once, by the writer. Bind sources are
+`assigned` (the pre-exec target), `observed` (an owned signal) and `legacy_import`.
+All three obey the same rule; none can overwrite another.
+
+**Drift.** An observed session ID fails a run only when it contradicts something
+Meridian fixed before exec:
+- if Meridian assigned an ID, the attempt's first owned signal must equal it;
+- a fork whose ID the harness assigns must not come back with its source's ID
+  (`fork_reused_source`).
+
+Every other observed ID is diagnostic. It may complete a key that has no ID yet, but
+it never fails the run and never changes the key. The connection's *current* ID is
+always diagnostic, because transports overwrite it on legitimate switches.
+
+**Why one rule.** Before the restructure, three runner copies had drifted apart. A
+post-exit contradiction failed the process runner, only warned in the streaming
+runner, and was never checked in `streaming serve`. Folding them into one pipeline
+named seven behavior changes, each with a red-first test. Two are material:
+- a Claude streaming spawn whose first ID contradicts its `--session-id` now fails
+  `entry_mismatch`; before, it only warned;
+- a Claude or OpenCode fork that reuses its source ID now fails in every runner.
+  Before, attach and post-exit bound the fork chat to the source's key, so two
+  chats held one key.
+
+**Keeping retries working.** Codex and OpenCode create retries still succeed. The
+first-signal check compares only against pre-exec facts, so attempt 2's new thread
+ID is diagnostic and the entry keeps attempt 1's key.
+
 ## Exit identity is observed or unresolved
 
 The entry key never moves. What the user ended on is a separate fact:
@@ -180,6 +220,21 @@ The entry key never moves. What the user ended on is a separate fact:
 Exit is presentation and ownership for the *next* conversation. It never changes
 what `--continue cN` means for the entry chat.
 
+**The run's record.** The spawn row keeps its entry chat as `chat_id`, which is
+immutable. It records one `run_boundary` outcome:
+
+| Status | Meaning | `exit_chat_id` |
+|---|---|---|
+| `verified` | An owned exit key was observed, and its native file exists | set (the owning or new chat) |
+| `unresolved` | No owned exit signal (Claude, Codex, OpenCode today), or Pi ended without a readable quit | none |
+| `mismatch` | The run failed `entry_mismatch` | none |
+
+"Continue after this run" has one rule, `continue_chat_id`: a terminal run's
+verified exit chat, otherwise the entry chat. The primary exit hint,
+`--continue pN`, `--fork pN` and `session log pN` all use it. An exit chat is created
+only when the exact native resolver finds the file. A never-saved `/new` in Pi
+therefore gets no dead chat.
+
 **Why the Claude successor is not an exit.** For one merge it was: when no adapter
 boundary existed, the runners passed the successor to the finalizer as an exit key.
 The whole-change review showed what the correlation actually checks. It scans
@@ -188,7 +243,7 @@ Claude's shared `history.jsonl` for the first new same-project session after A's
 correlates B with B, not B with A's process. In the installed wheel, A requested
 fullscreen and then exited with code 1 without any successor, while an unrelated B
 started in the same cwd within the window. The adapter returned B, the run recorded
-`exit_identity=verified`, and `session log pN` would show another person's
+a verified exit, and `session log pN` would show another person's
 conversation. Exit evidence must be launch-owned (correlated to the child Meridian
 started, like Pi's nonce- and PID-checked record). The `exit_key` plumbing was
 deleted rather than guarded, so there is one exit source.
@@ -224,29 +279,25 @@ The import's rules:
 - **Unknown identity stays unsupported.** Cursor, which has no native identity in
   PR 1, and restored historical records are counted `unsupported` and are not
   changed.
-- **Damaged sources defer the import.** If the import meets a quarantined spawn row,
-  an I/O error, a torn or changing OpenCode snapshot, or a failed strict row query,
-  it writes no marker and prints one warning, and the command continues. A failed
-  source must not be recorded as a permanent `missing`, and the import must not
-  block the CLI.
+- **Damaged sources defer the import.** A quarantined spawn row, an I/O error, or a
+  failed strict SQLite query writes no marker. One warning is printed, and the
+  command continues. A 15-minute backoff note keeps the commands in between quiet. A
+  failed source must not be recorded as a permanent `missing`, and the import must
+  not block the CLI.
 
-**Result on real state** (read-only report at `8e8fe485`): of 7,002 chats, 2,122 can
-be imported and 4,880 stay unresolved. A copy-based import found log c6988 and
-the dry-run continues of c6945 and c6992. The real `sessions.jsonl` was not written.
+**Result on real state.** Measured on a copy of the meridian-cli root at install
+time: of 7,004 chats, 2,133 imported, in 3.75 s. The rest stay unbound, mostly
+because their native files are gone:
+- Claude deletes transcripts after 30 days by default;
+- Codex rollouts from before 2026-06-23 are gone;
+- old Pi chats never recorded an ID;
+- Cursor is unsupported.
 
-**Pi scope is a brief constraint, not a harness limit.** Pi candidates are limited to
-Meridian's per-spawn Pi session dirs for the chat's own spawns, as the implementation
-brief required. PR 1 records the unscoped Pi session root for interactive primaries.
-The real root holds 32 top-level Pi session files; most belong to no recorded chat.
-A read-only comparison against the IDs on this project's own chat and spawn rows
-matched 7 of those files to 9 chats (c6386, c6424, c6435, c6463, c6518, c6689,
-c6907, c6936, c6959; one file is shared by c6518, c6689, and c6907). Those 9 chats
-stay `missing` under the current scope. The comparison shows where a widened scope
-would find candidates. It is not a bind result: no import has run under a wider
-rule. Whether to widen the candidate
-set is an open decision for the work-item lead. Treat these chats as out of scope,
-not as unbindable. Evidence: `evidence/pr1-legacy-import/pi-root-only-matches.json`
-in the work item.
+The candidate set includes Meridian's unscoped interactive Pi session root, where PR 1
+records interactive primaries. That root holds 9 chats whose files a per-spawn-only
+scope missed; all 9 imported. Meridian-flow imported 6,074 chats. For the chats left
+unbound, runner `history.jsonl` was the only other copy. Under
+[option C](native-only-history.md#old-runner-history-option-c-drop) it is not read.
 
 ## Rejected alternatives
 
@@ -274,6 +325,18 @@ in the work item.
   shared primary store would block every fresh launch. Minting skips unreadable
   headers with a warning. Source resolution and post-exit verification stay
   fail-closed.
+- **Failing a run on any observed ID that differs from the key.** Codex and
+  OpenCode create retries legitimately see a new thread ID on attempt 2, and a TUI
+  may switch sessions. Only a first signal that contradicts a pre-exec fact is fatal.
+- **Logging conflicts during replay.** The fold re-reported every historical
+  multi-ID chat on every command: 153 warnings per command on real data. Writers
+  log once, when a conflict is attempted.
+- **Letting the session store raise on conflict.** Whether a conflict is fatal
+  depends on whether the signal was the attempt's first, which only the run knows.
+  `SessionAttempt.bind` records and mirrors, and `NativeRun` decides.
+- **A runner-side `conclude_native_identity` on the adapter.** The adapter only
+  observes and returns a pure `PostExit`. The runner pipeline persists and decides,
+  so there is one "conclude" and a side-effect-free adapter.
 
 ## Accepted limits
 
@@ -298,11 +361,12 @@ in the work item.
 
 | Phase | Scope | State |
 |---|---|---|
-| 1 | Immutable binding, pre-exec plan seam, exact-only resolution; exact identity for Pi, Claude, Codex, OpenCode; one source key; header-validated locators; typed refusals | Implemented on draft PR #520; whole-change review PASS on recheck |
-| 1b | One-time exact legacy import of native keys (user decision "Auto-import once") | On slice branch `slice/pr1-legacy-import` (`8e8fe485`), reviewed and rechecked; final gate running; merges into PR #520 |
-| 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification | Implemented on draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified |
-| 3 (PR "E") | Native readers: `session log`/context/search on the exact key; Pi reopen-lineage view; rebuildable search; OpenCode report reads the recorded DB | Not started |
-| 4 (PR "F") | Remove runner-history (`history.jsonl`) writers/readers/checkpoints; measure cost | Not started |
+| 1 | Immutable binding, pre-exec plan seam, exact-only resolution; exact identity for Pi, Claude, Codex, OpenCode; one source key; header-validated locators; typed refusals | Draft PR #520; whole-change review PASS on recheck |
+| 1b | One-time exact legacy import of native keys (user decision "Auto-import once") | Merged into PR #520 |
+| 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification; post-run continue rule | Draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified (#521) |
+| 2b | Foundation restructure P0–P5 ([architecture](../architecture/native-session-binding.md)) | PR #520 at `2eddcd68`; thermo recheck and alignment review passed after one fix pass |
+| PR 2 | Native reads, native-keyed search, run facts off the stream ([decision](native-only-history.md)) | In progress on `feat/native-reads` |
+| PR 3 | Stop writing runner `history.jsonl`; drop redundant runner history for bound chats by an archive rule; delete the dogfood-row translator; measure cost | Not started |
 
 Verification standard: POSIX `sh` harness shims at the real runner seams, CLI probes
 against an isolated installed wheel with decoys and unrelated concurrent sessions,
@@ -313,7 +377,7 @@ one authorized model turn under Meridian (isolated store and home, `--offline`,
 native header UUID equals the assigned c1; `session log c1` and `--raw` print exactly
 the turn) and the typed pre-launch refusal after deleting the source file. It also
 exposed the teardown-ordering defect described in
-[native session binding](../architecture/native-session-binding.md#runner-order).
+[native session binding](../architecture/native-session-binding.md#runner-pipeline).
 Meridian-managed continue, fork, and switch → exit chat against real Pi need a second
 model turn or a driven TUI and have not been run. Real Claude, Codex, and OpenCode
 services have not been run against this change.
@@ -336,3 +400,11 @@ in `decision.md` ("USER DECISION — legacy chats — auto-import once"), brief
 `spawn:p7091` (`evidence/pr1-legacy-review.md`), recheck `spawn:p7093`
 (`evidence/pr1-legacy-recheck.md`), report `evidence/pr1-legacy-import-report.md`,
 Pi root comparison `evidence/pr1-legacy-import/pi-root-only-matches.json`.
+
+Foundation restructure and install: `design/pr1-foundation-restructure.md`; thermo
+reviews `spawn:p7083`–`spawn:p7085`; phases `spawn:p7100`, `spawn:p7102`,
+`spawn:p7114`, `spawn:p7104`, `spawn:p7116`; recheck `spawn:p7120`
+(`review/pr1-thermo-recheck.md`), alignment `spawn:p7121`
+(`review/pr1-alignment.md`), fix pass `spawn:p7126`
+(`evidence/pr1-p5-fixes-report.md`); install readiness
+`evidence/pr1-install-readiness-report.md`; conversation `chat:c6945`.

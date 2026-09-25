@@ -40,7 +40,7 @@ exact file.
 
 | Operation | Emitted | Identity |
 |---|---|---|
-| Create | `--session-id <uuid>` (typed spec field `claude_session_seed_id`) | Minted and bound before exec |
+| Create | `--session-id <uuid>` (from `NativeIdentity.session_id`, minted by `assign_session_id`) | Minted and bound before exec |
 | Resume | `--resume <id>` | Source verified and seeded before exec |
 | Fork | `--resume <id> --fork-session` | New ID unknown until Claude reports it; the first owned identity event binds ID and store together |
 
@@ -95,7 +95,7 @@ and the conversation continues under a different session ID. The entry chat's
 assigned ID then has little or no transcript. The real conversation is under the
 successor.
 
-**Detection** (`ClaudeAdapter.observe_primary_session_id`, after the attempt), file-based only:
+**Detection** (`ClaudeAdapter.observe_after_exit`, after the attempt), file-based only:
 
 1. If the recorded ID has a transcript, there is nothing to report.
 2. Otherwise, find the recorded ID with `display: "/tui fullscreen"` in Claude's own
@@ -104,8 +104,7 @@ successor.
 4. Accept it only if the successor's transcript starts with that prompt.
 
 **What the successor means: a diagnostic, nothing more.** It is returned as
-`trampoline_successor_id` on `PrimarySessionObservation` and persisted on the spawn
-row. It never rebinds the entry chat and never becomes an exit chat, so a Claude run's
+`PostExit.trampoline_successor_id` and persisted in the spawn row's `run_boundary`. It never rebinds the entry chat and never becomes an exit chat, so a Claude run's
 exit stays `unresolved`. `spawn show pN` prints `entry cA (<assigned>) → exit
 unresolved`, and `session log pN` shows the entry chat as an entry-based view. After
 a fullscreen switch that transcript may be nearly empty. `session log cA` fails
@@ -115,7 +114,7 @@ For one integration merge the successor was the run's exit key. The whole-change
 review reproduced why that was wrong. Steps 2–4 check that B's prompt starts B's own
 transcript, which ties B to B, not to A's process. An unrelated Claude chat started in
 the same cwd within the window passes the same checks, even when A exited with code 1
-and never made a successor. That run recorded `exit_identity=verified` for someone
+and never made a successor. That run recorded a verified exit for someone
 else's conversation. The exit-key derivation and the finalizer parameter were
 deleted. A verified Claude exit needs evidence correlated to the launched child, the
 way Pi's boundary record carries the launch nonce and child PID.

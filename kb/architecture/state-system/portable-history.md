@@ -1,25 +1,16 @@
 # Portable history, derived discovery, and ZIP retention
 
-**Checkout/design boundary:** This page describes clean-`main` and earlier
-feature-branch portable-history mechanisms. Clean `main` still writes
-`history.jsonl`; the settled, partially implemented but unshipped
-[native-session-identity decision](../../decisions/native-session-identity.md)
-supersedes the earlier plan to retain new runner-stream writes. Neither plan's
-unfinished native capture is a shipped live-read capability.
+**Readable record files and immutable ZIPs are retained-history authority. SQLite
+metadata, preview and search rows are disposable projections that can be rebuilt
+without losing history.** The same authority boundary governs discovery, preview,
+retention, transfer, and restore.
 
-**Readable record files and immutable ZIPs are history authority. SQLite metadata
-and preview rows are disposable projections that can be rebuilt without losing
-history.** The same authority boundary governs discovery, preview, retention,
-transfer, and restore.
-
-The feature branch implements and verifies bounded index initialization, Pi grammar
-and preview compatibility, exact completed-primary handoff, archived-child warming,
-and OpenCode raw-row interpretation. Exact native-identity selection is implemented
-and review-approved through `e2fea094`. The branch has not converged on qualified
-native snapshot publication, canonical validated reads, versioned repeated
-portability, model observation, or integrated
-four-harness readiness. The sections below distinguish implemented preconditions
-from that remaining divergence.
+**Scope.** This page covers retention, archive and restore. For a live bound chat,
+the conversation is the harness's native file, read through one resolver
+([native transcript reads](../native-transcript-reads.md)). Meridian's runner
+`history.jsonl` stops being read in PR 2 and stops being written in PR 3
+([native-only history](../../decisions/native-only-history.md)). Archives capture
+the bound key's native snapshot.
 
 ```mermaid
 flowchart LR
@@ -46,12 +37,9 @@ restored as historical, those fields remain provenance only: restore never turns
 foreign runtime ownership back on. This distinction prevents a portable identity
 from becoming permission to signal a process or resume a harness.
 
-On clean `main`, record streams remain append-only across retries and
-`history.jsonl` remains stream/retry evidence. The earlier feature branch planned
-to make a separately qualified snapshot canonical inside the same aggregate;
-that is no longer the live-read target. Under the replacement decision, exact
-harness-native history serves live reads, while qualified sealed copies may
-preserve offline history. Rendered reports are never transcript authority.
+Exact harness-native history serves live reads. Sealed native snapshots in
+archives preserve offline history. Rendered reports are never transcript authority,
+and neither is a runner event stream.
 
 ## One-way, rebuildable projections
 
@@ -73,10 +61,14 @@ selected portable digest. If that snapshot is offline, the system may show metad
 or a previously verified preview for the same digest, clearly labeled offline. It
 must not silently substitute an older but reachable snapshot.
 
-Rejected alternatives are SQLite FTS, a resident indexing service, a second
-transcript parser, and full-conversation caching. They duplicate authority or
+Rejected alternatives: a resident indexing service, a second transcript parser,
+and full-conversation caching as authority. They duplicate authority or
 interpretation, enlarge repair state, and make a disposable accelerator necessary
 for correctness.
+
+Search is the one full-text projection. It is a separate, native-keyed FTS5 file
+that stores no chat IDs and no unique facts. Every hit is re-verified against the
+live native source ([native transcript reads](../native-transcript-reads.md#search-projection)).
 
 ## Missing or outdated index initialization
 
@@ -113,8 +105,9 @@ corpora and cache state.
 Previews are a selected-row acceleration path, not a new transcript format. The
 canonical normalizer used for full reads feeds a bounded accumulator and persists
 only recent normalized messages, setup text, clipping state, and a refresh
-checkpoint. Ordinary metadata catch-up does not decode bodies. Explicit rebuild may
-warm previews through the same path; metadata-only rebuild leaves them cold.
+checkpoint. Ordinary metadata catch-up does not decode bodies. Rebuild leaves
+previews cold; browse refreshes them on demand. The old eager warm loop re-folded and
+re-resolved every chat.
 
 Selection first performs a bounded cache lookup without source reads or catch-up.
 Cached content may be shown as updating while a latest-only worker verifies or
@@ -122,19 +115,9 @@ refreshes the selected row. ZIP-derived previews are published only after requir
 members and bytes verify. Preview, selection, and direct archive read never restore
 or launch a record.
 
-Incremental checkpoints are limited to Meridian-controlled append-only streams. Two
-positions carry different meanings:
-
-- **Consumed extent** is the byte boundary through the last complete event already
-  parsed.
-- **Observed source size** is the file size witnessed when the checkpoint was made,
-  including an incomplete suffix.
-
-Real append growth can change the observed size while resuming from the consumed
-extent. New inodes, truncation, same-size rewrites, and false growth invalidate the
-checkpoint. Tail witnesses assume controlled append-only growth; they do not prove
-an arbitrary prefix rewrite followed by append. External edits require an explicit
-rebuild, while mutable native and OpenCode sources refresh from fresh snapshots.
+Previews read native sources only, and each refresh reparses the selected source.
+The complete-line checkpoint that once let previews resume Meridian's own
+append-only runner stream was deleted with the runner-history read path.
 
 Rejected preview alternatives include caching grouped render entries as if they were
 bounded messages, clipping only at render time, parsing the full conversation into
@@ -142,33 +125,20 @@ SQLite, adding a second parser, and hashing the full source on every append. The
 selected design keeps one interpretation path and treats a checkpoint witness as a
 narrow optimization rather than a generic mutation detector.
 
-## Native-primary capture: earlier branch, not the live read target
+## Archive capture is native-only
 
-Clean `main` still treats runner `history.jsonl` as stream/retry evidence. Earlier,
-PR #494 explored a separate canonical native snapshot while preserving that stream.
-That **stream-plus-snapshot live-read plan is superseded** by the
-[native-session-identity decision](../../decisions/native-session-identity.md):
-future live reads use the exact pinned harness-native source, and new runner-stream
-writes are removed. Qualified sealed native snapshots remain useful for offline
-retention, not as a second live conversation authority.
+Archive capture of a spawn resolves the exact native key recorded for that
+aggregate and publishes its snapshot. A spawn with no native source stays loose,
+with an explicit reason: unbound, legacy-only, a failed launch, or a bound chat whose
+file is gone. Archive readiness requires a transcript member, and there is no
+runner-history fallback. The earlier plan to keep the runner stream and add a
+separate canonical snapshot beside it (PR #494) is superseded.
 
-The earlier feature branch implemented several preconditions, not a complete
-snapshot or the new native-history-only path. Pi native `type=message` grammar and
-preview handling were repaired; exact completed-primary handoff and
-capture-purpose identity selection were added; OpenCode gained a raw MessageV2
-row interpretation. Its old ingest path still treats `history.jsonl` existence as
-completed capture, and canonical snapshot publication, validation and integrated
-runtime qualification remain open. These are facts about that unreleased branch,
-not instructions to preserve new runner-history writes.
-
-The selected capture timing remains **post-stop observation** associated with the
-exact completed primary, not reconstruction of bytes at a past launch-end instant.
-A delayed observation may include later native continuation and must state its
-scope. Existing lifecycle and same-runtime owner checks are safety preconditions,
-not a fence against external writers. Provider completeness, strict framing and
-positive valid-empty evidence remain necessary before a retained snapshot can
-justify reclaim; an incomplete native source cannot be relabeled complete because
-runner output exists.
+The selected capture timing is **post-stop observation** associated with the exact
+completed record, not a reconstruction of bytes at a past launch-end instant. A
+delayed observation may include later native continuation and must state its scope.
+Same-runtime owner checks are safety preconditions, not a fence against external
+writers.
 
 ## Verified publication and short reclaim serialization
 
@@ -222,19 +192,11 @@ may remap local aliases and clear live native ownership, but rearchive must carr
 original descriptor unchanged. The required round trip is archive -> restore ->
 rearchive -> restore with the original native store and first ZIP unavailable. Old
 archives keep their implicit `history.jsonl` member and original digest recipe; they
-are never rewritten or given fabricated descriptors.
+are never rewritten or given fabricated descriptors. Such a member still verifies and
+restores as bytes. `iter_archived_events` refuses to read it as a transcript
+(old-data option C).
 
-## Earlier feature-branch status and provenance
-
-The branch through `e2fea094` has implemented the initialization, interpretation,
-handoff, warming, raw-row, and exact-selection preconditions described above. It has
-not replaced the old `history.jsonl` existence no-op or envelope writer. Provider
-header/framing/revision/lineage/unfinished-tail/attachment qualification, fixed atomic
-snapshot and seal, canonical validated read/archive descriptor, repeated portability,
-last-executed-model metadata/index/defaults, real four-harness workflows, and final
-readiness remain open on that branch. PR #494 remains draft and unreleased; these
-completed substages neither implement the replacement decision nor complete the
-overall history goal.
+## Provenance
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
 `work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
@@ -251,6 +213,8 @@ Investigation update: `work:next-minor-planning/investigation-499-500.md`;
 `work:next-minor-planning/implementation-history-completion.md`;
 `work:next-minor-planning/reviews/499-opencode-closeout-review.md`;
 `work:next-minor-planning/reviews/499-capture-identity-review.md`.
+Native-only capture and inert legacy members: `work:native-harness-session-identity`
+(`evidence/pr2-a1-report.md`, `spawn:p7124`).
 
 ## Related
 

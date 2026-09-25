@@ -33,11 +33,16 @@ meridian.toml
       state.json                    — authoritative spawn row (schema v3)
       starting-prompt.md · prompt.md · report.md · heartbeat
       history.jsonl · stderr.log · params.json · tokens.json
-      attempt-N/ · runner-lifecycle.jsonl · process_scopes.json
+      pi-lifecycle.json · attempt-N/ · runner-lifecycle.jsonl · process_scopes.json
   artifacts/ · cache/ · .migrations.json
 
 <context.work root>/<slug>/         — context-resolved work state and artifacts
 ```
+
+`history.jsonl` is the runner's event stream. From PR 2 it is not read as a
+transcript, and from PR 3 it is not written: conversation content is the harness's
+native file ([native-only history](../../decisions/native-only-history.md)).
+`pi-lifecycle.json` holds the last Pi phase and cleanup status per attempt.
 
 `[project].id` selects the runtime directory. `user_paths.py` still reads a
 legacy `.meridian/id` when config has no ID; the first write migrates that value

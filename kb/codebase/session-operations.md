@@ -35,17 +35,22 @@ the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
 
 ## Transcript Source Resolution
 
-`session_target.py` resolves a user ref into an ordered `SessionLogTarget.sources` plan.
-`session_transcript.py` then parses sources in that order and uses the first one with
-usable user/assistant interaction content. Fallback is source-list iteration, not
-recursive target resolution.
+The current contract (PR 2, branch `feat/native-reads`) is **ref → chat → the chat's
+bound native key → that harness's exact reader**, through one function,
+`ops/session_target.resolve_transcript_source`. `session log`, export, preview and
+`search REF` all use it. The full ref table, view labels and search projection are in
+[native transcript reads](../architecture/native-transcript-reads.md).
 
-A **tracked chat** is narrower: it reads only its bound native key. If the chat
-has no key, or the key's transcript is missing or still pending, resolution raises
-`NativeSessionUnavailable(reason="unbound"|"missing"|"ambiguous_native_file")`.
-Candidate IDs, primary metadata, adapter scans, ambient harness roots, and runner
-history cannot stand in
-([native session binding](../architecture/native-session-binding.md)).
+- **A tracked chat reads only its bound native key.** If the chat has no key, or
+  its transcript is missing or still pending, resolution raises
+  `NativeSessionUnavailable(reason="unbound"|"missing"|"ambiguous_native_file")`.
+- **Nothing else can stand in:** not candidate IDs, primary metadata, adapter
+  scans, ambient harness roots, index rows, or Meridian's runner `history.jsonl`
+  ([native-only history](../decisions/native-only-history.md)).
+- **`--file PATH`** reads a native file. A runner `history.jsonl` is rejected as
+  "not a native transcript".
+- **Untracked raw IDs** keep a labeled lookup (`untracked`); they are not on any
+  tracked path.
 
 ### Claude: exact file in the recorded store
 
@@ -57,54 +62,41 @@ must equal the ID. A tracked record without a native store is `unbound`; its
 persisted `claude_config_dir` hint is not used to rebuild a path. The legacy
 `resolve_session_file` path serves only explicitly untracked references: a hint
 expands only to `<hint>/projects/<slug>`, and without one it uses the current config
-root. Codex reads the
-exact rollout under its recorded home, and OpenCode reads the exact recorded
-database. Pi requires the recorded store (below). See
+root. See
 [Claude native sessions](../architecture/claude-native-sessions.md#reading-transcripts).
 
-The rejected alternative still matters: persisting a resolved transcript *path*
-was rejected because Claude transcripts are re-seeded into other project stores on
-later launches. The key is store plus ID, and the file is re-resolved inside it.
+Persisting a resolved transcript *path* was rejected, because Claude transcripts are
+re-seeded into other project stores on later launches. The key is store plus ID, and
+the file is re-resolved inside it.
 
-### OpenCode source policy separates presentation from capture
+### Codex and OpenCode
 
-For spawn and untracked presentation targets, the provider-local OpenCode order is
-SQLite (`opencode.db`), legacy native JSON, then Meridian runner output
-(`spawn_history`). A tracked chat reads only its recorded database. Non-file sources are modeled explicitly as
-`TranscriptSource(kind="opencode_db", path=None)` rather than fabricated paths.
+Codex reads the exact rollout under its recorded home, header-checked. OpenCode reads
+the session row in the exact recorded database, opened `mode=ro`, and models the
+source as `TranscriptSource(kind="opencode_db", path=None)` rather than a fabricated
+path. An empty OpenCode session gives an empty view; there is no fallback to runner
+output. Reusable OpenCode SQLite fixtures live in `tests/support/opencode_db.py`.
 
-Presentation may still select retained stream evidence through indexed and legacy
-routes. Capture-purpose resolution deliberately bypasses those routes: it requires an
-exact completed local primary, singleton agreement on normalized harness/native
-identity, and no known same-runtime matching owner before or after the native read.
-It never discovers a native session or falls back to an owned stream. Child archive
-preparation remains stream-only and never takes native-primary fallback.
+### Archive capture
 
-These selection and ownership preconditions do not qualify provider contents. The
-old ingest path still treats `history.jsonl` existence as a completed capture and
-writes the old envelope. Until the qualified atomic native snapshot and shared
-canonical validation are implemented, neither provider-local precedence nor a
-successful OpenCode transaction proves completed-session authority. Known-owner
-checks are not an external-writer fence.
-
-Test coverage is split along the same seams: target/source ordering and DB-backed
-rendering live in session-log integration/unit tests, resident drain scope behavior
-lives with streaming tests, and reusable OpenCode SQLite fixtures live in
-`tests/support/opencode_db.py`.
+Archive capture resolves the exact native key recorded for the aggregate and
+publishes its snapshot. A spawn with no native source stays loose with a reason.
+Legacy runner-history members of old ZIPs restore as bytes and are never read as
+transcripts ([portable history](../architecture/state-system/portable-history.md#archive-capture-is-native-only)).
 
 ### Pi: exact file in the recorded store
 
 A Pi chat reads the single `*_<id>.jsonl` in its recorded store whose header ID
-matches. There is no discovery and no cross-spawn glob. Rendering is still in
-physical order, so abandoned sibling branches can appear until native readers land.
-See [../architecture/pi-native-sessions.md](../architecture/pi-native-sessions.md).
+matches. There is no discovery and no cross-spawn glob. The journal is projected onto
+Pi's reopen-default lineage before normalization, so abandoned sibling branches do not
+render. See [../architecture/pi-native-sessions.md](../architecture/pi-native-sessions.md#journal-topology-and-readback).
 
 ## Segment Model
 
-Claude compacts its conversation history when it grows beyond a threshold. Each compaction creates a new **segment**. The transcript is a sequence of segments, each being a self-contained window of conversation history:
-
-- `history.jsonl` — current (latest) segment
-- `history.compaction.1.jsonl`, `history.compaction.2.jsonl`, … — earlier segments, numbered oldest to newest
+Harnesses compact a conversation when it grows beyond a threshold. The normalizer
+splits the native transcript at each compaction boundary into **segments**. The
+transcript is a sequence of segments, each a self-contained window of conversation
+history. The latest segment is the default view.
 
 Every segment has an **entry 0** — the segment setup slot:
 

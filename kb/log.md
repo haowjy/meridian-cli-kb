@@ -3,6 +3,65 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — PR 1 restructure settled; native-only history (PR 2) captured
+
+PR 1 (#520) finished its foundation restructure (P0–P5, head `2eddcd68`). PR 2's
+settled decisions are captured while it is being built on `feat/native-reads`.
+
+- **New pages:**
+  - [decisions/native-only-history.md](decisions/native-only-history.md): why history
+    is native-only; old runner history option C (drop); the search projection
+    choice and its rejected alternatives; R2b's accepted trade-offs; the metadata
+    index calling the shared fold (R3); run facts; retention decisions.
+  - [architecture/native-transcript-reads.md](architecture/native-transcript-reads.md):
+    the one resolver, pN labels, the search projection, the emit path and the Pi
+    phase sidecar, each marked merged or designed.
+  - [lessons/dogfooding-pr-builds.md](lessons/dogfooding-pr-builds.md): PR builds on
+    real roots, nested-env pinning, `uv tool install` relinking, scratch placement,
+    and masked push exit codes.
+- **Rewritten:**
+  [architecture/native-session-binding.md](architecture/native-session-binding.md) now
+  describes the restructured seams. The deleted `NativeIdentityPlan`,
+  `verify_native_identity`, `finalize_run_boundary` and entry/exit spawn columns are
+  gone from the page.
+- **Updated:**
+  - [decisions/native-session-identity.md](decisions/native-session-identity.md):
+    status; the binding and drift rules; the run-boundary table; import results with
+    Pi interactive-root candidates; restructure rejected alternatives; phases for
+    PR 2 and PR 3.
+  - [architecture/legacy-native-import.md](architecture/legacy-native-import.md):
+    in-place OpenCode read, 15-minute deferral backoff, Pi root candidates.
+  - [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md):
+    reopen-lineage readback.
+  - [architecture/claude-native-sessions.md](architecture/claude-native-sessions.md):
+    `observe_after_exit`.
+  - [lessons/native-session-identity.md](lessons/native-session-identity.md):
+    `mode=ro` recalibrated; three new lessons.
+  - [lessons/harness-integration.md](lessons/harness-integration.md): harness store
+    env vars cleared in conftest.
+  - [principles/invariants.md](principles/invariants.md) I-4 and
+    [architecture/launch-system.md](architecture/launch-system.md): `conclude_native_run`.
+- **Stale runner-history claims removed:**
+  - [decisions/history-storage.md](decisions/history-storage.md) marks the parts that
+    are superseded (content authority, the FTS rejection, the runner-stream preview
+    checkpoint, eager preview warming).
+  - [architecture/state-system/portable-history.md](architecture/state-system/portable-history.md)
+    is scoped to retention and archive, with native-only capture.
+  - [codebase/session-operations.md](codebase/session-operations.md) gets the one
+    resolver; the nonexistent segment file names are removed.
+  - [codebase/session-log-rendering.md](codebase/session-log-rendering.md),
+    [codebase/vocabulary.md](codebase/vocabulary.md),
+    [codebase/harness-adapters.md](codebase/harness-adapters.md),
+    [architecture/state-system/overview.md](architecture/state-system/overview.md) and
+    [architecture/state-system/session-state.md](architecture/state-system/session-state.md)
+    are updated to match.
+- **Indexes:** [decisions.md](decisions.md) and [index.md](index.md) are updated.
+
+Provenance: `work:native-harness-session-identity`, `chat:c6945`; investigators
+`spawn:p7133` (PR 1 code), `spawn:p7134` (KB audit), `spawn:p7135` (PR 2 branch) and
+`spawn:p7136` (session mining).
+
+---
 ## 2026-09-25 — Native session identity: one-time legacy import (PR 1 slice)
 
 Captured the user decision "Auto-import once" and the slice at `8e8fe485`

@@ -18,9 +18,9 @@ Streaming adapters expose three optional facts on `HarnessConnection`:
   fields.
 
 Primary event scope is a classification boundary, not an event filter. Child Codex
-thread events and child OpenCode task-session events are still persisted to
-`history.jsonl` and visible through `meridian session log`; they just cannot complete,
-fail, or clear signals for the parent spawn. `PrimaryEventScope` is the single drain
+thread events and child OpenCode task-session events are still delivered to
+subscribers; they just cannot complete, fail, or clear signals for the parent
+spawn. `PrimaryEventScope` is the single drain
 contract for this behavior; semantic helpers and coordinators should not grow
 harness-specific compatibility parameters. OpenCode report extraction uses the same
 boundary so child assistant text cannot become the parent `report.md`.
@@ -207,15 +207,16 @@ See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the q
 
 ## Claude TUI Trampoline Successor
 
-Claude's `observe_primary_session_id()` detects the `/tui fullscreen` trampoline from
-Claude's own `history.jsonl` and returns the verified successor as
-`trampoline_successor_id`, separate from entry identity. The runner persists it on
-the spawn row as a diagnostic only. It never rebinds the entry chat and never becomes
+Claude's `observe_after_exit()` detects the `/tui fullscreen` trampoline from
+Claude's own `history.jsonl` (Claude's prompt log, not Meridian's runner history). It
+returns the successor as `PostExit.trampoline_successor_id`, separate from entry
+identity. The runner pipeline persists it in the spawn row's `run_boundary` as a
+diagnostic only. It never rebinds the entry chat and never becomes
 the run's exit, so Claude exit stays `unresolved`. Detection is file-based only. See
 [Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline).
 
 No adapter has a filesystem identity leg. Identity comes from the assigned plan or
-qualified owned events. Pi additionally reports exit through `observe_run_boundary`
+qualified owned events. Pi additionally reports exit through `observe_after_exit`
 ([Pi exit observation](../architecture/pi-native-sessions.md#exit-observation)).
 
 ## Related Pages

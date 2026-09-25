@@ -80,9 +80,10 @@ coordinated final gates/PR/release.
 
 ### Primary identity binding
 
-A launch whose finalized `native_identity_plan` carries an ID (minted create,
-verified resume, fork target) binds that key to the chat before exec. Only a plan
-without an ID (Claude fork) waits for the first owned observation. The native fork's
+A launch whose finalized `NativeIdentity` carries an ID (minted create, verified
+resume, minted or pre-forked fork target) binds that key to the chat before exec
+(`bind_entry`). An identity without an ID, meaning the harness assigns it (Codex and
+OpenCode create, Claude and OpenCode fork), waits for the first owned observation. The native fork's
 source parent is never bound as the child. A contradicting initial identity fails the
 attempt as `entry_mismatch`. See [native session binding](native-session-binding.md).
 
@@ -282,7 +283,7 @@ graph TD
    - Materializes fork if needed (only after row exists — invariant I-10)
    - **Rebuilds `LaunchContext`** with real paths (report path, actual state root, work_id)
    - Runs PTY or pipe subprocess
-   - Finalizes inline; calls `observe_session_id()` once post-execution
+   - Finalizes inline; calls `conclude_native_run()` once per attempt after teardown
 
 Two-phase context building is intentional: the preview context exists for `--dry-run` display; the runtime context drives actual execution with concrete paths.
 
@@ -413,7 +414,7 @@ The full 13 invariants live at `.meridian/invariants/launch-composition-invarian
 |-----------|------|
 | I-1 | All composition happens inside `build_launch_context()` |
 | I-2 | No driving adapter reconstructs argv, env, or permissions independently |
-| I-4 | `observe_session_id()` called exactly once post-execution (primary path) |
+| I-4 | `conclude_native_run()` once per attempt after teardown joins: IDs → adapter → boundary → attribution |
 | I-5 | `SpawnRequest` / `LaunchRuntime` carry no derived state; `LaunchContext` complete at construction |
 | I-10 | Fork materialization happens only after spawn row exists |
 | I-13 | `LaunchContext.warnings` is the sole channel for composition warnings |

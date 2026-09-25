@@ -88,7 +88,7 @@ file. Shims for exit evidence must write it late, during termination, or they ca
 catch an early read.
 
 **Where this lives:** `launch/streaming_runner.py` (teardown join before
-`finalize_run_boundary`), `tests/integration/launch/test_pi_run_boundary.py`.
+`conclude_native_run`), `tests/integration/launch/test_pi_run_boundary.py`.
 Provenance: `work:native-harness-session-identity` (`spawn:p7075`,
 `evidence/lane-q3-report.md`; fix `spawn:p7076`, commit `9eba09a2`).
 
@@ -146,14 +146,127 @@ read, not from an error that was swallowed. A migration that runs at a common st
 point has to fail soft, and its per-item cost has to be measured at real scale while
 the relevant locks are held.
 
-A related trap: SQLite `mode=ro` does not mean the source files stay untouched. A
-read-only connection to a WAL database can still write shared-memory read marks. When
-an import promises not to write native stores, copy the files and open the copy.
+**A related trade-off: `mode=ro` is not "untouched".** A read-only SQLite
+connection to a WAL database can still write shared-memory read marks. The import's
+first fix copied the OpenCode DB and WAL and fingerprinted the copy. That cost about
+6 GB of scratch and 17–26 s per attempt on a 6.3 GB live database. The copy also ran
+again on every deferred attempt while OpenCode kept writing. The shipped import reads
+in place through the same strict `mode=ro` reader that live reads use:
+- read marks are what every reader of that database writes, OpenCode included;
+- strict queries still raise instead of reporting "absent";
+- a failed attempt still defers, now with a 15-minute backoff note.
+
+Copy only when a promise of zero writes matters more than the copy's cost.
 
 **Where this lives:** `ops/legacy_native_import.py`, `harness/legacy_native_stores.py`,
 `state/session_binding.py`, `tests/integration/ops/test_legacy_native_import.py`.
 Provenance: `work:native-harness-session-identity` (review `spawn:p7091`, recheck
-`spawn:p7093`, `evidence/pr1-legacy-recheck-wal-race.py`).
+`spawn:p7093`, `evidence/pr1-legacy-recheck-wal-race.py`; in-place read and backoff:
+`evidence/pr1-install-readiness-report.md`).
+
+---
+
+## Restructure Before Stacking
+
+**What happened:** PR 1 passed its whole-change review, and the next two PRs were
+planned to stack on it. A thermo-nuclear review then ran three independent lanes:
+state, runners and harness. All three said **restructure before stacking**, and
+they converged on the same defects:
+- **Three drifted copies of the runner identity pipeline:** the process runner, the
+  streaming runner and `streaming serve`. The drift was real: a post-exit observed-ID
+  contradiction failed the process runner but only warned in streaming, and serve had
+  no entry verification at all.
+- **The binding rule written three times** in the session store, with conflict
+  logging inside the pure replay fold. That was the source of 153 warnings per
+  command on real data.
+- **Stringly identity errors,** and an overloaded `locator` field.
+- **Three single-harness post-exit hooks,** plus dead hooks.
+- **Write-only copies** of entry and exit facts on the spawn row and in primary
+  metadata.
+
+**The tempting path:** stack PR 2 now and clean up later. PR 2's readers would then
+have been written against names the cleanup renames, and against a pipeline whose
+three copies disagreed.
+
+**What worked:** one reconciled design, then five phases in parallel worktrees:
+- P0: types and errors.
+- P1, P2 and P4 in parallel: store binding, harness pre-exec, spawn row.
+- P3: the runner pipeline.
+- P5: verification.
+
+Each phase had to leave the files over 1,000 lines smaller. Each was gated on
+behavior equivalence against real data:
+- the session fold over a copied 7,000-chat journal serialized byte-equal;
+- 1,000 generated histories matched;
+- a launch-golden matrix pinned argv, env and refusals across harness × operation.
+
+The behavior changes were few, named, and each had a red-first test. The
+restructure also produced the seams PR 2 needed: `by_native_key`,
+`SpawnRecord.continue_chat_id`, and a single artifact identity read for PR 2 to
+delete. PR 2's design, measurement and first slices ran in parallel with P3.
+
+**The lesson:** when independent reviewers converge on duplicated policy under a PR
+that others will build on, consolidate first. Gate the consolidation on real-data
+equivalence, not only on the suite. Let the next PR's seams be the restructure's
+outputs.
+
+Provenance: `work:native-harness-session-identity`:
+- `review/thermo-state.md`, `review/thermo-runners.md`, `review/thermo-harness.md`
+  (`spawn:p7083`–`spawn:p7085`);
+- `design/pr1-foundation-restructure.md`;
+- phase lanes `spawn:p7100`, `spawn:p7102`, `spawn:p7114`, `spawn:p7104`,
+  `spawn:p7116`;
+- recheck `spawn:p7120`, alignment `spawn:p7121`, probe `spawn:p7122`, fix pass
+  `spawn:p7126`.
+
+---
+
+## A Projection That Re-derives the Authority's Rule Drifts From It
+
+**What happened:** PR 2's design took search bindings from the metadata index's
+`sessions` projection, to avoid folding the 10.8 MB `sessions.jsonl` on every search.
+The precondition was that the projection "folds keys the way the authority does". On
+the real journal, all 7,025 chats agreed, so the gap looked structural only.
+
+R3 reproduced the gap on synthetic roots before writing any code. The index started
+each generation from an empty record:
+- a key-less resume generation read as unbound;
+- a conflicting start created a generation that the authority rejects.
+
+Real data had agreed only because neither shape had happened yet.
+
+**What worked:** R3 stopped at its API gate instead of patching the index. The fold's
+per-event generation step became one public pure function in `state/session_fold.py`.
+The authoritative fold and the index's incremental catch-up both call it, and the
+existing 1,000-seed equivalence test guards it.
+
+**The lesson:** a projection that needs an authority's rule must call the
+authority's code, not restate it. "All real rows agree" is not evidence of
+equivalence; build the divergent shapes on purpose.
+
+Provenance: `work:native-harness-session-identity` (`evidence/pr2-r3-report.md`,
+`spawn:p7128`; `decision.md` "R3 escalation → fold extraction authorized").
+
+---
+
+## `pytest -x` in a Slice Gate Hides the Next Stale Test
+
+**What happened:** PR 2 slice F2 intentionally removed two behaviors:
+- the reaper's history-mtime sign of life;
+- the transcript hint for spawns with only runner history.
+
+Its gate ran `pytest -x`, stopped at the first stale test, and that test was fixed.
+Two more stale tests further down the suite never ran in the slice gate. They
+surfaced only in the integration branch's full run, after the merge.
+
+**The lesson:** a slice that deliberately changes behavior should run the full suite
+without `-x` once. That enumerates every test encoding the old behavior, so they are
+fixed in one sweep. CI can keep `-x`, because there a first failure is enough to
+block.
+
+Provenance: `work:native-harness-session-identity` (`decision.md` "P5 fix pass
+merged into PR 1; PR 2 gate red on two F2-stale tests";
+`evidence/pr2-stale-tests-report.md`).
 
 ---
 

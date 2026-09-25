@@ -140,9 +140,8 @@ through a second parser.
 
 Selection performs a cache-only lookup first. A latest-only worker resolves and
 refreshes the selected source outside the UI path, with cancellation between
-records and expensive stages. Controlled append-only streams may resume at a
-complete-line checkpoint. Native mutable sources reparse from a consistent fresh
-snapshot. ZIP previews publish only after required members and bytes verify, so
+records and expensive stages. Sources are native only, and each refresh reparses the
+selected source from a consistent fresh read. ZIP previews publish only after required members and bytes verify, so
 early iterator close cannot be mistaken for archive verification.
 
 Clipping has two layers and both remain visible: the bounded projection can omit

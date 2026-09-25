@@ -72,8 +72,8 @@ succeeds on the recorded ID rather than guessing.
 
 **Implementation:** `reconcile_tui_trampoline_session_id()` in
 `src/meridian/lib/harness/claude.py`, wired into
-`ClaudeAdapter.observe_session_id()`. Called by `runner.py` during primary
-finalization. Current mechanism: [../architecture/claude-native-sessions.md#tui-trampoline](../architecture/claude-native-sessions.md#tui-trampoline).
+`ClaudeAdapter.observe_session_id()` at the time; today it runs from
+`ClaudeAdapter.observe_after_exit()` as a diagnostic only. Current mechanism: [../architecture/claude-native-sessions.md#tui-trampoline](../architecture/claude-native-sessions.md#tui-trampoline).
 
 ## Related
 

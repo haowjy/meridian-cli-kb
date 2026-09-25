@@ -2,8 +2,8 @@
 
 ## Legacy import
 
-Slice branch `slice/pr1-legacy-import` at `8e8fe485` (merging into PR #520). The
-rules and the user decision behind them are in the
+Implemented on draft PR #520 (`fix/native-session-wrapper`), and run on the user's
+installed PR 1 build. The rules and the user decision behind them are in the
 [decision](../decisions/native-session-identity.md#chats-from-before-the-key-existed-import-once).
 
 **Trigger.** `ops/runtime.py`'s `resolve_runtime_authority_for_read` and
@@ -35,7 +35,7 @@ runs do nothing more than check for it.
 
 The lock order is import lock, then history-mutation lock, then sessions lock. Native
 I/O and the spawn scan happen before the sessions lock is taken, so live launches are
-not blocked behind the Codex walk or the OpenCode copy.
+not blocked behind the Codex walk or the OpenCode reads.
 
 **Crash recovery.** If the process dies after the append but before the marker, the
 next run starts again. Chats that already have a `legacy_import` row are counted as
@@ -53,29 +53,31 @@ are ignored.
 |---|---|---|
 | Claude | `<config root>/projects/<slug>` for each distinct recorded cwd of the chat and its spawns. The config root is the recorded `claude_config_dir`, else the default home. | First-line `sessionId` of `<store>/<id>.jsonl` |
 | Codex | `<home>/sessions` from recorded launch-policy env, else the default home. Relative homes resolve against a recorded cwd. | One `rglob` per store builds an ID→paths index, then the shared `codex_rollout.resolve_exact_rollout` validates it (the same function live reads use): more than one file is `ambiguous_native_file`, otherwise `session_meta.payload.id` must match |
-| OpenCode | Resolved DB path from recorded env, else the default | Strict `SELECT 1 FROM session_v2` (or `session`) on a private snapshot (see below) |
-| Pi | `<meridian pi sessions root>/<spawn_id>/` for the chat's own spawns only | Pi `session` header `id` |
+| OpenCode | Resolved DB path from recorded env, else the default | The adapter's exact reader, in place, opened `mode=ro`; SQL errors raise |
+| Pi | Meridian's unscoped Pi sessions root (where interactive primaries live), plus `<root>/<spawn_id>/` for the chat's own spawns | Pi `session` header `id`; a match in more than one candidate is `ambiguous` |
 | Cursor, historical records | none: `unsupported` | — |
 
-**OpenCode snapshot.** The import never opens the source database with SQLite. The
-module's comment explains why: a `mode=ro` connection can still write WAL
-shared-memory read marks. Instead, the import copies the DB, and the WAL if present,
-into a temporary directory once per store per import. It records a fingerprint before
-and after the copy: inode, size, and mtime for both files, plus the WAL's 32-byte
-header with its salts. If the fingerprint changed, a checkpoint or WAL restart may have
-torn the snapshot. The import then raises and is deferred. Row lookups use a strict
-query that raises on `sqlite3.Error` instead of returning "absent". Before this fix,
-a torn copy made 201 of 251 existing sessions read as absent in a reproduction, and
-the marker would have made that result permanent. Cost on the live 6 GB database is
-about 6 GB of scratch space and 17–26 s. Each runtime root pays this once, and only
-when it has unbound OpenCode chats; the dev report pays it as well.
+**OpenCode reads in place.** The import calls the same exact `mode=ro` reader that
+live reads use, on the live database. It writes the WAL shared-memory read marks
+that any SQLite reader writes, OpenCode included. An earlier cut copied the DB and
+WAL to a private snapshot and fingerprinted it to detect a torn copy. That cost about
+6 GB of scratch and 17–26 s per attempt on the 6.3 GB live DB, and it re-ran on every
+deferred attempt while OpenCode kept writing. What still matters from that cut: a
+lookup that hits `sqlite3.Error` raises instead of reporting "absent". A swallowed
+error once made 201 of 251 sessions look absent, and the marker would have made that
+permanent ([lesson](../lessons/native-session-identity.md#a-once-only-marker-turns-transient-failures-into-permanent-ones)).
 
-**Deferral.** `SpawnStateQuarantined`, `OSError`, and `sqlite3.Error` are caught
-around the whole import. The command prints `Native session import deferred for …`,
-writes no marker, and continues. Quarantined spawn rows are not skipped, because they
-could carry a conflicting ID. A deferred import runs again on every command until the
-source is repaired. Journal rows with the wrong shape (non-dict records, non-string
-cwds, null ID arrays) are skipped rather than raised.
+**Deferral.** `SpawnStateQuarantined`, `OSError` and `sqlite3.Error` are caught
+around the whole import. Then:
+- no marker is written;
+- the command prints `Native session import deferred for …` and continues;
+- an atomic `legacy-native-import-deferral.json` note starts a 15-minute backoff,
+  so commands inside the window skip the import quietly;
+- success removes the note and writes the marker.
+
+Quarantined spawn rows are not skipped, because they could carry a conflicting ID.
+Journal rows with the wrong shape are skipped rather than raised: non-dict records,
+non-string cwds, null ID arrays.
 
 **Report mode.** `python -m meridian.lib.ops.legacy_native_import RUNTIME_ROOT` prints
 the report JSON. It skips CLI startup, runtime resolution, telemetry, and the automatic
@@ -85,9 +87,13 @@ development entry point, not a CLI command.
 **Cost.** The first cut appended each bind separately, with three fsyncs per bind
 while holding the sessions lock. A synthetic run of 3,000 Claude imports took 180.9 s.
 Batching the append in one `SessionBindings` commit brought that to about 0.5 s.
+On a copy of the real meridian-cli root, the whole import, 2,133 of 7,004 chats,
+took 3.75 s.
 
 
 **Provenance:** `work:native-harness-session-identity` (user decision "Auto-import
 once" in `decision.md`; brief `prompts/pr1-legacy-import.md`); commits `96e146d0`,
 `ce8b6df5`, `8e8fe485`; review `spawn:p7091` (`evidence/pr1-legacy-review.md`),
-recheck `spawn:p7093` (`evidence/pr1-legacy-recheck.md`).
+recheck `spawn:p7093` (`evidence/pr1-legacy-recheck.md`); in-place OpenCode read,
+deferral backoff and Pi root candidates `evidence/pr1-install-readiness-report.md`
+(commits `5695f5c9`, `38e40862`, `a3769c39`).

@@ -3,13 +3,11 @@
 Pi stores each conversation as one JSONL journal. This page owns Pi-specific journal
 behavior, exit observation, and readback. The cross-harness identity rule is in the
 [native session identity decision](../decisions/native-session-identity.md), and the
-shared plan/bind/verify/boundary mechanics are in
-[native session binding](native-session-binding.md). Exact identity and exit
-observation are implemented on `fix/native-session-wrapper` (draft PR #520), not on
-`main`.
-Clean `main` still discovers fresh primaries from disk. Readback is still
-physical-order: Pi journals are append-only *trees*, and Meridian's renderer still
-flattens them. Native readers on the reopen lineage have not started.
+shared template and runner pipeline are in
+[native session binding](native-session-binding.md). Exact identity, exit
+observation and reopen-lineage readback are implemented on `fix/native-session-wrapper`
+(draft PR #520), not on `main`. Clean `main` still discovers fresh primaries from
+disk and flattens Pi's journal trees in physical order.
 
 ```mermaid
 flowchart TD
@@ -100,14 +98,14 @@ one Meridian spawn with a single authorized model turn.
 ## Meridian's identity operations
 
 Implementation: `harness/pi_identity.py` (header read, mint, exact resolve, verify,
-argv projection) and `harness/pi.py` (plan/finalize/verify hooks). The TUI primary and
-RPC spawn projections share the same argv.
+argv projection) and `harness/pi.py` (the adapter primitives: store, pin, mint, and
+`observe_after_exit`). The TUI primary and RPC spawn projections share the same argv.
 
 - **Passthrough refusal.** Raw `--session`, `-c/--continue`, `-r/--resume`,
   `--session-dir`, `--session-id`, `--fork`, and `--no-session` (including `=value`
   forms) are refused. They would override managed identity, store, or persistence.
-- **Post-attempt target check.** `verify_native_identity` checks only the assigned
-  file. This is about the entry target; what the user ended on is
+- **Post-attempt target check.** `observe_after_exit` first re-verifies only the
+  assigned file (`verify_identity`), then reads the boundary record. This is about the entry target; what the user ended on is
   [exit observation](#exit-observation). A create
   may still be pending. A resume must be the same absolute path. A fork's header must
   carry the new ID and `parentSession` equal to the source path. A contradiction fails
@@ -141,14 +139,14 @@ and `harness/pi_boundary.py:read_boundary` reads it once after the process exits
 - **Reading.** Missing, oversized, corrupt, wrong-version, wrong-nonce, wrong-PID, or
   poisoned records yield no observation. `initial` is compared with the entry key
   (mismatch fails the run; see
-  [runner order](native-session-binding.md#runner-order)). Exit is `quit` only when
+  [runner order](native-session-binding.md#runner-pipeline)). Exit is `quit` only when
   `last_event` is `session_shutdown` with reason `quit`.
 - **When.** Pi's shutdown hook runs only as the process shuts down, which can be
   seconds after the RPC turn completes and Meridian publishes terminal status. The
   record is therefore read after the runner has joined the child's teardown. The
   first wiring read it right after the turn, got the pre-quit revision, and left the
   real-Pi run `exit unresolved`; see
-  [runner order](native-session-binding.md#runner-order).
+  [runner order](native-session-binding.md#runner-pipeline).
 
 **What real Pi 0.87.1 emits.** Hooks get a per-invocation `ctx`, and Pi invalidates
 extension contexts on session replacement (`newSession`, `fork`, `switchSession`,
@@ -199,17 +197,25 @@ When Pi appends an entry, it becomes a child of the process's current leaf, and
 branching moves that in-memory leaf. No leaf event is persisted. When Pi loads a file,
 the leaf is the **last physical entry**, and model context is the root-to-leaf path.
 
-Meridian's `TranscriptNormalizer._pi_journal()` (`harness/transcript.py`) walks
-physical order and inserts a "parent changed; continuing a different branch" note on
-divergence. It does not project the active ancestry, so abandoned sibling branches
-render inline, and `tests/unit/harness/test_transcript_parser.py` pins this. A
-rendered message may never have been on the active branch. Model context follows Pi's
-leaf, not the flattened view. Phase 3 replaces this with the reopen-lineage projector
-salvaged from the comparison branch.
+Meridian reads the same view Pi reopens. `harness/pi_journal.py` projects the
+journal onto Pi's reopen-default root-to-leaf chain before common normalization, so
+`session log cN` excludes abandoned sibling branches. The projector mirrors Pi
+0.87.1's loader (`parseSessionEntries`, `_buildIndex`, `getBranch`):
+- malformed rows are skipped;
+- a duplicate entry ID is last-write-wins, like Pi's `Map.set`, and the view is
+  marked partial;
+- a missing parent keeps the chain Pi can build and is marked `missing_parent`;
+- cycles are guarded rather than followed.
+
+The result carries `view_basis="reopen-default"` and completeness reasons, which
+render as `partial: <reason>`. A partial Pi source is not `search_ready`. The earlier
+physical-order walk, which rendered abandoned branches inline behind a "parent
+changed" note, was deleted.
 
 ## Related Pages
 
-- [native-session-binding.md](native-session-binding.md): cross-harness plan/bind/verify seams
+- [native-session-binding.md](native-session-binding.md): cross-harness template and runner pipeline
+- [native-transcript-reads.md](native-transcript-reads.md): the one read resolver and search projection
 - [../decisions/native-session-identity.md](../decisions/native-session-identity.md): the rule, rejected alternatives, phases
 - [claude-native-sessions.md](claude-native-sessions.md): Claude's shared-store problem, exact source seeding, trampoline exit
 - [../codebase/session-operations.md](../codebase/session-operations.md): transcript source resolution
@@ -224,4 +230,4 @@ review `spawn:p7037`, Pi lane `spawn:p7040`, review `spawn:p7045`, integration
 `spawn:p7060`, fixes `spawn:p7061`, `spawn:p7067`, `spawn:p7076`; real-Pi zero-turn
 probe `spawn:p7065`, `evidence/lane-q-report.md`, `evidence/lane-d-fix2/`; one-turn
 probes `spawn:p7073` (`evidence/lane-q2-report.md`) and `spawn:p7075`
-(`evidence/lane-q3-report.md`)).
+(`evidence/lane-q3-report.md`)); reopen lineage `spawn:p7081` (`evidence/slice-e1-report.md`).

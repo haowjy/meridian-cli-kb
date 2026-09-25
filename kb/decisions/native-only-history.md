@@ -2,11 +2,19 @@
 
 **Status: settled 2026-09-25.** User decisions: three stacked PRs; old runner history
 option C (drop). Reads, search and run facts move off runner `history.jsonl` in
-**PR 2** (branch `feat/native-reads`, stacked on PR #520). That PR is still being
-built, and each section below says what is merged on the branch and what is only
-designed. **PR 3** stops writing the stream. How the reads work:
+**PR 2** (branch `feat/native-reads`, stacked on PR #520). **PR 3** stops writing the
+stream. How the reads work:
 [native transcript reads](../architecture/native-transcript-reads.md). The identity
 rule this builds on: [native session identity](native-session-identity.md).
+
+**PR 2 state at `1124ef38`:**
+- **Merged:** R1 (one read resolver), R2a (projection store), F1a (emit path),
+  A1 (native-only archive capture), F2 (stream-backed diagnostics removed),
+  R2b (search).
+- **In flight:** R3 (the metadata index calls the shared fold) and F1b (run facts
+  from the live fold). Until F1b lands, report, usage and output checks still read
+  the stream.
+- **Last:** V (history-blind suite, before/after measurement, docs).
 
 ## Decision
 
@@ -34,10 +42,14 @@ harness's reader.**
 
 ### Why
 
-The user's framing (2026-09-25): "stop relying on history.jsonl for anything … i
-don't think claude even relies on history.jsonl", and switching mid-session "looks
-like it will break history.jsonl and is just extra processing that we are basically
-wasting".
+The user's framing:
+- The goal of the work item was to "get rid of my kind of stupid idea of having some
+  kind of intermediary meridian transcript and just focus on myself just being a
+  wrapper basically".
+- The PR plan (2026-09-25): "2. stop relying on history.jsonl for anyhting … i don't
+  think claude even relies on history.jsonl… 3. stop creating history.jsonl at all".
+- Earlier the same day: switching mid-session "looks like it will break
+  history.jsonl and is just extra processing that we are basically wasting".
 
 - **It is wrong after a switch.** A managed run's stream records whatever the
   harness emitted under the run's entry chat. After a `/resume` or `/new` inside the
@@ -92,12 +104,16 @@ the reader side of `history_codec` is deleted outright.
 - **Redundant runner history for bound chats** (~20 GB): the user said yes to a
   later `session archive` rule: when a chat is bound, its native file resolves and
   the run is older than N days, drop the run's `history.jsonl`. This is PR 3 scope.
-- **Claude's 30-day transcript cleanup** (Claude's default `cleanupPeriodDays`
-  deletes native files; the oldest remaining Claude file was 2026-08-26). The user
-  did not change `cleanupPeriodDays`. Native stores are backed up by the user's own
-  scheduled archive script, run by cron outside Meridian. Consequence: once Claude
-  deletes a file and no archive restores it, that chat reports `missing`.
-  Meridian's reclaim of archived originals has the same effect on reads.
+- **Claude's 30-day transcript cleanup.** Claude's default `cleanupPeriodDays`
+  deletes native files; the oldest remaining Claude file was 2026-08-26.
+  - **User direction:** a regular archive of all conversations, run from cron,
+    using the user's existing archive script outside Meridian.
+  - **Tech lead's choices, not confirmed by the user:** the cadence (an hourly
+    check that snapshots when the newest snapshot is ≥ 7 days old) and leaving
+    `cleanupPeriodDays` unchanged.
+  - **Consequence:** once Claude deletes a file and no archive restores it, that
+    chat reports `missing`. A manual reclaim of archived originals has the same
+    effect on reads.
 
 ## Search: a native-keyed trigram projection, verified exactly
 
@@ -167,8 +183,13 @@ the native bytes and the parser version.
 | Cold first query | ~15.8 s, with a coverage line |
 | Full rebuild | 65 s |
 
-The warm time still misses the design's < 1 s gate. Folding bindings costs 0.39 s
-of it, and a time breakdown after R3 decides what to optimize.
+The warm time still misses the design's < 1 s gate. That gate came from the design,
+not from the user, and no user answer accepts or waives the miss. Folding bindings
+costs 0.39 s of it. A time breakdown after R3 decides what to optimize.
+
+Also rejected during R2b:
+- **One SQL `OR` term per bound key for scoped search.** SQLite raised "Expression
+  tree is too large" at ≥ 1,000 keys. Scopes are set-based.
 
 ## The metadata index calls the shared fold; it never folds keys itself
 
@@ -233,7 +254,8 @@ lossy observer registry was deleted.
   continue chat has a native key.
 - **Guardrail env.** `_MERIDIAN_GUARDRAIL_OUTPUT_LOG` is removed. It was documented
   as `output.jsonl` but actually pointed at `history.jsonl`. Guardrail scripts get
-  the `report.md` path and the chat ID instead.
+  `_MERIDIAN_GUARDRAIL_REPORT` (the `report.md` path) and `_MERIDIAN_GUARDRAIL_CHAT_ID`
+  (for `meridian session log`) instead.
 - **Empty-output failures** no longer write an artifact into the history path.
 
 ## PR 3 is pure deletion, and a test mode proves it
