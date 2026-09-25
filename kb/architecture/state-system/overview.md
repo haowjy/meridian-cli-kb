@@ -52,6 +52,7 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 
 - [Spawn state](spawn-state.md) — per-spawn rows, status transitions, publication lifetime, and legacy migration
 - [Session state](session-state.md) — authoritative session journal, index projection, and session files
+- [Native session binding](../native-session-binding.md) — immutable chat-to-native-key binding across harnesses
 - [Portable history](portable-history.md) — transcript identity, dirty-source projection, verified ZIP retention, and inert restore
 - [Durability and locking](durability-and-locking.md) — atomic publication, lock semantics, and lock order
 - [Reconciliation](reconciliation.md) — read-time projections, explicit repair, and liveness checks

@@ -574,6 +574,9 @@ ops/spawn/execute.py
 
 ## Accepted startup selection and OpenCode transport (2026-09)
 
+Continuation model selection and its current audit boundaries are summarized in
+[the continuation model-selection concept](../concepts/continuation-model-selection.md).
+
 All three driving paths record **model/policy** acceptance at startup through the shared
 `SessionAttempt`. This is model/policy acceptance, separate from the chat's native
 key ([native session binding](native-session-binding.md)). Streaming-serve binds its pending selection through the

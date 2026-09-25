@@ -3,6 +3,15 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-24 — Native session identity structure and continuation model selection
+
+Clarified page ownership across the native identity decision, cross-harness
+binding architecture, and Pi-specific session behavior; added binding links from
+the harness concept and state-system overview. Split continuation model-selection
+and startup-selection material from [session initiation](concepts/session-initiation.md)
+into [continuation model selection](concepts/continuation-model-selection.md).
+
+---
 ## 2026-09-24 — Native session identity: exact-target entry (phase 1 capture)
 
 Rewrote [decisions/native-session-identity.md](decisions/native-session-identity.md)

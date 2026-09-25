@@ -112,5 +112,6 @@ independent agent catalog.
 
 - [Launch System](../architecture/launch-system.md)
 - [Harness Adapters](../codebase/harness-adapters.md)
+- [Native Session Binding](../architecture/native-session-binding.md) — cross-harness identity plan, bind, and verification seams
 - [Composition Pipeline](composition-pipeline.md)
 - [Spawn Finalization](../architecture/spawn-finalization.md)

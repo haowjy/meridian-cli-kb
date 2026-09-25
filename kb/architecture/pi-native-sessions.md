@@ -1,17 +1,14 @@
 # Pi Native Sessions: Identity and Readback
 
-Pi stores each conversation as one JSONL journal. Meridian handles two things about
-those journals differently:
-
-1. **Identity is exact.** Meridian decides the native ID and store before exec, emits
-   Pi's exact-target flags, and verifies only that target afterward. It never selects
-   a journal by cwd, mtime, or recency. This is implemented on
-   `fix/native-session-wrapper` (not yet merged); clean `main` still discovers fresh
-   primaries from disk.
-2. **Readback is still physical-order.** A Pi journal is an append-only *tree*, and
-   Meridian's renderer still flattens it. The fix (native readers on the reopen
-   lineage) is phase 3 of the [identity decision](../decisions/native-session-identity.md)
-   and has not started.
+Pi stores each conversation as one JSONL journal. This page owns Pi-specific journal
+behavior and readback; the cross-harness identity rule is in the
+[native session identity decision](../decisions/native-session-identity.md), and the
+shared plan/bind/verify mechanics are in [native session binding](native-session-binding.md).
+The exact identity implementation described here is on `fix/native-session-wrapper`
+(not yet merged); clean `main` still discovers fresh primaries from disk. Readback is
+still physical-order: Pi journals are append-only *trees*, and Meridian's renderer
+still flattens them. Native readers on the reopen lineage are phase 3 of the decision
+and have not started.
 
 ```mermaid
 flowchart TD

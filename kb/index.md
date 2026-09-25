@@ -73,6 +73,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/config-precedence.md](concepts/config-precedence.md) — File-backed settings loader vs per-spawn runtime override stack; which system handles which setting
 - [concepts/context-resolution.md](concepts/context-resolution.md) — Named context paths (work/kb/archive/strategy) surfaced to agents as `MERIDIAN_CONTEXT_*_DIR` env vars
 - [concepts/session-initiation.md](concepts/session-initiation.md) — Four-mode session initiation: `--continue`, `--fork`, `--fork-fresh`, `--from`; identity lock; continue replay of recorded work/task-dir and launch policy; four-layer content composition; bare flag inference; session re-entry model (Resume/Fork/Blocked)
+- [concepts/continuation-model-selection.md](concepts/continuation-model-selection.md) — Target-constrained model selection on continuation and accepted startup selection/transport
 - [concepts/workspace-projection.md](concepts/workspace-projection.md) — Filesystem permission grants for sibling repos; contrast with context resolution (permission vs guidance)
 - [concepts/reference-resolution.md](concepts/reference-resolution.md) — How `-f` reference file paths resolve: relative paths from task_cwd, kb: prefix for KB-relative paths (authority_root-derived), @ removal
 

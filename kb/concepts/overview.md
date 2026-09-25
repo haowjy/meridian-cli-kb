@@ -19,6 +19,7 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 - [config-precedence.md](config-precedence.md) — Config file merge order and runtime override chain.
 - [context-resolution.md](context-resolution.md) — Work, KB, archive, and strategy path resolution.
 - [session-initiation.md](session-initiation.md) — Four-mode session initiation model: --continue, --fork, --fork-fresh, --from; identity lock; continue replay of recorded work/task-dir and launch policy; four-layer content composition; bare flag inference; session re-entry model (Resume/Fork/Blocked) for browse-driven activation.
+- [continuation-model-selection.md](continuation-model-selection.md) — Target-constrained continuation model selection and startup selection/transport.
 - [workspace-projection.md](workspace-projection.md) — Workspace entries, merge semantics, and snapshot projection.
 
 ## Subtrees
