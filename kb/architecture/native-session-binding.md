@@ -176,7 +176,7 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
    skipped:
    1. **Candidate first signal:** on PR 1, an ID extracted from artifacts. In PR 2
       it is the attempt fold's `first_session_id`, observed from live events
-      ([run facts](native-transcript-reads.md#run-facts-and-delivery)).
+      ([run facts](attempt-facts-and-delivery.md#attempt-folds)).
    2. **Current ID:** the connection's current ID goes to `note`.
    3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
       the run's entry is `NativeEntryMismatch`.

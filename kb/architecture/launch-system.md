@@ -215,7 +215,7 @@ When a streaming spawn retries, `_preserve_attempt_artifacts()` in
 `history.jsonl`, `stderr.log`, `report.md`, `runner-lifecycle.jsonl`, and
 `last-observed-event.json`. The runner stream and its checkpoint are rotated only
 until PR 3 deletes their writers; attempt facts are folded in memory per attempt
-([run facts](native-transcript-reads.md#run-facts-and-delivery)). The rotation is crash-atomic: files are staged under
+([run facts](attempt-facts-and-delivery.md#attempt-folds)). The rotation is crash-atomic: files are staged under
 `attempt-N.tmp/` and committed with a single `os.replace()`. Artifact-store copies
 and active-key deletion happen only after the filesystem commit, so the next attempt
 never reads stale keys from a prior attempt.

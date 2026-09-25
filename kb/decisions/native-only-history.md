@@ -119,12 +119,10 @@ whitespace-normalized text, with setup placeholders excluded. It stops parsing
 transcripts at query time.
 
 A disposable SQLite FTS5 projection, `native-search-v<N>.sqlite3`, indexes the
-output of the same normalizer `session log` uses. Rows are keyed by native key, not
-by chat. Nomination and verification:
-- The index text is case-folded by Python.
-- The trigram `MATCH` nominates candidate entries.
-- Every candidate is re-checked with today's Python predicate.
-- Chats are joined at query time from the authoritative bindings.
+output of the same normalizer `session log` uses, keyed by native key rather than by
+chat; chats are joined at query time from the authoritative bindings. The schema,
+nomination, exact-verification and freshness-witness mechanics are in [native
+transcript reads](../architecture/native-transcript-reads.md#search-projection).
 
 So the projection cannot bind a chat, keep a chat that was unbound, or decide which
 source a chat names.
