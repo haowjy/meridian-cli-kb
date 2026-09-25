@@ -118,6 +118,7 @@ stopped successor chat), `tests/integration/harness/test_adapter_ownership.py`.
 
 ## Related
 
+- [Native session identity decision](../decisions/native-session-identity.md)
 - [Native session binding](native-session-binding.md)
 - [Pi native sessions](pi-native-sessions.md): the analogous shared-store hazard for Pi
 - [Codebase: harness adapters](../codebase/harness-adapters.md): Claude PTY capture, system-prompt channel

@@ -379,3 +379,4 @@ one, and move per-consumer interpretation to the seam that owns the consumer.
 - [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model and extension architecture
 - [architecture/cursor-harness.md](../architecture/cursor-harness.md) — cursor probe design, raw-slug pattern, effort projection
 - [architecture/native-session-binding.md](../architecture/native-session-binding.md) — native identity seams, source key, run boundary
+- [decisions/native-session-identity.md](../decisions/native-session-identity.md)

@@ -212,7 +212,7 @@ Claude's own `history.jsonl` and returns the verified successor as
 `trampoline_successor_id`, separate from entry identity. The runner persists it as a
 diagnostic and passes it to the shared run-boundary finalizer as the exit key. The
 entry chat is never rebound. Detection is file-based only. See
-[Claude native sessions](../architecture/claude-session-isolation.md#tui-trampoline).
+[Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline).
 
 No adapter has a filesystem identity leg. Identity comes from the assigned plan or
 qualified owned events. Pi additionally reports exit through `observe_run_boundary`
@@ -220,6 +220,8 @@ qualified owned events. Pi additionally reports exit through `observe_run_bounda
 
 ## Related Pages
 
+- [../decisions/native-session-identity.md](../decisions/native-session-identity.md)
+- [../architecture/native-session-binding.md](../architecture/native-session-binding.md)
 - [../architecture/launch-system.md](../architecture/launch-system.md) — how adapters plug into the launch factory
 - [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — policy/mechanism split mental model
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — resolved harness-model projection at the effective native boundary

@@ -58,7 +58,7 @@ store, expands the hint only to `<hint>/projects/<slug>`. Without a hint it uses
 current config root, which applies to untracked references only. Codex reads the
 exact rollout under its recorded home, and OpenCode reads the exact recorded
 database. Pi requires the recorded store (below). See
-[Claude native sessions](../architecture/claude-session-isolation.md#reading-transcripts).
+[Claude native sessions](../architecture/claude-native-sessions.md#reading-transcripts).
 
 The rejected alternative still matters: persisting a resolved transcript *path*
 was rejected because Claude transcripts are re-seeded into other project stores on
@@ -240,7 +240,8 @@ meridian session search "pattern" --global
 ## Related Pages
 
 - [../architecture/state-system/spawn-state.md](../architecture/state-system/spawn-state.md) — spawn directory layout, where history files live
-- [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how Claude session IDs are captured
+- [../architecture/claude-native-sessions.md](../architecture/claude-native-sessions.md) — how Claude session IDs are captured
+- [../decisions/native-session-identity.md](../decisions/native-session-identity.md)
 - [harness-adapters.md](harness-adapters.md) — per-harness transcript format differences; provider-specific prologue/handoff extraction
 - [../concepts/spawn-output-contract.md](../concepts/spawn-output-contract.md) — progressive disclosure: spawn report → session log → no-truncate
 - [session-log-rendering.md](session-log-rendering.md) — internal rendering pipeline: ToolCall normalization, clean vs raw output, flag design, content pipeline order

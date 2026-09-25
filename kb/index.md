@@ -122,7 +122,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md) — Cross-repo launch-bundle: Mars scaffold, Meridian injection, bundle `routing` contract, schema v2
 - [architecture/mars-routing.md](architecture/mars-routing.md) — Mars-internal routing: slug primitive, default harness_order, routing parity with models CLI, acceptance layer (PR #58 + #72)
 - [architecture/mars-model-refresh.md](architecture/mars-model-refresh.md) — Models.dev catalog `ensure_fresh`, probe `ProbeRefreshMode`, `--refresh-models` / `--no-refresh-models` CLI surfaces
-- [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md) — Claude native sessions: shared-store hazard, exact source seeding, exact reads, TUI trampoline successor as exit key
+- [architecture/claude-native-sessions.md](architecture/claude-native-sessions.md) — Claude native sessions: shared-store hazard, exact source seeding, exact reads, TUI trampoline successor as exit key
 - [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe: raw-slug prefix routing, build-time `harness_model` effort resolution, legacy Meridian projector path
 
 ### Telemetry

@@ -156,7 +156,7 @@ credentials, or billing. See
 - [Pi native sessions](pi-native-sessions.md)
 - [Session state](state-system/session-state.md)
 - [Session reference resolution](../decisions/session-reference-resolution.md)
-- [Claude session isolation](claude-session-isolation.md)
+- [Claude native sessions](claude-native-sessions.md)
 
 **Provenance:** `work:native-harness-session-identity`; lanes `spawn:p7038`,
 `spawn:p7040`, `spawn:p7041`, `spawn:p7054`; fix passes `spawn:p7043`, `spawn:p7048`,

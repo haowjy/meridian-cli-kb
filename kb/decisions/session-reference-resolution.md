@@ -58,3 +58,7 @@ The harness UUID is still available for diagnostics and plumbing.
 ## Date
 
 2026-05-06; recovery narrowed 2026-09-24.
+
+## Related
+
+- [../architecture/native-session-binding.md](../architecture/native-session-binding.md)

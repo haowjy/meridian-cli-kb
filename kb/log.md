@@ -14,7 +14,7 @@ for the source key, runner order, run boundary, typed refusals, and per-harness
 store→child mapping. Added exit observation and runtime-verified Pi 0.87.1 facts
 (lazy persistence, ctx invalidation on replacement, cost) to
 [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md).
-Rewrote [architecture/claude-session-isolation.md](architecture/claude-session-isolation.md)
+Rewrote [architecture/claude-native-sessions.md](architecture/claude-native-sessions.md)
 as Claude native sessions: config-dir overlays were removed from the code in May, so
 the overlay, materialization, and `--continue`-after-isolation content was deleted.
 Removed the matching overlay-pruning content from

@@ -37,7 +37,7 @@ no longer rewrites records. Under the [native session identity](native-session-i
 rule a chat's key is immutable, and a same-project prompt match is inference rather
 than an owned signal. The successor is now persisted as `trampoline_successor_id`
 and mapped to its own exit chat through the shared run-boundary finalizer (see
-[Claude native sessions](../architecture/claude-session-isolation.md#tui-trampoline)).
+[Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline)).
 The original decision follows because it explains why detection is file-based.
 
 **Decision:** Repair Claude TUI trampoline session IDs at finalization time via
@@ -71,9 +71,10 @@ succeeds on the recorded ID rather than guessing.
 **Implementation:** `reconcile_tui_trampoline_session_id()` in
 `src/meridian/lib/harness/claude.py`, wired into
 `ClaudeAdapter.observe_session_id()`. Called by `runner.py` during primary
-finalization. Current mechanism: [../architecture/claude-session-isolation.md#tui-trampoline](../architecture/claude-session-isolation.md#tui-trampoline).
+finalization. Current mechanism: [../architecture/claude-native-sessions.md#tui-trampoline](../architecture/claude-native-sessions.md#tui-trampoline).
 
 ## Related
 
 - [Launch composition decisions](launch.md)
+- [../architecture/native-session-binding.md](../architecture/native-session-binding.md)
 - [Harness abstraction](../concepts/harness-abstraction.md)

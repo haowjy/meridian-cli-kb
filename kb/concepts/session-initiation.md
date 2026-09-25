@@ -399,7 +399,7 @@ failed registration is known not to have committed.
 - [../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation](../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation) — why continue replays recorded work/task-dir and cache-shaping launch policy
 - [../decisions/launch.md](../decisions/launch.md) — identity-lock and argv-normalization decision rationale
 - [../architecture/launch-system.md](../architecture/launch-system.md) — `build_launch_context()` as the sole composition seam; `resolve_task_context_inputs` placement
-- [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how `--continue` and `--fork` work at the Claude harness level
+- [../architecture/claude-native-sessions.md](../architecture/claude-native-sessions.md) — how `--continue` and `--fork` work at the Claude harness level
 - [../decisions/session-reference-resolution.md](../decisions/session-reference-resolution.md) — how spawn/chat/session IDs are resolved for `--from`/`--fork`/`--continue`
 - [continuation-model-selection.md](continuation-model-selection.md) — target-constrained model choice and accepted startup selection/transport
 

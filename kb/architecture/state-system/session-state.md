@@ -61,6 +61,8 @@ Per-session files under `sessions/<chat_id>/`:
 
 ## Related Pages
 
+- [../native-session-binding.md](../native-session-binding.md)
+- [../../decisions/native-session-identity.md](../../decisions/native-session-identity.md)
 - [State system overview](overview.md) — state roots and subsystem map
 - [Spawn state](spawn-state.md) — per-spawn authority and artifact lifetime
 - [Portable history](portable-history.md) — cross-record discovery, exact identities, ZIP retention, and inert restore
