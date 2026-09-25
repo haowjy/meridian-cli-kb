@@ -52,10 +52,12 @@ history cannot stand in
 A tracked Claude chat reads exactly `<recorded native store>/<id>.jsonl`
 (`resolve_native_session_file`), independent of the caller's cwd. There is no
 trust-ordered root chain. A missing file is `missing`, not a reason to try
-`~/.claude` or the ambient `CLAUDE_CONFIG_DIR`. The legacy `resolve_session_file`
-path, used with a persisted `claude_config_dir` hint on records without a native
-store, expands the hint only to `<hint>/projects/<slug>`. Without a hint it uses the
-current config root, which applies to untracked references only. Codex reads the
+`~/.claude` or the ambient `CLAUDE_CONFIG_DIR`. The file's first-line `sessionId`
+must equal the ID. A tracked record without a native store is `unbound`; its
+persisted `claude_config_dir` hint is not used to rebuild a path. The legacy
+`resolve_session_file` path serves only explicitly untracked references: a hint
+expands only to `<hint>/projects/<slug>`, and without one it uses the current config
+root. Codex reads the
 exact rollout under its recorded home, and OpenCode reads the exact recorded
 database. Pi requires the recorded store (below). See
 [Claude native sessions](../architecture/claude-native-sessions.md#reading-transcripts).

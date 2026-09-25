@@ -5,7 +5,8 @@ Lessons pages preserve hard-won context from failures, abandoned approaches, and
 ## Pages
 
 - [state-design-lessons.md](state-design-lessons.md) — Why dual-root and JSONL, earlier failures, and state-design tradeoffs.
-- [harness-integration.md](harness-integration.md) — Claude, Codex, and OpenCode integration surprises, test env var inheritance, optional-default seam-widening pitfall, and generalized patterns.
+- [harness-integration.md](harness-integration.md) — Claude, Codex, OpenCode, Cursor, and Pi integration surprises, test env var inheritance, optional-default seam-widening pitfall, and generalized patterns.
+- [native-session-identity.md](native-session-identity.md) — Seam defects missed by green suites, terminal status versus process exit, and removing redundant carriers when fix passes do not converge.
 - [chat-normalization-repair.md](chat-normalization-repair.md) — Harness protocol drift lessons, completion-dedupe rules, replay implications, and live smoke cautions from the 2026 chat repair.
 - [mars-compiler-cleanup.md](mars-compiler-cleanup.md) — Mars cleanup lessons: Windows config artifacts, lock indexing, test splitting, dead-code deletion, and warning routing.
 - [mars-launch-bundle-lessons.md](mars-launch-bundle-lessons.md) — Mars/Meridian launch-bundle lessons: schema split discipline, contract-bound test splits, OpenCode env merging, and experimental Cursor signaling.
@@ -17,3 +18,5 @@ Lessons pages preserve hard-won context from failures, abandoned approaches, and
 - [residue-cleanup-discipline.md](residue-cleanup-discipline.md) — When mars changes what it emits, the removal path must recognize prior versions' actual output shapes. Twice-learned: SessionStop orphan (v0.10.6), sweep-ordering and legacy-format misses (PR #133). Discipline: verify against real prior-version shapes, removal-only sweeps for one release, sweep before write.
 - [release-sequencing.md](release-sequencing.md) — Cross-repo release sequencing failure: a breaking change shipped while the consumer migration sat unpushed. Structural gap (no enforcement pairing producer/consumer releases), blast-radius search-scope error, runtime smoke as the only catch. Discipline for flag-day releases across independent repos.
 - [verification-and-review-discipline.md](verification-and-review-discipline.md) — Verification validity and measurement discipline, including pre-import process/network denial and fake catalog/bundle seams after disclosed native-session R1 probe safety misses.
+- [review-convergence-gate.md](review-convergence-gate.md) — How to review lane changes and integrated compositions, escalate repeated defects, and require behavioral evidence.
+- [verification-campaign-history.md](verification-campaign-history.md) — Historical chronology and incident evidence behind the current verification and review rules.

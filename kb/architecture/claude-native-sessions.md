@@ -7,7 +7,8 @@ store layout, how a resume or fork source reaches the child, and how the TUI
 trampoline is handled. The cross-harness rule is the
 [native session identity decision](../decisions/native-session-identity.md). The
 shared seams are in [native session binding](native-session-binding.md). The Claude
-identity work described here is on the PR #520 integration branches, not on `main`.
+identity work described here is on `fix/native-session-wrapper` (draft PR #520), not
+on `main`.
 
 ## Store layout and the shared-store hazard
 
@@ -54,13 +55,19 @@ A resume or fork source is the source chat's recorded `(native_store, id)`
 (`harness/claude_preflight.py:ensure_claude_session_accessible`) opens exactly
 `<recorded store>/<id>.jsonl`:
 
-- If that file is missing, or the ID is not a plain file name, it refuses with
-  `NativeSessionUnavailable(missing)`. It never searches the ambient config root,
+- It validates the file's first line (`validate_claude_session_file`): its
+  `sessionId` must equal the ID. A missing, empty, torn, or malformed first line, or
+  an ID that is not a plain file name, refuses with
+  `NativeSessionUnavailable(missing)`. A readable `sessionId` naming another session
+  refuses with `NativeEntryMismatch`. It never searches the ambient config root,
   `~/.claude`, or other projects.
 - Otherwise it places the file into the child's own store,
-  `<child config root>/projects/<child slug>/<id>.jsonl`. That is a symlink when
-  source and child share a config root, else a streamed copy published atomically.
-  If the target already is the source, nothing happens.
+  `<child config root>/projects/<child slug>/<id>.jsonl`. When source and child share
+  a config root that is a symlink, created under a unique temporary sibling name and
+  moved into place with `os.replace`. Otherwise it is a streamed copy published
+  atomically. Either way a crash or error leaves the previous target intact (the
+  first version unlinked the target before creating the symlink). If the target
+  already is the source, nothing happens.
 - The child's effective config root is recorded on the spawn/session
   (`claude_config_dir`) for later reads.
 
@@ -75,8 +82,10 @@ key, exact file, typed refusal.
 ## Reading transcripts
 
 A tracked Claude chat reads `<recorded store>/<id>.jsonl` regardless of the caller's
-cwd. A legacy config-root hint expands only to `<hint>/projects/<slug>`, never to
-ambient or default roots. See
+cwd, with the same first-line `sessionId` validation as preparation. A tracked record
+with no recorded store is `unbound`; its `claude_config_dir` hint is not used to
+rebuild a path. Only explicitly untracked lookups use a config-root hint, and it
+expands only to `<hint>/projects/<slug>`, never to ambient or default roots. See
 [session operations](../codebase/session-operations.md#transcript-source-resolution).
 
 ## TUI trampoline
@@ -94,27 +103,32 @@ successor.
 3. Take the next same-project prompt with a different session ID.
 4. Accept it only if the successor's transcript starts with that prompt.
 
-**What the successor means.** It is returned as `trampoline_successor_id` on
-`PrimarySessionObservation`, separate from the entry observation, and persisted on the
-run as a diagnostic. It never rebinds the entry chat, because a same-project prompt
-match is inference, not an owned signal. The runner passes
-`NativeSessionKey(plan.native_store, successor)` to `finalize_run_boundary` as the
-exit key. The successor therefore maps to the chat that already owns it, or a new
-one, through the same locked allocator as Pi's quit identity. `spawn show pN` prints
-`entry cA (<assigned>) → exit cB (<successor>)`, and `session log pN` shows the
-successor transcript. `session log cA` on the entry chat fails `missing` instead of
-following the successor. That is intentional: entry chats never move.
+**What the successor means: a diagnostic, nothing more.** It is returned as
+`trampoline_successor_id` on `PrimarySessionObservation` and persisted on the spawn
+row. It never rebinds the entry chat and never becomes an exit chat, so a Claude run's
+exit stays `unresolved`. `spawn show pN` prints `entry cA (<assigned>) → exit
+unresolved`, and `session log pN` shows the entry chat as an entry-based view. After
+a fullscreen switch that transcript may be nearly empty. `session log cA` fails
+`missing` rather than following the successor, because entry chats never move.
 
-This does not claim Claude emits a qualified final-quit signal like Pi's. The exit key
-is the best evidence available and is used only when no adapter boundary exists.
+For one integration merge the successor was the run's exit key. The whole-change
+review reproduced why that was wrong. Steps 2–4 check that B's prompt starts B's own
+transcript, which ties B to B, not to A's process. An unrelated Claude chat started in
+the same cwd within the window passes the same checks, even when A exited with code 1
+and never made a successor. That run recorded `exit_identity=verified` for someone
+else's conversation. The exit-key derivation and the finalizer parameter were
+deleted. A verified Claude exit needs evidence correlated to the launched child, the
+way Pi's boundary record carries the launch nonce and child PID.
 
 **Why file-based.** A `claude --resume <id> --print` probe was tested and rejected. It
 performs model work that hits budget limits and is not deterministic.
 
 **Code:** `harness/claude.py`, `harness/claude_sessions.py`,
-`launch/run_boundary.py`. Tests:
-`tests/integration/launch/test_launch_process_claude_session.py` (new and existing
-stopped successor chat), `tests/integration/harness/test_adapter_ownership.py`.
+`harness/claude_preflight.py`. Tests:
+`tests/integration/launch/test_launch_process_claude_session.py` (successor persisted
+as a diagnostic; an unrelated concurrent candidate leaves exit unresolved;
+contradictory `system/init` fails `entry_mismatch`),
+`tests/integration/harness/test_adapter_ownership.py`.
 
 ## Related
 
@@ -126,4 +140,5 @@ stopped successor chat), `tests/integration/harness/test_adapter_ownership.py`.
 
 **Provenance:** `work:native-harness-session-identity`; Lane C `spawn:p7041`, review
 `spawn:p7056`, recheck `spawn:p7062` (decoy reproduction), fix passes `spawn:p7058`,
-`spawn:p7064`; trampoline exit wiring `spawn:p7063`.
+`spawn:p7064`; trampoline exit wiring `spawn:p7063`, removed after whole-change review
+`spawn:p7072` by fix pass `spawn:p7076` (recheck `spawn:p7077`).

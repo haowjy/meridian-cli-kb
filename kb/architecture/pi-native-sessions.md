@@ -5,7 +5,8 @@ behavior, exit observation, and readback. The cross-harness identity rule is in 
 [native session identity decision](../decisions/native-session-identity.md), and the
 shared plan/bind/verify/boundary mechanics are in
 [native session binding](native-session-binding.md). Exact identity and exit
-observation are implemented on the PR #520 integration branches, not on `main`.
+observation are implemented on `fix/native-session-wrapper` (draft PR #520), not on
+`main`.
 Clean `main` still discovers fresh primaries from disk. Readback is still
 physical-order: Pi journals are append-only *trees*, and Meridian's renderer still
 flattens them. Native readers on the reopen lineage have not started.
@@ -37,16 +38,24 @@ flowchart TD
   `PiAdapter.finalize_native_identity()`. It is written to the child env *and* emitted
   as `--session-dir`, and it is recorded in the chat's native key. Prelaunch and RPC
   startup no longer rescope or rewrite it.
-- A tracked source with no recorded store refuses. Pi stores are never borrowed
-  from primary or owner metadata. (That branch still raises a plain `ValueError`,
-  while exact-file missing/ambiguous refusals are typed `NativeSessionUnavailable`.)
+- A tracked source with no recorded store refuses as
+  `NativeSessionUnavailable(unbound)`. Pi stores are never borrowed from primary or
+  owner metadata.
+- **Agent dir and credentials.** The adapter's `env_overrides()` sets the child's
+  `PI_CODING_AGENT_DIR` to `<HOME>/.pi/agent` (`pi_agent_dir_env_override()` resolves
+  from `HOME` and ignores a caller-set `PI_CODING_AGENT_DIR`). Pi reads `auth.json`
+  and settings from that directory, so under Meridian credentials come from
+  `<HOME>/.pi/agent/auth.json`. The first isolated real-Pi run placed auth at
+  `$PI_CODING_AGENT_DIR/auth.json`, got `No API key found for deepseek`, and spent no
+  turn; Pi had created an empty `auth.json` under the isolated `HOME` instead.
 
 ## Pi 0.87.1 behavior Meridian relies on
 
 Verified against installed Pi 0.87.1 source (`dist/main.js`,
 `dist/core/session-manager.js`, `dist/core/agent-session-runtime.js`). Items marked
-*(runtime)* were also observed in zero-turn runs of the real binary (temporary
-store, `--offline`, `--no-tools`, isolated `HOME`/`PI_CODING_AGENT_DIR`).
+*(runtime)* were also observed running the real binary (temporary store, `--offline`,
+`--no-tools`, isolated `HOME`/`PI_CODING_AGENT_DIR`): zero-turn lifecycle probes, and
+one Meridian spawn with a single authorized model turn.
 
 - **`--session <arg>`**: an arg containing `/` or ending `.jsonl` is used as a path
   as-is, with no ID, prefix, or global search. If the file is **missing or empty at
@@ -67,11 +76,19 @@ store, `--offline`, `--no-tools`, isolated `HOME`/`PI_CODING_AGENT_DIR`).
   and path in memory, and `_persist()` defers every entry until an assistant message
   exists. RPC `set_session_name` and `set_model` only enqueue entries; neither writes
   the file. RPC `new_session` allocates an in-memory session and does not write
-  either. A fork writes its header and copied history immediately, but needs a
-  persisted source. A bound create with no file is `pending`, and resuming it fails
-  `missing`, so an unmaterialized create is never treated as resumable. It also
-  means a real create/continue/fork workflow cannot be exercised without one model
-  turn.
+  either. The CLI `--fork <path>` that Meridian emits writes its header and copied
+  history immediately (source reading), but needs a persisted source. In-session RPC
+  `fork` and `new_session` on a persisted source reported success and a new path, yet
+  left no file after a zero-turn exit *(runtime)*. A bound create with no file is
+  `pending`, and resuming it fails `missing`, so an unmaterialized create is never
+  treated as resumable. It also means a real create/continue/fork workflow cannot be
+  exercised without model turns.
+- **Create under Meridian** *(runtime, one turn)*: the native file
+  `<store>/p1/<timestamp>_<uuid>.jsonl` carried a header `id` equal to the UUID
+  Meridian assigned to c1, and `session log c1` / `--raw` printed exactly the prompt
+  and reply. After the file was deleted, `session log c1` and
+  `spawn --continue c1 --dry-run` both refused `native_transcript_missing` before Pi
+  started. Cost: 1,344 input / 2 output tokens, $0.0004.
 - **Env vs flag**: Pi reads `PI_CODING_AGENT_SESSION_DIR` (the name is built
   dynamically in source, so a literal grep misses it), and `--session-dir` overrides
   it. Meridian sets both from the same value.
@@ -124,8 +141,14 @@ and `harness/pi_boundary.py:read_boundary` reads it once after the process exits
 - **Reading.** Missing, oversized, corrupt, wrong-version, wrong-nonce, wrong-PID, or
   poisoned records yield no observation. `initial` is compared with the entry key
   (mismatch fails the run; see
-  [run boundary](native-session-binding.md#seams)). Exit is `quit` only when
+  [runner order](native-session-binding.md#runner-order)). Exit is `quit` only when
   `last_event` is `session_shutdown` with reason `quit`.
+- **When.** Pi's shutdown hook runs only as the process shuts down, which can be
+  seconds after the RPC turn completes and Meridian publishes terminal status. The
+  record is therefore read after the runner has joined the child's teardown. The
+  first wiring read it right after the turn, got the pre-quit revision, and left the
+  real-Pi run `exit unresolved`; see
+  [runner order](native-session-binding.md#runner-order).
 
 **What real Pi 0.87.1 emits.** Hooks get a per-invocation `ctx`, and Pi invalidates
 extension contexts on session replacement (`newSession`, `fork`, `switchSession`,
@@ -143,15 +166,20 @@ invalidating anything. A zero-turn real-Pi probe found it. The rule now:
 documented ctx invalidation is not an identity conflict. A stale-ctx shutdown is
 recorded without identity. It clears `quit`, so exit is `unresolved`, and nothing is
 poisoned. Poison is reserved for inconsistent data. The record format moved to
-`v: 2`. When the replacement settles before exit, real Pi verifies the new session as
-exit. The fix is committed on the integration branch; its fix-pass report and review
-were still pending at capture time. Detection keys on Pi's error text. If a Pi upgrade
-rewords it, the case falls back to poison, which fails closed.
+`v: 2`; v1 records are rejected. When the replacement settles before exit, real Pi
+verifies the new session as exit on stdin EOF and on SIGTERM; SIGKILL publishes no
+final shutdown. Detection keys on Pi's error-text prefix
+`This extension ctx is stale after session replacement or reload.` If a Pi upgrade
+rewords it, the case falls back to poison, which fails closed. Requalify this when
+upgrading Pi (`pi_runtime/README.md` records the same contract).
 
-**Cost** (real Pi, zero turns): +36 ms to RPC-ready (median 227 → 263 ms), bundle
-5,170 bytes, records ~634 bytes, one fsync per publication (two on a plain
-start → quit run). The bundle must be built before `uv build`, as CI does. A wheel
-without it raises `PiExtensionProjectionError` at projection.
+**Cost** (real Pi, zero turns, local smoke timings): the v2 bundle is 5,458 bytes;
+records are 445–661 bytes; one fsync per publication, with no event journal. Added
+time to RPC-ready measured +14.9 ms (medians of three, 214 → 229 ms) on the v2 bundle
+and +36 ms (227 → 263 ms) on the v1 bundle; treat both as orders of magnitude, not
+guarantees. The bundle must be built before `uv build`, as CI and
+`scripts/preflight.sh full` do. A wheel without it raises
+`PiExtensionProjectionError` at projection.
 
 ## Limits
 
@@ -193,5 +221,7 @@ salvaged from the comparison branch.
 `work:native-harness-session-identity` (`DIVERGENCE/exact-locator-entry.md`, design
 review `spawn:p7037`, Pi lane `spawn:p7040`, review `spawn:p7045`, integration
 `spawn:p7048`; exit lane `spawn:p7054`, review `spawn:p7059`, API audit
-`spawn:p7060`, fixes `spawn:p7061`, `spawn:p7067`; real-Pi zero-turn probe
-`spawn:p7065`, `evidence/lane-q-report.md`, `evidence/lane-d-fix2/`).
+`spawn:p7060`, fixes `spawn:p7061`, `spawn:p7067`, `spawn:p7076`; real-Pi zero-turn
+probe `spawn:p7065`, `evidence/lane-q-report.md`, `evidence/lane-d-fix2/`; one-turn
+probes `spawn:p7073` (`evidence/lane-q2-report.md`) and `spawn:p7075`
+(`evidence/lane-q3-report.md`)).

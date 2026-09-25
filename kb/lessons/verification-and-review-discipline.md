@@ -79,6 +79,17 @@ a blast-radius assessment grepped sibling `mars.toml` files for `[[hooks]]`
 and concluded no consumers existed. Hooks live in `hooks/<name>/hook.toml`
 inside the resolved package, a location the search never reached.
 
+### Mirror CI prerequisites in the local gate
+
+A test that exercises a build output (the Pi extension bundle run in Node) needs
+that output built first. CI built it before every test job; `scripts/preflight.sh
+full`, run by the pre-push hook, did not, so a push failed on a checkout that had
+never built the bundle. The fix put the locked install and build into the full
+preflight ahead of pytest and packaging, and kept those tests strict. A skip on
+"bundle not built" would have let a green local gate claim coverage it never ran.
+When a CI job gains a prerequisite step, add it to the local full gate in the same
+change.
+
 ### Record exit status and working directory
 
 A copied success-looking line is not a validation record. Capture the command,

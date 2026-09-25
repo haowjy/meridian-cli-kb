@@ -1,12 +1,14 @@
 # Decision: Pin each chat to one native session; wrap native transcripts
 
 **Status: settled 2026-09-24; extended 2026-09-25** (one recorded source key,
-qualified-event identity for every harness, observed exit identity). Exact entry for
-all four tracked harnesses and Pi/Claude exit mapping are implemented and reviewed on
-integration branches for PR #520. They are not merged to `main`. Native readers and
-runner-history removal have not started (see [Phases](#phases)). How the seams work:
+qualified-event identity for every harness, observed exit identity, Claude exit
+unresolved). Exact entry for all four tracked harnesses and Pi exit mapping are
+implemented on `fix/native-session-wrapper` (draft PR #520, head `95db4d03`), which
+passed a whole-change review on recheck. They are not merged to `main`. Native readers
+and runner-history removal have not started (see [Phases](#phases)). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
-[Pi native sessions](../architecture/pi-native-sessions.md).
+[Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
+[Claude native sessions](../architecture/claude-native-sessions.md).
 
 ## Decision
 
@@ -21,7 +23,21 @@ has open now."
   or not yet persisted), or `ambiguous_native_file` (more than one file claims the
   key). There is no fallback to another candidate ID, primary metadata, an adapter
   scan, an ambient harness root, or runner history. A tracked reference without a
-  recorded harness refuses instead of guessing one.
+  recorded harness refuses instead of guessing one. Reads follow the same rule: a
+  tracked chat or spawn needs its complete recorded key `(harness, store, id)`, and
+  a record missing its store is `unbound` even when a legacy `claude_config_dir`
+  hint would locate a same-ID file. Hints serve only explicitly untracked lookups,
+  and incomplete keys are never repaired.
+- **Two typed failures, one route.** A contradiction (observed identity ≠ the key) is
+  `NativeEntryMismatch` with stable code `entry_mismatch` and structured
+  expected/observed evidence. Unavailability is
+  `NativeSessionUnavailable(ref, unbound | missing | ambiguous_native_file)`. Both
+  reach terminal classification through the same path (runner finalization, or
+  `ops/spawn/failure_policy` for refusals before the runner), and neither permits exit
+  allocation or invocation attribution. Before the whole-change fix pass, Pi's
+  verifier returned formatted strings, managed-primary attach raised `RuntimeError`,
+  and a changed-store assignment raised `ValueError`, so the same contradiction
+  surfaced as three different failures.
 - **Exit may land elsewhere; the source is never repointed.** Inside a harness TUI the
   user can `/resume` or `/new`. If a run enters on c5/X and exits on Y, Y maps to its
   own existing or new chat; c5 stays X. An exit Meridian cannot observe is
@@ -44,15 +60,28 @@ target is one of:
 | Operation | What Meridian does before exec | Harness guarantee relied on |
 |---|---|---|
 | Create | Mints the ID (Pi, Claude) or obtains it from an owned pre-input response (Codex `thread/start`, OpenCode `POST /session`) | Harness creates or reopens exactly that ID |
-| Resume | Verifies the exact locator (file exists, header ID equals the key, store matches) | Harness opens that path/ID as-is |
-| Fork | Verifies the source; assigns the new target ID where the harness accepts one | Harness writes a new session that records its parent |
+| Resume | Verifies the exact locator: one file in the recorded store whose native header carries the key's ID | Harness opens that path/ID as-is |
+| Fork | Verifies the source the same way; assigns the new target ID where the harness accepts one | Harness writes a new session that records its parent |
+
+**A locator is verified by its content, not its filename.** Pi's `session` header
+`id`, Claude's first-line `sessionId`, and Codex's `session_meta.payload.id` must
+equal the key. An empty, torn, or malformed header is *unavailable* (`missing`); a
+readable header with another ID is a *contradiction* (`entry_mismatch`). The first
+Claude/Codex implementation checked only that the named file existed (Claude) or
+that one rollout filename matched (Codex). The whole-change review reproduced a Claude
+file named for A that held B's events being read and resumed as A, and tests that
+blessed `"{}\n"` as a resumable Codex journal.
 
 The binding happens under the sessions lock and is bind-once. The first owned
 identity signal the harness emits (Pi `session_start`, Codex/OpenCode API response,
-Claude hook or connection ID) confirms it. If that signal contradicts the target, the
-attempt fails as `entry_mismatch`. No binding is created for the unexpected key, and
-no chat's key changes. Identity switches after that are ordinary switches, not entry
-evidence.
+Claude `system/init` or connection ID) confirms it. If that signal contradicts the
+target, the attempt fails as `entry_mismatch`, in the primary runner as well as the
+streaming runner. The check runs before the run completes and before invocation
+attribution. No binding is created for the unexpected key, and no chat's key changes.
+Identity switches after that are ordinary switches, not entry evidence. (The primary
+Claude runner originally extracted the owned identity only after completing the spawn
+and logged the contradiction; an `sh` shim emitting B while argv assigned A exited 0
+as `succeeded`. Each lane's own review missed it because each lane owned one runner.)
 
 **Why argv counts as evidence here.** The earlier rule was "planned argv is not an entry
 binding". It demanded an *observed* identity before any input reached the model. On Pi
@@ -131,19 +160,34 @@ The entry key never moves. What the user ended on is a separate fact:
 - **Pi** reports it through Meridian's session-boundary extension. Only a final
   `session_shutdown` with reason `quit` that carries a readable identity verifies
   exit. Shutdown for a switch, a missing record, a restart after quit, or an
-  unreadable identity leaves exit `unresolved`.
-- **Claude**'s TUI trampoline successor (`/tui fullscreen`) is recorded as a
-  diagnostic `trampoline_successor_id`. It is never an entry rebind. When the
-  adapter produces no boundary, the successor becomes the run's exit key.
-- Both feed one finalizer and one allocator. A verified exit key maps to the chat
-  that already owns that exact key (stopped chats included), else a new chat. The
-  lookup and creation run under the sessions lock.
+  unreadable identity leaves exit `unresolved`. The record is read only after the
+  child has exited and its teardown has been joined.
+- **Claude** exit is always `unresolved` today. The TUI trampoline successor
+  (`/tui fullscreen`) is recorded as a diagnostic `trampoline_successor_id` and
+  becomes neither an entry rebind nor an exit chat.
+- Pi's owned boundary is the only input to the one finalizer and one allocator. A
+  verified exit key maps to the chat that already owns that exact key (stopped chats
+  included), else a new chat. The lookup and creation run under the sessions lock.
 - If the boundary's initial identity contradicts the immutable entry key, the run
   fails with the same typed `entry_mismatch` as a startup contradiction. No exit chat
-  is created.
+  is created, and an attempt that already failed with a typed identity error skips
+  boundary observation entirely.
 
 Exit is presentation and ownership for the *next* conversation. It never changes
 what `--continue cN` means for the entry chat.
+
+**Why the Claude successor is not an exit.** For one merge it was: when no adapter
+boundary existed, the runners passed the successor to the finalizer as an exit key.
+The whole-change review showed what the correlation actually checks. It scans
+Claude's shared `history.jsonl` for the first new same-project session after A's
+`/tui fullscreen` and confirms that B's prompt starts B's own transcript. That
+correlates B with B, not B with A's process. In the installed wheel, A requested
+fullscreen and then exited with code 1 without any successor, while an unrelated B
+started in the same cwd within the window. The adapter returned B, the run recorded
+`exit_identity=verified`, and `session log pN` would show another person's
+conversation. Exit evidence must be launch-owned (correlated to the child Meridian
+started, like Pi's nonce- and PID-checked record). The `exit_key` plumbing was
+deleted rather than guarded, so there is one exit source.
 
 ## Rejected alternatives
 
@@ -155,9 +199,9 @@ what `--continue cN` means for the entry chat.
   mirrors copy the accepted ID.
 - **Harness-specific source fields on the launch request.** Rejected after they
   produced the two defects above. Harness mechanics belong in the adapter.
-- **Adopting the Claude trampoline successor as the chat's key.** A same-project
-  prompt match is inference, not an owned signal. It may name the run's exit, never
-  the entry.
+- **Adopting the Claude trampoline successor as the chat's key or the run's exit.**
+  A same-project prompt match is inference, not an owned signal, and it cannot tell
+  A's successor from an unrelated concurrent chat. It stays a diagnostic.
 - **A separate file-pin registry or conflict journal.** Resume re-resolves the exact
   file inside the recorded store and verifies its header. The store is already in the
   key.
@@ -179,24 +223,34 @@ what `--continue cN` means for the entry chat.
   and continuing it fails `missing`.
 - A Pi run whose stdin closes while a session replacement is still settling can end
   with no readable quit identity. Its exit is `unresolved`, not guessed.
+- Claude runs never report a verified exit, including after `/tui fullscreen`.
+  `session log pN` shows the entry chat with an entry-based label, and the entry
+  chat's transcript may be nearly empty when the conversation moved to a successor.
+  Closing this needs launch-correlated Claude evidence, not a better scan.
 - Model/provider selection on reopen is a separate concern and never changes identity.
 
 ## Phases
 
 | Phase | Scope | State |
 |---|---|---|
-| 1 | Immutable binding, pre-exec plan seam, exact-only resolution; exact identity for Pi, Claude, Codex, OpenCode; one source key; typed refusals | Implemented and reviewed on integration branches; draft PR #520 |
-| 2 | Pi exit observation (session-boundary extension), Claude successor as exit key, B→own cN; isolated real-Pi 0.87.1 qualification | Implemented; zero-turn real-Pi probe done; one-turn end-to-end qualification not run yet |
-| 3 | Native readers: `session log`/context/search on the exact key; Pi reopen-lineage view; rebuildable search | Not started |
-| 4 | Remove runner-history writers/readers/checkpoints; measure cost | Not started |
+| 1 | Immutable binding, pre-exec plan seam, exact-only resolution; exact identity for Pi, Claude, Codex, OpenCode; one source key; header-validated locators; typed refusals | Implemented on draft PR #520; whole-change review PASS on recheck |
+| 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification | Implemented on draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified |
+| 3 (PR "E") | Native readers: `session log`/context/search on the exact key; Pi reopen-lineage view; rebuildable search; OpenCode report reads the recorded DB | Not started |
+| 4 (PR "F") | Remove runner-history (`history.jsonl`) writers/readers/checkpoints; measure cost | Not started |
 
 Verification standard: POSIX `sh` harness shims at the real runner seams, CLI probes
-against an isolated installed wheel, and the built Pi extension bundle run in Node
-and read by the production Python reader. Real Pi 0.87.1 ran only with zero model
-turns (temporary store, `--offline`, `--no-tools`, isolated home). Pi writes no
-session file before an assistant message, so real create → continue → fork → switch →
-exit needs one bounded model turn. That is the remaining qualification. Real
-Claude, Codex, and OpenCode services have not been run against this change.
+against an isolated installed wheel with decoys and unrelated concurrent sessions,
+and the built Pi extension bundle run in Node and read by the production Python
+reader. Real Pi 0.87.1 ran with zero model turns for lifecycle probes and once with
+one authorized model turn under Meridian (isolated store and home, `--offline`,
+`--no-tools`; 1,344 input / 2 output tokens, $0.0004). That run verified create (the
+native header UUID equals the assigned c1; `session log c1` and `--raw` print exactly
+the turn) and the typed pre-launch refusal after deleting the source file. It also
+exposed the teardown-ordering defect described in
+[native session binding](../architecture/native-session-binding.md#runner-order).
+Meridian-managed continue, fork, and switch → exit chat against real Pi need a second
+model turn or a driven TUI and have not been run. Real Claude, Codex, and OpenCode
+services have not been run against this change.
 
 Out of scope here: duplicate Pi completion-notification turns (GitHub #517).
 
@@ -205,5 +259,9 @@ Out of scope here: duplicate Pi completion-notification turns (GitHub #517).
 `spawn:p7037`; lanes B `spawn:p7038`, A `spawn:p7040`, C `spawn:p7041`, D
 `spawn:p7054`; reviews `spawn:p7039`, `spawn:p7044`, `spawn:p7045`, `spawn:p7056`,
 recheck `spawn:p7062`, `spawn:p7059`; fix passes `spawn:p7058`, `spawn:p7064`,
-`spawn:p7061`, `spawn:p7067`; merges `spawn:p7057`, `spawn:p7063`; real-Pi probe
-`spawn:p7065`; incident `spawn:p6615`.
+`spawn:p7061`, `spawn:p7067`; merges `spawn:p7057`, `spawn:p7063`, `spawn:p7070`;
+whole-change review `spawn:p7072` and recheck `spawn:p7077`
+(`review/integrated-pr1.md`); whole-change fix pass `spawn:p7076`
+(`evidence/integrated-fix-report.md`); real-Pi probes `spawn:p7065` (zero-turn),
+`spawn:p7073` (stopped on credentials), `spawn:p7075` (one turn,
+`evidence/lane-q3-report.md`); incident `spawn:p6615`.

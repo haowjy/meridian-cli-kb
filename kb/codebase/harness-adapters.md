@@ -209,9 +209,9 @@ See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the q
 
 Claude's `observe_primary_session_id()` detects the `/tui fullscreen` trampoline from
 Claude's own `history.jsonl` and returns the verified successor as
-`trampoline_successor_id`, separate from entry identity. The runner persists it as a
-diagnostic and passes it to the shared run-boundary finalizer as the exit key. The
-entry chat is never rebound. Detection is file-based only. See
+`trampoline_successor_id`, separate from entry identity. The runner persists it on
+the spawn row as a diagnostic only. It never rebinds the entry chat and never becomes
+the run's exit, so Claude exit stays `unresolved`. Detection is file-based only. See
 [Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline).
 
 No adapter has a filesystem identity leg. Identity comes from the assigned plan or

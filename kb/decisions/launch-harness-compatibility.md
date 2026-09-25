@@ -3,7 +3,8 @@
 This page preserves harness- and platform-specific launch decisions. Native
 Windows work is historical and superseded by the current POSIX-first stance.
 Claude trampoline detection stays, but its record *repair* is superseded: the
-successor never rewrites the entry chat; it names the run's exit chat.
+successor never rewrites the entry chat and never names an exit chat; it is a
+diagnostic.
 
 ## Decision Map
 
@@ -11,7 +12,7 @@ successor never rewrites the entry chat; it names the run's exit chat.
 |---|---|---|
 | Native Windows launch work | Superseded / legacy best effort | Root `AGENTS.md` POSIX-first rule |
 | 2026-05 structural simplification | Historical rationale | [Launch architecture](../architecture/launch-system.md) |
-| Claude TUI trampoline ID repair | Repair superseded; successor is a diagnostic and the run's exit key | [Native session identity](native-session-identity.md) |
+| Claude TUI trampoline ID repair | Repair superseded; successor is a diagnostic only | [Native session identity](native-session-identity.md) |
 
 ## Windows Compatibility (Superseded)
 
@@ -35,8 +36,9 @@ documented in [launch-system.md](../architecture/launch-system.md).
 **Superseded in part (2026-09-24, 2026-09-25).** Detection is kept, but the successor
 no longer rewrites records. Under the [native session identity](native-session-identity.md)
 rule a chat's key is immutable, and a same-project prompt match is inference rather
-than an owned signal. The successor is now persisted as `trampoline_successor_id`
-and mapped to its own exit chat through the shared run-boundary finalizer (see
+than an owned signal. The successor is now persisted only as the diagnostic
+`trampoline_successor_id`. Briefly it also served as the run's exit key; that was
+removed because the correlation cannot distinguish an unrelated concurrent chat (see
 [Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline)).
 The original decision follows because it explains why detection is file-based.
 

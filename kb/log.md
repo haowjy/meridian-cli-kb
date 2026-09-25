@@ -3,6 +3,35 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-25 — Native session identity: whole-change review, fix pass, real-Pi one turn (phase 3 capture)
+
+Corrected phase-2 text that made the Claude `/tui fullscreen` trampoline successor
+the run's exit key: the whole-change review showed the correlation accepts an
+unrelated concurrent chat, the `exit_key` plumbing was deleted, and Claude exit stays
+`unresolved` with the successor as a diagnostic only. Updated
+[decisions/native-session-identity.md](decisions/native-session-identity.md)
+(header-validated locators, primary-runner initial check, two typed failures through
+one route, complete-key tracked reads, Claude exit limit, Q3 qualification, phases
+mapped to the planned E/F PRs), [architecture/native-session-binding.md](architecture/native-session-binding.md)
+(new Runner order section with the teardown join before the boundary read; typed
+refusal sources; tracked reads; testing and preflight),
+[architecture/claude-native-sessions.md](architecture/claude-native-sessions.md)
+(first-line `sessionId` validation, atomic symlink publication, diagnostic-only
+successor), and [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md)
+(typed `unbound`, agent-dir credential route, one-turn create, read-after-teardown,
+v2 cost). Fixed matching claims in harness-adapters, launch-harness-compatibility,
+session-operations, decisions.md, and index.md. Added lessons: "Terminal Status Is
+Not Process Exit" (harness-integration), "Lane Reviews Do Not Review the
+Composition" (review-convergence-gate), and "Mirror CI prerequisites in the local
+gate" (verification-and-review-discipline); extended "Green Suites Did Not Find the
+Seam Defects".
+
+Provenance: `work:native-harness-session-identity` (`review/integrated-pr1.md`,
+`evidence/integrated-fix-report.md`, `evidence/lane-q3-report.md`,
+`evidence/lane-q2-report.md`, `evidence/lane-d-fix2-report.md`); source
+`fix/native-session-wrapper` @ `95db4d03`.
+
+---
 ## 2026-09-25 — Native session identity: source key, exit identity, real-Pi facts (phase 2 capture)
 
 Extended [decisions/native-session-identity.md](decisions/native-session-identity.md)

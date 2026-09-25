@@ -110,8 +110,8 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
-- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv), session-boundary exit observation, real Pi 0.87.1 behaviors (lazy persistence, ctx invalidation), limits, still-flattened readback
-- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: source key → plan → finalize → bind before exec → verify → run boundary/exit chat; typed refusals; per-harness state
+- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv), session-boundary exit observation, real Pi 0.87.1 behaviors (lazy persistence, ctx invalidation, one-turn create, agent-dir credential route), limits, still-flattened readback
+- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: source key → plan → finalize → bind before exec; runner order (initial check → teardown join → verify → run boundary/exit chat); typed refusals; per-harness state
 - [architecture/pi-runtime/overview.md](architecture/pi-runtime/overview.md) — Pi runtime vocabulary for background work and extension coordination
 - [architecture/atomic-child-row-publication.md](architecture/atomic-child-row-publication.md) — nested staging and directory replacement for complete child-row visibility; Linux/POSIX proof and remaining platform gates
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode process roles, startup/stop ownership gate, passive reconciliation safety, and `orphan_primary` diagnosis
@@ -122,7 +122,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md) — Cross-repo launch-bundle: Mars scaffold, Meridian injection, bundle `routing` contract, schema v2
 - [architecture/mars-routing.md](architecture/mars-routing.md) — Mars-internal routing: slug primitive, default harness_order, routing parity with models CLI, acceptance layer (PR #58 + #72)
 - [architecture/mars-model-refresh.md](architecture/mars-model-refresh.md) — Models.dev catalog `ensure_fresh`, probe `ProbeRefreshMode`, `--refresh-models` / `--no-refresh-models` CLI surfaces
-- [architecture/claude-native-sessions.md](architecture/claude-native-sessions.md) — Claude native sessions: shared-store hazard, exact source seeding, exact reads, TUI trampoline successor as exit key
+- [architecture/claude-native-sessions.md](architecture/claude-native-sessions.md) — Claude native sessions: shared-store hazard, header-validated exact source seeding and reads, TUI trampoline successor as diagnostic only
 - [architecture/cursor-harness.md](architecture/cursor-harness.md) — Cursor probe: raw-slug prefix routing, build-time `harness_model` effort resolution, legacy Meridian projector path
 
 ### Telemetry
@@ -197,7 +197,8 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 
 - [lessons/overview.md](lessons/overview.md) — Lessons domain overview and learning map
 - [lessons/state-design-lessons.md](lessons/state-design-lessons.md) — Why dual-root, why JSONL, what broke before the current design, what we'd do differently
-- [lessons/harness-integration.md](lessons/harness-integration.md) — Non-obvious discoveries from integrating harnesses: PTY capture, capability gaps, behavioral surprises, seam defects green suites missed, removing carriers when fixes do not converge
+- [lessons/harness-integration.md](lessons/harness-integration.md) — Non-obvious discoveries from integrating harnesses: PTY capture, capability gaps, behavioral surprises, and seam-design pitfalls
+- [lessons/native-session-identity.md](lessons/native-session-identity.md) — Native-session work lessons: seam defects green suites missed, terminal status versus process exit, and removing carriers when fixes do not converge
 - [lessons/chat-normalization-repair.md](lessons/chat-normalization-repair.md) — Lessons from repairing chat normalization drift: harness compatibility mapping, completion dedupe, replay obligations, and smoke-test caveats
 - [lessons/mars-compiler-cleanup.md](lessons/mars-compiler-cleanup.md) — Lessons from the Mars compiler cleanup: Windows config artifacts, lock indexing, integration-test split, diagnostic routing
 - [lessons/source-simplification.md](lessons/source-simplification.md) — Lessons from Phase 8.6 source-seam and test-collapse work: deletion-first simplification, seam ownership moves, test contract discipline, over-collapse recovery
