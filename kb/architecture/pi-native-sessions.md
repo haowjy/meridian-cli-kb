@@ -1,126 +1,142 @@
 # Pi Native Sessions: Identity and Readback
 
-**Shipped-behavior boundary:** This page describes clean `main`, not the unmerged
-native-session-identity branch. The [native-session-identity decision](../decisions/native-session-identity.md)
-records settled intent, enabling implementation, and its incomplete phase gates;
-none of those changes qualify tracked Pi or replace the shipped read path here.
+Pi stores each conversation as one JSONL journal. Meridian handles two things about
+those journals differently:
 
-Two properties of Pi's session store shape every Meridian operation that touches
-a Pi conversation, and Meridian's current handling of both is heuristic:
-
-1. A *fresh* Pi primary has no pre-assigned native identity, so Meridian must
-   discover which journal on disk belongs to it. Because primaries share one
-   flat, cwd-tagged directory, discovery can bind the wrong journal.
-2. A Pi journal is an append-only **tree**, not a linear transcript, and its
-   physical order is not a single conversation. Meridian's readback renders
-   physical order, so it can show branches that were never on the active
-   conversation.
+1. **Identity is exact.** Meridian decides the native ID and store before exec, emits
+   Pi's exact-target flags, and verifies only that target afterward. It never selects
+   a journal by cwd, mtime, or recency. This is implemented on
+   `fix/native-session-wrapper` (not yet merged); clean `main` still discovers fresh
+   primaries from disk.
+2. **Readback is still physical-order.** A Pi journal is an append-only *tree*, and
+   Meridian's renderer still flattens it. The fix (native readers on the reopen
+   lineage) is phase 3 of the [identity decision](../decisions/native-session-identity.md)
+   and has not started.
 
 ```mermaid
 flowchart TD
-    Ref["Meridian ref (chat / spawn)"]
-    Ref --> Bound{"Native ID already bound?"}
-    Bound -->|yes| Journal["Pi journal file (.jsonl)"]
-    Bound -->|"no — fresh primary or unbound fallback"| Scan["Scan shared dir: same header cwd, newest mtime"]
-    Scan --> Journal
-    Journal --> Render["TranscriptNormalizer._pi_journal(): physical order + branch annotation"]
-    Render --> Out["session log output"]
-    Leaf["Pi active leaf = last physical entry on reopen (model context follows this)"] -.-> Journal
+    Op{"operation"}
+    Op -->|create| Mint["mint uuid4; header-scan store for collision"]
+    Op -->|resume| Res["find exactly one *_ID.jsonl in recorded store; header id == ID"]
+    Op -->|fork| Src["verify source file as for resume; mint new target uuid"]
+    Mint --> Bind["bind (pi, store, ID) before exec"]
+    Res --> Bind
+    Src --> Bind
+    Bind --> Argv["pi --session-dir STORE --session-id ID / --session ABS / --fork ABS --session-id NEW"]
+    Argv --> Exit["after attempt: verify assigned file only -> ok / pending / mismatch"]
 ```
 
 ## Store layout
 
-- Session root resolution (`src/meridian/lib/harness/pi_paths.py`):
-  `PI_CODING_AGENT_SESSION_DIR` override, else `PI_CODING_AGENT_DIR/sessions`,
-  else the shared default `~/.meridian/meridian-pi/sessions`.
-- **Fresh primary launches resolve to the shared default root** — they are not
-  given a session-scoped directory. A resumed/forked primary uses the source's
-  explicit directory. Spawned RPC sessions are separated per spawn. So
-  concurrently launched fresh primaries in one project all write journals into
-  the same directory.
-- A journal's first line is a `session` header carrying `id`, `version`, `cwd`,
-  and a timestamp; every later entry carries `id` and `parentId`. Meridian
-  treats versions 1–3 as renderable.
+- A journal is `<store>/<ISO-timestamp>_<id>.jsonl`. Its first line is a `session`
+  header with `id`, `version`, `cwd`, a timestamp, and, on forks, `parentSession`
+  (the parent's path). Later entries carry `id` and `parentId`. Meridian renders
+  versions 1–3.
+- Root resolution (`harness/pi_paths.py`): `PI_CODING_AGENT_SESSION_DIR`, else
+  `PI_CODING_AGENT_DIR/sessions`, else `~/.meridian/meridian-pi/sessions`.
+- Store per operation: a **primary create or fork** uses the flat shared root, and a
+  **spawned create or fork** uses a spawn-scoped subdirectory. A **resume** uses the
+  verified source file's directory. The store is resolved once, in
+  `PiAdapter.finalize_native_identity()`. It is written to the child env *and* emitted
+  as `--session-dir`, and it is recorded in the chat's native key. Prelaunch and RPC
+  startup no longer rescope or rewrite it.
+- A tracked source with no recorded store refuses (`native_transcript_missing`). Pi
+  stores are never borrowed from primary or owner metadata.
 
-## Identity acquisition
+## Pi 0.87.1 behavior Meridian relies on
 
-- Fresh primary: no native ID is pre-seeded, and Pi's TUI emits no session id
-  Meridian can read directly, so at finalization
-  `PiAdapter.observe_session_id()` falls through to `detect_primary_session_id()`.
-  That scans the shared directory, keeps journal headers whose `cwd` matches the
-  launch, drops files older than launch-start−2s, removes an expected ID if one
-  was supplied, and returns the **newest remaining candidate**
-  (`src/meridian/lib/harness/extractors/pi.py`).
-- The result is persisted as the launch's canonical native identity
-  (`bind_harness_session_id()` in `src/meridian/lib/launch/session_scope.py`;
-  observation path in `src/meridian/lib/launch/process/runner.py`). A fresh
-  primary has no prior id to conflict with, so the discovered value binds.
-- Resume/continue: `--session <expected-id>` is authoritative. Discovery's
-  expected-ID filter only excludes one candidate; it does not verify the chosen
-  file is the expected one.
-- Recovery and presentation reuse the same detection:
-  `src/meridian/lib/ops/reference_recovery.py` surfaces it as
-  `DETECTED_UNVERIFIED`, and `src/meridian/lib/ops/session_target.py` re-runs it
-  for an unbound primary on the shared root.
-  [session-reference-resolution.md](../decisions/session-reference-resolution.md)
-  already declares `DETECTED_UNVERIFIED` non-authoritative for
-  `--continue`/`--fork`.
+These were verified against installed Pi 0.87.1 source (`dist/main.js`,
+`dist/core/session-manager.js`), not against a running binary.
 
-### Known-fragile: concurrent same-cwd collision
+- **`--session <arg>`**: an arg containing `/` or ending `.jsonl` is used as a path
+  as-is, with no ID, prefix, or global search. If the file is **missing or empty at
+  open, Pi mints a new random ID at that path**, and a replaced valid header selects
+  the replacement's ID. So Meridian's resume preflight is strict: missing, empty,
+  unreadable, ambiguous, or header-mismatched sources refuse. Meridian also requires a
+  valid first physical line, which is stricter than Pi's tolerance for a malformed
+  leading line.
+- **`--session-id <id>`**: Pi finds an existing session by scanning **every `.jsonl`
+  header** in the store (the basename is irrelevant) and reopens it. Otherwise it
+  creates a new session with that ID. Meridian's collision check therefore also reads
+  every header, not filenames.
+- **`--fork <path> --session-id <new>`**: Pi rejects an existing local header ID, then
+  writes the new file with `flag: "wx"`. `wx` is exclusive by **path**, not by ID. So
+  Meridian verifies ancestry (`parentSession` == source path) separately from the new
+  ID.
+- **Persistence is lazy for create**: no file exists until the first assistant message.
+  A fork writes its header and copied history immediately. A bound create with no file
+  is `pending`, and resuming it fails `missing`, so an unmaterialized create is never
+  treated as resumable.
+- **Env vs flag**: Pi reads `PI_CODING_AGENT_SESSION_DIR` (the name is built
+  dynamically in source, so a literal grep misses it), and `--session-dir` overrides
+  it. Meridian sets both from the same value.
+- **Unreadable sibling headers**: Pi's own discovery treats them as non-sessions.
+  Meridian's mint warns (`pi_store_unreadable_header`) and skips them. Otherwise one
+  torn journal in the shared primary store would block every fresh launch. Resume/fork
+  **source** resolution and post-exit verification stay fail-closed.
 
-Candidates are ranked by mtime across one shared directory, and only the header
-`cwd` discriminates. A longer-running same-cwd session that writes after the
-target's last write becomes the newest candidate and can be selected for the
-target. When that happens at finalization, the wrong native ID is persisted as
-canonical, and a later resume loads the other conversation — real model-context
-contamination, not a display artifact. A second collision path (discovery
-selecting a concurrent sibling's freshly created file) is refused by the
-startup-identity validator in `src/meridian/lib/state/session_store.py` before
-persistence.
+## Meridian's identity operations
 
-Because an unbound primary's readback identity is recomputed from filesystem
-recency, the same chat reference can resolve to different journals over time as
-unrelated sessions write. **A persisted Pi `harness_session_id` records what
-discovery returned when it ran; it is not proof of a correct association.**
+Implementation: `harness/pi_identity.py` (header read, mint, exact resolve, verify,
+argv projection) and `harness/pi.py` (plan/finalize/verify hooks). The TUI primary and
+RPC spawn projections share the same argv.
+
+- **Passthrough refusal.** Raw `--session`, `-c/--continue`, `-r/--resume`,
+  `--session-dir`, `--session-id`, `--fork`, and `--no-session` (including `=value`
+  forms) are refused. They would override managed identity, store, or persistence.
+- **Exit verification.** The primary runner's `observe_primary_session_id` and the
+  streaming runner's `verify_native_identity` check only the assigned file. A create
+  may still be pending. A resume must be the same absolute path. A fork's header must
+  carry the new ID and `parentSession` equal to the source path. A contradiction fails
+  the attempt without touching any binding. Unrelated or newer files are ignored.
+- **Owned signals.** RPC stdout session IDs and extractor event IDs are observations
+  that confirm the plan or trip `entry_mismatch`.
+- **Cost.** Mint is O(entries + first-line reads) in one store. Primary preview and
+  execution may each scan. Exact resolve enumerates one directory and reads one
+  header, and fork also reads the parent header. There is no recursive scan and no
+  byte cap on header reads. This is not benchmarked.
+- **Meridian writes no Pi journal.**
+
+## Limits
+
+- **External replacement after preflight.** If the verified file is deleted or
+  replaced before Pi opens it, Pi may start a different ID and input may reach the
+  model before Meridian detects it. Detection fails the attempt, and the source chat is
+  never repointed.
+- **In-TUI switches are not yet observed.** A `/resume` or `/new` inside the TUI moves
+  the user to another conversation. Until phase 2 wires the session-boundary
+  extension, Meridian cannot see this. The chat stays at its entry key, which is
+  correct under the rule, but the conversation the user ended on gets no chat. A
+  graceful quit's `session_shutdown` will map the final key. Shutdown-for-switch is
+  not exit, and a missing quit event (SIGKILL, extension not loaded) stays
+  `unresolved`.
+- **Model selection on reopen** is a separate Pi setting and never affects identity.
 
 ## Journal topology and readback
 
-Pi appends create a child of the process's current leaf; branching moves that
-in-memory leaf. No leaf event is persisted. Pi rebuilds the leaf on file load as
-the **last physical entry**, and model context is the root-to-leaf path from
-that leaf.
+When Pi appends an entry, it becomes a child of the process's current leaf, and
+branching moves that in-memory leaf. No leaf event is persisted. When Pi loads a file,
+the leaf is the **last physical entry**, and model context is the root-to-leaf path.
 
-Meridian's `TranscriptNormalizer._pi_journal()`
-(`src/meridian/lib/harness/transcript.py`) instead walks physical file order,
-tracks the previous entry ID, and inserts a "parent changed; continuing a
-different branch" annotation when it detects divergence. It does not project the
-active root-to-leaf ancestry, so entries from abandoned sibling branches render
-inline next to unrelated turns.
-`tests/unit/harness/test_transcript_parser.py` pins this flattening behavior.
-
-The rendered transcript can therefore show messages that were never on the
-active branch. Whether a given flattened message was ever sent to a model is a
-separate question: model context follows Pi's leaf branch, not the flattened
-view.
-
-## Disposition
-
-Both shipped behaviors are confirmed and known-fragile. The approved correction
-is not shipped. The unmerged branch has enabling authority, exact-source,
-notification, and pure lineage-view work, but has not qualified owned Pi
-entry/exit or wired native readback. Primary Pi remains native TUI and refuses
-tracked resume/fork under the settled design; that refusal is not a claim that
-the shipped path already enforces it. Until the later gates land, the discovery
-and physical-order readback above remain clean `main` behavior.
+Meridian's `TranscriptNormalizer._pi_journal()` (`harness/transcript.py`) walks
+physical order and inserts a "parent changed; continuing a different branch" note on
+divergence. It does not project the active ancestry, so abandoned sibling branches
+render inline, and `tests/unit/harness/test_transcript_parser.py` pins this. A
+rendered message may never have been on the active branch. Model context follows Pi's
+leaf, not the flattened view. Phase 3 replaces this with the reopen-lineage projector
+salvaged from the comparison branch.
 
 ## Related Pages
 
-- [claude-session-isolation.md](claude-session-isolation.md) — same shared-store / concurrent-bleed class, and the isolated-overlay remedy Claude uses
-- [../codebase/session-operations.md](../codebase/session-operations.md) — transcript source resolution; presentation-vs-capture separation for OpenCode
-- [../codebase/session-log-rendering.md](../codebase/session-log-rendering.md) — normalization and rendering pipeline
-- [../codebase/harness-adapters.md](../codebase/harness-adapters.md) — Pi dual launch path and session-dir isolation
-- [../architecture/state-system/session-state.md](../architecture/state-system/session-state.md) — session authority and native capture preparation
-- [../decisions/session-reference-resolution.md](../decisions/session-reference-resolution.md) — recovery provenance levels, including `DETECTED_UNVERIFIED`
-- [pi-lifecycle.md](pi-lifecycle.md) — Pi spawned-session lifecycle and quiescence
+- [native-session-binding.md](native-session-binding.md): cross-harness plan/bind/verify seams
+- [../decisions/native-session-identity.md](../decisions/native-session-identity.md): the rule, rejected alternatives, phases
+- [claude-session-isolation.md](claude-session-isolation.md): Claude's shared-store problem and isolated-overlay remedy
+- [../codebase/session-operations.md](../codebase/session-operations.md): transcript source resolution
+- [../codebase/session-log-rendering.md](../codebase/session-log-rendering.md): normalization and rendering pipeline
+- [../codebase/harness-adapters.md](../codebase/harness-adapters.md): Pi dual launch path
+- [pi-lifecycle.md](pi-lifecycle.md): Pi spawned-session lifecycle and quiescence
 
-**Provenance:** `work:investigate-pi-model-selection-for-luna`; `spawn:p6615`.
+**Provenance:** incident `spawn:p6615` (`work:investigate-pi-model-selection-for-luna`);
+`work:native-harness-session-identity` (`DIVERGENCE/exact-locator-entry.md`, design
+review `spawn:p7037`, Pi lane `spawn:p7040`, review `spawn:p7045`, integration
+`spawn:p7048`).

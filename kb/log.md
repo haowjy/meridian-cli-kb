@@ -3,6 +3,26 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-24 — Native session identity: exact-target entry (phase 1 capture)
+
+Rewrote [decisions/native-session-identity.md](decisions/native-session-identity.md)
+around the settled exact-target entry rule and recorded why the observed-entry /
+Pi RPC-primary plan was dropped. Added
+[architecture/native-session-binding.md](architecture/native-session-binding.md)
+for the cross-harness seams. Rewrote
+[architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) from
+discovery-era behavior to exact identity plus verified Pi 0.87.1 facts, keeping
+the readback-topology section. Marked
+[decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md)
+superseded. Narrowed recovery in session-reference-resolution, made Claude
+trampoline handling diagnostic-only across claude-session-isolation,
+launch-harness-compatibility and harness-adapters, and corrected identity
+claims in session-initiation, launch-system, session-operations,
+session-state, invariants, lessons and vocabulary.
+
+Provenance: `work:native-harness-session-identity`.
+
+---
 ## 2026-09-23 — Native session identity decision
 
 Added [decisions/native-session-identity.md](decisions/native-session-identity.md)

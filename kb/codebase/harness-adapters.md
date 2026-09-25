@@ -199,7 +199,7 @@ disk state (`spawns/<child>/state.json`, `pi-bash/<parent>/bash-records.json`,
 
 **Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
 
-**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected so extensions can gate quiescence machinery to spawned-only sessions. Spawned sessions are per-spawn scoped, but fresh primaries share one default session root, so their native identity is discovered from disk rather than pre-seeded — see [pi-native-sessions.md](../architecture/pi-native-sessions.md).
+**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected so extensions can gate quiescence machinery to spawned-only sessions. Spawned sessions are per-spawn scoped and primaries share one flat root. In both cases Meridian mints the native ID and emits `--session-dir`/`--session-id` before exec (resume: `--session <abs path>`), so identity is never discovered from disk. See [pi-native-sessions.md](../architecture/pi-native-sessions.md).
 
 **Runtime resolution.** `PiRuntimeResolver` probes the installed `pi` binary before launch (`pi --version`, `pi --help` surface check). Fails fast with install guidance if binary is missing or incompatible. `MERIDIAN_PI_BINARY` env var overrides PATH discovery.
 
@@ -212,15 +212,18 @@ reconciliation. Claude's new TUI creates a transient session when entering
 `/tui fullscreen`, then writes the durable transcript under a different session
 ID. The override checks `~/.claude/history.jsonl` for the `/tui fullscreen`
 marker, finds the successor same-project prompt, and verifies the successor
-transcript's first user message matches. If the recorded ID already has a
-transcript, it is preserved unchanged.
+transcript's first user message matches. A verified successor is logged as a
+native-binding conflict. The recorded ID is never replaced (see
+[native session binding](../architecture/native-session-binding.md)).
 
-The reconciliation is file-based only — no interactive `claude --resume` probe
+The detection is file-based only — no interactive `claude --resume` probe
 is used. The probe was tested and found to perform model work that hits budget
 limits, making it inappropriate for deterministic finalization.
 
-Codex, OpenCode, and Pi do not override `observe_session_id()` — they use the
-base implementation's priority chain without modification.
+Pi overrides `observe_session_id()` only to prefer owned observations and has no
+filesystem leg. Its primary exit check verifies the assigned file. Codex and
+OpenCode use the base priority chain, including its filesystem detection leg,
+until their exact-identity plans land.
 
 ## Related Pages
 

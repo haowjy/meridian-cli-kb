@@ -37,8 +37,8 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP transcript authority, disposable indexes, retention and restore, and post-stop native capture
-- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Settled exact native chat binding/history; R2a metadata join built, R2b/R2c and tracked transport still open
-- [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Late fresh-route C and bounded R1 raw admission; R2a metadata does not close typed/public/final-emission gates
+- [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry, no discovery, native transcripts as authority; rejected RPC-primary plan; phases
+- [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Superseded raw-argument admission design
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
 - [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) — Wait, goal, and session-mode decisions
@@ -109,7 +109,8 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
-- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Shipped Pi identity discovery and physical-order readback hazards; unmerged correction phase boundary
+- [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv, Pi 0.87.1 behaviors relied on), limits, and still-flattened journal readback
+- [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness native identity seams: plan → finalize → bind before exec → verify; per-harness state
 - [architecture/pi-runtime/overview.md](architecture/pi-runtime/overview.md) — Pi runtime vocabulary for background work and extension coordination
 - [architecture/atomic-child-row-publication.md](architecture/atomic-child-row-publication.md) — nested staging and directory replacement for complete child-row visibility; Linux/POSIX proof and remaining platform gates
 - [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md) — Managed Codex/OpenCode process roles, startup/stop ownership gate, passive reconciliation safety, and `orphan_primary` diagnosis

@@ -12,8 +12,8 @@ Decision records explain why durable architectural choices were made — what al
 | [package-management.md](package-management.md) | Mars compiler, skill schema, `.agents/` elimination, targeting, sync, bootstrap docs, collision resolution, convention-based discovery, engine constraints, and declared-package self-sync (D35–D40, D50–D51, D58–D63, D71, D77, D87, D93–D94) |
 | [state.md](state.md) | State roots, JSONL event stores, dual-root layout, crash-only design, WorkScope model (named vs ambient), CR1 fix, state v2 migration (foundational undated decisions + D-WorkScope PR #328) |
 | [history-storage.md](history-storage.md) | Transcript authority, disposable history index/preview projections, retention and restore, and post-stop native-capture decisions |
-| [native-session-identity.md](native-session-identity.md) | Settled native-key/history contract; R2a exact metadata join is standalone, while R2b/R2c, independent boundaries and tracked transports remain open |
-| [native-source-argument-admission.md](native-source-argument-admission.md) | Late fresh-route C and adapter-owned raw admission; R2a metadata does not close typed-ordering, exact model-evidence, independent-boundary or final-emission gates |
+| [native-session-identity.md](native-session-identity.md) | Immutable chat→native key, exact-target entry evidence bound before exec, no discovery; native transcripts as content authority; phase state |
+| [native-source-argument-admission.md](native-source-argument-admission.md) | Superseded raw-argument admission design; only identity-overriding passthrough refusal survives |
 | [launch.md](launch.md) | Launch pipeline, composition seam, harness identity env, spawn wait barrier, spawn-level goal authority and completion-contract composition (D32–D34, D57, D63-launch, 2026-05 spawn-goal) |
 | [startup-health-sandbox.md](startup-health-sandbox.md) | Descriptor-driven startup, bootstrap split, doctor/reaper, sandbox projection policy |
 | [testing.md](testing.md) | Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline |

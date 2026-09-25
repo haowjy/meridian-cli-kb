@@ -40,6 +40,12 @@ the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
 usable user/assistant interaction content. Fallback is source-list iteration, not
 recursive target resolution.
 
+A **tracked chat** is narrower: it reads only its bound native key. If the chat
+has no key, or the key's transcript is missing or still pending, resolution raises
+`NativeSessionUnavailable(reason="unbound"|"missing")`. Candidate IDs, primary
+metadata, adapter scans, and runner history cannot stand in
+([native session binding](../architecture/native-session-binding.md)).
+
 ### Claude: Trust-Ordered Root Chain
 
 Claude transcript resolution uses a trust-ordered root chain when resolving
@@ -61,8 +67,9 @@ First existing `<session_id>.jsonl` match wins. The chain is ordered by trust
 because cross-root copies (not always symlinks) can diverge in content.
 
 Untracked resolution passes `config_root_hint=None`, behavior unchanged.
-Non-Claude harnesses (codex, opencode, pi) accept the hint parameter and
-ignore it — their session roots are not env-relocatable this way.
+Codex and OpenCode accept the hint parameter and ignore it. Pi requires it:
+the hint is the recorded native store, and without it the Pi resolver returns
+nothing rather than searching.
 
 Two rejected alternatives shaped this design:
 - **Persisting a resolved transcript path** was rejected because Claude
@@ -97,16 +104,12 @@ rendering live in session-log integration/unit tests, resident drain scope behav
 lives with streaming tests, and reusable OpenCode SQLite fixtures live in
 `tests/support/opencode_db.py`.
 
-### Pi: shared-dir discovery fallback
+### Pi: exact file in the recorded store
 
-Pi primaries have no pre-seeded native ID, and a fresh primary's journal is found
-by scanning the shared session directory for the newest same-`cwd` file. When a
-tracked primary has no recorded ID, `session_target.py` re-runs that same
-discovery (`DETECTED_UNVERIFIED`), so a chat's readback identity is recomputed
-from filesystem recency and can change as unrelated sessions write. Meridian
-still renders the selected journal's entries in physical order, so abandoned
-sibling branches can appear. See
-[../architecture/pi-native-sessions.md](../architecture/pi-native-sessions.md).
+A Pi chat reads the single `*_<id>.jsonl` in its recorded store whose header ID
+matches. There is no discovery and no cross-spawn glob. Rendering is still in
+physical order, so abandoned sibling branches can appear until native readers land.
+See [../architecture/pi-native-sessions.md](../architecture/pi-native-sessions.md).
 
 ## Segment Model
 

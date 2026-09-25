@@ -1,8 +1,12 @@
 # Session State
 
 
-Sessions track harness session IDs, work-item attachment, primary-spawn relationships,
-and lifecycle (created → active → closed). `sessions.jsonl` is the sole authority
+Sessions track one immutable native key per chat (`harness`, `native_store`,
+`harness_session_id`), work-item attachment, primary-spawn relationships,
+and lifecycle (created → active → closed). The key is bind-once:
+`update_session_harness_id()` returns `bound`, `already_bound`, or `conflict`. Legacy
+multi-ID arrays are ignored on read (see
+[native session binding](../native-session-binding.md)). `sessions.jsonl` is the sole authority
 for those facts. `sessions-index.sqlite3` is a metadata-only projection used for
 direct chat-ID and requested-subset reads. Cross-record browse and history discovery
 use the separate disposable history index; transcript bodies and full-text content

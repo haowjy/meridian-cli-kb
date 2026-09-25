@@ -14,6 +14,10 @@ These are the non-obvious discoveries from integrating Claude, Codex, and OpenCo
 
 **Where this lives:** `launch/process/pty_launcher.py`, `harness/adapters/claude.py:detect_primary_session_id()`
 
+**Identity no longer depends on this.** Claude accepts `--session-id <uuid>`, so
+Meridian now assigns the ID and binds it before exec. PTY-observed IDs can only
+confirm it or conflict with it ([native session binding](../architecture/native-session-binding.md)).
+
 ---
 
 ## Why Managed Primary Attach for Codex

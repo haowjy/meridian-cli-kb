@@ -339,8 +339,9 @@ SessionReentryDecision = Resume(chat_id) | Fork(chat_id) | Blocked(reason)
 The decision is ops-owned (`lib/ops/session_reentry.py`) with a pure core
 (`decide_reentry`) and a fresh-read resolver (`resolve_session_reentry`).
 Both listing and re-entry use the same durable-state authority for the recorded
-harness id: session store, primary spawn row, then `primary_meta.json`. Native
-transcript discovery is deliberately excluded. A detected but unrecorded
+harness id: the chat's immutable native binding in the session store, and nothing
+else. Spawn-row and `primary_meta.json` mirrors cannot supply a missing binding, and
+native transcript discovery is excluded. A detected but unrecorded
 transcript cannot authorize re-entry, and using different recovery authorities
 for the displayed and fresh decisions would make the visible action unreliable.
 
@@ -381,7 +382,7 @@ How the transcript is branched at fork time differs by harness:
 |---|---|---|
 | Claude | Delegated: `claude --resume <id> --fork-session` | Harness-owned snapshot semantics |
 | OpenCode | Delegated: `opencode --session <id> --fork` | Harness-owned (DB transaction) |
-| Pi | Delegated: `pi --fork <id>` | Harness-owned |
+| Pi | Delegated: `pi --fork <abs source path> --session-id <new>` (source header verified first) | Harness-owned; new file is path-exclusive, so ancestry is verified after exit |
 | Codex | Meridian-materialized: snapshots rollout JSONL + registers the fork in Codex SQLite | Complete-record, bounded snapshot with compensated publication (see [lessons](../lessons/harness-integration.md)) |
 
 Delegated harnesses own their concurrent-write semantics. Codex is the only
@@ -401,18 +402,20 @@ failed registration is known not to have committed.
 - [../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md) — how `--continue` and `--fork` work at the Claude harness level
 - [../decisions/session-reference-resolution.md](../decisions/session-reference-resolution.md) — how spawn/chat/session IDs are resolved for `--from`/`--fork`/`--continue`
 
-### Primary identity is authoritative before seed or parent binding
+### Native identity is bound before exec
 
-For primary fresh and native-fork initiation, Meridian waits for the actual
-harness identity before binding launch selection. A generated identity is only
-a provisional seed and must not bind the source parent early; Claude's
-existing transcript/trampoline detector supplies identity observation. It does
-not discover a model.
+Every initiation mode ends with one chat bound to one immutable native key, but
+the modes reach it differently. `--continue cN` reuses cN and its exact key, and
+fails `unbound`/`missing` rather than falling back. This holds for spawned
+continues too: they reuse the source chat. A fresh launch, `--from`, and a fork
+each allocate a new chat. Where the harness accepts a pre-assigned ID (Pi, Claude
+create, Pi fork target), that key is bound before exec. Otherwise the first owned
+identity signal binds it. The source parent of a fork is never bound as the child.
+Identity is never discovered from native files. Rules and rationale:
+[native session identity](../decisions/native-session-identity.md).
 
 When binding fails, the error remains visible to the caller. Adapter cleanup
-and session stop still execute. This is a partial increment; streaming-serve
-recording, OpenCode streaming named-model transport, and spawn native-fork /
-reference-form audit remain open alongside coordinated final gates/PRs.
+and session stop still execute.
 
 ## Continuation model selection and identity
 
@@ -425,8 +428,8 @@ Non-routing policy and the original launch snapshots are unchanged.
 A later plain continuation reads the Meridian selection recorded at
 `accepted-running`; it never uses the native harness's observed last-executed
 model as discovery. `SessionAttempt` binds that selection to the same generation
-and attempt. Native-ID callbacks are authoritative; a freshly derived ID is only
-a provisional row hint. Append failure terminates continuation with a
+and attempt. A plan-assigned native ID is bound before exec; native-ID callbacks
+confirm it or, when no ID was assigned, bind the first observation. Append failure terminates continuation with a
 coordination error rather than switching the runtime model.
 
 Legacy original-generation lookup is read-only against baseline `c3087ceb`.
@@ -438,7 +441,7 @@ acceptance or absent tracked original history requires an explicit model.
 Native raw IDs stay literal rather than becoming the latest chat ID. Ambiguous
 tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
 references keep their recorded harness, and file detection never silently
-replaces it. These increments are validated against native reference
+replaces it. A tracked reference with no recorded harness refuses. These increments are validated against native reference
 `833dc1f2`. For spawn continuation, tracked raw native IDs are accepted;
 explicit older native IDs remain authoritative when they match the session,
 otherwise the matched session's recorded spawn ID is used with exact

@@ -159,7 +159,7 @@ capture-purpose identity selection were added; OpenCode gained a raw MessageV2
 row interpretation. Its old ingest path still treats `history.jsonl` existence as
 completed capture, and canonical snapshot publication, validation and integrated
 runtime qualification remain open. These are facts about that unreleased branch,
-not instructions to preserve new runner-history writes in the v2 redesign.
+not instructions to preserve new runner-history writes.
 
 The selected capture timing remains **post-stop observation** associated with the
 exact completed primary, not reconstruction of bytes at a past launch-end instant.

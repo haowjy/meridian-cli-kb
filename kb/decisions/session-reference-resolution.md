@@ -1,59 +1,52 @@
 # Decision: Centralize Session Reference Resolution
 
-**Status:** Describes the current recovery implementation. The settled
-[native-session-identity design](native-session-identity.md) replaces recorded-ID
-recovery as authority for tracked continuation with owned, attempt-specific proof
-of the exact native key. Enabling slices exist on an unmerged branch; the
-replacement has not shipped.
+**Status:** Current. The recovery chain was narrowed on 2026-09-24 by the
+[native session identity decision](native-session-identity.md): only exact recorded
+state recovers an ID, and native discovery and primary metadata are no longer
+recovery levels.
 
 ## Context
 
 Meridian had two divergent code paths for resolving the same session/spawn/chat IDs:
 
-- `session_log.py::resolve_target()` — robust, with spawn-output detection and primary-meta fallback
-- `reference.py::resolve_session_reference()` — thin, no fallbacks, broke `--from p123` when `harness_session_id` was missing
+- `session_log.py::resolve_target()`: robust, with spawn-output detection and primary-meta fallback
+- `reference.py::resolve_session_reference()`: thin, no fallbacks, broke `--from p123` when `harness_session_id` was missing
 
 This meant `session log p123` could work while `--from p123` failed for the same spawn.
 
 ## Decision
 
-Extract the shared "harness session ID recovery" logic into a new read-only module (`reference_recovery.py`) and make `resolve_session_reference()` use it. Keep transcript-source policy (native transcript vs spawn output vs live output) in `session_log.py`.
+Extract the shared "harness session ID recovery" logic into one read-only module
+(`reference_recovery.py`) and make `resolve_session_reference()` use it. Keep
+transcript-source policy in the session-target layer.
 
 ## Recovery Provenance
 
-Four levels, in order of authority:
+Two levels, both exact recorded state:
 
-1. `SESSION_STORE` — from session records (chat refs)
-2. `SPAWN_ROW` — from spawn record directly
-3. `PRIMARY_META` — from primary spawn metadata
-4. `DETECTED_UNVERIFIED` — from harness adapter detection
+1. `SESSION_STORE`: the chat's immutable native binding (chat refs)
+2. `SPAWN_ROW`: the spawn record's mirrored ID (spawn refs)
 
-In the current shipped recovery implementation, the first three are treated as authoritative enough for `--continue`/`--fork`. `DETECTED_UNVERIFIED` is NOT — it is only usable by `session_log` for transcript verification. This is **not** the settled tracked-native authorization rule: [native session identity](native-session-identity.md) requires an accepted exact native key and qualified file pin, not merely an ID recovered from a row or metadata.
+Primary metadata (`PRIMARY_META`) and adapter file detection (`DETECTED_UNVERIFIED`)
+were removed. A mirror cannot supply an identity the chat never bound, and a
+detected file is exactly the discovery the identity decision forbids. A tracked
+reference whose recorded harness is empty has no authoritative ID. `--continue`
+and `--fork` refuse it instead of inferring a harness from adapters.
 
-## API Changes
+## API
 
-- `ResolvedSessionReference` gains `recovery: RecoveryResult | None`
-- `effective_harness_session_id` — any recorded or recovered ID
-- `authoritative_harness_session_id` — excludes `DETECTED_UNVERIFIED`
-- `missing_harness_session_id` — now considers authoritative recovery
+- `ResolvedSessionReference.recovery: RecoveryResult | None`
+- `effective_harness_session_id`: recorded or recovered ID
+- `authoritative_harness_session_id`: `None` for a tracked ref without a recorded harness
+- `missing_harness_session_id`: tracked and not authoritative
 
-## Consumer Behavior
-
-| Consumer | Uses | Accepts detected? |
-|----------|------|-------------------|
-| `session log` | `effective_harness_session_id` | Yes |
-| `--continue` / `--fork` | `authoritative_harness_session_id` | No |
-| `--from` | `effective_harness_session_id` (best-effort) | Yes (omitted if unavailable) |
-
-In the current shipped implementation, `--continue` and `--fork` treat authoritative recovery as launch authority, not
-diagnostic metadata. If the source row lacks a raw harness session ID but recovery
-finds one from session records, the spawn row, or primary metadata, the follow-up
-launch uses that recovered ID. `DETECTED_UNVERIFIED` remains excluded because a
-same-session operation must not resume or fork against a guessed session.
+`--continue`/`--fork` use the authoritative ID. An unbound or missing one fails with an
+explicit error, not a discovery hint. `--from` uses the effective ID as a
+best-effort pointer and omits it if unavailable.
 
 ## Quit Message
 
-`PrimaryLaunchOutput` now carries `continue_chat_id` separately from `continue_ref`. The resume command prefers the chat ID:
+`PrimaryLaunchOutput` carries `continue_chat_id` separately from `continue_ref`. The resume command prefers the chat ID:
 
 ```
 To continue with meridian:
@@ -64,4 +57,4 @@ The harness UUID is still available for diagnostics and plumbing.
 
 ## Date
 
-2026-05-06
+2026-05-06; recovery narrowed 2026-09-24.

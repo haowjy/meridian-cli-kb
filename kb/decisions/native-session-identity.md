@@ -1,61 +1,131 @@
-# Decision: Pin chats to native sessions; read native history
+# Decision: Pin each chat to one native session; wrap native transcripts
 
-**Status: settled intent, unmerged enabling implementation, not shipped or transport-qualified.** The `fix/native-session-identity-v2` branch through `f2aeebb8` has authority/source, Pi notification and pure-lineage slices, primary selection checks, bounded adapter grammars, [R1 fresh admission](native-source-argument-admission.md), and R2a exact source metadata. Guarded fake-only review accepted R1; guarded synthetic review accepted R2a's standalone metadata join. Neither approval covers typed raw-before-history (R2b), exact model observation and replay intent (R2c), independent public/runner or final-consumer validation (G), installed runtime safety, or owned Pi entry/exit (B3c). Clean `main` still writes Meridian runner history and uses recovery paths that do not meet this contract. See [current Pi behavior](../architecture/pi-native-sessions.md) and [current session operations](../codebase/session-operations.md) for shipped behavior.
+**Status: settled 2026-09-24.** Phase 1 (immutable binding + Pi exact identity) is
+implemented and reviewed on `fix/native-session-wrapper`, not yet merged. The
+Claude/Codex/OpenCode exact-identity lane is in progress. Pi exit observation, native
+readers, and runner-history removal have not started. How the seams work:
+[native session binding](../architecture/native-session-binding.md); Pi specifics:
+[Pi native sessions](../architecture/pi-native-sessions.md).
 
 ## Decision
 
-Within its existing project/runtime reference namespace, one Meridian chat reference (`cN`) is permanently associated with one **native key**: harness, the actual native store or namespace used by the child, and native session ID. It is not a run, retry, transcript snapshot, or current branch pointer. A tracked run records its actual native selection on entry *before task/model-turn delivery* and on exit *after the last possible switch*. If a run enters on c5/X and exits on Y, it returns Y's existing chat or atomically creates one; c5 remains X. An unknown boundary stays unresolved. Planned argv, same-cwd/newest-file discovery, an old metadata field, or a guessed entry-as-exit cannot certify ownership.
+A Meridian chat `cN` is permanently associated with one **native key**:
+`(harness, native_store, native_session_id)`. The store is part of the key because
+the same ID in a different directory or database is a different conversation. A chat
+is not a run, a retry, a transcript snapshot, or a pointer to "whatever the harness
+has open now."
 
-Association uses one locked session authority, strict binding-record replay, and durable acknowledgement. A malformed authority row or torn tail that could conceal an exit invalidation or source conflict fails closed. Native key and exact file locator are distinct: the **first accepted, qualified native file** for a key pins its path and acquired store/file guards; a pending observation is provenance, not a read or resume credential. A later competing file or store observation creates one bounded, durable source-conflict fact in the same authority journal and blocks automatic use. Neither reads nor retries refresh the pin. A relocated, replaced, or missing source is unavailable until explicit reconciliation, not discovered by cwd, glob, or recency.
+- **`--continue cN` resumes exactly that key or fails.** Failure is typed:
+  `unbound` (the chat never acquired a key) or `missing` (the key's transcript is gone
+  or not yet persisted). There is no fallback to another candidate ID, primary
+  metadata, an adapter scan, or runner history. A tracked reference without a recorded
+  harness refuses instead of guessing one.
+- **Exit may land elsewhere; the source is never repointed.** Inside a harness TUI the
+  user can `/resume` or `/new`. If a run enters on c5/X and exits on Y, Y maps to its
+  own existing or new chat; c5 stays X. An exit Meridian cannot observe is
+  `unresolved`, and the chat stays at its entry key.
+- **Meridian is a wrapper over harness-native transcripts.** The native journal is the
+  conversation. Meridian's own `spawns/<id>/history.jsonl` runner stream is a second
+  copy that creates a second candidate authority. New runner-stream writes will stop,
+  and existing files stay as labeled legacy evidence. SQLite stays a disposable
+  search/preview projection, never binding or transcript authority. Removing the
+  runner stream comes after native readers. It has not happened yet.
+- **Not a new initiation mode.** `--from` (fresh session plus lightweight context),
+  `--fork`/`--fork-fresh`, `-f`, and `spawn inject` keep their meanings. See
+  [session initiation](../concepts/session-initiation.md).
 
-Conversation reads resolve the exact native source and view. Pi's disk default selects one root-to-reopen-leaf lineage before shared normalization; it does not claim a live cursor. `session log pN` must retain live readback and existing navigation where a qualified entry/current source is readable, without mislabeling that view as a verified exit. A missing or unpersisted native source is reported as missing or pending, not replaced with another conversation. SQLite remains a disposable search/preview projection, never binding or transcript authority.
+## Entry evidence is a harness-guaranteed exact target
 
-Stop **new** persistent `spawns/<id>/history.jsonl` runner-stream writes across spawn, primary attach, retries, manager, and child-retention paths. Keep ephemeral events needed for control, bounded lifecycle/attempt/result facts, reports, and qualified sealed native snapshots for offline retention. Existing runner-history files and archives remain inert, labeled legacy evidence; do not mass-delete them or silently promote them to verified native context. Native-unavailable records remain retained rather than losing unique reports or metadata. There is no replacement parallel message writer or checkpoint stream.
+Before exec, Meridian decides the exact native target and binds it to the chat. The
+target is one of:
 
-This is an internal authority change, **not a new initiation mode**. `--from` remains a fresh native session with lightweight metadata/report/file references and transcript pointers in its initial user turn; it neither resumes nor mutates the source nor copies its full transcript. `--continue`, forks, `-f`, `spawn inject`, and existing log selectors retain their meanings. Every *tracked* transport must qualify owned actual entry and exit; a mode that cannot do so stays explicitly untracked. Existing effective legacy/recovered IDs remain unverified for this contract; they cannot authorize tracked continuation by being found in an old field or matching file. Cursor is deferred/untracked in this work, without a new reader or further probes.
+| Operation | What Meridian does before exec | Harness guarantee relied on |
+|---|---|---|
+| Create | Mints the ID (Pi, Claude) or obtains it from an owned pre-input response (Codex `thread/start`, OpenCode `POST /session`) | Harness creates or reopens exactly that ID |
+| Resume | Verifies the exact locator (file exists, header ID equals the key, store matches) | Harness opens that path/ID as-is |
+| Fork | Verifies the source; assigns the new target ID where the harness accepts one | Harness writes a new session that records its parent |
 
-## Source authorization is not transport qualification
+The binding happens under the sessions lock and is bind-once. The first owned
+identity signal the harness emits (Pi `session_start`, Codex/OpenCode API response,
+Claude hook or connection ID) confirms it. If that signal contradicts the target, the
+attempt fails as `entry_mismatch`. No binding is created for the unexpected key, and
+no chat's key changes. Identity switches after that are ordinary switches, not entry
+evidence.
 
-Source use means resuming or forking a selected native conversation. `--fork-fresh` still forks a source; `--from` supplies lightweight context to a **new** conversation and is not source use. Tracked continuation from cN requires its accepted native key and qualified exact file pin; a pN selects the effective non-invalidated terminal attempt, not a row, entry, or earlier retry. A bare native ID is untracked only after the strict authority query finds no recorded candidate. Missing, legacy, conflicted, or unresolved claims cannot fall through to native discovery, a loose metadata ID, or a false caller flag. Raw Pi session selectors cannot disguise source use as a fresh launch. I1a4's exact file pin supplies a source credential after policy authorization; it does **not** qualify the launch transport or prove connected selection.
+**Why argv counts as evidence here.** The earlier rule was "planned argv is not an entry
+binding". It demanded an *observed* identity before any input reached the model. On Pi
+that meant an owned pre-input gate, which exists only in `--mode rpc`. Meridian has no
+RPC frontend for the interactive TUI that people actually use, so primary Pi could
+never be tracked under that rule. The comparison branch that built toward it (PR #519,
+~22k lines: RPC-primary route, raw-argument grammars R1/R2, model-intent fold C1–C3,
+owner/coordinator layers, `transport_unqualified` refusal) never enabled a single
+tracked continue. The correction is to ask what the harness itself guarantees. When
+Meridian verified the target and the harness contract says it opens exactly that
+target, the emitted operation is evidence. Anything the contract does not cover is
+disclosed as a limit instead of being hidden behind more machinery.
 
-Keep native Pi TUI as the primary transport, but refuse tracked primary resume/fork on it, including previews and aliases. Do not silently switch primary to RPC. Spawn Pi RPC exact resume is a candidate only: it remains blocked until B3c provides owned admission and entry/exit evidence; tracked RPC fork is not qualified by resume. A refused or unavailable tracked source does not become an untracked launch by dropping its credential.
+Some pieces of that branch were kept: the Pi session-boundary extension (for exit
+observation), the Pi reopen-default lineage projector (for native reads), and refusal
+of raw passthrough flags that would override managed identity.
 
-## Reconcile the selection that will actually execute
+## Discovery is never identity evidence
 
-The bounded-argument policy and chosen late fresh-route C are documented in [native source argument admission](native-source-argument-admission.md). R1 admits fresh and `--from` raw after the existing route; R2a now supplies exact metadata for an admitted tracked source, but R2b must still put typed original/saved raw checks ahead of replay/history. The installed resolver's effects remain a runtime-qualification risk, not a reason to move ordinary Mars earlier.
+Choosing a journal by cwd, mtime, newest file, or ID prefix is never identity
+evidence. Incident p6615 is the reason. A fresh Pi primary had no assigned ID, so
+Meridian took the newest same-cwd journal in a shared directory, and a concurrent
+same-cwd session could be selected. The wrong ID was persisted as canonical, and a
+later resume loaded someone else's conversation. That was real model-context
+contamination, not a display bug.
 
-The primary launch owner checks the original source before legacy resolution, replay, native model-history reads, or model-observation writes. Its negative authority result stays local to that synchronous preparation; no copied `PrimarySourceCheck` seal, prepared surface, or preview grants a later caller permission. Independent public bind and execution boundaries must revalidate their own supplied selection. A consistent bare-native-source boundary needs one strict authority snapshot, not duplicate CLI/API/bind folds; this is a per-boundary cost target, not a lifetime cache or measured end-to-end saving.
+Status: Pi discovery is deleted. Claude, Codex, and OpenCode still have
+filesystem observation legs (Codex rollout scan, OpenCode storage/log detection,
+Claude exact-ID lookup across config roots). Their lane is in progress. Those legs can
+still supply a *first* observation for an unbound chat, but the bind-once seam stops
+them from overwriting a key. Claude's TUI trampoline successor is now a logged
+conflict. It is never adopted, because a same-project prompt match is inference, not
+an owned signal.
 
-Reconcile **all independent selection facts**, rather than taking a winning nonempty field: original and resolved request, harness and runtime namespace, seed and overrides, then actual spec/argv or managed plan. Preserve distinct roles: source A; a locally generated fresh **create target** U, which is not a resume selector; and a locally materialized **fork target** B, which may be resumed only after this execution's fork A→B. A native fork keeps A as its source. A pending materialized fork preview describes `materialize A → resume result`, never a success-shaped `resume A` command. Reject source substitution, fork-to-resume downgrade, caller-supplied target transitions, and conflicting raw selection rather than querying the substituted target or trusting labels. The pure comparison is not itself authority, and neither it nor file preflight proves a harness actually selected the intended session.
+## Rejected alternatives
 
-### Exact metadata is a bounded join, not launch permission
+- **Observed-entry-only rule with a Pi RPC primary.** Rejected for the reasons above.
+- **Repointing a chat on switch**, or treating every switch as fatal. Repointing
+  corrupts `--continue`. A fatal switch breaks normal TUI use.
+- **Mirrors as authority.** Primary metadata, spawn-row IDs, and multi-ID session
+  arrays could each "recover" an identity. The chat binding is the only authority;
+  mirrors copy the accepted ID.
+- **A separate file-pin registry or conflict journal.** Resume re-resolves the exact
+  file inside the recorded store and verifies its header. The store is already in the
+  key.
+- **Fail-closed UUID minting on unreadable siblings.** A single torn journal in the
+  shared primary store would block every fresh launch. Minting skips unreadable
+  headers with a warning. Source resolution and post-exit verification stay
+  fail-closed.
 
-R2a retains the positive strict source-use result and its **same** authority snapshot. From that snapshot it checks A's binding and selected live lifecycle, then reads only the lifecycle-linked spawn row without its starting prompt. The row must agree on chat, generation, harness, native ID and nonempty work/root/cwd facts; its policy snapshot must be present and same-harness. Missing, corrupt or conflicting facts return typed unavailability instead of recovering another row, looking up a newer primary, or discovering a native file. The retained policy is detached from mutable row maps. This is one authority fold plus at most one exact state read, not a second identity resolver. A journal/row mismatch fails closed; the two stores are not one atomic transaction.
+## Accepted limits
 
-The join is **not** an authenticated permission seal: a caller could pair retained values with the wrong original scope. R2b's owner must compare the original operation, reference and runtime scope with the admitted result by value *before* metadata I/O, then validate caller and saved raw vectors independently against A's adapter *before* replay/model history. The existing discovery-capable replay resolver cannot stand in for that check. A copied DTO or another authority query would hide, not discharge, the owner obligation. Recognized `pN` continuation remains `tracked_run_unresolved` until terminal-attempt correlation exists; its mutable spawn row cannot authorize a source. Fresh `--from pN` still supplies lightweight context and does not enter this source-use path.
+- External deletion or replacement of a verified file between preflight and the
+  harness opening it is outside the guarantee. Pi, for example, initializes a new ID at
+  a missing path. Detection fails the attempt, but input may already have reached the
+  model.
+- Collision checks rule out an existing ID when they run. They are not an atomic
+  reservation against external writers. The protection is UUID4 improbability plus
+  the check.
+- Model/provider selection on reopen is a separate concern and never changes identity.
 
-R2c remains a separate state/provider design gate. Replay must preserve last-used-model behavior while separating exact evidence collection from pure intent selection and contract assembly. The retained strict projection needs bound model-selection facts, and native observation reads and persisted fallback must be keyed to A's exact source **and qualified view/basis**. Existing discovery-capable model reads and `(harness, native ID)`-only observation events can mix stores or branches; they cannot be promoted to tracked evidence. Exact key equality alone does not prove an executed model or live process. Do not route early through Mars, synthesize an original seed from a later row, or silently replace last-used semantics with snapshot defaults.
+## Phases
 
-## Why this direction
+| Phase | Scope | State |
+|---|---|---|
+| 1 | Immutable binding, pre-exec plan seam, exact-only resolution, Pi exact identity; Claude/Codex/OpenCode exact identity | Pi + core done and reviewed; other harnesses in progress |
+| 2 | Pi exit observation via session-boundary extension; B→own cN; isolated real-Pi 0.87.1 qualification | Not started |
+| 3 | Native readers: `session log`/context/search on the exact key; Pi reopen-lineage view | Not started |
+| 4 | Remove runner-history writers/readers/checkpoints; measure cost | Not started |
 
-The Pi incident showed that a same-cwd newest-file association can bind a chat to someone else's native conversation, while physical-order Pi readback can mix sibling branches. Retaining a second persisted runner transcript would leave two candidate conversation authorities and preserve ambiguous fallback. Immutable native-key binding, attempt-owned boundary evidence, an immutable qualified file pin, and exact native reads separate identity from content and disposable search acceleration.
+Phase 1 was verified with fake `sh` harness shims at the real launch seams and with
+CLI probes against an isolated built wheel. It is **not runtime-qualified against a
+real Pi binary**. That qualification is in phase 2.
 
-The design rejects repointing a chat after a native switch, treating every switch as a fatal conflict, accepting a launch seed as proof, renaming the runner stream, making `session log pN` terminal-only, expanding `--from` into transcript injection, silent locator relocation, and automatic legacy repair. It also rejects a parallel locator registry or writer, a native-file watcher, and a global native-writer lease system. A late contradictory terminal receipt invalidates only the affected run's exit evidence; it never repoints an independently established chat.
-
-## Pi startup repair and delivery gate
-
-The user selected **policy B**: Pi may initialize or repair its own native journal during startup, before exact identity is observed, even if that attempt later fails. The guarantee is **zero task/model turns before qualified entry and durable acceptance**, including autonomous extension notifications. A repairable exact source is not refused solely to pretend startup is read-only. If startup changes the identity, path, store, or pinned file incarnation, no task/model turn may pass; Meridian does not repair the native file or repoint cN. This accepts possible Pi-native startup writes on an aborted attempt; it does not promise isolation from arbitrary external writers.
-
-The B3a extension gate is a causal barrier, not an authority grant. Generation-bound notifications, readmission scans, and sticky close passed focused review, but an `agent_start` event can be emitted without proving that the sole qualified owner initiated it. B3c must establish the sole starter, mandatory tracked capability, exact loaded bundle/configuration, entry acceptance before any input or notification work, and terminal proof. No Pi mode is yet qualified as tracked.
-
-## Non-shipping phase state and next gates
-
-- **I1a4 authority and exact source:** the reviewed v3/v4 state/coordinator retains v3 key-only occupancy and adds v4 first-file pin and bounded conflict in the same journal. Later purpose-aware source resolution and opened-object validation are enabling source checks, not connected Pi selection or owned admission. Legacy key-only bindings acquire no automatic file credential or implicit upgrade path.
-- **B3a Pi notifications:** reviewed at `ebd65407` (p6734), merged into the v2 branch. The extension gate prevents known cross-generation notifications and keeps ordinary untracked behavior; B3c's sole-starter and end-to-end delivery obligations remain.
-- **I2 Pi read view:** pure selected-lineage projection for a supported subset of installed legacy-v3 Pi journals passed focused built-wheel review at `fe7e2232` (p6750) and merged. It is **unwired** to `session log`, search or provider routing. Unsupported types and newer dialects remain incomplete; effective legacy readback is unverified. Its synthetic linear cost is not an end-to-end performance claim.
-- **B3b selection and bounded grammars:** phase 1 at `24008a5c` passed focused owner/replay review. Four registered adapter grammars, spawn/streaming/OpenCode-preview peers, typed-fork correction and R0 policy split remain enabling branch work. R1 at `20fd651a` now wires **fresh owner admission** through the actual selected adapter with retained controls and redacted warnings; 146 guarded fake checks passed with zero external attempts, and Pyright had zero errors. This is not approval of typed replay order, public direct/bind/runner raw checks, or final consumer emission. The adversarial preflight scalar-reinjection and independent raw-vector acceptance cases remain open. See the [bounded-argument decision](native-source-argument-admission.md).
-- **R2a exact metadata:** approved standalone at `f2aeebb8` after guarded synthetic review fixed lifecycle/row context conflicts, mutable policy aliasing and invalid UTF-8 state classification. The join reads no prompt, unrelated spawn row or native source; with zero and 1,000 unrelated rows the review measured the same 4,022 content bytes (`J + S`). This is a bounded read result, not an installed-runtime latency or whole-system cost claim. Production owner/replay remains unwired and tracked transports remain refused.
-
-Next: connect owner scope pairing and both raw checks before model history (R2b), then design and implement exact source-keyed model evidence and pure replay intent (R2c). Finish independent direct-build, bind and runner checks; verify and consume the same final emitted argv/RPC/HTTP/env value after transformations (G). Qualify the installed Mars executable and ordinary resolver effects before runtime claims, without relocating the resolver or silently changing its policy. Establish owned Pi entry/terminal admission and qualify transports in isolation (B3c). Native log/search cutover and removal of *all* new runner-history writers/readers/checkpoints follow; other transports need independent qualification or explicit untracked status. Verify correctness, safety and native read/index cost alongside eliminated per-event write cost. No current source phase certifies the full cross-harness contract or a measured overall cost saving.
-
-**Provenance:** `work:native-harness-session-identity/decision.md`; designs `native-history-only.md`, `exact-locator-authority.md`, `b3b-c-late-admission.md`, `b3b-r1-scalar-boundary.md`, `b3b-r2-exact-metadata.md`; reviews `b3b-r0-final.md`, `b3b-r1-final.md`, `b3b-r2a-final.md`; `spawn:p6734`, `spawn:p6750`, `spawn:p6938`, `spawn:p6945`, `spawn:p6970`, `spawn:p6983`.
+**Provenance:** `work:native-harness-session-identity` (`decision.md`,
+`DIVERGENCE/exact-locator-entry.md`, `design/native-history-only.md`); design review
+`spawn:p7037`; lanes `spawn:p7038`, `spawn:p7040`, `spawn:p7043`, `spawn:p7048`; reviews
+`spawn:p7039`, `spawn:p7044`, `spawn:p7045`; incident `spawn:p6615`.

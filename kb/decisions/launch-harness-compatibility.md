@@ -1,9 +1,9 @@
 # Decisions: Launch Harness Compatibility History
 
 This page preserves harness- and platform-specific launch decisions. Native
-Windows work is historical and superseded by the current POSIX-first stance;
-the Claude trampoline reconciliation decision remains current compatibility
-behavior.
+Windows work is historical and superseded by the current POSIX-first stance.
+Claude trampoline detection stays, but its record *repair* is superseded: the
+successor is now diagnostic only.
 
 ## Decision Map
 
@@ -11,7 +11,7 @@ behavior.
 |---|---|---|
 | Native Windows launch work | Superseded / legacy best effort | Root `AGENTS.md` POSIX-first rule |
 | 2026-05 structural simplification | Historical rationale | [Launch architecture](../architecture/launch-system.md) |
-| Claude TUI trampoline ID repair | Current | Claude harness implementation |
+| Claude TUI trampoline ID repair | Repair superseded; detection is diagnostic | [Native session identity](native-session-identity.md) |
 
 ## Windows Compatibility (Superseded)
 
@@ -31,6 +31,12 @@ layer was pure ceremony with no semantic value. The resulting architecture is
 documented in [launch-system.md](../architecture/launch-system.md).
 
 ## Claude TUI Trampoline Session-ID Reconciliation (2026-06)
+
+**Superseded in part (2026-09-24).** Detection is kept, but the successor no longer
+rewrites records. Under the [native session identity](native-session-identity.md)
+rule a chat's key is immutable, and a same-project prompt match is inference rather
+than an owned signal. The original decision follows because it explains why detection
+is file-based.
 
 **Decision:** Repair Claude TUI trampoline session IDs at finalization time via
 file-based `history.jsonl` evidence rather than an interactive `claude

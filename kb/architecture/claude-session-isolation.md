@@ -286,18 +286,25 @@ capture or `--session-id` in args), later operations (`meridian session log`,
 prior-run context injection) will fail: the trampoline ID has no transcript
 file under `~/.claude/projects/<slug>/`.
 
-**Reconciliation at finalization.** `ClaudeAdapter.observe_session_id()`
-overrides the base implementation to detect and repair this case:
+**Detection at finalization, diagnostic only.** `ClaudeAdapter.observe_session_id()`
+detects this case:
 
-1. If the recorded session ID already has a transcript file → preserve it
+1. If the recorded session ID already has a transcript file → nothing to report
    (most launches are unaffected).
 2. If no transcript exists → scan `~/.claude/history.jsonl` for the recorded
    ID with `display: "/tui fullscreen"`.
 3. Find the next same-project prompt entry with a different session ID.
 4. Verify the successor has a transcript whose first user message matches the
    history display.
-5. If all checks pass → update session and spawn records to the real ID.
-6. If any check fails → fall back to the recorded ID (no guessing).
+5. A verified successor is logged as a native-binding conflict. The chat and spawn
+   keep the recorded ID.
+
+It used to rewrite session and spawn records to the successor. That stopped when
+chats became bound to one immutable native key
+([native session identity](../decisions/native-session-identity.md)). A same-project
+prompt match is inference, not an owned harness signal. The consequence is that a
+trampoline chat may resolve `missing` on `--continue`/`session log`. That residual is
+open and has not been designed yet.
 
 This runs during primary finalization in `runner.py`, after the harness exits.
 It is Claude-specific — Codex, OpenCode, and Pi do not have a `/tui fullscreen`

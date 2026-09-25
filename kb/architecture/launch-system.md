@@ -38,7 +38,7 @@ bind_launch_context()       ← cheap materialization, spawn-ID + paths + env
 LaunchContext
 ```
 
-**`prepare_launch_surface()`** — the expensive composition phase. Runs prompt assembly, semantic IR projection, skill injection, continuation resolution and policy gates (e.g. `deny_headless_harnesses`); it can also resolve policy when none is supplied. Called once per spawn, it precedes spawn-row creation but is **not effect-free**. On the unmerged R1 branch, fresh primary launch retains one ordinary Mars policy result at its existing late point, asks the selected adapter to admit raw arguments, then passes that same policy and admitted remainder to preparation. Metadata/work effects and resolver cache, network or status/probe effects may precede refusal; fresh admission does not move Mars earlier. See [native-source admission](../decisions/native-source-argument-admission.md) for the decision and remaining qualification gates. Policy decisions that can be evaluated before the spawn ID exists belong here, not in bind.
+**`prepare_launch_surface()`** — the expensive composition phase. Runs prompt assembly, semantic IR projection, skill injection, continuation resolution and policy gates (e.g. `deny_headless_harnesses`); it can also resolve policy when none is supplied. Called once per spawn, it precedes spawn-row creation but is **not effect-free**: metadata/work effects and resolver cache, network or status/probe effects may precede a refusal. Policy decisions that can be evaluated before the spawn ID exists belong here, not in bind.
 
 **`PreparedLaunchSurface`** — frozen dataclass; the in-memory boundary between preparation and binding. Carries: resolved request, harness, seed session info, composition warnings, loaded references, agent inventory prompt, context prompt, alias catalog, model selection context. Deliberately excludes spawn IDs, report paths, env, argv, and permission outputs — everything that varies per bind.
 
@@ -80,17 +80,14 @@ coordinated final gates/PR/release.
 
 ### Primary identity binding
 
-Primary fresh and native-fork paths defer selection binding until the
-authoritative harness identity is available. Generated seeds and the native
-fork's source parent are not bound from an early provisional identity. Claude
-continues to use its existing transcript/trampoline identity detector; no
-model discovery is performed here.
+A launch whose finalized `native_identity_plan` carries an ID (minted create,
+verified resume, fork target) binds that key to the chat before exec. Only a plan
+without an ID (Claude fork) waits for the first owned observation. The native fork's
+source parent is never bound as the child. A contradicting initial identity fails the
+attempt as `entry_mismatch`. See [native session binding](native-session-binding.md).
 
 Identity-binding failure propagates as the operation's error, while adapter
-cleanup and session stop remain in the cleanup path. This increment is
-verified with primary-identity seed/fork drivers, native-fork fake executable
-drivers, and binding-failure plus quiet-transcript controls. C7 remains open for the spawn native-fork/reference-form audit and
-coordinated final gates/PRs.
+cleanup and session stop remain in the cleanup path.
 
 ## control_root / task_cwd Split
 
@@ -578,8 +575,8 @@ ops/spawn/execute.py
 ## Accepted startup selection and OpenCode transport (2026-09)
 
 All three driving paths record **model/policy** acceptance at startup through the shared
-`SessionAttempt`. This is not verified native entry/exit identity and does not
-qualify a transport for tracked cN binding under [native session identity](../decisions/native-session-identity.md). Streaming-serve binds its pending selection through the
+`SessionAttempt`. This is model/policy acceptance, separate from the chat's native
+key ([native session binding](native-session-binding.md)). Streaming-serve binds its pending selection through the
 identity callback when available, otherwise through existing post-run artifact
 extraction. Native-spawn fork child isolation prevents the parent from being
 recorded as the child.
