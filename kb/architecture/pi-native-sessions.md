@@ -1,14 +1,14 @@
 # Pi Native Sessions: Identity and Readback
 
 Pi stores each conversation as one JSONL journal. This page owns Pi-specific journal
-behavior and readback; the cross-harness identity rule is in the
+behavior, exit observation, and readback. The cross-harness identity rule is in the
 [native session identity decision](../decisions/native-session-identity.md), and the
-shared plan/bind/verify mechanics are in [native session binding](native-session-binding.md).
-The exact identity implementation described here is on `fix/native-session-wrapper`
-(not yet merged); clean `main` still discovers fresh primaries from disk. Readback is
-still physical-order: Pi journals are append-only *trees*, and Meridian's renderer
-still flattens them. Native readers on the reopen lineage are phase 3 of the decision
-and have not started.
+shared plan/bind/verify/boundary mechanics are in
+[native session binding](native-session-binding.md). Exact identity and exit
+observation are implemented on the PR #520 integration branches, not on `main`.
+Clean `main` still discovers fresh primaries from disk. Readback is still
+physical-order: Pi journals are append-only *trees*, and Meridian's renderer still
+flattens them. Native readers on the reopen lineage have not started.
 
 ```mermaid
 flowchart TD
@@ -33,17 +33,20 @@ flowchart TD
   `PI_CODING_AGENT_DIR/sessions`, else `~/.meridian/meridian-pi/sessions`.
 - Store per operation: a **primary create or fork** uses the flat shared root, and a
   **spawned create or fork** uses a spawn-scoped subdirectory. A **resume** uses the
-  verified source file's directory. The store is resolved once, in
+  recorded source store (`SessionRequest.source_native_store`). The store is resolved once, in
   `PiAdapter.finalize_native_identity()`. It is written to the child env *and* emitted
   as `--session-dir`, and it is recorded in the chat's native key. Prelaunch and RPC
   startup no longer rescope or rewrite it.
-- A tracked source with no recorded store refuses (`native_transcript_missing`). Pi
-  stores are never borrowed from primary or owner metadata.
+- A tracked source with no recorded store refuses. Pi stores are never borrowed
+  from primary or owner metadata. (That branch still raises a plain `ValueError`,
+  while exact-file missing/ambiguous refusals are typed `NativeSessionUnavailable`.)
 
 ## Pi 0.87.1 behavior Meridian relies on
 
-These were verified against installed Pi 0.87.1 source (`dist/main.js`,
-`dist/core/session-manager.js`), not against a running binary.
+Verified against installed Pi 0.87.1 source (`dist/main.js`,
+`dist/core/session-manager.js`, `dist/core/agent-session-runtime.js`). Items marked
+*(runtime)* were also observed in zero-turn runs of the real binary (temporary
+store, `--offline`, `--no-tools`, isolated `HOME`/`PI_CODING_AGENT_DIR`).
 
 - **`--session <arg>`**: an arg containing `/` or ending `.jsonl` is used as a path
   as-is, with no ID, prefix, or global search. If the file is **missing or empty at
@@ -60,10 +63,15 @@ These were verified against installed Pi 0.87.1 source (`dist/main.js`,
   writes the new file with `flag: "wx"`. `wx` is exclusive by **path**, not by ID. So
   Meridian verifies ancestry (`parentSession` == source path) separately from the new
   ID.
-- **Persistence is lazy for create**: no file exists until the first assistant message.
-  A fork writes its header and copied history immediately. A bound create with no file
-  is `pending`, and resuming it fails `missing`, so an unmaterialized create is never
-  treated as resumable.
+- **Persistence is lazy for create** *(runtime)*: `newSession()` builds the header
+  and path in memory, and `_persist()` defers every entry until an assistant message
+  exists. RPC `set_session_name` and `set_model` only enqueue entries; neither writes
+  the file. RPC `new_session` allocates an in-memory session and does not write
+  either. A fork writes its header and copied history immediately, but needs a
+  persisted source. A bound create with no file is `pending`, and resuming it fails
+  `missing`, so an unmaterialized create is never treated as resumable. It also
+  means a real create/continue/fork workflow cannot be exercised without one model
+  turn.
 - **Env vs flag**: Pi reads `PI_CODING_AGENT_SESSION_DIR` (the name is built
   dynamically in source, so a literal grep misses it), and `--session-dir` overrides
   it. Meridian sets both from the same value.
@@ -81,8 +89,9 @@ RPC spawn projections share the same argv.
 - **Passthrough refusal.** Raw `--session`, `-c/--continue`, `-r/--resume`,
   `--session-dir`, `--session-id`, `--fork`, and `--no-session` (including `=value`
   forms) are refused. They would override managed identity, store, or persistence.
-- **Exit verification.** The primary runner's `observe_primary_session_id` and the
-  streaming runner's `verify_native_identity` check only the assigned file. A create
+- **Post-attempt target check.** `verify_native_identity` checks only the assigned
+  file. This is about the entry target; what the user ended on is
+  [exit observation](#exit-observation). A create
   may still be pending. A resume must be the same absolute path. A fork's header must
   carry the new ID and `parentSession` equal to the source path. A contradiction fails
   the attempt without touching any binding. Unrelated or newer files are ignored.
@@ -94,19 +103,66 @@ RPC spawn projections share the same argv.
   byte cap on header reads. This is not benchmarked.
 - **Meridian writes no Pi journal.**
 
+## Exit observation
+
+Managed TUI and RPC projections always load Meridian's `session-boundary` extension
+(`pi_runtime/extensions/session-boundary`). The extension publishes one small record,
+and `harness/pi_boundary.py:read_boundary` reads it once after the process exits.
+
+- **Capability.** Pi prelaunch generates the record path
+  (`<runtime>/spawns/<pN>/pi-session-boundary.json`) and a 32-byte hex nonce, passed
+  as `_MERIDIAN_PI_SESSION_BOUNDARY_PATH` / `_MERIDIAN_PI_SESSION_BOUNDARY_NONCE`.
+  The extension deletes both from its environment on load. The record carries the
+  nonce and the publishing process's PID. The reader checks both against the
+  launch nonce and the actual child PID, not the launcher's.
+- **Record.** `v`, `launch_nonce`, `pid`, `revision`, `initial` (first
+  `session_start` only), `current` (latest `session_start`), `last_event`, `quit`,
+  `invalid_reason`. There is no event itinerary. Any start, before-switch, or
+  non-quit shutdown clears `quit`. IDs ≤256 chars, paths ≤4096, whole record ≤16 KiB.
+  Each publication is an exclusive 0600 temp write, fsync, and rename. The extension
+  writes nothing to stdout or to any native journal.
+- **Reading.** Missing, oversized, corrupt, wrong-version, wrong-nonce, wrong-PID, or
+  poisoned records yield no observation. `initial` is compared with the entry key
+  (mismatch fails the run; see
+  [run boundary](native-session-binding.md#seams)). Exit is `quit` only when
+  `last_event` is `session_shutdown` with reason `quit`.
+
+**What real Pi 0.87.1 emits.** Hooks get a per-invocation `ctx`, and Pi invalidates
+extension contexts on session replacement (`newSession`, `fork`, `switchSession`,
+`reload`). Any access then throws "This extension ctx is stale after session
+replacement or reload". On RPC `new_session` the observed order is
+`session_before_switch(new)` → `session_shutdown(new)` → `session_start(new)` → at exit
+`session_shutdown(quit)` for the new session. If stdin closes while the replacement
+is still settling, the old runner's `session_shutdown(quit)` fires with an
+invalidated ctx, and reading `sessionManager` throws.
+
+The first extension treated that throw as an identity fault and poisoned the record.
+Every switched run that hit the race lost its exit. The Pi API audit and the fake
+lifecycle fixture both missed it, because the fixture replayed event order without
+invalidating anything. A zero-turn real-Pi probe found it. The rule now:
+documented ctx invalidation is not an identity conflict. A stale-ctx shutdown is
+recorded without identity. It clears `quit`, so exit is `unresolved`, and nothing is
+poisoned. Poison is reserved for inconsistent data. The record format moved to
+`v: 2`. When the replacement settles before exit, real Pi verifies the new session as
+exit. The fix is committed on the integration branch; its fix-pass report and review
+were still pending at capture time. Detection keys on Pi's error text. If a Pi upgrade
+rewords it, the case falls back to poison, which fails closed.
+
+**Cost** (real Pi, zero turns): +36 ms to RPC-ready (median 227 → 263 ms), bundle
+5,170 bytes, records ~634 bytes, one fsync per publication (two on a plain
+start → quit run). The bundle must be built before `uv build`, as CI does. A wheel
+without it raises `PiExtensionProjectionError` at projection.
+
 ## Limits
 
 - **External replacement after preflight.** If the verified file is deleted or
   replaced before Pi opens it, Pi may start a different ID and input may reach the
   model before Meridian detects it. Detection fails the attempt, and the source chat is
   never repointed.
-- **In-TUI switches are not yet observed.** A `/resume` or `/new` inside the TUI moves
-  the user to another conversation. Until phase 2 wires the session-boundary
-  extension, Meridian cannot see this. The chat stays at its entry key, which is
-  correct under the rule, but the conversation the user ended on gets no chat. A
-  graceful quit's `session_shutdown` will map the final key. Shutdown-for-switch is
-  not exit, and a missing quit event (SIGKILL, extension not loaded) stays
-  `unresolved`.
+- **Exit after a switch is only as good as the final quit.** A `/resume` or `/new`
+  is observed, but exit is verified only by a final quit with a readable identity.
+  SIGKILL, a missing bundle, or the replacement/EOF race below leave it `unresolved`.
+  The entry chat is unaffected either way.
 - **Model selection on reopen** is a separate Pi setting and never affects identity.
 
 ## Journal topology and readback
@@ -136,4 +192,6 @@ salvaged from the comparison branch.
 **Provenance:** incident `spawn:p6615` (`work:investigate-pi-model-selection-for-luna`);
 `work:native-harness-session-identity` (`DIVERGENCE/exact-locator-entry.md`, design
 review `spawn:p7037`, Pi lane `spawn:p7040`, review `spawn:p7045`, integration
-`spawn:p7048`).
+`spawn:p7048`; exit lane `spawn:p7054`, review `spawn:p7059`, API audit
+`spawn:p7060`, fixes `spawn:p7061`, `spawn:p7067`; real-Pi zero-turn probe
+`spawn:p7065`, `evidence/lane-q-report.md`, `evidence/lane-d-fix2/`).

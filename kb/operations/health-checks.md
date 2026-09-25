@@ -63,51 +63,13 @@ Global maintenance (`--global`) requires `is_root_side_effect_process()` to retu
 |---|---|---|---|
 | Spawn artifact dirs | `~/.meridian/projects/<uuid>/spawns/<id>/` | Current project | always scanned |
 | Orphan project dirs | `~/.meridian/projects/<uuid>/` | Machine-wide | `--global` only |
-| Claude overlay dirs | `~/.meridian/projects/<uuid>/claude-config/<spawn-id>/` | Current project | always scanned |
 | Telemetry segments | `~/.meridian/projects/<uuid>/telemetry/` | Current project | always scanned |
 
 **Orphan project dirs** are project-level state dirs with no active spawns and no recent activity. Each UUID corresponds to one past project. Machine-wide pruning requires `--global` to avoid accidentally walking other active projects.
 
 **Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `history.jsonl`, `stderr.log`, `params.json`, `tokens.json`, `heartbeat`, etc.
 
-**Claude overlay dirs** are isolated `CLAUDE_CONFIG_DIR` overlays created for each Claude primary and child spawn. See [Claude overlay pruning](#claude-overlay-pruning) below.
-
 **Telemetry segments** are per-process JSONL event files under the current project's `telemetry/` directory. Local doctor scans them for retention cleanup: expired non-live segments are removed first, then older closed segments may be removed to enforce the total-size cap. Global orphan-project scanning is separate.
-
-### Claude Overlay Pruning
-
-Each Claude primary and child spawn runs with an isolated `CLAUDE_CONFIG_DIR`
-overlay at `~/.meridian/projects/<uuid>/claude-config/<spawn-id>/`. On normal
-completion, Meridian materializes the session transcript to the canonical Claude
-`projects/` tree (usually `~/.claude/projects/`)
-and then removes the overlay. If Meridian crashes before the cleanup `finally`
-block runs, the overlay is orphaned.
-
-`meridian doctor --prune` detects orphaned overlays via
-`scan_stale_claude_overlays()` and removes them with best-effort transcript
-preservation:
-
-1. For each stale overlay in the current project's `claude-config/` tree:
-   a. Attempt `materialize_overlay_transcripts()` to copy session JSONLs to
-      the canonical Claude `projects/` tree (usually `~/.claude/projects/`).
-   b. Delete the overlay directory with `shutil.rmtree`.
-2. Only overlays for inactive (non-running) spawns are removed. Active spawns'
-   overlays are never touched.
-3. Retention-day semantics are consistent with spawn artifact pruning — an
-   overlay that was recently active is not pruned even if the spawn record
-   is gone.
-
-If materialization fails, doctor logs a warning and continues prune handling so
-cleanup progress is not blocked by a single failed copy.
-
-**Why transcript materialization matters here:** A crash-orphaned overlay may
-contain the only copy of the session transcript (normal-exit materialization
-never ran). Doctor attempts to preserve transcripts before deleting, so
-`meridian --continue` usually remains functional even for sessions that ended
-in a crash.
-
-For the full isolation model, see
-[../architecture/claude-session-isolation.md](../architecture/claude-session-isolation.md).
 
 ### TTL Logic
 
@@ -141,9 +103,8 @@ The former global background scan (which ran `doctor_sync(global_=True)` and wro
 
 | Field | Meaning |
 |---|---|
-| `repaired` | Categories repaired this run: `orphan_runs`, `stale_session_locks`, `spawn_artifacts`, `claude_overlays`, `telemetry_segments`, `orphan_project_dirs` |
+| `repaired` | Categories repaired this run: `orphan_runs`, `stale_session_locks`, `spawn_artifacts`, `telemetry_segments`, `orphan_project_dirs` |
 | `pruned_spawn_artifacts` | Count of artifact dirs deleted |
-| `pruned_claude_overlays` | Count of stale Claude overlay dirs deleted |
 | `pruned_orphan_dirs` | Count of orphan project dirs deleted |
 | `telemetry_counts` | Current-project telemetry summary, including expired segment count |
 | `warnings` | Issues surviving reconciliation and not pruned — genuine attention needed |
@@ -152,7 +113,6 @@ The former global background scan (which ran `doctor_sync(global_=True)` and wro
 Warning codes emitted from `warnings` include:
 
 - `stale_spawn_artifacts`
-- `stale_claude_overlays`
 - `stale_telemetry_segments`
 - `stale_orphan_project_dirs` (`--global` only)
 - `live_active_spawns_remain`
@@ -168,21 +128,12 @@ Do not key automation or docs on a specific two-line prose rendering. Treat
 doctor warnings as structured categories:
 
 - `stale_spawn_artifacts` — prunable with `meridian doctor --prune`
-- `stale_claude_overlays` — prunable with `meridian doctor --prune`
 - `stale_telemetry_segments` — prunable with `meridian doctor --prune`
 - `stale_orphan_project_dirs` — prunable with `meridian doctor --prune --global`
 - `live_active_spawns_remain` — informational; active rows remained live after reconcile
 
 `--prune` only helps for stale-state categories. If the only warning is
 `live_active_spawns_remain`, there is nothing to delete.
-
-Claude overlay warnings are first-class and separate from spawn artifact
-warnings: each category has its own count, prune path, and reporting code.
-
-Before doctor deletes stale Claude overlays, cleanup attempts to rescue overlay
-transcripts and preserve known mutable auth/config files (`.claude.json`,
-`.credentials.json`) back to the durable Claude config root. Both steps are
-best-effort: failures are logged as warnings and pruning continues.
 
 ## Diagnostic Commands
 

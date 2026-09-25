@@ -205,25 +205,18 @@ disk state (`spawns/<child>/state.json`, `pi-bash/<parent>/bash-records.json`,
 
 See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the quiescence model.
 
-## Claude TUI Trampoline Session Reconciliation
+## Claude TUI Trampoline Successor
 
-Claude adapter overrides `observe_session_id()` with trampoline-aware
-reconciliation. Claude's new TUI creates a transient session when entering
-`/tui fullscreen`, then writes the durable transcript under a different session
-ID. The override checks `~/.claude/history.jsonl` for the `/tui fullscreen`
-marker, finds the successor same-project prompt, and verifies the successor
-transcript's first user message matches. A verified successor is logged as a
-native-binding conflict. The recorded ID is never replaced (see
-[native session binding](../architecture/native-session-binding.md)).
+Claude's `observe_primary_session_id()` detects the `/tui fullscreen` trampoline from
+Claude's own `history.jsonl` and returns the verified successor as
+`trampoline_successor_id`, separate from entry identity. The runner persists it as a
+diagnostic and passes it to the shared run-boundary finalizer as the exit key. The
+entry chat is never rebound. Detection is file-based only. See
+[Claude native sessions](../architecture/claude-session-isolation.md#tui-trampoline).
 
-The detection is file-based only — no interactive `claude --resume` probe
-is used. The probe was tested and found to perform model work that hits budget
-limits, making it inappropriate for deterministic finalization.
-
-Pi overrides `observe_session_id()` only to prefer owned observations and has no
-filesystem leg. Its primary exit check verifies the assigned file. Codex and
-OpenCode use the base priority chain, including its filesystem detection leg,
-until their exact-identity plans land.
+No adapter has a filesystem identity leg. Identity comes from the assigned plan or
+qualified owned events. Pi additionally reports exit through `observe_run_boundary`
+([Pi exit observation](../architecture/pi-native-sessions.md#exit-observation)).
 
 ## Related Pages
 

@@ -42,47 +42,33 @@ recursive target resolution.
 
 A **tracked chat** is narrower: it reads only its bound native key. If the chat
 has no key, or the key's transcript is missing or still pending, resolution raises
-`NativeSessionUnavailable(reason="unbound"|"missing")`. Candidate IDs, primary
-metadata, adapter scans, and runner history cannot stand in
+`NativeSessionUnavailable(reason="unbound"|"missing"|"ambiguous_native_file")`.
+Candidate IDs, primary metadata, adapter scans, ambient harness roots, and runner
+history cannot stand in
 ([native session binding](../architecture/native-session-binding.md)).
 
-### Claude: Trust-Ordered Root Chain
+### Claude: exact file in the recorded store
 
-Claude transcript resolution uses a trust-ordered root chain when resolving
-tracked sessions. The adapter seam `resolve_session_file()` accepts an
-optional `config_root_hint` parameter, threaded from the persisted
-`SessionRecord.claude_config_dir` / `SpawnRecord.claude_config_dir` through
-every tracked ref form (bare harness session id, chat id, spawn id, corpus
-search, and `session repair` paths).
+A tracked Claude chat reads exactly `<recorded native store>/<id>.jsonl`
+(`resolve_native_session_file`), independent of the caller's cwd. There is no
+trust-ordered root chain. A missing file is `missing`, not a reason to try
+`~/.claude` or the ambient `CLAUDE_CONFIG_DIR`. The legacy `resolve_session_file`
+path, used with a persisted `claude_config_dir` hint on records without a native
+store, expands the hint only to `<hint>/projects/<slug>`. Without a hint it uses the
+current config root, which applies to untracked references only. Codex reads the
+exact rollout under its recorded home, and OpenCode reads the exact recorded
+database. Pi requires the recorded store (below). See
+[Claude native sessions](../architecture/claude-session-isolation.md#reading-transcripts).
 
-The Claude adapter searches a deduped chain of roots, ordered by trust:
-
-1. **Recorded config dir** (the dir where the session actually ran)
-2. **Canonical `~/.claude`** (via `get_home_path()`) — covers the common
-   case where a transcript was repaired to the canonical root while the
-   ambient env points elsewhere
-3. **Ambient `CLAUDE_CONFIG_DIR`** — last resort
-
-First existing `<session_id>.jsonl` match wins. The chain is ordered by trust
-because cross-root copies (not always symlinks) can diverge in content.
-
-Untracked resolution passes `config_root_hint=None`, behavior unchanged.
-Codex and OpenCode accept the hint parameter and ignore it. Pi requires it:
-the hint is the recorded native store, and without it the Pi resolver returns
-nothing rather than searching.
-
-Two rejected alternatives shaped this design:
-- **Persisting a resolved transcript path** was rejected because Claude
-  transcripts can be re-materialized into new roots on later launches,
-  making a persisted path go stale.
-- **Canonicalizing `CLAUDE_CONFIG_DIR` at session creation** was rejected
-  because overlays exist for concurrent session isolation; canonicalizing
-  defeats that purpose.
+The rejected alternative still matters: persisting a resolved transcript *path*
+was rejected because Claude transcripts are re-seeded into other project stores on
+later launches. The key is store plus ID, and the file is re-resolved inside it.
 
 ### OpenCode source policy separates presentation from capture
 
-The provider-local OpenCode order is SQLite (`opencode.db`), legacy native JSON,
-then Meridian `history.jsonl` fallback. Non-file sources are modeled explicitly as
+For spawn and untracked presentation targets, the provider-local OpenCode order is
+SQLite (`opencode.db`), legacy native JSON, then Meridian runner output
+(`spawn_history`). A tracked chat reads only its recorded database. Non-file sources are modeled explicitly as
 `TranscriptSource(kind="opencode_db", path=None)` rather than fabricated paths.
 
 Presentation may still select retained stream evidence through indexed and legacy

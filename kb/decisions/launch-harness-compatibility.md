@@ -3,7 +3,7 @@
 This page preserves harness- and platform-specific launch decisions. Native
 Windows work is historical and superseded by the current POSIX-first stance.
 Claude trampoline detection stays, but its record *repair* is superseded: the
-successor is now diagnostic only.
+successor never rewrites the entry chat; it names the run's exit chat.
 
 ## Decision Map
 
@@ -11,7 +11,7 @@ successor is now diagnostic only.
 |---|---|---|
 | Native Windows launch work | Superseded / legacy best effort | Root `AGENTS.md` POSIX-first rule |
 | 2026-05 structural simplification | Historical rationale | [Launch architecture](../architecture/launch-system.md) |
-| Claude TUI trampoline ID repair | Repair superseded; detection is diagnostic | [Native session identity](native-session-identity.md) |
+| Claude TUI trampoline ID repair | Repair superseded; successor is a diagnostic and the run's exit key | [Native session identity](native-session-identity.md) |
 
 ## Windows Compatibility (Superseded)
 
@@ -32,11 +32,13 @@ documented in [launch-system.md](../architecture/launch-system.md).
 
 ## Claude TUI Trampoline Session-ID Reconciliation (2026-06)
 
-**Superseded in part (2026-09-24).** Detection is kept, but the successor no longer
-rewrites records. Under the [native session identity](native-session-identity.md)
+**Superseded in part (2026-09-24, 2026-09-25).** Detection is kept, but the successor
+no longer rewrites records. Under the [native session identity](native-session-identity.md)
 rule a chat's key is immutable, and a same-project prompt match is inference rather
-than an owned signal. The original decision follows because it explains why detection
-is file-based.
+than an owned signal. The successor is now persisted as `trampoline_successor_id`
+and mapped to its own exit chat through the shared run-boundary finalizer (see
+[Claude native sessions](../architecture/claude-session-isolation.md#tui-trampoline)).
+The original decision follows because it explains why detection is file-based.
 
 **Decision:** Repair Claude TUI trampoline session IDs at finalization time via
 file-based `history.jsonl` evidence rather than an interactive `claude
@@ -69,7 +71,7 @@ succeeds on the recorded ID rather than guessing.
 **Implementation:** `reconcile_tui_trampoline_session_id()` in
 `src/meridian/lib/harness/claude.py`, wired into
 `ClaudeAdapter.observe_session_id()`. Called by `runner.py` during primary
-finalization. See [../architecture/claude-session-isolation.md#tui-trampoline-session-id-reconciliation](../architecture/claude-session-isolation.md#tui-trampoline-session-id-reconciliation).
+finalization. Current mechanism: [../architecture/claude-session-isolation.md#tui-trampoline](../architecture/claude-session-isolation.md#tui-trampoline).
 
 ## Related
 
