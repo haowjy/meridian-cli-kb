@@ -200,6 +200,22 @@ clears them. The conftest clear pattern should match the full `_MERIDIAN_*` +
 **Where this lives:** `tests/conftest.py` (global fixture),
 `src/meridian/lib/launch/env.py` (where private vars are set)
 
+**The same hole, one namespace over (2026-09-25).** Tests that swap `HOME` still
+inherited `CODEX_HOME` from the Codex-run spawn executing them. They opened the
+user's real `~/.codex` SQLite read-write; they failed before writing, only by luck.
+Harness store variables are as ambient as `_MERIDIAN_*`. The autouse fixture now
+also clears `_NATIVE_STORE_ENV`:
+- `CODEX_HOME`, `CLAUDE_CONFIG_DIR`;
+- `OPENCODE_DB`, `OPENCODE_CONFIG`, `OPENCODE_CONFIG_DIR`;
+- `PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`;
+- `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`.
+
+The suite was then re-run with these variables pointed at an unreadable trap
+directory to prove nothing still reaches them. When an adapter starts reading a new
+store variable, add it to that set.
+Provenance: `work:native-harness-session-identity` (`spawn:p7100`, commit
+`7c49b1d5`).
+
 ---
 
 ## Cursor: Stale Mars Binary Leaves harness_model Unresolved
