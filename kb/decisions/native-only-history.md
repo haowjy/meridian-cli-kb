@@ -329,8 +329,10 @@ for the migration behavior.
 
 **Rejected:** rewriting at state load, because `read_state` can run while the
 non-reentrant spawn lock is held and an unlocked rewrite could clobber a concurrent
-write. Also rejected was scanning every command's startup: a done marker could miss a
-row written later by a still-running PR 1 runner. Migration details and the reason
+write. Also rejected was running it at every command's startup: without a done
+marker it scans every `state.json` per command, and with one it misses rows a
+still-running PR 1 runner writes later. Retire the module, `repository.DOGFOOD_BOUNDARY_FIELDS`
+and its index re-arm call together once no dogfood rows remain. Migration details and the reason
 quarantined rows remain safe until then are in the operations page.
 
 ### The prune rule
@@ -353,8 +355,11 @@ The policy choices behind its shape are:
   identity, so every Claude, Codex and OpenCode row written by a PR 1-or-later build is
   skipped. On the copy that was 55 spawns (124 MB). New runs write no stream, so this
   set does not grow.
-- **Live process scopes are skipped; multi-attempt runs qualify.** A terminal
-  spawn's stream is final, while each attempt's turns remain in harness-native files.
+- **Live process scopes are skipped; multi-attempt runs qualify.** Archive's
+  active-chat and dependency protections were deliberately not imported: a terminal
+  spawn's stream is final, and deleting it does not change ancestry. Meridian reads no
+  runner bytes for any attempt, and each attempt's turns stay in the harness's own
+  files (review question 10, answered "no change").
 - **Apply revalidates per spawn under locks.** A changed record or no-longer-resolving
   native source prevents deletion; one spawn's failure does not stop the pass. The
   exact checks and deletion scope are documented in the [operator contract](../operations/session-archive-pruning.md#runner-history-prune).
