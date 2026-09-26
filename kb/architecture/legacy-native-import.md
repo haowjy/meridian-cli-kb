@@ -2,8 +2,8 @@
 
 ## Legacy import
 
-Implemented on draft PR #520 (`fix/native-session-wrapper`), and run on the user's
-installed PR 1 build. The rules and the user decision behind them are in the
+Implemented in combined PR #534 (`feat/native-session-identity` @ `08499af0`, against
+`main`); #520, #526 and #531 are closed as superseded. The rules and user decision are in the
 [decision](../decisions/legacy-native-import.md).
 
 **Trigger.** `ops/runtime.py`'s `resolve_runtime_authority_for_read` and
@@ -11,8 +11,8 @@ installed PR 1 build. The rules and the user decision behind them are in the
 `ops/legacy_native_import.maybe_import_legacy_native_sessions(runtime_root)`.
 Commands that never resolve a runtime root, such as `--help`, do not trigger it. A
 root without `sessions.jsonl` is left alone, so an untouched project gets no state
-files. When the marker `<runtime_root>/legacy-native-import-v1.json` exists, later
-runs do nothing more than check for it.
+files. When the marker `<runtime_root>/legacy-native-import-v1.json` exists, the
+importer returns after checking it; late binding is a separate repair described below.
 
 **Sequence.**
 
@@ -78,6 +78,18 @@ around the whole import. Then:
 Quarantined spawn rows are not skipped, because they could carry a conflicting ID.
 Journal rows with the wrong shape are skipped rather than raised: non-dict records,
 non-string cwds, null ID arrays.
+
+## Late binding after the marker
+
+An old build can finish writing a native session ID to a chat after the once-only
+import has already recorded that chat under `unbound.no_session_id`. The ordinary
+import does not scan or repair it on later reads. `bind_late_legacy_sessions()` uses
+the typed `ImportReport` marker to consider only those recorded misses, resolves an
+exact store and validates the native header, then rechecks the chat identity and
+generation while binding. Each eligible row is recorded as attempted, including
+non-matches; malformed marker data causes no mutation. This repair runs only in
+`meridian doctor` and primary-launch background repairs. It does not run on every
+command, browse row, or transcript read.
 
 **Report mode.** `python -m meridian.lib.ops.legacy_native_import RUNTIME_ROOT` prints
 the report JSON. It skips CLI startup, runtime resolution, telemetry, and the automatic

@@ -371,6 +371,30 @@ landed"; `spawn:p7162`, `spawn:p7163`).
 
 ---
 
+## Probe the Harness Contract, Not the Probe Brief
+
+The first live probe of every harness found real defects, but it also reported a
+Claude `output.jsonl` absence as a failure. That expectation was wrong: Claude writes
+that file only through the process runner, while the headless path under test uses the
+streaming runner. Likewise, tmux showed TUI prompt text in the composer before Enter;
+the message was not submitted until the prober sent a separate Enter. Treating either
+observation as a product failure would have produced a code change without evidence.
+
+**The lesson:** make the probe's expected observable behavior match the actual launch
+path and the TUI's input protocol. When evidence contradicts a brief, inspect the
+implementation and reproduce at the relevant seam before changing code.
+
+**Reinstall risk:** reinstalling the uv tool environment while an old-build headless
+spawn was running killed that runner and its Codex child; interactive primaries
+survived. Avoid replacing the running tool environment during a headless spawn, and
+do not assume the interactive-primary observation generalizes to headless children.
+
+Provenance: `work:native-harness-session-identity`, `evidence/probe-final-claude.md`,
+`evidence/probe-final-codex.md`, `evidence/probefix-opencode-report.md`, and `decision.md`
+(p7171 reinstall observation).
+
+---
+
 ## Cross-References
 
 - [Native session identity decision](../decisions/native-session-identity.md)

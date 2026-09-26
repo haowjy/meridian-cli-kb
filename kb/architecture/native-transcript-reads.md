@@ -9,7 +9,7 @@ Why it is built this way: [native-only history](../decisions/native-only-history
 The binding it reads: [native session binding](native-session-binding.md).
 
 **State:** implemented in combined PR #534 (`feat/native-session-identity` @
-`08499af0`, against `main`); #520, #526 and #531 are closed as superseded. Nothing
+`08499af0`, against `main`, not merged); #520, #526 and #531 are closed as superseded. Nothing
 reads runner `history.jsonl`, and the runner-history writers and checkpoint are retired.
 
 ```mermaid

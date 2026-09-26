@@ -54,6 +54,8 @@ never touched.
 - Files are unlinked one by one with `missing_ok`, so a rerun after a crash converges.
 - `HistoryIndex.catch_up()` runs afterwards. The index does not project these files.
 
-Capture and ZIP archive still work after pruning: capture needs a sealed native
-snapshot, and runner files were never an archive source. A prune → capture → archive
-test checks that the ZIP holds `native-transcript.jsonl` and no runner members.
+Explicit `session archive --apply` captures the exact native snapshot before final
+selection when one is not already sealed; its dry-run reports that apply will capture
+the source. ZIP inventory omits retired runner-stream files when a native snapshot is
+present. A prune → capture → archive test checks that the ZIP holds
+`native-transcript.jsonl` and no runner members.

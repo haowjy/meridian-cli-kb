@@ -33,13 +33,21 @@ presentation over four ops-layer seams: `session_list_sync` (listing),
 See [../concepts/session-initiation.md](../concepts/session-initiation.md) for
 the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
 
+Browse degrades per row when a chat lacks a complete native key: it remains visible
+with `unbound`, has no transcript preview, and re-entry is blocked both in the list
+and after fresh selection resolution. Browse does not guess or repair identity. The
+late legacy-ID repair runs only from `meridian doctor` or primary-launch background
+repairs ([legacy import](../architecture/legacy-native-import.md#late-binding-after-the-marker)).
+
 ## Transcript Source Resolution
 
-The contract from PR 2 (draft PR #526) is **ref → chat → the chat's
-bound native key → that harness's exact reader**, through one function,
+The contract from the native-read implementation in PR #534 is **ref → chat → the
+chat's bound native key → that harness's exact reader**, through one function,
 `ops/session_target.resolve_transcript_source`. `session log`, export, preview and
 `search REF` all use it. The full ref table, view labels and search projection are in
 [native transcript reads](../architecture/native-transcript-reads.md).
+`pN` labels identify the chat being shown; text search prints a source-coverage line
+alongside the structured JSON coverage.
 
 - **A tracked chat reads only its bound native key.** If the chat has no key, or
   its transcript is missing or still pending, resolution raises
@@ -47,8 +55,10 @@ bound native key → that harness's exact reader**, through one function,
 - **Nothing else can stand in:** not candidate IDs, primary metadata, adapter
   scans, ambient harness roots, index rows, or Meridian's runner `history.jsonl`
   ([native-only history](../decisions/native-only-history.md)).
-- **`--file PATH`** reads a native file. A runner `history.jsonl` is rejected as
-  "not a native transcript".
+- **`--file PATH`** reads a native file. Retired runner `history.jsonl` is rejected as
+  "not a native transcript"; SQLite and non-native files are also rejected. For an
+  OpenCode database, the error points to `session log cN` so resolution uses the bound
+  session.
 - **Untracked raw IDs** keep a labeled lookup (`untracked`); they are not on any
   tracked path.
 
@@ -80,7 +90,10 @@ output. Reusable OpenCode SQLite fixtures live in `tests/support/opencode_db.py`
 ### Archive capture
 
 Archive capture resolves the exact native key recorded for the aggregate and
-publishes its snapshot. A spawn with no native source stays loose with a reason.
+publishes its snapshot. Explicit apply materializes a missing eligible snapshot before
+final selection; dry-run reports `Apply will capture native snapshot: pN` when the
+exact source is available. A spawn with no native source stays loose with a reason.
+ZIP inventory omits retired runner-stream files when a native snapshot exists.
 Legacy runner-history members of old ZIPs restore as bytes and are never read as
 transcripts ([portable history](../architecture/state-system/portable-history.md#archive-capture-is-native-only)).
 

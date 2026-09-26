@@ -1,7 +1,7 @@
 # Decision: Conversation history is native-only
 
 **Status: settled 2026-09-25; combined and probe-fixed 2026-09-26.** PR #534
-(`feat/native-session-identity` @ `08499af0`, against `main`) combines the former
+(`feat/native-session-identity` @ `08499af0`, against `main`, not merged) combines the former
 #520/#526/#531 stack; those PRs are closed as superseded. Live re-probes covered
 supported workflows for Claude, Codex, OpenCode and Pi. Cursor was not probed because
 the user does not use it. See [the combined implementation](#combined-implementation-and-probe-fixes).
@@ -62,8 +62,9 @@ The user's framing:
   - Claude TUI native files carry thinking text; the runner copy does not.
   - Codex reasoning is encrypted in the native file and absent from the runner copy.
 - **It is a second authority.** Each fallback to the stream turned a
-  display-quality copy into something that could pick a conversation. Removing the
-  readers first, in PR 2, makes PR 3 a pure deletion.
+  display-quality copy into something that could pick a conversation. Native readers
+  were established before the writer was removed; the combined implementation also
+  carries the migration, archive and safe-continuation repairs described below.
 
 ## Combined implementation and probe fixes
 
@@ -90,6 +91,25 @@ cross-harness gaps found by live probing:
 - OpenCode 1.x may lack V2 assistant-message IDs. In that case the report fallback
   reads the final assistant response from the exact bound native session; it does not
   read the newest ambient session. V2 retains exact message-ID lookup.
+
+The combined live re-probe did not close every originally failing scenario: its
+cross-harness spawn continuation still produced a misleading “Spawn ... not found”
+message, and its hand-made unbound OpenCode browse row was omitted. Later continuation
+refusal was covered by an operations-seam regression; late binding and browse behavior
+were exercised on a copied runtime. Treat the code/test evidence as distinct from a
+green rerun of those exact live CLI cases. Archive capture was re-probed on Claude,
+Codex, OpenCode and Pi; the archive fix report did not capture numeric model costs.
+
+## Adjacent open follow-ups
+
+- **#527:** warm search remains about 1.2 seconds; roughly 0.8 seconds is CLI startup.
+- **#528:** Codex rollouts moved to `archived_sessions/` still resolve as missing.
+- **#529:** the orphaned `sessions-index.sqlite3` is not reclaimed.
+- **#530:** one quarantined non-dogfood row still fails the metadata index closed; the
+  project-with-warnings versus fail-closed policy remains undecided in
+  [history storage](history-storage.md#d-history-index-initialization).
+- **#532 and Pi notification redesign:** held; no notification behavior is claimed by
+  this decision.
 
 ## Old runner history: option C, drop
 
@@ -306,7 +326,7 @@ delivery](../architecture/attempt-facts-and-delivery.md#other-stream-readers-rem
 
 ## PR 3: the stream is deleted
 
-**A test mode proved PR 3 could be pure deletion.** In PR 2, `pytest
+**A test mode proved the writer-deletion slice was compatible with native readers.** In PR 2, `pytest
 --runner-history=off` made the writers absent and trapped every read of a spawn,
 attempt or artifact `history.jsonl`. Every failure in that mode was classified: a test
 of the runner-history format went on PR 3's deletion list; a user-visible fact that

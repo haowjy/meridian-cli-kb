@@ -2,7 +2,7 @@
 
 **Status: settled 2026-09-24; extended through probe-fix on 2026-09-26.** The combined
 implementation is PR #534 (`feat/native-session-identity` @ `08499af0`, against
-`main`); #520, #526 and #531 are closed as superseded. The code and live-probe
+`main`, not merged); #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
 - the one-time [legacy import](legacy-native-import.md);
@@ -278,10 +278,11 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   key.
 - **Leaving legacy chats unbound** (the design's original stance). Rejected by the
   user: every existing chat would lose log and continue on upgrade.
-- **Repair at read or continue time.** The chosen option says explicitly that
-  nothing is guessed at runtime after the import. Repairing on read would make a
-  chat's identity depend on when it was first read, and it is the kind of runtime
-  guessing this decision rules out.
+- **Repair at read or continue time.** Reads and launches never repair incomplete
+  keys. The one-time importer is followed only by an explicit late-binding repair for
+  marker-listed `no_session_id` chats, run from doctor and primary-launch background
+  repair; it validates exact identity and does not guess. Repairing on each read would
+  make a chat's identity depend on when it was first read.
 - **Fail-closed UUID minting on unreadable siblings.** A single torn journal in the
   shared primary store would block every fresh launch. Minting skips unreadable
   headers with a warning. Source resolution and post-exit verification stay
@@ -322,7 +323,8 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 - Claude runs never report a verified exit, including after `/tui fullscreen`.
   `session log pN` shows the entry chat with an entry-based label, and the entry
   chat's transcript may be nearly empty when the conversation moved to a successor.
-  Closing this needs launch-correlated Claude evidence, not a better scan.
+  `/clear` creates a new native transcript that remains untracked (#533). Closing these
+  gaps needs launch-correlated Claude evidence, not a better scan.
 - Model/provider selection on reopen is a separate concern and never changes identity.
 
 ## Phases
@@ -336,13 +338,16 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
 
 Verification included isolated installed-build probes of supported workflows across
-Claude, Codex, OpenCode and Pi, targeted archive/continuation/browse/read/search
-re-probes, and focused/full test gates recorded in the work item. Cursor was not
-probed (the user does not use it). The first probe failures were corrected or
-reclassified against the brief: Claude `output.jsonl` is process-runner-only, and TUI
-probing requires a separate Enter after staging text in tmux. Claude `/clear` remains
-untracked, and Claude/Codex/OpenCode exit identity remains unresolved because only Pi
-reports a launch-owned exit identity.
+Claude, Codex, OpenCode and Pi, targeted archive/read/search re-probes, and focused/full
+test gates recorded in the work item. Cursor was not probed (the user does not use it).
+The combined re-probe still logged a failed cross-harness spawn-continuation message
+and an omitted unbound OpenCode browse row. Later continuation refusal was covered by
+operations-seam regressions; late binding and browse behavior were exercised on a
+copied runtime. Do not describe every formerly failing live scenario as rerun green.
+The first probe failures also included wrong expectations: Claude `output.jsonl` is
+process-runner-only, and TUI probing requires a separate Enter after staging text in
+tmux. Claude `/clear` remains untracked, and Claude/Codex/OpenCode exit identity
+remains unresolved because only Pi reports a launch-owned exit identity.
 
 Out of scope here: duplicate Pi completion-notification turns (GitHub #517).
 
