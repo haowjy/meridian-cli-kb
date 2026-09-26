@@ -6,9 +6,10 @@ are in the [native session identity decision](../decisions/native-session-identi
 Harness specifics: [Pi](pi-native-sessions.md), [Claude](claude-native-sessions.md).
 How reads use the key: [native transcript reads](native-transcript-reads.md).
 
-**State:** implemented for Pi, Claude, Codex and OpenCode on `fix/native-session-wrapper`
-(draft PR #520, head `2eddcd68`), including the PR 1 foundation restructure P0–P5. Not
-yet on `main`. Cursor has no native identity.
+**State:** implemented for Pi, Claude, Codex and OpenCode in combined PR #534
+(`feat/native-session-identity` @ `08499af0`, against `main`); #520, #526 and #531 are
+closed as superseded. Cursor was not live-probed because the user does not use it; it
+has no native identity binding in this implementation.
 
 The design goal of the restructure: one value type, one pure binding rule, one
 adapter template, one post-exit hook, and one runner pipeline.
@@ -288,4 +289,5 @@ persistence, lifecycle races or credentials
   `spawn:p7122`, fix pass `spawn:p7126`;
 - earlier lanes and reviews are listed on the
   [decision page](../decisions/native-session-identity.md);
-- code checked at `2eddcd68`, `spawn:p7133`.
+- code checked at `08499af0`; final live probe and targeted re-probes are recorded in
+  `work:native-harness-session-identity` evidence.

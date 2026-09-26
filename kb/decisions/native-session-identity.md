@@ -1,17 +1,17 @@
 # Decision: Pin each chat to one native session; wrap native transcripts
 
-**Status: settled 2026-09-24; extended 2026-09-25.** Draft PR #520
-(`fix/native-session-wrapper`, head `2eddcd68`) implements all of it:
+**Status: settled 2026-09-24; extended through probe-fix on 2026-09-26.** The combined
+implementation is PR #534 (`feat/native-session-identity` @ `08499af0`, against
+`main`); #520, #526 and #531 are closed as superseded. The code and live-probe
+reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
 - the one-time [legacy import](legacy-native-import.md);
 - Pi reopen-lineage reads;
 - the foundation restructure: one binding rule, one adapter template, one runner
   pipeline.
 
-The user runs it as their installed `meridian`, but it is not merged to `main`. Reads
-and search moving off runner history, and runner history no longer being written, are
-the [native-only history](native-only-history.md) decision (PR 2, draft PR #526; PR 3,
-branch `feat/stop-runner-history`). See
+Reads and search moving off runner history, and runner history no longer being
+written, are the [native-only history](native-only-history.md) decision. See
 [Phases](#phases). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
 [Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
@@ -25,7 +25,10 @@ the same ID in a different directory or database is a different conversation. A 
 is not a run, a retry, a transcript snapshot, or a pointer to "whatever the harness
 has open now."
 
-- **`--continue cN` resumes exactly that key or fails.** Failure is typed:
+- **`--continue cN` resumes exactly that key or fails before creating chat or spawn
+  state.** This also applies to unsupported resume/fork and harness-mismatch
+  continuations; neither silently resumes in place nor starts a fresh session. The
+  primary and spawn paths share the refusal message. Failure is typed:
   `unbound` (the chat never acquired a key), `missing` (the key's transcript is gone
   or not yet persisted), or `ambiguous_native_file` (more than one file claims the
   key). There is no fallback to another candidate ID, primary metadata, an adapter
@@ -326,26 +329,20 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 
 | Phase | Scope | State |
 |---|---|---|
-| 1 | Immutable binding, pre-exec plan seam, exact-only resolution; exact identity for Pi, Claude, Codex, OpenCode; one source key; header-validated locators; typed refusals | Draft PR #520; whole-change review PASS on recheck |
-| 1b | One-time exact legacy import of native keys (user decision "Auto-import once") | Merged into PR #520 |
-| 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification; post-run continue rule | Draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified (#521) |
-| 2b | Foundation restructure P0–P5 ([architecture](../architecture/native-session-binding.md)) | PR #520 at `2eddcd68`; thermo recheck and alignment review passed after one fix pass |
-| PR 2 | Native reads, native-keyed search, run facts off the stream ([decision](native-only-history.md)) | Draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on #520); reviews and recheck passed; measured on runtime copies |
-| PR 3 | Stop writing runner `history.jsonl`; drop redundant runner history for bound chats by an archive rule; replace the dogfood-row translator; measure cost | Landed on `feat/stop-runner-history` @ `c1fa08e4` (stacked on #526); review PASS WITH FIXES, fix lanes E–G merged |
+| Identity foundation | Immutable binding, exact entry, Pi exit observation, one-time import, foundation restructure | Combined PR #534 @ `08499af0`; live Claude, Codex, OpenCode and Pi probes passed supported paths; Cursor was not probed (user does not use it) |
+| Native-only history | Native reads, native-keyed rebuildable search, run facts off the stream; stop runner-history writes and once-only dogfood-row migration | Combined PR #534; probe fixes include exact OpenCode 1.x report fallback, chat-named `pN` views, text search coverage, strict `--file` admission, and explicit archive capture |
+| Browse and late legacy binding | Per-row browse degradation; late exact binding only for rows missed by the one-time import | Combined PR #534; repairs run in `meridian doctor` and primary-launch background repairs, never on each command |
+| Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
+| Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
 
-Verification standard: POSIX `sh` harness shims at the real runner seams, CLI probes
-against an isolated installed wheel with decoys and unrelated concurrent sessions,
-and the built Pi extension bundle run in Node and read by the production Python
-reader. Real Pi 0.87.1 ran with zero model turns for lifecycle probes and once with
-one authorized model turn under Meridian (isolated store and home, `--offline`,
-`--no-tools`; 1,344 input / 2 output tokens, $0.0004). That run verified create (the
-native header UUID equals the assigned c1; `session log c1` and `--raw` print exactly
-the turn) and the typed pre-launch refusal after deleting the source file. It also
-exposed the teardown-ordering defect described in
-[native session binding](../architecture/native-session-binding.md#runner-pipeline).
-Meridian-managed continue, fork, and switch → exit chat against real Pi need a second
-model turn or a driven TUI and have not been run. Real Claude, Codex, and OpenCode
-services have not been run against this change.
+Verification included isolated installed-build probes of supported workflows across
+Claude, Codex, OpenCode and Pi, targeted archive/continuation/browse/read/search
+re-probes, and focused/full test gates recorded in the work item. Cursor was not
+probed (the user does not use it). The first probe failures were corrected or
+reclassified against the brief: Claude `output.jsonl` is process-runner-only, and TUI
+probing requires a separate Enter after staging text in tmux. Claude `/clear` remains
+untracked, and Claude/Codex/OpenCode exit identity remains unresolved because only Pi
+reports a launch-owned exit identity.
 
 Out of scope here: duplicate Pi completion-notification turns (GitHub #517).
 

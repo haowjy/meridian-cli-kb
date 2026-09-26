@@ -7,10 +7,9 @@ source: [native-only history](../decisions/native-only-history.md). How a chat's
 conversation is read from the harness's native transcript: [native transcript
 reads](native-transcript-reads.md).
 
-**State:** facts and delivery landed in PR 2, draft PR #526 (`feat/native-reads` @
-`3ae3fce8`, stacked on PR #520). PR 3 (`feat/stop-runner-history` @ `c1fa08e4`,
-stacked on #526) deleted the runner-history writer, so nothing on this path writes
-a stream any more. Neither PR is on `main`.
+**State:** implemented in combined PR #534 (`feat/native-session-identity` @
+`08499af0`, against `main`); #520, #526 and #531 are closed as superseded. Runner
+history is neither read nor written.
 
 ## The emit path
 
@@ -69,9 +68,10 @@ The streaming budget check reads the same usage.
 **Report precedence** (`launch/report.extract_or_fallback_report`):
 1. an explicit `report.md`;
 2. a Pi typed failure (`facts.failure`);
-3. the exact native reply named by this attempt's events. Only OpenCode V2
-   implements `read_native_turn`; it looks up a message ID exactly and never takes the
-   latest message in the DB.
+3. the exact native reply named by this attempt's events. OpenCode V2 looks up its
+   message ID exactly. OpenCode 1.x has no V2 `assistantMessageID`, so its fallback
+   reads the final assistant response from this attempt's exact bound native session;
+   it never selects an ambient or merely newest session.
 4. the fold's `final_text`;
 5. the failure reason;
 6. nothing.

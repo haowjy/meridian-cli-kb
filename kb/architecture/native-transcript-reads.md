@@ -8,9 +8,9 @@ delivery](attempt-facts-and-delivery.md).
 Why it is built this way: [native-only history](../decisions/native-only-history.md).
 The binding it reads: [native session binding](native-session-binding.md).
 
-**State:** landed in PR 2, draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on
-PR #520). It is not on `main`. Nothing in production reads runner `history.jsonl`, and
-since PR 3 (`feat/stop-runner-history`) nothing writes it either.
+**State:** implemented in combined PR #534 (`feat/native-session-identity` @
+`08499af0`, against `main`); #520, #526 and #531 are closed as superseded. Nothing
+reads runner `history.jsonl`, and the runner-history writers and checkpoint are retired.
 
 ```mermaid
 flowchart LR
@@ -44,16 +44,16 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
 | Ref | Chat read | View label |
 |---|---|---|
 | `cN` | `cN` | none |
-| `pN`, running | `row.continue_chat_id`, which is the entry chat while running | entry-based view (run in progress) |
-| `pN`, terminal, boundary `verified` | `row.continue_chat_id` (the exit chat) | none; names the exit chat when it differs |
-| `pN`, terminal, boundary `unresolved` or `mismatch` | `row.continue_chat_id` (the entry chat) | entry-based view (exit identity …) |
-| `pN` with no `run_boundary` (row predates PR 1) | the entry chat | entry chat (run predates exit tracking) |
+| `pN`, running | `row.continue_chat_id`, which is the entry chat while running | `pN → cN (entry chat; run in progress)` |
+| `pN`, terminal, boundary `verified` | `row.continue_chat_id` (the exit chat) | names the selected chat and verified exit when it differs |
+| `pN`, terminal, boundary `unresolved` or `mismatch` | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; exit identity …)` |
+| `pN` with no `run_boundary` (row predates PR 1) | the entry chat | names the entry chat and predates-exit-tracking status |
 | `pN` with no chat | none | `unbound`, naming the spawn |
 | `pN` reclaimed | the chat of its metadata-index record, then as above | as above |
 | raw native ID matching bound keys | lowest `cN` among the chats bound to that key | `also bound to cA, cB` when shared; different stores for one ID → `ambiguous_native_file` |
 | raw ID matching a history alias | that spawn record, as for `pN` | as for `pN` |
 | other raw ID | none; harness inferred, adapter lookup in the project | `untracked`; no inferable harness → `unbound` |
-| `--file PATH` | none | `file`; a runner `history.jsonl` raises "not a native transcript" |
+| `--file PATH` | none | `file`; rejects retired runner history and non-native inputs; SQLite is rejected with an OpenCode chat hint |
 
 `ops/run_boundary.spawn_view_label(row)` computes the `pN` label.
 `SpawnRecord.continue_chat_id` is the one post-run rule: a terminal run's verified exit
@@ -63,7 +63,9 @@ chat (`unbound: … for c4904`), not the spawn. Old installs named the spawn.
 **Capture resolves differently.** `purpose="capture"` (archive capture) accepts only an
 identified terminal local `pN`. It reads the key of the run's *exact session
 generation* (`session_identity.session_records_for_spawns`), never the chat's current
-binding or a sidecar candidate. A missing key raises `unbound`.
+binding or a sidecar candidate. Explicit `session archive --apply` materializes this
+native snapshot before final selection; dry-run reports when apply can capture it but
+does not publish one. A missing key raises `unbound`.
 
 **The reader.** `ops/session_transcript.read_native_source(source, budget=)` is the one
 byte or snapshot read. It returns a lazy `NativeRead`:
@@ -92,7 +94,8 @@ An explicit Pi `--file` read stays raw.
 **Archives.** Archive capture takes the exact generation's native snapshot. A spawn with
 no native source stays loose, with a reason. Legacy `history.jsonl` members of existing
 ZIPs still verify and restore as bytes. `iter_archived_events` refuses to read them as
-transcripts.
+transcripts. When the snapshot exists, ZIP inventory omits retired runner stream and
+checkpoint files.
 
 ## Search projection
 

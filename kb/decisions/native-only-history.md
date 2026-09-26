@@ -1,16 +1,10 @@
 # Decision: Conversation history is native-only
 
-**Status: settled 2026-09-25; PR 2 and PR 3 landed on their branches.** User
-decisions: three stacked PRs; old runner history option C (drop).
-- **PR 2** moves reads, search and run facts off runner `history.jsonl`. It is draft
-  PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on PR #520), not on `main`. Every
-  slice is merged: R1, R2a, R2b, R3, A1, F1a, F1b, F2 and V1. It went through a
-  thermo-nuclear review, a design-alignment review, fix lanes A–D, and a recheck that
-  passed. Before/after measurement on runtime copies is done.
-- **PR 3** stops writing the stream and adds the prune rule. It is branch
-  `feat/stop-runner-history` @ `c1fa08e4`, stacked on #526, not on `main`. Its review
-  passed with fixes, and fix lanes E, F and G are merged. See [PR 3: the stream is
-  deleted](#pr-3-the-stream-is-deleted).
+**Status: settled 2026-09-25; combined and probe-fixed 2026-09-26.** PR #534
+(`feat/native-session-identity` @ `08499af0`, against `main`) combines the former
+#520/#526/#531 stack; those PRs are closed as superseded. Live re-probes covered
+supported workflows for Claude, Codex, OpenCode and Pi. Cursor was not probed because
+the user does not use it. See [the combined implementation](#combined-implementation-and-probe-fixes).
 
 How the reads work: [native transcript reads](../architecture/native-transcript-reads.md).
 How run facts are computed and delivered: [attempt facts and
@@ -29,7 +23,8 @@ harness's reader.**
   corpus search never read runner `history.jsonl` implicitly, and neither do
   report, usage and failure extraction.
 - **Explicit reads.** A user can point `session log --file` at a native file. A
-  runner-history file given to `--file` is rejected as "not a native transcript".
+  runner-history file is rejected as "not a native transcript"; SQLite databases are
+  rejected too, with guidance to use the bound OpenCode chat.
 - **Failure is typed.** When a chat has no key, the answer is
   `NativeSessionUnavailable(unbound)`. When the key's file is gone, the answer is
   `missing`. Meridian never falls back to runner history, a spawn directory or an
@@ -69,6 +64,32 @@ The user's framing:
 - **It is a second authority.** Each fallback to the stream turned a
   display-quality copy into something that could pick a conversation. Removing the
   readers first, in PR 2, makes PR 3 a pure deletion.
+
+## Combined implementation and probe fixes
+
+The final combined branch preserves the authority rules above and closes the
+cross-harness gaps found by live probing:
+
+- Explicit `session archive --apply` resolves and captures the exact native snapshot
+  before final selection. A dry run reports `Apply will capture native snapshot: pN`
+  when the exact source is available; it does not capture during dry run. When a native
+  snapshot is in the ZIP, retired `history.jsonl` and
+  `last-observed-event.json` members are omitted. Runner-only legacy archive members
+  remain inert bytes.
+- `pN` views name the selected chat and whether it is the entry or verified exit chat.
+  Text search prints a coverage line as well as JSON coverage. `session log --file`
+  rejects SQLite and non-native files; OpenCode DB errors direct the user to the bound
+  chat reference.
+- Browse degrades per row. An incomplete native key remains visible as `unbound`, has
+  no transcript preview, and cannot be re-entered. Exact late binding is limited to
+  marker-listed legacy chats whose native ID arrived after import; it runs only in
+  `meridian doctor` and primary-launch background repairs, not on every command.
+- Unsupported fork, unsupported resume and harness-mismatch continuation refuse
+  before creating chat or spawn rows. Neither path falls back to resume-in-place or a
+  fresh launch. Primary and spawn continuation use the same refusal message.
+- OpenCode 1.x may lack V2 assistant-message IDs. In that case the report fallback
+  reads the final assistant response from the exact bound native session; it does not
+  read the newest ambient session. V2 retains exact message-ID lookup.
 
 ## Old runner history: option C, drop
 
