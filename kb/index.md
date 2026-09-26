@@ -166,7 +166,7 @@ High-level orientation for making changes — where to start, what owns what, ho
 Operational knowledge for running, configuring, and diagnosing Meridian in practice.
 
 - [operations/overview.md](operations/overview.md) — Operations domain overview and runbook map
-- [operations/health-checks.md](operations/health-checks.md) — `meridian doctor`: two-tier design (cheap per-project default vs explicit global), background per-project repairs, stale pruning, live-spawn warnings
+- [operations/health-checks.md](operations/health-checks.md) — `meridian doctor`: two-tier design (cheap per-project default vs explicit global), background per-project repairs (dogfood migration and late legacy binding), stale pruning, live-spawn warnings
 - [operations/session-archive-pruning.md](operations/session-archive-pruning.md) — Explicit, dry-run-first cleanup of redundant retired runner-history files
 - [operations/troubleshooting.md](operations/troubleshooting.md) — Common failure patterns (`orphan_run`, `orphan_finalization`, locked files, harness startup failures) and recovery procedures
 - [operations/configuration-guide.md](operations/configuration-guide.md) — Practical config setup: TOML file locations, `[workspace]` entries, env vars, profile overrides, resolution verification

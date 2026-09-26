@@ -30,7 +30,8 @@ Order matters. The authoritative active-spawn set is computed **after** reconcil
 ```mermaid
 flowchart TD
     A[doctor_sync called] --> A2[migrate dogfood spawn rows\nre-arm index authority failure]
-    A2 --> B[repair stale session locks\ncurrent project only]
+    A2 --> A3[bind late legacy native IDs\nmarker-listed exact matches]
+    A3 --> B[repair stale session locks\ncurrent project only]
     B --> C{is root process?}
     C -- yes --> D[reconcile_spawns — reap orphans]
     D --> E[re-read spawns from store]
@@ -94,6 +95,7 @@ Pruning uses `shutil.rmtree` with an `onexc` hook that restores write bits befor
 On `PRIMARY_LAUNCH` startup paths, cheap per-project repairs run in a non-blocking background daemon thread:
 
 - **Dogfood-row migration** — runs first, in its own guard. It rewrites spawn rows written by the PR 1 dogfood build (see below) and logs `dogfood_spawn_rows_failed` once per pass for rows it cannot migrate
+- **Late legacy binding** — checks only chats recorded as `no_session_id` by the one-time import and binds only exact, header-validated matches. It does not run on ordinary commands or browse/read paths.
 - **Stale session lock cleanup** — clears abandoned lock files under the current project's sessions directory
 - **Orphan run reconciliation** — detects and repairs abandoned spawn rows (same logic as `reconcile_spawns()` in the reaper)
 
@@ -117,11 +119,19 @@ quarantine message with "run `meridian doctor` to migrate it". Rerunning is safe
 PR 1 runner are picked up by the next run. The module is deletable once no dogfood rows
 remain. Rationale: [native-only history](../decisions/native-only-history.md#dogfood-rows-migrate-once-not-on-read).
 
+**Late legacy native-ID repair.** An old-build session may write its native ID after
+the one-time import has already marked it `no_session_id`. `bind_late_legacy_sessions`
+is an explicit repair, not a read fallback: it considers only marker-listed chats,
+revalidates exact native identity and generation under the session lock, and records
+each eligible row as attempted. Doctor reports `repaired: late_legacy_bindings` only
+when at least one chat is newly bound. The same repair runs in primary-launch
+background work, never on every command.
+
 ## `DoctorOutput` Key Fields
 
 | Field | Meaning |
 |---|---|
-| `repaired` | Categories repaired this run: `dogfood_spawn_rows`, `orphan_runs`, `stale_session_locks`, `spawn_artifacts`, `telemetry_segments`, `orphan_project_dirs` |
+| `repaired` | Categories repaired this run, including `dogfood_spawn_rows` and (when any late chat binds) `late_legacy_bindings`, alongside orphan and artifact repairs |
 | `pruned_spawn_artifacts` | Count of artifact dirs deleted |
 | `pruned_orphan_dirs` | Count of orphan project dirs deleted |
 | `telemetry_counts` | Current-project telemetry summary, including expired segment count |
