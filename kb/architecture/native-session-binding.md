@@ -47,8 +47,10 @@ In `lib/core/native_identity.py`:
 | `NativeSessionUnavailable(ref, unbound \| missing \| ambiguous_native_file)` | Nothing trustworthy to open. `missing` reports as `native_transcript_missing`. `for_ref()` re-targets the message at the user's ref. |
 | `NativeEntryMismatch(expected, observed, reason)` | A readable identity contradicts the key. Carries keys, not strings. `reason ∈ {key, fork_reused_source, source_changed, fork_parent}`. |
 
-`BindSource` is `assigned` (pre-exec), `observed` (an owned signal) or
-`legacy_import` (the [one-time import](legacy-native-import.md)).
+`BindSource` is `assigned` (pre-exec), `observed` (an owned signal),
+`legacy_import` (the [one-time import](legacy-native-import.md)),
+`legacy_pi_recovery` (the content-proven [0.6.7 Pi pass](legacy-native-import.md#legacy-pi-recovery))
+or `user_repair` ([`session repair --native`](legacy-native-import.md#session-repair)).
 
 Two key types exist because records legitimately hold partial keys. With a complete
 type, "tracked reads need the complete key" becomes a type check:

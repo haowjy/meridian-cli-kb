@@ -36,8 +36,11 @@ the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
 Browse degrades per row when a chat lacks a complete native key: it remains visible
 with `unbound`, has no transcript preview, and re-entry is blocked both in the list
 and after fresh selection resolution. Browse does not guess or repair identity. The
-late legacy-ID repair runs only from `meridian doctor` or primary-launch background
-repairs ([legacy import](../architecture/legacy-native-import.md#late-binding-after-the-marker)).
+late legacy-ID repair and legacy Pi recovery run only from `meridian doctor` or
+primary-launch background repairs
+([legacy import](../architecture/legacy-native-import.md#late-binding-after-the-marker)).
+`session repair` is the manual, explicit bind
+([session repair](../architecture/legacy-native-import.md#session-repair)).
 
 ## Transcript Source Resolution
 

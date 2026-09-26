@@ -180,18 +180,15 @@ Final gate review found concurrency/safety concerns that were not introduced by 
 
 Process-scope deferred work moved to [process-scope.md](process-scope.md) so the detailed PROC-004 and PROC-007 notes live with their shared containment/reaper context.
 
-### Unbound Pi chats from 0.6.7
+### Restore metadata hash still depends on the reader's models (#537)
 
-**Status:** User decision pending (2026-09-26). 0.6.7 never recorded the native ID of
-a headless Pi spawn, so several hundred old Pi chats per project stay unbound after
-the legacy import. Only about 28 are provable from their per-spawn session directory,
-and spawn IDs collide across projects in the user-global Pi root. The files remain
-readable through `session log --file`. The finding, the proof rule and the
-recommendation are in
-[legacy native import](../decisions/legacy-native-import.md#open-old-pi-chats-that-067-never-bound-decision-pending).
-The supported `--file` read path is described in
-[native transcript reads](../architecture/native-transcript-reads.md); broader identity lessons are in
-[native session identity](../lessons/native-session-identity.md).
+**Status:** Open, [#537](https://github.com/haowjy/meridian-cli/issues/537).
+`restored-from.json` stores `session_sha256` as a hash of the folded
+`SessionRecord`, so a runtime that 0.6.7 restored into fails a repeat restore under
+the new build ("Restored metadata changed"). It is the same model coupling that the
+[portable-digest decision](../decisions/history-storage.md#d-history-portable-digest-stored-json)
+removed for record digests. Fix: hash the stored `historical_import` session event
+JSON. Reads and a first restore are unaffected.
 
 ### Spawn-list scaling
 

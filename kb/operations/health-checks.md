@@ -127,11 +127,19 @@ each eligible row as attempted. Doctor reports `repaired: late_legacy_bindings` 
 when at least one chat is newly bound. The same repair runs in primary-launch
 background work, never on every command.
 
+**Legacy Pi recovery.** In the same two places, a one-shot pass binds old 0.6.7 Pi
+spawn chats that have content proof (their first user message equals the retained
+prompt, else the final reply equals the report). Each marker-listed chat is examined
+once (`pi_recovery_tried`). When any binds, doctor reports `repaired:
+legacy_pi_sessions` and a `legacy_pi_sessions:` count line that names `meridian
+session repair cN` for the rest. Rule and results:
+[legacy native import](../decisions/legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair).
+
 ## `DoctorOutput` Key Fields
 
 | Field | Meaning |
 |---|---|
-| `repaired` | Categories repaired this run, including `dogfood_spawn_rows` and (when any late chat binds) `late_legacy_bindings`, alongside orphan and artifact repairs |
+| `repaired` | Categories repaired this run, including `dogfood_spawn_rows` and, when any chat binds, `late_legacy_bindings` or `legacy_pi_sessions`, alongside orphan and artifact repairs |
 | `pruned_spawn_artifacts` | Count of artifact dirs deleted |
 | `pruned_orphan_dirs` | Count of orphan project dirs deleted |
 | `telemetry_counts` | Current-project telemetry summary, including expired segment count |

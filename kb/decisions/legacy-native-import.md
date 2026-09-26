@@ -55,35 +55,85 @@ scope missed; all 9 imported. Meridian-flow imported 6,074 chats. For the chats 
 unbound, runner `history.jsonl` was the only other copy. Under
 [option C](native-only-history.md#old-runner-history-option-c-drop) it is not read.
 
-## Open: old Pi chats that 0.6.7 never bound (decision pending)
+## Old Pi chats that 0.6.7 never bound: content-proven recovery, manual repair
 
-**Finding (round-3 probe, 2026-09-26).** Real 0.6.7 never recorded the ID of a
-headless Pi spawn, and some primaries also ended with `harness_session_id: null`
-(`discovery_failed`). The import marks them `no_session_id`: 576 Pi chats in the
-meridian-cli runtime (460 spawned, 116 primary) and 193 in another project.
-The native files exist. 0.6.7 ran headless Pi with `--session-dir <pi
-root>/<spawn-id>/` (the root is `~/.meridian/meridian-pi/sessions`), but its observer
-never learned the ID. The connection sets it only from a Pi `session` event, the
-extractor needs an `output.jsonl` these spawns lack, and the file-scan fallback
-scans only the root, not the per-spawn subdirectories. Late binding cannot help,
-because it needs a recorded ID. Live old primaries do rebind after they exit (the
-c88 case).
+**Settled 2026-09-26.** The user asked to fix old Pi chats "or provide a way to".
 
-**Why no automatic recovery yet.** The only evidence is the directory. A chat maps
-to a spawn, the spawn's directory holds exactly one file, and the header `cwd` equals
-the chat's recorded `execution_cwd`. That proves only 28 chats (23 + 5). `pNNN` IDs
-are project-local while the Pi root is user-global, so the same `<spawn-id>/`
-directory can belong to spawns from different projects. Binding on it would guess.
-No chat carries a structured ID event, so the stronger rule (a recorded ID plus
-exactly one matching header) binds none.
+**The gap.** Real 0.6.7 never recorded the ID of a headless Pi spawn, and some
+primaries also ended with `harness_session_id: null` (`discovery_failed`). The import
+marks them `no_session_id`: 770 Pi chats across three runtimes (576 in meridian-cli,
+460 spawned and 116 primary). The native files exist. 0.6.7 ran headless Pi with
+`--session-dir <pi root>/<spawn-id>/` (root `~/.meridian/meridian-pi/sessions`), but
+its observer never learned the ID. Late binding cannot help, because it needs a
+recorded ID.
 
-**Current behavior.** These chats stay unbound. `session log`, search and
-`--continue` refuse them. `spawn show` still shows the report, and the native file
-is readable with `session log --file <path>`.
+**Why uniqueness is not proof.** The first rule measured was structural: the chat
+maps to a spawn, the spawn's directory holds exactly one Pi session, the header cwd
+matches, the start falls in the chat's time window, and no other chat claims the ID.
+It proved 30 chats, and one of them, `c8145`, would have bound the wrong session: its
+only candidate's first user message was not the chat's prompt. A single wrong bind is
+permanent, because bindings are immutable. So every automatic bind needs **content
+proof** as well.
 
-**Recommended, awaiting the user:** document this as a known limit, and file an
-issue for a guarded one-shot recovery in the late-binding path. It would bind only
-with the per-spawn directory, one file and a matching cwd header, and refuse on any
-cross-project spawn-ID collision. Future Pi session directories would get globally
-unique names. Evidence: investigation `spawn:p7213`,
-`evidence/probe3-upgrade-rerun.md`.
+**The automatic rule.** A one-shot pass binds a chat only when all of these hold:
+
+1. The chat is a spawned chat (never a primary) that maps to a spawn through spawn
+   rows, `sessions.jsonl` `spawn_id`, or archive receipts for reclaimed spawns.
+2. The candidate directory is the spawn's own session dir (the recorded
+   `pi_runtime_meta` `session_dir`, else `<pi root>/<spawn-id>`). The shared root is
+   never a candidate dir.
+3. Exactly one valid Pi session (header version 1 to 3) survives: its header cwd is
+   one of the recorded `execution_cwd`, `task_cwd` or `control_root`; its start is
+   within 120 s of the chat's or spawn's run window; and its ID is bound to no chat
+   and claimed by no other chat's candidates.
+4. Content proof: the first user message equals the retained starting prompt
+   (whitespace-normalized). Only if no prompt was retained, the final assistant text
+   must equal the report body. A mismatch, conflicting prompts, or nothing retained
+   means no bind.
+
+**Primaries are never automatic.** In 0.6.7 every primary wrote to the one shared
+root, so same-cwd primaries compete for the same pool. In the measurement none of 109
+meridian-cli primaries had a unique candidate, and `c8145` itself is a primary whose
+likely candidate is the next primary launch 21 s after it stopped. A user decides.
+
+**Result.** On copies of the three runtimes the pass bound **155 of 770** (63, 91
+and 1), each by an exact prompt match, with no wrong bind found in a by-eye check of
+10. `c8145` stays unbound. What is left: 419 spawned chats map to no spawn anywhere,
+124 are primaries, 71 have no valid Pi file in the spawn dir, and one has neither
+prompt nor report. The yield rose from 30 because 0.6.7 ran Pi in the control root,
+so header cwds equal `control_root`, not the worktree `execution_cwd` the first
+measurement checked.
+
+**Manual path.** `meridian session repair cN` (or its spawn `pN`) is read-only
+without `--native`: for an unbound chat it lists candidate native files with
+evidence (path, session ID, start, cwd, first-message excerpt, and whether cwd, time
+window, prompt and other bindings match) and prints the exact bind command. `--native
+PATH` validates the file for the chat's harness and binds it. `--force` is needed for
+a cwd mismatch or a start outside the time window. Repair always refuses a chat that
+is already bound, a session bound to another chat, and a file that is not a valid
+native session for the chat's harness; `--force` never overrides those. Repair takes
+chat and spawn refs only, not raw harness IDs. Bindings stay immutable.
+
+The old `session repair` wrote only a bare `harness_session_id` (an "observed" ID with
+no store), which is an incomplete key under the exact-key rule. It was deleted, not
+adapted.
+
+**Bind sources.** The automatic pass binds with `legacy_pi_recovery`, and the manual
+path with `user_repair`. Both go through the same lock-scoped `bind()` as every other
+source. Mechanism: [legacy native import](../architecture/legacy-native-import.md#legacy-pi-recovery).
+
+**Rejected:**
+- **Uniqueness alone** (the structural rule): it bound `c8145` to the wrong session.
+- **Automatic primary binding from the shared root**: no primary had a unique
+  candidate, and time-adjacent launches look alike.
+- **Guessing a spawn dir for unmapped chats**: `pNNN` IDs are project-local while the
+  Pi root is user-global, so the same `<spawn-id>/` can belong to another project.
+
+**Revisit if** a later measurement finds a wrong bind under content proof, or Pi
+session directories become globally unique per spawn.
+
+**Provenance:** `work:native-harness-session-identity`, `decision.md` entry "Old Pi
+chat recovery + upgrade guide" (2026-09-26); measurement `spawn:p7228`
+(`evidence/measure-pi-legacy-recovery.md`); implementation `spawn:p7229` (commits
+`1ab75dee`, `0245ae64`); earlier finding `spawn:p7213`
+(`evidence/probe3-upgrade-rerun.md`).

@@ -174,8 +174,10 @@ decides every write and every replay: `bind(prior, attempted)` returns
 - `Conflict` when a non-empty field differs.
 
 A conflict keeps the prior key and is logged once, by the writer. Bind sources are
-`assigned` (the pre-exec target), `observed` (an owned signal) and `legacy_import`.
-All three obey the same rule; none can overwrite another.
+`assigned` (the pre-exec target), `observed` (an owned signal), `legacy_import`,
+`legacy_pi_recovery` and `user_repair` (the last two from
+[old Pi chat recovery](legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair)).
+All obey the same rule; none can overwrite another.
 
 **Drift.** An observed session ID fails a run only when it contradicts something
 Meridian fixed before exec:
