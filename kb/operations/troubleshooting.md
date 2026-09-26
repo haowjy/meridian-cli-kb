@@ -166,6 +166,29 @@ on the spawn command will also override the stale value.
 
 ---
 
+### Spawn State Quarantined After Upgrading Past PR 3
+
+**Symptom:** `meridian spawn show pN` says "Spawn state quarantined: …/state.json; run
+`meridian doctor` to migrate it". Index-backed commands (`session archive`,
+`session search`, browse) may fail with `History index initialization failed: Spawn
+state quarantined: … Automatic initialization will not retry for this index
+generation`. `session archive --prune-runner-history` lists the IDs under `Skipped
+quarantined`.
+
+**What happened:** the row was written by the PR 1 dogfood build, whose flat
+run-boundary fields the strict schema rejects. PR 3 replaced the read-time translator
+with a one-time migration.
+
+**Fix:** run `meridian doctor` once. It migrates the rows (`repaired:
+dogfood_spawn_rows`) and re-arms the history index, so the next command initializes
+without a manual rebuild. A row it cannot migrate is reported as
+`dogfood_spawn_rows_failed` with the failing field. A quarantined row that is *not*
+dogfood-shaped (no doctor hint, only its path) is not repairable by doctor and still
+fails the index closed (#530).
+See [health checks](health-checks.md#dogfood-row-migration).
+
+---
+
 ## Configuration and Launch Failures
 
 ### Mars Binary Not Found

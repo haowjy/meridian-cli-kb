@@ -34,16 +34,19 @@ meridian.toml
     <spawn-id>/
       state.json                    — authoritative spawn row (schema v3)
       starting-prompt.md · prompt.md · report.md · heartbeat
-      history.jsonl · stderr.log · params.json · tokens.json
+      stderr.log · params.json · tokens.json
       pi-lifecycle.json · attempt-N/ · runner-lifecycle.jsonl · process_scopes.json
   artifacts/ · cache/ · .migrations.json
 
 <context.work root>/<slug>/         — context-resolved work state and artifacts
 ```
 
-`history.jsonl` is the runner's event stream. From PR 2 it is not read as a
-transcript, and from PR 3 it is not written: conversation content is the harness's
-native file ([native-only history](../../decisions/native-only-history.md)).
+Conversation content is the harness's native file, not a spawn artifact
+([native-only history](../../decisions/native-only-history.md)). The runner's old
+event stream `history.jsonl` and its `last-observed-event.json` checkpoint are no
+longer written (PR 3). Older spawn directories may still hold them as inert bytes
+until `session archive --prune-runner-history` removes them
+([prune](../../codebase/session-operations.md#runner-history-prune)).
 `pi-lifecycle.json` holds the last Pi phase and cleanup status per attempt
 ([attempt facts and delivery](../attempt-facts-and-delivery.md#pi-lifecycle-sidecar)).
 

@@ -30,7 +30,7 @@ confirm it or conflict with it ([native session binding](../architecture/native-
 1. Starts the Codex app-server
 2. Gets an observer connection (WebSocket)
 3. Attaches the TUI to the server
-4. Feeds each event from the observer connection through inline hooks (the attempt fold, harness event sinks), then to subscribers. Until PR 3 it also appends them to runner `history.jsonl`, which nothing reads ([native-only history](../decisions/native-only-history.md)).
+4. Feeds each event from the observer connection through inline hooks (the attempt fold, harness event sinks), then to subscribers. Nothing is written to a runner stream ([native-only history](../decisions/native-only-history.md)).
 
 The user sees the normal TUI. Meridian sees all events.
 

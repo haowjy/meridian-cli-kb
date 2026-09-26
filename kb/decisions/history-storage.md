@@ -188,6 +188,20 @@ publication clears the latch. Lock contention, another initializer, cancellation
 and crash before a recorded failure are not sticky failures. Status inspection must
 not initialize the index or coordination state.
 
+**A repair of the cause re-arms the latch (PR 3, 2026-09-26).** An `authority`
+failure means the authoritative files could not be projected. A quarantined spawn row
+records the row's own bounded quarantine message as the reason, so the error names
+the `state.json` path (and, for a dogfood row, `meridian doctor`). Other invalid
+metadata keeps the fixed reason "Invalid authoritative history metadata". The printed
+retry command is `meridian session index rebuild --metadata-only`. When the dogfood
+migration rewrites at least one row, it calls `HistoryIndex.clear_authority_failure()`.
+That takes the catch-up lock, so any initializer still publishing a pre-repair failure
+is ordered first, and it clears only `authority` markers. The next index-backed command
+then initializes on its own. Rejected: fixing only the message, which still left a
+manual rebuild; clearing in each caller, which duplicates the rule. Open (#530): one
+quarantined non-dogfood row still fails the index closed for every command; whether
+to project with warnings instead is undecided.
+
 **Why:** A real 1,093-record / 6,077-session corpus repeatedly exceeded the ordinary
 query budget while explicit metadata rebuild completed in 5.68 seconds. Two
 concurrent missing-index callers also performed two serialized builds because the

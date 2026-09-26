@@ -9,8 +9,9 @@
   pipeline.
 
 The user runs it as their installed `meridian`, but it is not merged to `main`. Reads
-and search moving off runner history are the
-[native-only history](native-only-history.md) decision (PR 2, draft PR #526). See
+and search moving off runner history, and runner history no longer being written, are
+the [native-only history](native-only-history.md) decision (PR 2, draft PR #526; PR 3,
+branch `feat/stop-runner-history`). See
 [Phases](#phases). How the seams work:
 [native session binding](../architecture/native-session-binding.md). Pi specifics:
 [Pi native sessions](../architecture/pi-native-sessions.md); Claude specifics:
@@ -52,8 +53,8 @@ has open now."
   `unresolved`, and the run's view stays on its entry chat.
 - **Meridian is a wrapper over harness-native transcripts.** The native journal is the
   conversation. Meridian's own `spawns/<id>/history.jsonl` runner stream is a second
-  copy, and it creates a second candidate authority. Reads stop using it in PR 2 and
-  writes stop in PR 3. Old runner-history files are not decoded at all (the user
+  copy, and it creates a second candidate authority. Reads stopped using it in PR 2 and
+  writes stopped in PR 3. Old runner-history files are not decoded at all (the user
   chose option C). SQLite stays a disposable search and preview projection, never
   binding or transcript authority. See [native-only history](native-only-history.md).
 - **Not a new initiation mode.** `--from` (fresh session plus lightweight context),
@@ -308,6 +309,13 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   and continuing it fails `missing`.
 - A Pi run whose stdin closes while a session replacement is still settling can end
   with no readable quit identity. Its exit is `unresolved`, not guessed.
+- **Only Pi reports an exit identity.** Every Claude, Codex and OpenCode run records
+  `run_boundary: unresolved`. This is the design, not a defect: none of them has a
+  launch-owned exit signal. A read-only tally of about 110 recent real rows found 0
+  verified. What users see: `spawn show pN` prints `exit unresolved`, and
+  `--continue pN`, `--fork pN` and `session log pN` use the entry chat. The runner-history
+  prune rule skips these rows as `exit_unresolved`
+  ([prune rule](native-only-history.md#the-prune-rule)).
 - Claude runs never report a verified exit, including after `/tui fullscreen`.
   `session log pN` shows the entry chat with an entry-based label, and the entry
   chat's transcript may be nearly empty when the conversation moved to a successor.
@@ -323,7 +331,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | 2 | Pi exit observation (session-boundary extension), B→own cN, Claude exit unresolved; real-Pi 0.87.1 qualification; post-run continue rule | Draft PR #520; real-Pi create and missing-source refusal qualified; Meridian-managed continue/fork/switch not qualified (#521) |
 | 2b | Foundation restructure P0–P5 ([architecture](../architecture/native-session-binding.md)) | PR #520 at `2eddcd68`; thermo recheck and alignment review passed after one fix pass |
 | PR 2 | Native reads, native-keyed search, run facts off the stream ([decision](native-only-history.md)) | Draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on #520); reviews and recheck passed; measured on runtime copies |
-| PR 3 | Stop writing runner `history.jsonl`; drop redundant runner history for bound chats by an archive rule; delete the dogfood-row translator; measure cost | Not started |
+| PR 3 | Stop writing runner `history.jsonl`; drop redundant runner history for bound chats by an archive rule; replace the dogfood-row translator; measure cost | Landed on `feat/stop-runner-history` @ `c1fa08e4` (stacked on #526); review PASS WITH FIXES, fix lanes E–G merged |
 
 Verification standard: POSIX `sh` harness shims at the real runner seams, CLI probes
 against an isolated installed wheel with decoys and unrelated concurrent sessions,

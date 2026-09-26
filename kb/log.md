@@ -3,6 +3,37 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-26 — PR 3 settled: runner history no longer written
+
+Reconciled with `feat/stop-runner-history` @ `c1fa08e4` (review PASS WITH FIXES, fix
+lanes E–G merged).
+- **Rewritten:** [attempt-facts-and-delivery](architecture/attempt-facts-and-delivery.md):
+  the emit path is hooks → fan-out → `note_event_delivered` → terminal
+  (`_run_event_hooks`, no `EmitOutcome`); "What is still written" became "The runner
+  stream is retired" (`RETIRED_RUNNER_STREAM_FILENAMES`, blind mode is a read trap only).
+- **[decisions/native-only-history](decisions/native-only-history.md):** status landed;
+  new "PR 3: the stream is deleted" section with the dogfood-row migration decision
+  (read-time rewrite and per-command startup rejected) and the prune-rule decisions
+  and measurements; upgrade and leftover-file consequences.
+- **New sections:** runner-history prune mechanism in
+  [codebase/session-operations](codebase/session-operations.md#runner-history-prune);
+  dogfood-row migration in [operations/health-checks](operations/health-checks.md#dogfood-row-migration)
+  (doctor flow, `repaired`, warning codes, background repairs); a quarantined-row
+  entry in [operations/troubleshooting](operations/troubleshooting.md); the authority
+  re-arm in [D-history-index-initialization](decisions/history-storage.md#d-history-index-initialization);
+  "only Pi reports an exit identity" in
+  [decisions/native-session-identity](decisions/native-session-identity.md#accepted-limits).
+- **Stale "still written / until PR 3" text removed** from native-transcript-reads,
+  state-system overview and portable-history, launch-system (retry rotation list),
+  completion-drain-coordination invariant 8, native-session-binding (dogfood rows),
+  lessons/harness-integration, codebase/vocabulary, decisions/chat-backend,
+  decisions/state (#376 note), `decisions.md` and `index.md` rows.
+- **Lessons:** a test helper that reads runner bytes trips the blind trap; a repair
+  must clear the failure it latched ([native-session-identity](lessons/native-session-identity.md));
+  a lane commit can carry another step's staged deletions — squash-merge
+  ([spawn-lane-operations](lessons/spawn-lane-operations.md)).
+
+---
 ## 2026-09-25 — Structure pass after PR 2 reconciliation
 
 - **Split:** [architecture/native-transcript-reads.md](architecture/native-transcript-reads.md)'s

@@ -211,10 +211,10 @@ worst case was a spawn that wedged for 2h18m with no liveness signal.
 
 When a streaming spawn retries, `_preserve_attempt_artifacts()` in
 `streaming_runner.py` rotates the completed attempt's disk artifacts into
-`attempt-N/` under the spawn log directory. Preserved files include
-`history.jsonl`, `stderr.log`, `report.md`, `runner-lifecycle.jsonl`, and
-`last-observed-event.json`. The runner stream and its checkpoint are rotated only
-until PR 3 deletes their writers; attempt facts are folded in memory per attempt
+`attempt-N/` under the spawn log directory. The rotated disk files are
+`runner-lifecycle.jsonl`, `stderr.log`, `tokens.json` and `report.md`. The retry no
+longer writes a runner-stream header or a `meridian.attempt.completed` marker (PR 3);
+attempt facts are folded in memory per attempt
 ([run facts](attempt-facts-and-delivery.md#attempt-folds)). The rotation is crash-atomic: files are staged under
 `attempt-N.tmp/` and committed with a single `os.replace()`. Artifact-store copies
 and active-key deletion happen only after the filesystem commit, so the next attempt

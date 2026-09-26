@@ -165,8 +165,10 @@ reason, or cleanup-phase policy.
 7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
    against double publication; cleanup and lifecycle effects cannot replace the
    outcome.
-8. `note_event_persisted`, observer dispatch, and fan-out occur only after a
-   successful history write.
+8. Per event, inline hooks run first, then subscriber fan-out, then
+   `note_event_delivered`, then terminal handling. There is no history write to gate
+   delivery (PR 3 renamed `note_event_persisted` and deleted the writer;
+   [emit path](attempt-facts-and-delivery.md#the-emit-path)).
 9. Pi nudges route through serialized `SpawnManager.inject()`.
 10. The plain path remains `coordinator=None`.
 

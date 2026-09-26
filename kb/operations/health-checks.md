@@ -29,7 +29,8 @@ Order matters. The authoritative active-spawn set is computed **after** reconcil
 
 ```mermaid
 flowchart TD
-    A[doctor_sync called] --> B[repair stale session locks\ncurrent project only]
+    A[doctor_sync called] --> A2[migrate dogfood spawn rows\nre-arm index authority failure]
+    A2 --> B[repair stale session locks\ncurrent project only]
     B --> C{is root process?}
     C -- yes --> D[reconcile_spawns — reap orphans]
     D --> E[re-read spawns from store]
@@ -67,7 +68,7 @@ Global maintenance (`--global`) requires `is_root_side_effect_process()` to retu
 
 **Orphan project dirs** are project-level state dirs with no active spawns and no recent activity. Each UUID corresponds to one past project. Machine-wide pruning requires `--global` to avoid accidentally walking other active projects.
 
-**Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `stderr.log`, `params.json`, `tokens.json`, `heartbeat`, `pi-lifecycle.json`, etc. Runner `history.jsonl` is still written until PR 3 but is never read.
+**Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `stderr.log`, `params.json`, `tokens.json`, `heartbeat`, `pi-lifecycle.json`, etc. Runner `history.jsonl` and `last-observed-event.json` are no longer written. Old copies are pruned by `session archive --prune-runner-history`, not by doctor ([prune](../codebase/session-operations.md#runner-history-prune)).
 
 **Telemetry segments** are per-process JSONL event files under the current project's `telemetry/` directory. Local doctor scans them for retention cleanup: expired non-live segments are removed first, then older closed segments may be removed to enforce the total-size cap. Global orphan-project scanning is separate.
 
@@ -92,6 +93,7 @@ Pruning uses `shutil.rmtree` with an `onexc` hook that restores write bits befor
 
 On `PRIMARY_LAUNCH` startup paths, cheap per-project repairs run in a non-blocking background daemon thread:
 
+- **Dogfood-row migration** — runs first, in its own guard. It rewrites spawn rows written by the PR 1 dogfood build (see below) and logs `dogfood_spawn_rows_failed` once per pass for rows it cannot migrate
 - **Stale session lock cleanup** — clears abandoned lock files under the current project's sessions directory
 - **Orphan run reconciliation** — detects and repairs abandoned spawn rows (same logic as `reconcile_spawns()` in the reaper)
 
@@ -99,11 +101,27 @@ These repairs touch only the **current project's runtime root** (`~/.meridian/pr
 
 The former global background scan (which ran `doctor_sync(global_=True)` and wrote `doctor-cache.json`) was deleted. Users discover cross-project stale state through explicit `meridian doctor --global`. See [startup/health decisions](../decisions/startup-health-sandbox.md#doctor-cache-deleted--global-scan-moved-to-explicit-opt-in) for rationale.
 
+## Dogfood-Row Migration
+
+The PR 1 dogfood build wrote spawn rows with flat run-boundary fields that the strict
+schema quarantines. `state/spawn/dogfood_migration.migrate_dogfood_spawn_rows` rewrites
+them once, under the shared mutation lock and the spawn lock, and is idempotent. Each
+row is isolated, so one malformed row never keeps the rest quarantined. When at least
+one row migrated, it clears a history-index `authority` initialization failure
+(`HistoryIndex.clear_authority_failure`, under the catch-up lock), so the next
+index-backed command retries without a manual rebuild.
+
+**After installing PR 3, run `meridian doctor` once** (a primary launch does the same
+in the background). Until then `spawn show pN` on such a row ends its
+quarantine message with "run `meridian doctor` to migrate it". Rerunning is safe; rows written later by a still-running
+PR 1 runner are picked up by the next run. The module is deletable once no dogfood rows
+remain. Rationale: [native-only history](../decisions/native-only-history.md#dogfood-rows-migrate-once-not-on-read).
+
 ## `DoctorOutput` Key Fields
 
 | Field | Meaning |
 |---|---|
-| `repaired` | Categories repaired this run: `orphan_runs`, `stale_session_locks`, `spawn_artifacts`, `telemetry_segments`, `orphan_project_dirs` |
+| `repaired` | Categories repaired this run: `dogfood_spawn_rows`, `orphan_runs`, `stale_session_locks`, `spawn_artifacts`, `telemetry_segments`, `orphan_project_dirs` |
 | `pruned_spawn_artifacts` | Count of artifact dirs deleted |
 | `pruned_orphan_dirs` | Count of orphan project dirs deleted |
 | `telemetry_counts` | Current-project telemetry summary, including expired segment count |
@@ -116,6 +134,8 @@ Warning codes emitted from `warnings` include:
 - `stale_telemetry_segments`
 - `stale_orphan_project_dirs` (`--global` only)
 - `live_active_spawns_remain`
+- `dogfood_spawn_rows_failed` — payload `spawn_ids` and `reasons`; each reason names the failing field, e.g. `ValidationError: run_boundary.status: …`
+- `dogfood_index_rearm_failed` — the migration could not re-arm the history index (catch-up lock timeout)
 
 `stale_telemetry_segments` is not age-only. It can mean either:
 

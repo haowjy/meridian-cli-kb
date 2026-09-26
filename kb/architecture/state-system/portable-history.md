@@ -8,7 +8,7 @@ retention, transfer, and restore.
 **Scope.** This page covers retention, archive and restore. For a live bound chat,
 the conversation is the harness's native file, read through one resolver
 ([native transcript reads](../native-transcript-reads.md)). Meridian's runner
-`history.jsonl` stops being read in PR 2 and stops being written in PR 3
+`history.jsonl` stopped being read in PR 2 and stopped being written in PR 3
 ([native-only history](../../decisions/native-only-history.md)). Archives capture
 the bound key's native snapshot.
 

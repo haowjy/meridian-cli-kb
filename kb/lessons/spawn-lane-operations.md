@@ -40,6 +40,24 @@ in the foreground, with a timeout that fits the gate, and to write the report be
 ending the turn. When a spawn ends without a report, check its commits and rerun the
 gates before merging.
 
+## A Lane Commit Can Carry Another Step's Staged Deletions
+
+**What happened (2026-09-26):** PR 3's deletion lane staged its `git rm` deletions
+(`state/history.py`, several test modules) before committing its first step, the
+dogfood migration. The deletions went into that commit, which then did not build on
+its own: `spawn_manager` still imported the deleted module. The harness blocked
+`git reset`, `commit --amend` and `restore --source`, so the lane could not split the
+commit. The next commit completed the step.
+
+**What worked:** the lane reported it, and the tech lead squash-merged the two commits
+(`a567cae4`). The review confirmed that the squash builds and passes on its own.
+
+**The lesson:** when a lane reports a commit that does not build alone, merge the lane
+with squash rather than preserving a broken intermediate commit. Briefs for deletion
+lanes should say to stage deletions only with the commit that removes their last
+importer.
+
 **Provenance:** `work:native-harness-session-identity` (`decision.md` "Codex harness
 auth failure → Claude backups" and "Recheck PASS WITH FIXES; V2 partial; lane D";
-`evidence/pr2-fix-d-report.md`; spawns `p7149`, `p7150`, `p7151`).
+`evidence/pr2-fix-d-report.md`; spawns `p7149`, `p7150`, `p7151`; for the squash
+lesson, `evidence/pr3-p3a-report.md`, `review/pr3-review.md`, `spawn:p7155`).

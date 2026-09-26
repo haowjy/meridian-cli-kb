@@ -9,8 +9,8 @@ Why it is built this way: [native-only history](../decisions/native-only-history
 The binding it reads: [native session binding](native-session-binding.md).
 
 **State:** landed in PR 2, draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on
-PR #520). It is not on `main`. Runner `history.jsonl` is still written, but nothing
-in production reads it. PR 3 deletes the writers.
+PR #520). It is not on `main`. Nothing in production reads runner `history.jsonl`, and
+since PR 3 (`feat/stop-runner-history`) nothing writes it either.
 
 ```mermaid
 flowchart LR
@@ -209,8 +209,8 @@ On the real corpus, `complete` stays false: 4 of 2,037 sources cannot be searche
 
 - [Attempt facts and delivery](attempt-facts-and-delivery.md) — how run facts (usage,
   failure, "produced output", the first session ID) are computed from live events
-  instead of a re-read stream, how they are delivered to subscribers, and what the
-  runner still writes until PR 3
+  instead of a re-read stream, how they are delivered to subscribers, and the retired
+  runner stream
 - [Native session binding](native-session-binding.md) — the binding this resolver reads
 - [Native-only history decision](../decisions/native-only-history.md) — why native reads
   replaced the runner stream, and the retained rationale and rejected alternatives

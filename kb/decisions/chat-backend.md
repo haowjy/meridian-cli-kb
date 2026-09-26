@@ -47,7 +47,7 @@ All three would require `CUSTOM` for the highest-value events. Building custom f
 
 **Decided:** SpawnManager owns the HarnessConnection lifecycle, drain loop, `history.jsonl` persistence, heartbeat, and cleanup. The chat pipeline observes events through the R4 observer seam (`EventObserverRegistry`). No separate `HarnessAdapter` wrapper class.
 
-> **Partly superseded (PR 2, 2026-09-25).** The single-consumer ownership still holds, but the observer seam does not. `EventObserverRegistry` and its queued observer had no remaining users and were deleted. `SpawnManager._emit` now runs inline hooks, then the optional history write, then subscriber fan-out; delivery no longer depends on a successful write. PR 3 removes the `history.jsonl` persistence. See [attempt facts and delivery](../architecture/attempt-facts-and-delivery.md#the-emit-path).
+> **Partly superseded (PR 2, 2026-09-25).** The single-consumer ownership still holds, but the observer seam does not. `EventObserverRegistry` and its queued observer had no remaining users and were deleted. Delivery no longer depends on a write: PR 3 removed the `history.jsonl` persistence, and `SpawnManager._run_event_hooks` runs inline hooks before subscriber fan-out. See [attempt facts and delivery](../architecture/attempt-facts-and-delivery.md#the-emit-path).
 
 **Why:** Claude's `HarnessConnection` enforces single `events()` consumption. SpawnManager already owns the drain loop — that is the sole consumer. Creating a second consumer of the same stream is not feasible. The "adapter" concept is realized by three collaborators:
 - **SpawnManager** — owns connection and drain loop

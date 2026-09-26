@@ -266,7 +266,9 @@ Two call sites use this primitive:
 - *Parse-before-discard:* the tail is parsed as JSON before deciding whether to keep or drop it. A complete object row missing only `\n` is common (valid write, missing only the delimiter) and must not be discarded.
 - *Atomic inode replacement over in-place truncation:* `os.truncate` would mutate the file in place; an unlocked reader with a buffered file descriptor could read bytes from the old content followed by bytes from a new append, producing a fabricated hybrid event. Atomic replacement creates a new inode, so the reader sees either the old file (complete) or the new file (repaired), never a splice.
 - *O(1) fast path:* the clean-tail check reads only the last byte (`seek(-1, SEEK_END)`); no whole-file read per append when the tail is intact.
-- `history.jsonl` is deliberately excluded; its repair is tracked under #376.
+- `history.jsonl` was deliberately excluded and its repair tracked under #376. PR 3
+  (native-only history) deleted the runner-history writer and its tail repair, so that
+  exclusion no longer applies to anything written.
 
 ---
 

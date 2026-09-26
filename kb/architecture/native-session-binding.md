@@ -217,9 +217,12 @@ In `lib/state/spawn/model.py`:
 - **`SpawnRecord.continue_chat_id`** is the one post-run continue rule: a terminal
   run's verified exit chat, otherwise the entry chat. The primary exit hint,
   `--continue pN`/`--fork pN` and `session log pN` all use it.
-- **Dogfood rows.** A `model_validator(mode="before")` translates rows written by the
-  pre-restructure PR 1 dogfood build (`entry_chat_id`, `exit_chat_id`,
-  `exit_identity`, a top-level `trampoline_successor_id`). PR 3 deletes it.
+- **Dogfood rows.** Rows written by the pre-restructure PR 1 dogfood build carry flat
+  `entry_chat_id`, `exit_chat_id`, `exit_identity` and top-level
+  `trampoline_successor_id` fields (`repository.DOGFOOD_BOUNDARY_FIELDS`). The strict
+  schema quarantines them. Since PR 3, `state/spawn/dogfood_migration.py` rewrites them
+  once, run by `meridian doctor` and primary-launch background repairs; the read-time
+  translator is gone ([why](../decisions/native-only-history.md#dogfood-rows-migrate-once-not-on-read)).
 - **`run_boundary_summary(row)`** renders `entry cN (…) → exit …` for `spawn show`.
 
 The history-index `SCHEMA_VERSION` is 5 at PR 1's head. It was bumped at each

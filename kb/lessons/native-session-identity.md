@@ -287,6 +287,9 @@ hook, and the hook patches the writer modules right after they load. This covers
 `python -m`, console scripts and `runpy` alike, and costs about 17 ms per child. A test
 now asserts that a `python -m meridian` child sees the patched writers.
 
+PR 3 later deleted the writers and retired the patches; the read trap still reaches
+children through the same `sitecustomize`.
+
 **The lesson:** a test mode that silently stops applying reports *better* numbers.
 Prove that the mode reached the process under test with a positive assertion, not with
 a lower failure count. `sys.argv` is not reliable at site time.
@@ -318,6 +321,53 @@ for the inputs it contains.
 
 Provenance: `work:native-harness-session-identity` (`review/pr2-recheck.md` NF1;
 `evidence/pr2-fix-d-report.md`).
+
+---
+
+## A Test Helper That Reads Runner Bytes Trips the Blind Trap
+
+**What happened:** PR 3's prune lane added a test that snapshots the whole runtime
+tree before and after a dry run, to prove nothing changed. Its `tree()` helper read
+every file's bytes, including the runner `history.jsonl` fixtures. Under
+`--runner-history=off` the read trap fired in test code: "runner history read is
+disabled: …/p6/history.jsonl". The default suite was green, and the blind suite went
+from 0 failures back to 1.
+
+**What worked:** compare runner fixtures by `lstat` (size, `mtime_ns`, inode), not by
+bytes. Production code was never at fault.
+
+**The lesson:** a read trap guards test helpers as strictly as production code. A test
+that proves a file is untouched should compare metadata, not contents, whenever the
+contents are off-limits. Run both suite modes before calling a lane green.
+
+Provenance: `work:native-harness-session-identity` (`review/pr3-review.md` finding 2;
+`evidence/pr3-prune-test-blind-report.md`; `spawn:p7160`).
+
+---
+
+## A Repair That Fixes the Cause Must Also Clear the Latched Failure
+
+**What happened:** PR 3's schema needed an index reproject. On the upgraded runtime
+copy, the reproject met the quarantined dogfood rows and latched an `authority`
+initialization failure for that index generation. `meridian doctor` then migrated all
+63 rows, but the latch stayed: the migration marked the sources dirty without changing
+the generation. Archive and search kept failing until someone ran `session index
+rebuild --metadata-only`, and running the rebuild before doctor failed again.
+
+**What worked:** the repair re-arms what it fixed. When the migration rewrites a row,
+it clears only `authority` markers, under the catch-up lock, so an in-flight
+initializer is ordered first. The error text names the quarantined row and `meridian
+doctor`. The copy probe then went: archive fails naming doctor → `doctor` → archive
+exits 0, with no manual rebuild.
+
+**The lesson:** when a failure is latched to stop retry loops, the latch outlives its
+cause. Whatever repairs the cause must also clear the latch, or the repair looks
+successful and changes nothing. Probe the upgrade path on a copy of real data, in the
+order a user would run it.
+
+Provenance: `work:native-harness-session-identity` (`evidence/pr3-fix-e-report.md`
+"upgrade hazard"; `evidence/pr3-fix-f-report.md`; `decision.md` "PR 3 lanes E/F
+landed"; `spawn:p7162`, `spawn:p7163`).
 
 ---
 
