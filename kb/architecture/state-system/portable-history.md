@@ -214,10 +214,13 @@ an immutable original capture descriptor into the versioned portable digest. Res
 may remap local aliases and clear live native ownership, but rearchive must carry that
 original descriptor unchanged. The required round trip is archive -> restore ->
 rearchive -> restore with the original native store and first ZIP unavailable. Old
-archives keep their implicit `history.jsonl` member and original digest recipe; they
-are never rewritten or given fabricated descriptors. Such a member still verifies and
-restores as bytes. `iter_archived_events` refuses to read it as a transcript
-(old-data option C).
+archives keep their implicit `history.jsonl` member; they are never rewritten or given
+fabricated descriptors. Their record digests verify because the digest is computed
+over the record JSON as stored, not re-serialized through current models
+([decision](../../decisions/history-storage.md#d-history-portable-digest-stored-json)).
+Such a member still verifies and restores as bytes. `iter_archived_events` refuses to
+read it as a transcript (old-data option C), so an imported or restored 0.6.7 record
+is inert: `session log` refuses it.
 
 ## Retained snapshots are read only when a ref selects them
 

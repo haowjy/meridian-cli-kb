@@ -1,6 +1,7 @@
 # Decision: Import legacy native session keys once
 
-**Status: settled 2026-09-25.** The one-time migration decision and its constraints
+**Status: settled 2026-09-25; old-Pi recovery settled 2026-09-26.** The one-time
+migration decision, its constraints, and the [old Pi chat recovery](#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair)
 are here; the implementation sequence, locks, candidate-store checks, recovery,
 and cost are in [legacy native import](../architecture/legacy-native-import.md).
 The broader identity invariant is [native session identity](native-session-identity.md).

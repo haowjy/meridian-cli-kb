@@ -145,7 +145,10 @@ history. They are unbound chats, mostly Pi runs from before Pi identity was trac
 Those files stay on disk as inert JSONL. The archive ZIPs that might have held other
 copies had already been reclaimed. Chats bound by the
 [one-time import](legacy-native-import.md)
-read their native files, so C loses nothing for them.
+read their native files, so C loses nothing for them. Many old Pi chats did have
+native files that 0.6.7 never linked; the later
+[legacy Pi recovery](legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair)
+binds the provable ones, and `session repair` binds others by hand.
 
 **Why not A or B.** The unique data is small and old. A keeps a decoder and a hint
 path alive for it. B also adds a flag and an unverifiable second read path. Under C
@@ -157,16 +160,21 @@ the reader side of `history_codec` is deleted outright.
   `session archive` rule: when a chat is bound, its native file resolves and the run
   is older than N days, drop the run's `history.jsonl`. PR 3 implements it as an
   explicit, dry-run-first action; see [the prune rule](#the-prune-rule).
-- **Claude's 30-day transcript cleanup.** Claude's default `cleanupPeriodDays`
-  deletes native files; the oldest remaining Claude file was 2026-08-26.
+- **Harness retention bounds history.** Meridian keeps no copy of a conversation,
+  so a chat is readable only while the harness keeps its native file or an archive
+  holds a snapshot of it. Claude's `cleanupPeriodDays` (default 30) deletes old
+  Claude transcripts; after that, and with no archive, the chat reads
+  `native_transcript_missing`. The only protections are raising
+  `cleanupPeriodDays` or archiving regularly (`session archive` captures the exact
+  native transcript into the ZIP). The user-facing guide says so in
+  [Upgrading to 0.7, "Keep transcripts you care about"](https://github.com/haowjy/meridian-cli/blob/main/docs/upgrading.md#keep-transcripts-you-care-about).
   - **User direction:** a regular archive of all conversations, run from cron,
     using the user's existing archive script outside Meridian.
   - **Tech lead's choices, not confirmed by the user:** the cadence (an hourly
     check that snapshots when the newest snapshot is ≥ 7 days old) and leaving
-    `cleanupPeriodDays` unchanged.
-  - **Consequence:** once Claude deletes a file and no archive restores it, that
-    chat reports `missing`. A manual reclaim of archived originals has the same
-    effect on reads.
+    `cleanupPeriodDays` unchanged on this machine.
+  - A manual reclaim of archived originals has the same effect on reads as the
+    harness deleting them.
 
 ## Search: a native-keyed trigram projection, verified exactly
 
@@ -426,8 +434,9 @@ files were removed. The dry run takes 3 s at 14 days and 13 s at 0 days, mostly 
 `rglob` over `~/.codex/sessions`. The user decides when to run it on a real runtime.
 
 **Caveat: Claude deletes its own transcripts.** Claude's `cleanupPeriodDays` (default
-30) removes old native files. Once pruned, a Claude chat has no runner copy, so after
-Claude's cleanup it reads `missing`. Meridian never read the runner copy after PR 2, so
+30) removes old native files ([harness retention](#related-retention-decisions-same-day)).
+Once pruned, a Claude chat has no runner copy, so after Claude's cleanup it reads
+`missing` unless an archive holds its snapshot. Meridian never read the runner copy after PR 2, so
 this loses only raw bytes for manual forensics. The user's weekly archive cron keeps
 copies. On this project only 15 Claude spawns (13 MB) were affected.
 

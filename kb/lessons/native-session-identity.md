@@ -440,13 +440,48 @@ edit in a worktree broke probe lanes running from it
 
 ---
 
+## A Hash of a Model Projection Breaks When the Model Grows
+
+The portable archive digest was computed by loading the record into the current
+Pydantic models and hashing their serialization. That hashed the reader's schema,
+not the archive. When `run_boundary` and `native_store` were added as optional
+fields, re-serializing a 0.6.7 record added `null` fields that 0.6.7 never hashed.
+Every 0.6.7 archive then failed import and restore with "Portable record digest
+mismatch", even though every member byte was intact. The same flaw survives in
+`restored-from.json` `session_sha256` ([#537](https://github.com/haowjy/meridian-cli/issues/537)).
+**Rule:** an integrity hash over persisted data covers the stored bytes or stored
+JSON, never a re-serialization through code that will evolve. Where two records are
+compared as "the same facts", put both through the same current models
+([D-history-portable-digest-stored-json](../decisions/history-storage.md#d-history-portable-digest-stored-json)).
+
+---
+
+## Measure a Recovery Rule on Real Data, and Count Wrong Binds
+
+The first proposal for old Pi chats was a structural rule: exactly one candidate
+file, a matching cwd, an in-window start. On paper it looked safe. Measured on the
+real runtimes (p7228), it bound 30 of 770 chats, and one of the 30 was the wrong
+session: its only candidate's first message was not the chat's prompt. Yield alone
+would have hidden that. Because bindings are immutable, one wrong bind is permanent,
+so the rule gained content proof (prompt or report equality) and primaries became
+manual-only. The same data also showed the cwd check was aimed at the wrong
+directory: 0.6.7 ran Pi in the control root, not the worktree the chat recorded as
+`execution_cwd`. Checking every recorded cwd raised the proven yield to 155 with no
+wrong bind found
+([decision](../decisions/legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair)).
+**Rule:** before designing a recovery or inference rule, run it read-only on real
+data and report wrong binds next to yield, spot-check matches by eye, and confirm
+which cwd the harness actually ran in rather than assuming the recorded one.
+
+---
+
 ## Cross-References
 
 - [History-storage decisions](../decisions/history-storage.md) — per-schema index files
 - [Portable history](../architecture/state-system/portable-history.md) — namespace and retained-snapshot behavior
 - [Dogfooding PR builds](dogfooding-pr-builds.md) — upgrade-probe procedure and evidence
-- [Legacy native import decision](../decisions/legacy-native-import.md) — unbound 0.6.7 Pi chats
-- [Open questions](../open-questions/future-work.md) — pending decision on old Pi chats
+- [Legacy native import decision](../decisions/legacy-native-import.md) — content-proven recovery of 0.6.7 Pi chats
+- [Open questions](../open-questions/future-work.md) — restore metadata hash (#537)
 - [Native session identity decision](../decisions/native-session-identity.md)
 - [Native session binding](../architecture/native-session-binding.md)
 - [Claude native sessions](../architecture/claude-native-sessions.md)

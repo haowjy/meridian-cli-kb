@@ -3,6 +3,24 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-26 — PR #534 old-Pi recovery, archive digest, upgrade guide
+
+Reconciled with `feat/native-session-identity` @ `50f95c1a` (diff `853aab3a..50f95c1a`).
+- **Settled** the open 0.6.7 Pi decision in
+  [legacy-native-import](decisions/legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair):
+  content-proof rule, primaries manual, 155 of 770 bound, `session repair` contract,
+  old ID-only repair deleted. Mechanism sections "Legacy Pi recovery" and "Session
+  repair" in [architecture](architecture/legacy-native-import.md); bind sources
+  updated in binding and identity pages; doctor output in health-checks.
+- **New decision** [D-history-portable-digest-stored-json](decisions/history-storage.md#d-history-portable-digest-stored-json);
+  portable-history updated. The schema-namespace decision's rollback note now says
+  downgrade is unsupported, matching the real 0.6.7 rollback test.
+- **Retention:** native-only-history states that harness retention (Claude
+  `cleanupPeriodDays`) bounds history unless archived, and links the upgrade guide.
+- **Future work:** the Pi entry is removed; #537 (restore `session_sha256`) added.
+- **Lessons:** two entries in [native-session-identity](lessons/native-session-identity.md).
+
+---
 ## 2026-09-26 — PR #534 round-3 probe: index schema namespace, snapshot reads, prompt delivery
 
 Reconciled with `feat/native-session-identity` @ `e194ceea` (diff `242d7eaa..e194ceea`).
@@ -20,8 +38,7 @@ Reconciled with `feat/native-session-identity` @ `e194ceea` (diff `242d7eaa..e19
 - **[launch-system](architecture/launch-system.md#starting-prompt-delivery):** starting
   prompt delivery per harness and the `--add-dir` regression.
 - **Open decision:** 0.6.7 Pi chats with no recorded ID, in
-  [legacy-native-import](decisions/legacy-native-import.md#open-old-pi-chats-that-067-never-bound-decision-pending)
-  and [future-work](open-questions/future-work.md#unbound-pi-chats-from-067).
+  legacy-native-import and future-work (settled the same day; see the entry above).
 - **[spawn-output-contract](concepts/spawn-output-contract.md):** `chat_id`,
   `continue_chat_id` and `run_boundary` are in sparse JSON; `harness_session_id` stays out.
 - **Lessons:** upgrade probing (`uvx --isolated`, verify old is old, old-state start,

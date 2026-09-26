@@ -265,12 +265,13 @@ after v6 was built, and archive changes it makes, still need `session index rebu
 First-use build: 1.5 s on a 171-spawn runtime and 5.2 s on a 1,990-spawn one
 (budget 15 s); warm reads about 0.9 s.
 
-**Rollback.** The older build's index misses everything a newer build recorded, and
-unreleased builds of this branch before `a3fd1439` had already converted
-`history.sqlite3` to schema 6. After rolling back, run the older build's `meridian
-session index rebuild --metadata-only`, or stop its processes and delete
-`history-index/history.sqlite3*`. The older files can be deleted once no older
-build uses the runtime.
+**Rollback.** Per-schema files keep an already-running older build working; they do
+not make downgrade work. Once a newer build has run a spawn in a project, 0.6.7 cannot
+parse its rows (`run_boundary`, `native_store`): `spawn list` fails for the whole
+project and an older `session index rebuild` stops at the first new row. Downgrade is
+unsupported (user-facing: `docs/upgrading.md`, "Rolling back to 0.6.7"). Deleting
+`history-index/history.sqlite3*` only repairs an index that a pre-release build of
+this branch (before `a3fd1439`) converted in place.
 
 **Revisit if:** a projection ever holds a fact the authoritative files lack. Then a
 fresh build could lose data, and migration would need to come back.
@@ -279,6 +280,55 @@ fresh build could lose data, and migration would need to come back.
 2026-09-26 "Round-3 probe of every command" (stuck old runner, p7222; fix lane
 p7224); `evidence/probe3-upgrade-rerun.md`; investigation `spawn:p7222`; fix and
 overlap test `spawn:p7225`, commit `a3fd1439`.
+
+### D-history-portable-digest-stored-json: verify archive digests over the stored record JSON (2026-09-26) {#d-history-portable-digest-stored-json}
+
+**Status:** Implemented in combined PR #534 (`3e041a23`, merged into
+`feat/native-session-identity` @ `5851eef9`); unreleased.
+
+**Decision:** The portable record digest is SHA-256 over canonical JSON of the record
+object *as stored* in the manifest or `record.json`, minus local-only fields
+(`state/retention_digest.py`, `stored_record_digest`). Verification never re-parses
+the record through today's Pydantic models and re-serializes it before hashing.
+Writers hash exactly the JSON they publish, so every digest already written still
+matches. Restore stages the archived `record.json` bytes unchanged. Where a check asks
+"are these the same facts?" (re-capturing a restored record, `_verify_existing`), both
+sides go through current models (`model_record_digest`), so neither side carries an
+older shape.
+
+**Why:** the old verifier loaded the manifest into current models and hashed that
+projection. Adding `run_boundary` to `SpawnRecord` (commit `91ccb3c0`) and
+`native_store` to `SessionRecord` put new `null` fields into the hashed object, so
+every 0.6.7 archive failed `session import` and `session restore` with "Portable
+record digest mismatch", including the user's real 19-record archive. The digest had
+been checking the reader's schema, not the archive's bytes. Member bytes were always
+separately checked against the manifest's size and sha256; that check was never the
+problem.
+
+**What 0.6.7 archives give back.** Import and restore now succeed, and a repeat
+import reports `Already imported`. The records stay inert: a 0.6.7 ZIP holds runner
+`history.jsonl` and no `native-transcript.jsonl`, and runner history is not read
+([option C](native-only-history.md#old-runner-history-option-c-drop)), so `session
+log` and `export` of an imported or restored 0.6.7 record refuse with "is historical
+and has no retained native snapshot". Chats still bound to a live native file read
+normally through their binding. The member stays in the ZIP for manual extraction.
+
+**Rejected:**
+- **Per-field exclusions for each new model field.** Every schema addition would
+  break old archives again until someone added another exclusion.
+- **Dropping the portable digest** in favor of member hashes alone. Member hashes do
+  not cover the record facts that restore publishes.
+
+**Open follow-up:** `restored-from.json` `session_sha256` still hashes the folded
+`SessionRecord`, so a repeat restore into a runtime that 0.6.7 restored into fails
+([#537](https://github.com/haowjy/meridian-cli/issues/537)).
+
+**Revisit if:** the stored record format itself changes shape; then the digest needs
+an explicit version, not a model-dependent recipe.
+
+**Provenance:** `work:native-harness-session-identity`; diagnosis
+`evidence/investigate-067-archive-digest.md`; fix and real-archive checks
+`spawn:p7236` (commit `3e041a23`).
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
