@@ -395,6 +395,51 @@ Provenance: `work:native-harness-session-identity`, `evidence/probe-final-claude
 
 ---
 
+## Moving One Option Let a Variadic Flag Swallow the Prompt
+
+PR #534 moved Claude's `--session-id` to the front of argv so the identity was bound
+early. The change looked local, and every test passed. But in 0.6.7 that option had
+also been the only thing ending Claude's variadic `--add-dir <directories...>`.
+Without it, `--add-dir` consumed the trailing starting prompt as one more directory,
+and every interactive Claude primary with `-p`, `--prompt-file` or `--from` opened
+with an empty composer. A user's composed handoff sat in `starting-prompt.md` for
+11 minutes until they typed something else. The tests checked that the prompt was
+in argv, not where. The same probe found that Pi and OpenCode had never delivered
+the prompt on any build; nobody had checked the first native user turn.
+
+**The lesson:** argv order is part of a CLI contract when the target has variadic
+options. End option parsing explicitly (`--`), and assert position in tests. To
+verify prompt delivery, read the first native user turn, not Meridian's own
+`starting-prompt.md`. Mechanism: [starting prompt delivery](../architecture/launch-system.md#starting-prompt-delivery).
+
+Provenance: `work:native-harness-session-identity`, `evidence/probe-primary-prompt.md`,
+investigation `spawn:p7218`, fix commit `b6e7cd0b`.
+
+---
+
+## An In-Place Projection Upgrade Breaks the Build Still Running
+
+The history index was "disposable", so upgrading it in place looked free. It was
+not free for a 0.6.7 background runner still running during the upgrade. That
+runner read the same file, hit a schema it did not know, and never finalized. A
+projection that is disposable for the new build is still live input for the old
+one. The fix gave each schema its own files
+([D-history-index-schema-namespace](../decisions/history-storage.md#d-history-index-schema-namespace)).
+Only a probe that kept an old runner alive across the upgrade found it
+([probing the upgrade path](dogfooding-pr-builds.md#probing-the-upgrade-path-needs-a-genuinely-old-build-and-old-state)).
+
+---
+
+## A Lead's Direct Edit Skips the Gate Its Lanes Run
+
+The lead made a one-line JSON change (`f6eb3984`) and ran only the targeted test. It
+broke five sparse-JSON contract tests, fixed in `27a57934`. The same afternoon a lead
+edit in a worktree broke probe lanes running from it
+([rule](dogfooding-pr-builds.md#probing-the-upgrade-path-needs-a-genuinely-old-build-and-old-state)).
+**Rule:** a direct edit gets the full suite, like any lane commit.
+
+---
+
 ## Cross-References
 
 - [Native session identity decision](../decisions/native-session-identity.md)

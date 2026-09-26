@@ -17,6 +17,8 @@ flowchart LR
   REF["ref: cN, pN, raw ID, --file"] --> RES["resolve_transcript_source"]
   RES -->|"--file PATH"| FILE["TranscriptSource kind=file"]
   RES --> CHAT["chat record from sessions.jsonl"]
+  RES -->|"restored historical cN/pN, or archive-only import ref"| SNAP["TranscriptSource kind=snapshot"]
+  SNAP --> READ
   CHAT --> KEY["SessionRecord.native_key()"]
   KEY -->|None| UNB["NativeSessionUnavailable: unbound"]
   KEY -->|NativeKey| ADP["adapter.resolve_native_session_file"]
@@ -39,7 +41,16 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
   (`"<harness> transcript"`) that log, preview and search all show.
 - **The key comes from `sessions.jsonl`.** The metadata index is used only by
   `_indexed_spawn`. It recovers a `SpawnRecord`, never a transcript location, for a
-  reclaimed `pN` whose `state.json` is gone, or for a non-harness history alias.
+  reclaimed `pN` whose `state.json` is gone, or for a history UUID or non-harness
+  alias. `_indexed_target` then picks the source: the archived snapshot for an
+  archive-only record this runtime did not reclaim itself (an import), the local
+  snapshot for a restored record, otherwise the live binding.
+- **Retained snapshots are opt-in by ref.** `TranscriptSource.retained(row, path,
+  manifest_sha256=None)` builds a `snapshot` source bound to the history UUID. It
+  reads a restored record's local `native-transcript.jsonl` or streams a verified
+  ZIP member in place. A live `cN` whose native file is gone never falls back to
+  one. Selection rules and the regression that motivated them:
+  [portable history](state-system/portable-history.md#retained-snapshots-are-read-only-when-a-ref-selects-them).
 
 | Ref | Chat read | View label |
 |---|---|---|
@@ -101,8 +112,9 @@ checkpoint files.
 
 Corpus `session search` reads a disposable SQLite file,
 `<runtime_root>/history-index/native-search-v1.sqlite3`. It is separate from the
-metadata index `history.sqlite3`: it has its own WAL, and the schema version is in the
-file name, so builds with different schemas never open each other's file.
+metadata index `history-v6.sqlite3`: it has its own WAL. Both put the schema version in
+the file name, so builds with different schemas never open each other's file
+([D-history-index-schema-namespace](../decisions/history-storage.md#d-history-index-schema-namespace)).
 
 | Module | Owns |
 |---|---|

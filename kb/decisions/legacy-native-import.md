@@ -55,3 +55,35 @@ scope missed; all 9 imported. Meridian-flow imported 6,074 chats. For the chats 
 unbound, runner `history.jsonl` was the only other copy. Under
 [option C](native-only-history.md#old-runner-history-option-c-drop) it is not read.
 
+## Open: old Pi chats that 0.6.7 never bound (decision pending)
+
+**Finding (round-3 probe, 2026-09-26).** Real 0.6.7 never recorded the ID of a
+headless Pi spawn, and some primaries also ended with `harness_session_id: null`
+(`discovery_failed`). The import marks them `no_session_id`: 576 Pi chats in the
+meridian-cli runtime (460 spawned, 116 primary) and 193 in another project.
+The native files exist. 0.6.7 ran headless Pi with `--session-dir <pi
+root>/<spawn-id>/` (the root is `~/.meridian/meridian-pi/sessions`), but its observer
+never learned the ID. The connection sets it only from a Pi `session` event, the
+extractor needs an `output.jsonl` these spawns lack, and the file-scan fallback
+scans only the root, not the per-spawn subdirectories. Late binding cannot help,
+because it needs a recorded ID. Live old primaries do rebind after they exit (the
+c88 case).
+
+**Why no automatic recovery yet.** The only evidence is the directory. A chat maps
+to a spawn, the spawn's directory holds exactly one file, and the header `cwd` equals
+the chat's recorded `execution_cwd`. That proves only 28 chats (23 + 5). `pNNN` IDs
+are project-local while the Pi root is user-global, so the same `<spawn-id>/`
+directory can belong to spawns from different projects. Binding on it would guess.
+No chat carries a structured ID event, so the stronger rule (a recorded ID plus
+exactly one matching header) binds none.
+
+**Current behavior.** These chats stay unbound. `session log`, search and
+`--continue` refuse them. `spawn show` still shows the report, and the native file
+is readable with `session log --file <path>`.
+
+**Recommended, awaiting the user:** document this as a known limit, and file an
+issue for a guarded one-shot recovery in the late-binding path. It would bind only
+with the per-spawn directory, one file and a matching cwd header, and refuse on any
+cross-project spawn-ID collision. Future Pi session directories would get globally
+unique names. Evidence: investigation `spawn:p7213`,
+`evidence/probe3-upgrade-rerun.md`.

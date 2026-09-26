@@ -167,14 +167,16 @@ The mechanism is described in
 **Status:** Implemented and independently verified on the feature branch at
 `c3ffcaa0`; shipped when PR #494 merged (2026-09-18, v0.5.0).
 
-**Decision:** A first operation that needs a missing or outdated history index gets
+**Decision:** A first operation that needs a missing history index gets
 one 15-second automatic initialization phase, separate from the ordinary two-second
 query budget. Workspace/global initialization shares one absolute 15-second deadline
 across roots. An all-warm operation never resets its ordinary deadline; only a real
 initialization phase permits a fresh ordinary deadline afterward. Cache-only preview
 peeks remain bounded independently and do not initialize.
 
-Automatic and manual construction reuse `history-catchup.lock` and the same
+Automatic and manual construction reuse the schema's catch-up lock
+(`history-catchup-v<N>.lock` since
+[D-history-index-schema-namespace](#d-history-index-schema-namespace)) and the same
 lock-owned projection/publication body. They recheck compatibility and failure state
 after taking ownership, so a waiter consumes a peer's publication instead of
 rebuilding again. There is no daemon, second index, progress display, or per-attempt
@@ -211,6 +213,72 @@ would make warm contention slower without fixing ownership or retry behavior.
 **Rejected:** silently incomplete results, automatic retry loops, progress UI,
 sticky busy/cancellation state, per-root 15-second resets, and destructive transcript
 conversion. The index remains disposable metadata, not history authority.
+
+### D-history-index-schema-namespace: each index schema owns its own files; never migrate in place (2026-09-26) {#d-history-index-schema-namespace}
+
+**Status:** Implemented in combined PR #534 (`a3fd1439`, merged into
+`feat/native-session-identity` @ `e194ceea`); unreleased.
+
+**Decision:** `SCHEMA_VERSION` (in `state/history_changes.py`) names every file the
+metadata index owns: `history-index/history-v<N>.sqlite3` and its `.build-v<N>`
+stage, the `history-index/pending-v<N>/` marker queue and its `GENERATION`,
+`locks/history-{catchup,database,markers}-v<N>.lock`, and
+`history-index-init-failure-v<N>.json`. A new schema builds a fresh file from the
+authoritative files. No build opens, upgrades or deletes another schema's files.
+0.6.7 and earlier keep the unversioned `history.sqlite3`, `pending/`, locks and
+latch. The authority locks stay shared (`locks/history-mutation.lock` and the
+per-source locks), because both builds write the same `sessions.jsonl` and
+`state.json` files. The mechanism is in
+[portable history](../architecture/state-system/portable-history.md#index-files-are-named-by-schema).
+
+**Why:** a real upgrade leaves 0.6.7 processes running. The round-3 probe started a
+0.6.7 `--bg` Pi spawn and then ran the PR build, which at the time upgraded the shared
+`history.sqlite3` to schema 6 in place. The old runner emitted `turn_completed` and
+then stayed `running` forever. Its stack sat idle in the asyncio loop, with the Pi
+child still alive. Old commands reported "History index is incompatible".
+Investigation p7222 isolated the cause: copying a schema-6 index alone into a fresh
+runtime reproduced the hang, and the legacy import marker alone did not. 0.6.7's Pi
+drain treats any index error as unknown evidence and waits while that persists.
+SIGTERM finalized the run as `cancelled`, not `succeeded`, so the reaper could not
+recover the result either. With per-schema files, a real overlap run (p7225) finished
+`succeeded`, and 0.6.7's `spawn list`, `session log` and `session index status` kept
+working. The old file stayed at schema 2, byte-identical.
+
+**Rejected:**
+- **In-place migration.** It rewrites a file that a running older build still reads.
+  All migration code (`SchemaStep`, `SCHEMA_STEPS`, the `outdated` status) was deleted:
+  with only one schema ever writing its own file, a file whose version does not
+  match its name is a stray copy. It reports `incompatible` and needs an explicit
+  rebuild.
+- **Lock coordination with the older build.** 0.6.7 cannot follow a protocol for a
+  schema it has never seen.
+- **Sharing the marker queue, catch-up locks or failure latch.** Each build would
+  clear or reset the other's markers. A schema-6 failure would block 0.6.7, and an
+  old failure record would block v6.
+
+**Cost and gap.** Each build now marks only its own queue, so v6 stops seeing an
+older build's writes. Catch-up closes most of the gap by re-reading active loose
+spawns and the `sessions.jsonl` cursor without a marker (`_reread_unmarked`),
+kept cheap by a partial `active_records` index, a skip for unchanged spawn rows and
+an early return when the journal has not grown. Spawns that an older build *creates*
+after v6 was built, and archive changes it makes, still need `session index rebuild`.
+First-use build: 1.5 s on a 171-spawn runtime and 5.2 s on a 1,990-spawn one
+(budget 15 s); warm reads about 0.9 s.
+
+**Rollback.** The older build's index misses everything a newer build recorded, and
+unreleased builds of this branch before `a3fd1439` had already converted
+`history.sqlite3` to schema 6. After rolling back, run the older build's `meridian
+session index rebuild --metadata-only`, or stop its processes and delete
+`history-index/history.sqlite3*`. The older files can be deleted once no older
+build uses the runtime.
+
+**Revisit if:** a projection ever holds a fact the authoritative files lack. Then a
+fresh build could lose data, and migration would need to come back.
+
+**Provenance:** `work:native-harness-session-identity`, `decision.md` entries of
+2026-09-26 "Round-3 probe of every command" (stuck old runner, p7222; fix lane
+p7224); `evidence/probe3-upgrade-rerun.md`; investigation `spawn:p7222`; fix and
+overlap test `spawn:p7225`, commit `a3fd1439`.
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 

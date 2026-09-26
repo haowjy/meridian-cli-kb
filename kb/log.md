@@ -3,6 +3,32 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-26 — PR #534 round-3 probe: index schema namespace, snapshot reads, prompt delivery
+
+Reconciled with `feat/native-session-identity` @ `e194ceea` (diff `242d7eaa..e194ceea`).
+- **New decision** [D-history-index-schema-namespace](decisions/history-storage.md#d-history-index-schema-namespace):
+  index files, queue, locks and latch named by schema; no in-place migration (0.6.7
+  runners wedged); rollback note. Row added to [decisions.md](decisions.md);
+  D-history-index-initialization no longer says "outdated".
+- **[portable-history](architecture/state-system/portable-history.md):** new sections
+  "Index files are named by schema" and "Retained snapshots are read only when a ref
+  selects them"; [native-transcript-reads](architecture/native-transcript-reads.md)
+  resolver diagram and index-use bullet updated;
+  [native-only-history](decisions/native-only-history.md) records the import/restore regression fix.
+- **Paths:** `history.sqlite3` → `history-v6.sqlite3` in the state-system overview tree,
+  session-state and native-only-history.
+- **[launch-system](architecture/launch-system.md#starting-prompt-delivery):** starting
+  prompt delivery per harness and the `--add-dir` regression.
+- **Open decision:** 0.6.7 Pi chats with no recorded ID, in
+  [legacy-native-import](decisions/legacy-native-import.md#open-old-pi-chats-that-067-never-bound-decision-pending)
+  and [future-work](open-questions/future-work.md#unbound-pi-chats-from-067).
+- **[spawn-output-contract](concepts/spawn-output-contract.md):** `chat_id`,
+  `continue_chat_id` and `run_boundary` are in sparse JSON; `harness_session_id` stays out.
+- **Lessons:** upgrade probing (`uvx --isolated`, verify old is old, old-state start,
+  overlap, no edits under running lanes) in [dogfooding-pr-builds](lessons/dogfooding-pr-builds.md);
+  three entries in [native-session-identity](lessons/native-session-identity.md).
+
+---
 ## 2026-09-26 — PR 3 settled: runner history no longer written
 
 Reconciled with `feat/stop-runner-history` @ `c1fa08e4` (review PASS WITH FIXES, fix

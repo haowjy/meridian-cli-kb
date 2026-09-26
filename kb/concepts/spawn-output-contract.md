@@ -154,7 +154,14 @@ model, agent, description, `report_path`, and a bounded 500-char
 - **`harness_session_id`**: dropped from the default JSON contract entirely.
   It is an internal lookup key; `session log <chat-id>` covers the use case.
   This is a deliberate, human-approved divergence from the original issue
-  text (#113), which asked to keep it.
+  text (#113), which asked to keep it. `test_sparse_json_contracts.py` lists it
+  as a noisy key. Re-adding it in PR #534 (`f6eb3984`) broke five contract tests
+  and was reverted (`27a57934`).
+
+The chat identity is always present instead, as `null` when absent: `chat_id` (the
+entry chat), `continue_chat_id` (a finished run's verified exit chat, otherwise the
+entry chat) and `run_boundary` (the typed exit outcome). A coordinator reads the
+conversation or resumes through these chat refs. It never needs the native key.
 
 Multi-ID invocations (`spawn show p1 p2`) emit a JSON array where each
 element is the same sparse projection. Previously the list path bypassed

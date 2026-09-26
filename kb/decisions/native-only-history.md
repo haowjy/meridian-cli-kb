@@ -88,6 +88,14 @@ cross-harness gaps found by live probing:
 - Unsupported fork, unsupported resume and harness-mismatch continuation refuse
   before creating chat or spawn rows. Neither path falls back to resume-in-place or a
   fresh launch. Primary and spawn continuation use the same refusal message.
+- Import and restore are readable again (round-3 probe, 2026-09-26). The first cut
+  of #534 deleted the archive read route along with the runner-history reader, so an
+  imported history UUID or a restored `cN`/`pN` refused as `unbound`. 0.6.7 had read
+  them from `history.jsonl`. The design had always required reading the retained
+  native snapshot for explicit archive/import refs and restored records, so a typed
+  `snapshot` source restored exactly that. No live fallback was added, and restored
+  refs stay inert
+  ([mechanism](../architecture/state-system/portable-history.md#retained-snapshots-are-read-only-when-a-ref-selects-them)).
 - OpenCode 1.x may lack V2 assistant-message IDs. In that case the report fallback
   reads the final assistant response from the exact bound native session; it does not
   read the newest ambient session. V2 retains exact message-ID lookup.
@@ -242,7 +250,7 @@ Also rejected during R2b:
 
 ## The metadata index calls the shared fold; it never folds keys itself
 
-The metadata index (`history.sqlite3`) keeps its discovery duties, but no longer
+The metadata index (`history-v6.sqlite3`) keeps its discovery duties, but no longer
 reads runner-history contents:
 - **Activity** comes from lifecycle timestamps.
 - **`read_targets`** is deleted: under C nothing asks the index which transcript to

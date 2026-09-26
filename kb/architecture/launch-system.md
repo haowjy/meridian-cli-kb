@@ -325,6 +325,34 @@ checks do not rewrite that historical artifact pin.
 
 **Work-item attachment:** `launch_primary()` resolves explicit `--work` at policy level. `run_harness_process()` handles the resumed-session case: after `session_scope()` yields, it reads `preserved_work_id` from the resumed session (if no explicit work was given) and calls `update_session_work_id()`.
 
+#### Starting prompt delivery
+
+A primary launched with `-p`, `--prompt-file` or `--from` composes a starting prompt
+(written to `starting-prompt.md`). It must arrive as the chat's first native user
+turn, not sit in the composer waiting for the user. Nothing writes it into the PTY.
+Each harness receives it at launch:
+
+| Harness | Channel |
+|---|---|
+| Claude | last argv item, after `--` (`project_claude.py`) |
+| Pi | last argv item, after `--`; a leading `@` gets one space so Pi does not read it as a file reference |
+| Codex | final optional argument of `codex resume <id> --remote <ws>` |
+| OpenCode V2 | `--prompt <text>` on the bare TUI attach command |
+| OpenCode V1 | posted through the native message API before `opencode attach`, which has no `--prompt` |
+
+Every argv prompt passes `projections/_prompt_arg.check_prompt_argument`, which
+rejects prompts of 128 KiB or more (the Linux per-argument limit) with a clear
+error.
+
+Before the fix only Codex delivered the prompt. Claude was a #534 regression: moving
+`--session-id` to the front left Claude's variadic `--add-dir <directories...>` as
+the last option, so it consumed the trailing prompt as another directory. In 0.6.7,
+`--session-id` came after `--add-dir` and ended the list by accident. Pi and OpenCode
+had never delivered it, on either build. A real user launch composed a 4,877-character
+prompt, and the first native user turn was text the user typed 11 minutes later.
+The `--` terminator makes the order of the other options irrelevant; projection tests
+assert that the prompt is last.
+
 ### 2. Spawn Subprocess Path
 
 `ops/spawn/execute.py` drives foreground and background spawns:

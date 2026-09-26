@@ -54,7 +54,7 @@ are ignored.
 | Claude | `<config root>/projects/<slug>` for each distinct recorded cwd of the chat and its spawns. The config root is the recorded `claude_config_dir`, else the default home. | First-line `sessionId` of `<store>/<id>.jsonl` |
 | Codex | `<home>/sessions` from recorded launch-policy env, else the default home. Relative homes resolve against a recorded cwd. | One `rglob` per store builds an ID→paths index, then the shared `codex_rollout.resolve_exact_rollout` validates it (the same function live reads use): more than one file is `ambiguous_native_file`, otherwise `session_meta.payload.id` must match |
 | OpenCode | Resolved DB path from recorded env, else the default | The adapter's exact reader, in place, opened `mode=ro`; SQL errors raise |
-| Pi | Meridian's unscoped Pi sessions root (where interactive primaries live), plus `<root>/<spawn_id>/` for the chat's own spawns | Pi `session` header `id`; a match in more than one candidate is `ambiguous` |
+| Pi | Meridian's unscoped Pi sessions root (where interactive primaries live), plus `<root>/<spawn_id>/` for the chat's own spawns | Pi `session` header `id`; a match in more than one candidate is `ambiguous`. 0.6.7 recorded no Pi ID, so its Pi chats are `no_session_id` ([open decision](../decisions/legacy-native-import.md#open-old-pi-chats-that-067-never-bound-decision-pending)) |
 | Cursor, historical records | none: `unsupported` | — |
 
 **OpenCode reads in place.** The import calls the same exact `mode=ro` reader that

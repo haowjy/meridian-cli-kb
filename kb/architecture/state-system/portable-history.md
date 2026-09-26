@@ -70,11 +70,34 @@ Search is the one full-text projection. It is a separate, native-keyed FTS5 file
 that stores no chat IDs and no unique facts. Every hit is re-verified against the
 live native source ([native transcript reads](../native-transcript-reads.md#search-projection)).
 
-## Missing or outdated index initialization
+## Index files are named by schema
 
-The first operation that needs a missing or incompatible index gets one 15-second
+The metadata index is one namespace per `SCHEMA_VERSION`
+([decision](../../decisions/history-storage.md#d-history-index-schema-namespace)):
+
+| Path | Scope |
+|---|---|
+| `history-index/history-v<N>.sqlite3`, `.build-v<N>.sqlite3` stage | this schema |
+| `history-index/pending-v<N>/` and its `GENERATION` | this schema |
+| `locks/history-{catchup,database,markers}-v<N>.lock` | this schema |
+| `history-index-init-failure-v<N>.json` | this schema |
+| `locks/history-mutation.lock`, per-source locks | shared: they guard authority |
+| `history-index/history.sqlite3`, `pending/`, unversioned locks and latch | 0.6.7 and earlier; never opened or deleted |
+
+A schema bump builds a fresh file from authority; nothing migrates in place. A file
+whose version does not match its name reports `incompatible` and needs an explicit
+rebuild. Writers mark only their own schema's queue, so during a mixed-version
+overlap catch-up re-reads active loose spawns and the `sessions.jsonl` cursor
+without a marker. That picks up runs that an older build finishes, and primaries it
+stops, after the upgrade. Spawns an older build creates later, and archive changes
+it makes, need `session index rebuild`. The native search projection already worked
+this way (`native-search-v1.sqlite3`).
+
+## Missing index initialization
+
+The first operation that needs a missing index gets one 15-second
 automatic initialization phase, separate from the ordinary two-second query budget.
-Reuse the existing catch-up lock and recheck the database plus persisted failure
+Reuse the schema's catch-up lock and recheck the database plus persisted failure
 state after acquiring it. A waiting caller uses a peer's successful publication;
 it does not build again.
 
@@ -94,9 +117,9 @@ second index, or destructive transcript conversion.
 
 This contract was selected after a real 1,093-record / 6,077-session corpus exceeded
 the ordinary budget while explicit metadata construction finished in 5.68 seconds,
-and two concurrent missing-index callers rebuilt twice serially. The feature-branch
-implementation now performs the under-lock recheck, preserves old-schema identities,
-publishes once for concurrent callers, and recovers from non-sticky interruption.
+and two concurrent missing-index callers rebuilt twice serially. The implementation
+performs the under-lock recheck, publishes once for concurrent callers, and recovers
+from non-sticky interruption.
 These results establish behavior, not a controlled speed improvement across changing
 corpora and cache state.
 
@@ -196,6 +219,44 @@ are never rewritten or given fabricated descriptors. Such a member still verifie
 restores as bytes. `iter_archived_events` refuses to read it as a transcript
 (old-data option C).
 
+## Retained snapshots are read only when a ref selects them
+
+A restored or imported record has no live native binding: restore clears
+`harness_session_id` and the native locators, and import registers the ZIP without
+extracting it. Its conversation is still readable, through a typed `snapshot`
+transcript source (`TranscriptSource.retained`) that `ops/session_target.py`
+selects in exactly two cases:
+
+- **Restored historical record.** A historical `cN` whose spawn row carries the same
+  history UUID, or a historical `pN`, reads the local
+  `spawns/<pN>/native-transcript.jsonl`. When that file is missing (a legacy ZIP held
+  only `history.jsonl`) the read fails: "`<ref>` is historical and has no retained
+  native snapshot".
+- **Import or archive ref.** A history UUID, or an origin alias the import
+  registered, that the index resolves to an archive-only record streams the
+  catalog-selected ZIP member in place, with nothing extracted. This applies only
+  when this runtime did not reclaim that record itself (`reclaimed_locally` over the
+  catalog receipts). An imported record names chats from another runtime; reading
+  it through the local session store could bind a foreign `c1` to an unrelated
+  local chat. Locations come from `selected_snapshot_receipts`: the catalog's
+  current digest, newest first, never an older one.
+
+Both paths bind the snapshot header to the history UUID and harness, not a native
+session ID, which restore deliberately clears. They also verify the seal as bytes
+stream. A tampered local file, a rebound header, or a ZIP replaced in place fails
+closed. Restored refs stay inert: `--continue` refuses with "Historical sessions are
+inert". A live `cN` never falls back to a snapshot. If its native file is gone it
+reads `native_transcript_missing`, even while an archive of it exists, and a record
+this runtime reclaimed keeps reading its live binding. Corpus search covers live
+native bindings only and warns per historical chat; `session search <q> <ref>`
+reads the snapshot. A repeat import reports `Already imported: <uuid>`.
+
+Why: PR #534 first removed the old archive read route with the runner-history
+reader. That left imported and restored chats unreadable, although 0.6.7 read them
+from `history.jsonl`. The design had always required reads from the retained native
+snapshot, so the typed source restored it without reviving the runner-history
+reader.
+
 ## Provenance
 
 **Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
@@ -215,6 +276,9 @@ Investigation update: `work:next-minor-planning/investigation-499-500.md`;
 `work:next-minor-planning/reviews/499-capture-identity-review.md`.
 Native-only capture and inert legacy members: `work:native-harness-session-identity`
 (`evidence/pr2-a1-report.md`, `spawn:p7124`).
+Retained-snapshot reads: `evidence/investigate-import-restore-report.md`
+(`spawn:p7209`), fix `spawn:p7217` (commit `8354176a`). Schema namespace:
+`spawn:p7222`, `spawn:p7225` (commit `a3fd1439`).
 
 ## Related
 

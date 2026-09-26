@@ -23,7 +23,7 @@ runtime root was left by an older build; no current code reads either one.
 
 Two disposable projections sit beside the journal. Neither holds a fact the journal
 lacks:
-- **Metadata index** (`history-index/history.sqlite3`, schema 6): cross-record browse,
+- **Metadata index** (`history-index/history-v6.sqlite3`; the file is named by schema): cross-record browse,
   discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
   `sessions` table folds native keys with the authority's own step,
   `project_session_generation`, and persists the working state as `session_chats`.

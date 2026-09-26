@@ -24,17 +24,19 @@ The installed 0.6.7 then crashed in `spawn list`, `session log`, `work` and sear
 with pydantic hydration errors (`SpawnRecord extra_forbidden`, `SessionRecord
 harness_session_ids Field required`).
 
-**Why it is worse than it looks.** Any build rewrites the shared
-`history-index/history.sqlite3` on read commands. A read-only probe is therefore
-not read-only. After a PR-build command, the installed CLI stays broken until
-someone rebuilds the index with it.
+**Why it is worse than it looks.** Read commands write: they run the legacy import,
+catch up the history index and repair state. A read-only probe is therefore not
+read-only. At the time, every build also shared one `history-index/history.sqlite3`,
+so after a PR-build command the installed CLI stayed broken until someone rebuilt
+the index with it.
 
 **What we changed:**
 - **Bump the history-index `SCHEMA_VERSION` whenever a serialized record shape
-  changes.** PR 1 went 3 → 4 → 5 across its phases. An older build then refuses a
-  newer index with a typed "incompatible, run `session index rebuild
-  --metadata-only`" error instead of a hydration crash. The bump makes the failure
-  legible; it does not make sharing safe.
+  changes.** PR 1 went 3 → 4 → 5 across its phases. Since 2026-09-26 each schema
+  has its own index file (`history-v<N>.sqlite3`), so builds no longer share the
+  index at all ([decision](../decisions/history-storage.md#d-history-index-schema-namespace)).
+  Authoritative records are still shared, and a PR-only field in them still crashes
+  an older build.
 - **Keep a tested rollback script** that strips PR-only fields from authoritative
   records and rebuilds the index with the older build. Test it on a copy before
   installing the PR build (the work item's `rollback-to-0.6.7.sh`).
@@ -92,6 +94,35 @@ before an autosync commit.
 directory keeps only scripts and timing tables. The docs checkout now also ignores
 `work/*/scratch/` locally.
 
+## Probing the upgrade path needs a genuinely old build and old state
+
+The round-3 probe of PR #534 (2026-09-26) found two upgrade defects that every
+earlier probe missed. A 0.6.7 background runner wedged after its last turn once the
+new build upgraded the shared history index in place. Old Pi chats stayed unbound.
+The first attempt at that probe was invalid, and the brief caused it.
+
+- **`uvx --from meridian-cli==X` can run the PR build.** uvx reused the installed
+  PR tool environment, because it had the same name and version (both said
+  0.6.7). "OLD" was the new code: it wrote no `history.jsonl`, and its prune was
+  vacuous. `uvx --isolated --from meridian-cli==X meridian` gets the real old build.
+- **Prove "old" is old before trusting a result.** A version string is not proof,
+  because an unreleased build keeps the last version. Check a behavior only the old
+  build has: 0.6.7 writes `spawns/pN/history.jsonl` and rejects
+  `--prune-runner-history`. The re-run made this its sanity gate.
+- **Start from state the old build wrote.** An upgrade probe that creates its
+  "old" data with the new build tests nothing. The same holds for fixtures: the
+  overlap regression test seeds tables captured from a real 0.6.7 index.
+- **Test the overlap, not just the before and after.** Users upgrade while old
+  processes run. Start an old `--bg` spawn, run the new build while it is still
+  running, then check that the old run finalizes and old commands still work. The
+  in-place index upgrade only failed in that window.
+- **Never edit a worktree that running lanes execute from.** The lead edited
+  `pr3-base` while probe lanes ran `$NEW` from it. For a moment the file had a
+  duplicate keyword argument, and one lane hit the `SyntaxError`. Make direct edits
+  in a separate worktree and merge them.
+
+Narrow probe briefs with enumerated checks completed; broad ones stopped short.
+
 ## Pushing through a long pre-push gate
 
 **Masked exit codes.** One push "succeeded" only because `git push … | tail`
@@ -112,4 +143,7 @@ The general rule, "record exit status", is in
 **Provenance:** `work:native-harness-session-identity`:
 - `decision.md` entries of 2026-09-25: "INCIDENT", "INCIDENT (cont.)", "INCIDENT
   RESOLVED", "Push note", and "PR 2 kicked off" (the scratch near-miss);
-- `design/pr1-foundation-restructure.md` risk 5.
+- `design/pr1-foundation-restructure.md` risk 5;
+- the entry of 2026-09-26 "Round-3 probe of every command" (invalid uvx lane p7201,
+  re-run p7210, worktree-edit error), `evidence/probe3-upgrade.md` and
+  `evidence/probe3-upgrade-rerun.md`.

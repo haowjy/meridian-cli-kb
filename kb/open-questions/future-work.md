@@ -180,6 +180,16 @@ Final gate review found concurrency/safety concerns that were not introduced by 
 
 Process-scope deferred work moved to [process-scope.md](process-scope.md) so the detailed PROC-004 and PROC-007 notes live with their shared containment/reaper context.
 
+### Unbound Pi chats from 0.6.7
+
+**Status:** User decision pending (2026-09-26). 0.6.7 never recorded the native ID of
+a headless Pi spawn, so several hundred old Pi chats per project stay unbound after
+the legacy import. Only about 28 are provable from their per-spawn session directory,
+and spawn IDs collide across projects in the user-global Pi root. The files remain
+readable through `session log --file`. The finding, the proof rule and the
+recommendation are in
+[legacy native import](../decisions/legacy-native-import.md#open-old-pi-chats-that-067-never-bound-decision-pending).
+
 ### Spawn-list scaling
 
 **Status:** Deferred until scale pressure recurs. Individual spawn reads are
