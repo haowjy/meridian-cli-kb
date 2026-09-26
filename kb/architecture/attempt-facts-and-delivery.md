@@ -1,35 +1,41 @@
 # Attempt Facts and Delivery
 
 How usage, failure, "produced output" and the first session ID are computed from
-the events an attempt saw live, and how those events reach subscribers, without
-depending on the runner's `history.jsonl` stream. Why the stream stopped being the
+the events an attempt saw live, and how those events reach subscribers. No runner
+`history.jsonl` stream is involved; Meridian no longer writes one. Why the stream stopped being the
 source: [native-only history](../decisions/native-only-history.md). How a chat's
 conversation is read from the harness's native transcript: [native transcript
 reads](native-transcript-reads.md).
 
-**State:** landed in PR 2, draft PR #526 (`feat/native-reads` @ `3ae3fce8`, stacked on
-PR #520). It is not on `main`. Writers below stay until PR 3 deletes them.
+**State:** facts and delivery landed in PR 2, draft PR #526 (`feat/native-reads` @
+`3ae3fce8`, stacked on PR #520). PR 3 (`feat/stop-runner-history` @ `c1fa08e4`,
+stacked on #526) deleted the runner-history writer, so nothing on this path writes
+a stream any more. Neither PR is on `main`.
 
 ## The emit path
 
-`SpawnManager._emit(spawn_id, event)` is the one emit path for the
-drain loop and the manager's own events. Managed primary attach has the same shape. It
-runs three steps in order:
-1. inline event hooks, through `core/event_hooks.run_event_hooks`, which logs and
-   isolates each hook's exception;
-2. the history write, only when a writer exists;
-3. subscriber fan-out.
+Each event reaches three consumers, all in memory, in this order:
+1. **inline event hooks**, through `core/event_hooks.run_event_hooks`, which logs and
+   isolates each hook's exception. The attempt fold and harness event sinks (the Pi
+   lifecycle sidecar) are hooks.
+2. **subscriber fan-out**;
+3. for drained spawns, **`coordinator.note_event_delivered(event)`**, then terminal
+   handling.
 
-`_emit` returns `EmitOutcome = NoWriter | Written | WriteFailed(error)`
-(`streaming/spawn_drain_loop.py`). The drain loop matches on it:
-- `NoWriter` and `Written` fan out;
-- `WriteFailed` counts the failure, traces the real error and skips fan-out, which is
-  the pre-PR 2 policy for a failed write.
+`SpawnManager._run_event_hooks(spawn_id, event)` runs step 1 and returns nothing.
+The drain loop receives it as `SpawnDrainLoop(run_event_hooks=…)` and does fan-out,
+the coordinator note and terminal classification itself
+(`streaming/spawn_drain_loop.py`). Manager-authored events go through `emit_event`:
+hooks, fan-out, then a trace. Managed primary attach
+(`launch/process/primary_attach._consume_live_events`) runs the same hooks, touches
+the heartbeat and folds attempt facts.
 
-Manager-authored `emit_event` fans out whatever the outcome. The unused
-`EventObserverRegistry` and its lossy queued observer are deleted. Managed primary
-attach also touches the spawn heartbeat, and it no longer raises without a writer.
-PR 3 deletes the `Written` and `WriteFailed` arms.
+Nothing can fail between hooks and fan-out, so there is no outcome to match on.
+**Deleted in PR 3:** `EmitOutcome` (`NoWriter | Written | WriteFailed`), the writer
+registry, the drain loop's abort after ten consecutive write failures, and the
+primary-attach writer. `note_event_persisted` was renamed `note_event_delivered`
+because nothing is persisted. The unused `EventObserverRegistry` and its lossy queued
+observer were deleted in PR 2.
 
 ## Attempt folds
 
@@ -104,20 +110,35 @@ attach have no Pi branch.
 
 `streaming serve` prints `Transcript: meridian session log pN`.
 
-## What is still written
+## The runner stream is retired
 
-Writers stay until PR 3 (`evidence/pr3-deletion-list.md`):
-- `HarnessHistoryWriter` in the drain loop and primary attach;
-- the retry header write and `meridian.attempt.completed` marker;
-- `write_retained_child_stream`;
-- `last-observed-event.json` and the reaper's diagnostic read of it.
+PR 3 deleted every writer of runner `spawns/<id>/history.jsonl`:
+- `state/history.py` as a whole: `HarnessHistoryWriter`, sequence envelopes, tail
+  repair, causal rehydration, the `last-observed-event.json` checkpoint,
+  `write_retained_child_stream` and `ingest_portable_history`;
+- the writer-only managed-primary causal tracker (`state/managed_primary.py`);
+- the retry header write and the `meridian.attempt.completed` marker. A retry now
+  rotates only `runner-lifecycle.jsonl`, `stderr.log`, `tokens.json` and `report.md`
+  into `attempt-N/`;
+- the reaper's `last_observed_event` orphan evidence. Liveness evidence is unchanged.
 
-**History-blind test mode.** `pytest --runner-history=off` makes writers absent and
-traps every read of a spawn, attempt or artifact `history.jsonl`. Subprocesses inherit it
-through a test-only `sitecustomize`. It installs the read trap and a meta-path hook that
-patches the writer modules (`state/history`, `spawn_manager`, `primary_attach`) when they
-are imported. This covers `python -m meridian`, console scripts and `runpy` alike. At
-`3ae3fce8`, the whole suite fails only on the 16 writer tests PR 3 deletes.
+New spawns and primaries create neither file. Old files stay on disk until the user
+prunes them ([runner-history prune](../codebase/session-operations.md#runner-history-prune)).
+
+`launch/constants.RETIRED_RUNNER_STREAM_FILENAMES` (`history.jsonl`,
+`last-observed-event.json`) names the retired files once. Its owners are the
+`session log --file` rejection (option C), legacy ZIP inventory, the atomic-temp
+detection in `retention_archive`, and prune. No new code should use it to write.
+
+**History-blind test mode.** `pytest --runner-history=off` traps every read of a
+spawn, attempt or artifact `history.jsonl` (`tests/support/runner_history_blind/`).
+Only `state.retention_archive` may read one, to hash legacy ZIP members.
+Subprocesses inherit the trap through a test-only `sitecustomize`, which also covers
+`python -m meridian` children. There are no writers left, so PR 3 retired the
+writer patches and the import hook that applied them. The suite passes in both modes
+with no known-failure list. A test that compares runner fixtures before and after must
+compare `lstat` results, not bytes, or it trips the trap
+([lesson](../lessons/native-session-identity.md#a-test-helper-that-reads-runner-bytes-trips-the-blind-trap)).
 
 ## Related Pages
 
@@ -126,11 +147,13 @@ are imported. This covers `python -m meridian`, console scripts and `runpy` alik
 - [Native session binding](native-session-binding.md) — the runner pipeline that
   produces the events this page's folds consume
 - [Native-only history decision](../decisions/native-only-history.md) — why the run
-  stream stopped being the source of run facts, and the retained rationale for what
-  is still written
+  stream stopped being the source of run facts and then stopped being written
 - [Pi lifecycle](pi-lifecycle.md) — Pi's spawned-session lifecycle and quiescence
 
 **Provenance:** same work item as [native transcript
 reads](native-transcript-reads.md), which lists the full lane and review provenance
 for PR 2: `work:native-harness-session-identity`, code checked at `feat/native-reads`
-@ `3ae3fce8`.
+@ `3ae3fce8`. PR 3: `evidence/pr3-deletion-list.md`, `evidence/pr3-p3a-report.md`
+(`spawn:p7155`), `review/pr3-review.md` (`spawn:p7161`), fix lane E
+`evidence/pr3-fix-e-report.md` (`spawn:p7162`); code checked at
+`feat/stop-runner-history` @ `c1fa08e4`.
