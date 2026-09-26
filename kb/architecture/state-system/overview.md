@@ -46,7 +46,7 @@ Conversation content is the harness's native file, not a spawn artifact
 event stream `history.jsonl` and its `last-observed-event.json` checkpoint are no
 longer written (PR 3). Older spawn directories may still hold them as inert bytes
 until `session archive --prune-runner-history` removes them
-([prune](../../codebase/session-operations.md#runner-history-prune)).
+([prune](../../operations/session-archive-pruning.md#runner-history-prune)).
 `pi-lifecycle.json` holds the last Pi phase and cleanup status per attempt
 ([attempt facts and delivery](../attempt-facts-and-delivery.md#pi-lifecycle-sidecar)).
 

@@ -16,13 +16,19 @@ lanes E–G merged).
   (read-time rewrite and per-command startup rejected) and the prune-rule decisions
   and measurements; upgrade and leftover-file consequences.
 - **New sections:** runner-history prune mechanism in
-  [codebase/session-operations](codebase/session-operations.md#runner-history-prune);
+  [operations/session-archive-pruning](operations/session-archive-pruning.md#runner-history-prune);
   dogfood-row migration in [operations/health-checks](operations/health-checks.md#dogfood-row-migration)
   (doctor flow, `repaired`, warning codes, background repairs); a quarantined-row
   entry in [operations/troubleshooting](operations/troubleshooting.md); the authority
   re-arm in [D-history-index-initialization](decisions/history-storage.md#d-history-index-initialization);
   "only Pi reports an exit identity" in
   [decisions/native-session-identity](decisions/native-session-identity.md#accepted-limits).
+- **Structure follow-up:** moved the runner-history prune operator contract out of
+  `codebase/session-operations.md` into `operations/session-archive-pruning.md`; that
+  page covers explicit maintenance rather than transcript reading. Repaired inbound
+  anchors in attempt-facts-and-delivery, state-system overview and health checks.
+  Trimmed duplicated migration and prune mechanics from the decision page while
+  preserving its rationale, rejected alternatives and measurements.
 - **Stale "still written / until PR 3" text removed** from native-transcript-reads,
   state-system overview and portable-history, launch-system (retry rotation list),
   completion-drain-coordination invariant 8, native-session-binding (dogfood rows),

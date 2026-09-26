@@ -123,7 +123,7 @@ PR 3 deleted every writer of runner `spawns/<id>/history.jsonl`:
 - the reaper's `last_observed_event` orphan evidence. Liveness evidence is unchanged.
 
 New spawns and primaries create neither file. Old files stay on disk until the user
-prunes them ([runner-history prune](../codebase/session-operations.md#runner-history-prune)).
+prunes them ([runner-history prune](../operations/session-archive-pruning.md#runner-history-prune)).
 
 `launch/constants.RETIRED_RUNNER_STREAM_FILENAMES` (`history.jsonl`,
 `last-observed-event.json`) names the retired files once. Its owners are the

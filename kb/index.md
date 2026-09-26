@@ -39,7 +39,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP retained-history authority, disposable indexes, retention and restore, and post-stop native capture; which parts native-only history superseded
 - [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; one binding rule (Bound/Same/Conflict) and one drift rule; run-boundary outcomes and the post-run continue rule; exit observed or unresolved; rejected alternatives; phases
 - [decisions/legacy-native-import.md](decisions/legacy-native-import.md) — Why pre-key chats get one bounded exact-key import, its limits, and measured result; implementation details are in the architecture page
-- [decisions/native-only-history.md](decisions/native-only-history.md) — Conversation history is the harness's native transcript: one read path, old runner history dropped (option C), native-keyed FTS5 trigram search with exact verification, run facts from the live fold, the metadata index calling the shared fold, PR 3 writer deletion, dogfood-row migration, the runner-history prune rule
+- [decisions/native-only-history.md](decisions/native-only-history.md) — Conversation history is the harness's native transcript: one read path, old runner history dropped (option C), search and run-fact rationale, PR 3 writer deletion, one-time dogfood-row migration decision, and runner-history prune policy and measurements
 - [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Superseded raw-argument admission design
 - [decisions/launch.md](decisions/launch.md) — Why `build_launch_context()` is the composition seam, how harness identity propagates, and spawn wait semantics
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
@@ -155,7 +155,7 @@ High-level orientation for making changes — where to start, what owns what, ho
 - [codebase/harness-adapters.md](codebase/harness-adapters.md) — `lib/harness/`: capability matrix, primary event scope, and cross-harness comparison
 - [codebase/tools.md](codebase/tools.md) — `lib/kg/`, `lib/mermaid/`, `lib/markdown/`: KG analysis, Mermaid validation, Markdown extraction exposed via `meridian kg` / `meridian mermaid`
 - [codebase/work-items.md](codebase/work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination
-- [codebase/session-operations.md](codebase/session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, user-facing command guidance, the runner-history prune rule
+- [codebase/session-operations.md](codebase/session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, user-facing command guidance
 - [codebase/session-log-rendering.md](codebase/session-log-rendering.md) — Internal rendering pipeline: ToolCall normalization, clean vs raw output, `--raw`/`--no-truncate` flag design, content pipeline order
 - [codebase/test-determinism.md](codebase/test-determinism.md) — Test determinism infrastructure: `AsyncDeterminism` + `FakeClock`, `process_race.py` cross-process harness, advance-past-boundary principle, behavioral vs safety-bound timeouts
 
@@ -167,6 +167,7 @@ Operational knowledge for running, configuring, and diagnosing Meridian in pract
 
 - [operations/overview.md](operations/overview.md) — Operations domain overview and runbook map
 - [operations/health-checks.md](operations/health-checks.md) — `meridian doctor`: two-tier design (cheap per-project default vs explicit global), background per-project repairs, stale pruning, live-spawn warnings
+- [operations/session-archive-pruning.md](operations/session-archive-pruning.md) — Explicit, dry-run-first cleanup of redundant retired runner-history files
 - [operations/troubleshooting.md](operations/troubleshooting.md) — Common failure patterns (`orphan_run`, `orphan_finalization`, locked files, harness startup failures) and recovery procedures
 - [operations/configuration-guide.md](operations/configuration-guide.md) — Practical config setup: TOML file locations, `[workspace]` entries, env vars, profile overrides, resolution verification
 - [operations/init-command.md](operations/init-command.md) — `meridian init --add` contract: bootstrap sequence, auto-link, primary agent handling, idempotency, JSON output

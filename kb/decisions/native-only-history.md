@@ -320,68 +320,44 @@ writers left, the writer patches were retired.
 
 ### Dogfood rows migrate once, not on read
 
-The PR 1 dogfood build wrote the run boundary as flat `entry_chat_id`,
-`exit_chat_id`, `exit_identity` and `trampoline_successor_id` fields. PR 1's
-restructure read them through a `model_validator` translator. At PR 3 there were 68
-such rows on the author's machine, and the installed PR 1 build kept writing more.
+The PR 1 dogfood build wrote run boundaries as flat fields; PR 1's restructure
+translated them at read time. At PR 3 there were 68 such rows on the author's machine,
+and the installed PR 1 build kept writing more. **Decision (P3a):** replace the
+translator with a one-time migration run by `meridian doctor` and primary-launch
+background repairs. See [dogfood-row migration](../operations/health-checks.md#dogfood-row-migration)
+for the migration behavior.
 
-**Decision (P3a, kept by the tech lead):** a one-time migration,
-`state/spawn/dogfood_migration.py`, replaces the translator.
-- It prefilters by bytes, then takes the shared mutation lock and the spawn lock,
-  re-reads the row, translates it, validates it as `StoredSpawnState`, and rewrites
-  it atomically. It is idempotent.
-- Each row is isolated (review finding 1). A malformed row is reported with the
-  failing field, for example `ValidationError: run_boundary.status: …`, and the pass
-  continues.
-- `meridian doctor` and the background repairs of every primary launch run it.
-- Until it runs, those rows quarantine. `spawn show pN` ends the quarantine message
-  with "run `meridian doctor` to migrate it", and prune and archive list the IDs
-  with the same pointer.
-- When it migrates at least one row, it re-arms a history-index `authority`
-  initialization failure (lane F); see [history-index
-  initialization](history-storage.md#d-history-index-initialization).
-- Delete the module, `repository.DOGFOOD_BOUNDARY_FIELDS` and the re-arm call once no
-  dogfood rows remain.
-
-**Rejected:** an atomic rewrite at state load. `read_state` runs inside
-`write_state_locked`, which holds the non-reentrant spawn lock, and inside many
-read-only paths. An unlocked rewrite there could clobber a concurrent locked write.
-**Rejected:** running the migration on every command's startup. It scans every
-`state.json` per command unless a done-marker gates it, and a still-running PR 1
-runner can write a new dogfood row after the marker is set.
+**Rejected:** rewriting at state load, because `read_state` can run while the
+non-reentrant spawn lock is held and an unlocked rewrite could clobber a concurrent
+write. Also rejected was scanning every command's startup: a done marker could miss a
+row written later by a still-running PR 1 runner. Migration details and the reason
+quarantined rows remain safe until then are in the operations page.
 
 ### The prune rule
 
-`meridian session archive --prune-runner-history [--apply] [--after-days N]`
-(`ops/runner_history_prune.py`) drops runner-stream files that an exact native source
-makes redundant. Mechanism: [session operations](../codebase/session-operations.md#runner-history-prune).
-The decisions behind its shape:
+`meridian session archive --prune-runner-history [--apply] [--after-days N]` removes
+retired runner-stream files only when a native source makes them redundant. The
+operator and implementation contract is in [session archive pruning](../operations/session-archive-pruning.md#runner-history-prune).
+The policy choices behind its shape are:
 - **Explicit only, dry-run first.** Automatic maintenance
   (`session_stop_maintenance`, `history.archive.automatic`) never calls it.
 - **The default is 14 days**, measured from `terminal.finished_at`. The general
   archive default of 30 days does not apply.
-- **Qualification mirrors `session log pN`.** Every native source `session log pN`
-  would read must resolve exactly now, through `session_target.resolve_run_sources`.
-  The search index is never evidence.
-- **The entry chat must resolve too** (P3b, stricter than the user's wording). When a
-  verified exit moved the run to another chat, the runner stream still covers the
-  entry chat's part of the run.
+- **Qualification mirrors `session log pN`.** Native sources must resolve exactly;
+  the search index is never evidence. The entry chat must resolve too (P3b, stricter
+  than the user's wording), because a stream can cover that chat even when a verified
+  exit moved the run elsewhere.
 - **A run boundary that is `unresolved` or `mismatch` is skipped** (`exit_unresolved`):
   the run may have ended in a native session nobody identified. A boundary of `None`
   (runs from before exit tracking) qualifies. Consequence: only Pi reports an exit
   identity, so every Claude, Codex and OpenCode row written by a PR 1-or-later build is
   skipped. On the copy that was 55 spawns (124 MB). New runs write no stream, so this
   set does not grow.
-- **An unreleased live process scope is skipped.** Archive's active-chat and
-  dependency protections are not imported: a terminal spawn's stream is final, and
-  deleting it does not change ancestry.
-- **Multi-attempt runs qualify.** Meridian reads no runner bytes for any attempt, and
-  each attempt's turns stay in the harness's own files (review question 10, answered
-  "no change").
-- **Apply re-checks under the lock, per spawn.** It holds the archive lock for the
-  pass. Each spawn is unlinked under the spawn aggregate lock only if its record is
-  unchanged and its native sources still resolve. One spawn's failure is recorded and
-  the pass continues.
+- **Live process scopes are skipped; multi-attempt runs qualify.** A terminal
+  spawn's stream is final, while each attempt's turns remain in harness-native files.
+- **Apply revalidates per spawn under locks.** A changed record or no-longer-resolving
+  native source prevents deletion; one spawn's failure does not stop the pass. The
+  exact checks and deletion scope are documented in the [operator contract](../operations/session-archive-pruning.md#runner-history-prune).
 
 **Measured on a copy of this project's runtime** (`evidence/pr3-archive-report.md`):
 
