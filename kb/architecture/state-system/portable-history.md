@@ -287,3 +287,5 @@ Retained-snapshot reads: `evidence/investigate-import-restore-report.md`
 - [Spawn state](spawn-state.md)
 - [Session-log rendering](../../codebase/session-log-rendering.md)
 - [History-storage decisions](../../decisions/history-storage.md)
+- [Native transcript reads](../native-transcript-reads.md) — live bindings and selected retained snapshots
+- [Native session identity lessons](../../lessons/native-session-identity.md) — upgrade and prompt-delivery failures

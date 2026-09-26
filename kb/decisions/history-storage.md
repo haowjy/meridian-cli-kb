@@ -368,3 +368,5 @@ integrity as proof that the selected transcript was complete.
 - [State-layer decisions](state.md) — runtime state, durability, locking, and typed contracts
 - [Portable history](../architecture/state-system/portable-history.md) — current history-storage mechanism
 - [State-system overview](../architecture/state-system/overview.md) — state-system map
+- [Native transcript reads](../architecture/native-transcript-reads.md) — live and retained transcript read paths
+- [Native session identity lessons](../lessons/native-session-identity.md) — upgrade and cross-harness seam failures

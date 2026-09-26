@@ -189,6 +189,9 @@ and spawn IDs collide across projects in the user-global Pi root. The files rema
 readable through `session log --file`. The finding, the proof rule and the
 recommendation are in
 [legacy native import](../decisions/legacy-native-import.md#open-old-pi-chats-that-067-never-bound-decision-pending).
+The supported `--file` read path is described in
+[native transcript reads](../architecture/native-transcript-reads.md); broader identity lessons are in
+[native session identity](../lessons/native-session-identity.md).
 
 ### Spawn-list scaling
 

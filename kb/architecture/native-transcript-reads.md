@@ -231,6 +231,9 @@ On the real corpus, `complete` stays false: 4 of 2,037 sources cannot be searche
   replaced the runner stream, and the retained rationale and rejected alternatives
 - [Session state](state-system/session-state.md) — the authoritative journal this
   page's resolver and search projection read
+- [Portable history](state-system/portable-history.md) — retained snapshots selected for historical refs
+- [History-storage decisions](../decisions/history-storage.md) — schema namespaces and retained-history authority
+- [Native session identity lessons](../lessons/native-session-identity.md) — seam failures found by integrated probes
 
 **Provenance:** `work:native-harness-session-identity`:
 - `design/pr2-native-reads.md`;

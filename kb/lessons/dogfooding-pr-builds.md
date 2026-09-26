@@ -122,6 +122,8 @@ The first attempt at that probe was invalid, and the brief caused it.
   in a separate worktree and merge them.
 
 Narrow probe briefs with enumerated checks completed; broad ones stopped short.
+The upgrade failure mechanism and decision are recorded in
+[native session identity lessons](native-session-identity.md#an-in-place-projection-upgrade-breaks-the-build-still-running).
 
 ## Pushing through a long pre-push gate
 

@@ -442,6 +442,11 @@ edit in a worktree broke probe lanes running from it
 
 ## Cross-References
 
+- [History-storage decisions](../decisions/history-storage.md) — per-schema index files
+- [Portable history](../architecture/state-system/portable-history.md) — namespace and retained-snapshot behavior
+- [Dogfooding PR builds](dogfooding-pr-builds.md) — upgrade-probe procedure and evidence
+- [Legacy native import decision](../decisions/legacy-native-import.md) — unbound 0.6.7 Pi chats
+- [Open questions](../open-questions/future-work.md) — pending decision on old Pi chats
 - [Native session identity decision](../decisions/native-session-identity.md)
 - [Native session binding](../architecture/native-session-binding.md)
 - [Claude native sessions](../architecture/claude-native-sessions.md)
