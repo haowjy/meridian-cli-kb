@@ -2,8 +2,8 @@
 
 ## Legacy import
 
-Implemented in combined PR #534 (`feat/native-session-identity` @ `08499af0`, against
-`main`); #520, #526 and #531 are closed as superseded. The rules and user decision are in the
+Shipped in v0.7.0 (PR #534, merge `3dae2434`); #520, #526 and #531 are closed as
+superseded. The rules and user decision are in the
 [decision](../decisions/legacy-native-import.md).
 
 **Trigger.** `ops/runtime.py`'s `resolve_runtime_authority_for_read` and
@@ -140,7 +140,8 @@ and a rerun reported `repaired: none` in 3.8 s.
 ## Session repair
 
 `meridian session repair REF [--native PATH] [--force]` (`ops/session_repair.py`)
-is the manual path for any chat left unbound, for any supported harness. REF is a
+is the manual path for any chat left unbound, for Claude, Codex, OpenCode and Pi
+(Cursor has no native binding). REF is a
 chat or spawn ref; raw harness session IDs are refused. It shares
 `retained_chat_facts` and the evidence helpers with the recovery pass.
 
@@ -167,4 +168,4 @@ recheck `spawn:p7093` (`evidence/pr1-legacy-recheck.md`); in-place OpenCode read
 deferral backoff and Pi root candidates `evidence/pr1-install-readiness-report.md`
 (commits `5695f5c9`, `38e40862`, `a3769c39`). Legacy Pi recovery and session repair:
 measurement `spawn:p7228` (`evidence/measure-pi-legacy-recovery.md`), implementation
-`spawn:p7229` (commits `1ab75dee`, `0245ae64`), merged into PR #534 @ `50f95c1a`.
+`spawn:p7229` (commits `1ab75dee`, `0245ae64`), merged into PR #534 @ `50f95c1a`; shipped in v0.7.0 (`3dae2434`).

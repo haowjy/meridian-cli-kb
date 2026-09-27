@@ -1,8 +1,9 @@
 # Decision: Conversation history is native-only
 
-**Status: settled 2026-09-25; combined and probe-fixed 2026-09-26.** PR #534
-(`feat/native-session-identity` @ `08499af0`, against `main`, not merged) combines the former
-#520/#526/#531 stack; those PRs are closed as superseded. Live re-probes covered
+**Status: settled 2026-09-25; combined and probe-fixed 2026-09-26; shipped in v0.7.0.**
+PR #534 (`feat/native-session-identity`) merged to `main` as `3dae2434`. It combined the
+former #520/#526/#531 stack; those PRs, and the #519 comparison branch, are closed as
+superseded. Live re-probes covered
 supported workflows for Claude, Codex, OpenCode and Pi. Cursor was not probed because
 the user does not use it. See [the combined implementation](#combined-implementation-and-probe-fixes).
 

@@ -187,8 +187,8 @@ See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#clau
 ## Pi-Specific Notes
 
 **Dual launch path.** Pi is the only harness with fully separate launch configurations per role:
-- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`, `meridian-spawn-watch` extension only
-- **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e managed-bash.js -e meridian-spawn-watch.js`), prompt written to stdin, JSONL events drained from stdout
+- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`; Meridian's managed extensions (managed-bash, spawn-watch, session-boundary) loaded with `-e`, passthrough `-e`/`--no-extensions` refused
+- **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e <managed extensions>`), prompt written to stdin, JSONL events drained from stdout
 
 The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned.
 

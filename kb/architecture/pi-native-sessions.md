@@ -5,9 +5,7 @@ behavior, exit observation, and readback. The cross-harness identity rule is in 
 [native session identity decision](../decisions/native-session-identity.md), and the
 shared template and runner pipeline are in
 [native session binding](native-session-binding.md). Exact identity, exit
-observation and reopen-lineage readback are implemented on `fix/native-session-wrapper`
-(draft PR #520), not on `main`. Clean `main` still discovers fresh primaries from
-disk and flattens Pi's journal trees in physical order.
+observation and reopen-lineage readback shipped in v0.7.0 (PR #534, merge `3dae2434`).
 
 ```mermaid
 flowchart TD

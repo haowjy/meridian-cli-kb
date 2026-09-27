@@ -7,8 +7,8 @@ source: [native-only history](../decisions/native-only-history.md). How a chat's
 conversation is read from the harness's native transcript: [native transcript
 reads](native-transcript-reads.md).
 
-**State:** implemented in combined PR #534 (`feat/native-session-identity` @
-`08499af0`, against `main`); #520, #526 and #531 are closed as superseded. Runner
+**State:** shipped in v0.7.0 (PR #534, merge `3dae2434`); #520, #526 and #531 are
+closed as superseded. Runner
 history is neither read nor written.
 
 ## The emit path

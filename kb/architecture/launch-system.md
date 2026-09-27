@@ -384,7 +384,7 @@ The background worker trusts the `BackgroundWorkerLaunchRequest` written by `exe
 
 **Note:** `ops/spawn/prepare.py` uses `SPAWN_PREPARE` surface + `LaunchArgvIntent.REQUIRED` — it needs a real argv to populate `cli_command` for display. This is the exception; all execution paths use `SPEC_ONLY`.
 
-**Pi dual launch path.** Pi is the first harness with two completely different launch configurations per role. Primary uses the native Pi TUI (`pi [--model ...] [--session/--fork ...]`, no `--mode`, `meridian-spawn-watch` only). Spawned uses Pi RPC (`pi --mode rpc ... --no-extensions -e managed-bash.js -e meridian-spawn-watch.js`, prompt written to stdin, JSONL drained from stdout). The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned. See [pi-lifecycle.md](pi-lifecycle.md) for the quiescence model.
+**Pi dual launch path.** Pi is the first harness with two completely different launch configurations per role. Primary uses the native Pi TUI (`pi [--model ...] [--session/--fork ...]`, no `--mode`; Meridian's managed extensions loaded with `-e`, passthrough `-e`/`--no-extensions` refused). Spawned uses Pi RPC (`pi --mode rpc ... --no-extensions -e <managed extensions>`, prompt written to stdin, JSONL drained from stdout). The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned. See [pi-lifecycle.md](pi-lifecycle.md) for the quiescence model.
 
 ### 3. CLI Streaming-Serve Path
 

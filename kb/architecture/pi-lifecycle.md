@@ -18,7 +18,7 @@ transitive spawn tree for persisted descendants.
 
 ## Extension Architecture
 
-Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships two managed extensions as package data under `src/meridian/pi_runtime/extensions/`:
+Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships three managed extensions as package data under `src/meridian/pi_runtime/extensions/`. The third, `session-boundary`, records exit identity and is covered in [Pi native sessions](pi-native-sessions.md). This page covers the two lifecycle extensions:
 
 **Two extensions, two independent concerns.** Each extension can be loaded alone or together. The split is intentional: mechanism and policy are separated.
 
@@ -67,7 +67,7 @@ Slash commands: `/spawn` (spawn record list, filtered to this session's spawns),
 | Aspect | Primary | Spawned |
 |---|---|---|
 | Launch mode | Native Pi TUI (no `--mode`) | Pi RPC (`--mode rpc`) |
-| Extensions loaded | policy only (`-e meridian-spawn-watch.js`) | managed-bash + meridian-spawn-watch (`--no-extensions -e managed-bash.js -e meridian-spawn-watch.js`) |
+| Extensions loaded | Meridian's managed extensions via `-e` (managed-bash and spawn-watch when their `[harness.pi]` toggles are on, session-boundary always); no `--no-extensions`, so the user's own Pi extensions still load; passthrough `-e`/`--no-extensions` refused | the same managed `-e` set after `--no-extensions` (omitted when `load_all_pi_extensions` is on) |
 | `MERIDIAN_PI_SESSION_ROLE` | `"primary"` | `"spawned"` |
 | Quiescence auto-stop | No — user stays in TUI | Yes — quiescence triggers `stop(reason="quiescent")` |
 | Prompt delivery | User types in TUI | Meridian writes prompt JSON to Pi's stdin |

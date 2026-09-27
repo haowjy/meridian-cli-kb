@@ -1,8 +1,8 @@
 # Decision: Pin each chat to one native session; wrap native transcripts
 
-**Status: settled 2026-09-24; extended through probe-fix on 2026-09-26.** The combined
-implementation is PR #534 (`feat/native-session-identity` @ `08499af0`, against
-`main`, not merged); #520, #526 and #531 are closed as superseded. The code and live-probe
+**Status: settled 2026-09-24; extended through probe-fix on 2026-09-26; shipped in
+v0.7.0.** The combined implementation is PR #534 (`feat/native-session-identity`),
+merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
 - the one-time [legacy import](legacy-native-import.md);
@@ -99,7 +99,7 @@ as `succeeded`. Each lane's own review missed it because each lane owned one run
 binding". It demanded an *observed* identity before any input reached the model. On Pi
 that meant an owned pre-input gate, which exists only in `--mode rpc`. Meridian has no
 RPC frontend for the interactive TUI that people actually use, so primary Pi could
-never be tracked under that rule. The comparison branch that built toward it (PR #519,
+never be tracked under that rule. The comparison branch that built toward it (PR #519, closed as superseded;
 ~22k lines: RPC-primary route, raw-argument grammars R1/R2, model-intent fold C1–C3,
 owner/coordinator layers, `transport_unqualified` refusal) never enabled a single
 tracked continue. The correction is to ask what the harness itself guarantees. When

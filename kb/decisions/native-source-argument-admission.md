@@ -1,7 +1,7 @@
 # Decision: Admit native arguments against the selected route (superseded)
 
 **Superseded 2026-09-24 by the [native session identity decision](native-session-identity.md).**
-None of it shipped. It existed only on the comparison branch (PR #519).
+None of it shipped. It existed only on the comparison branch (PR #519, closed as superseded).
 
 This decision had the selected adapter classify every raw passthrough argument. That
 meant per-harness option grammars, retained-control carriers, duplicate-scalar

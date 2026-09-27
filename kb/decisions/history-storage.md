@@ -216,8 +216,8 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-history-index-schema-namespace: each index schema owns its own files; never migrate in place (2026-09-26) {#d-history-index-schema-namespace}
 
-**Status:** Implemented in combined PR #534 (`a3fd1439`, merged into
-`feat/native-session-identity` @ `e194ceea`); unreleased.
+**Status:** Shipped in v0.7.0 (PR #534, merge `3dae2434`; implementation commit
+`a3fd1439`).
 
 **Decision:** `SCHEMA_VERSION` (in `state/history_changes.py`) names every file the
 metadata index owns: `history-index/history-v<N>.sqlite3` and its `.build-v<N>`
@@ -231,7 +231,9 @@ per-source locks), because both builds write the same `sessions.jsonl` and
 `state.json` files. The mechanism is in
 [portable history](../architecture/state-system/portable-history.md#index-files-are-named-by-schema).
 
-**Why:** a real upgrade leaves 0.6.7 processes running. The round-3 probe started a
+**Why:** a real upgrade can leave 0.6.7 processes running: interactive sessions
+survive the reinstall, while a background spawn may die when the reinstall replaces
+its tool environment (the upgrade guide says to finish or cancel those first). The round-3 probe started a
 0.6.7 `--bg` Pi spawn and then ran the PR build, which at the time upgraded the shared
 `history.sqlite3` to schema 6 in place. The old runner emitted `turn_completed` and
 then stayed `running` forever. Its stack sat idle in the asyncio loop, with the Pi
@@ -283,8 +285,8 @@ overlap test `spawn:p7225`, commit `a3fd1439`.
 
 ### D-history-portable-digest-stored-json: verify archive digests over the stored record JSON (2026-09-26) {#d-history-portable-digest-stored-json}
 
-**Status:** Implemented in combined PR #534 (`3e041a23`, merged into
-`feat/native-session-identity` @ `5851eef9`); unreleased.
+**Status:** Shipped in v0.7.0 (PR #534, merge `3dae2434`; implementation commit
+`3e041a23`).
 
 **Decision:** The portable record digest is SHA-256 over canonical JSON of the record
 object *as stored* in the manifest or `record.json`, minus local-only fields

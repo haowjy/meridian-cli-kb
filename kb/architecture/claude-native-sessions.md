@@ -7,8 +7,7 @@ store layout, how a resume or fork source reaches the child, and how the TUI
 trampoline is handled. The cross-harness rule is the
 [native session identity decision](../decisions/native-session-identity.md). The
 shared seams are in [native session binding](native-session-binding.md). The Claude
-identity work described here is on `fix/native-session-wrapper` (draft PR #520), not
-on `main`.
+identity work described here shipped in v0.7.0 (PR #534, merge `3dae2434`).
 
 ## Store layout and the shared-store hazard
 

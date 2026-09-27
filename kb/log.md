@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-09-26 — PR #534 shipped as v0.7.0
+
+PR #534 merged to `main` as `3dae2434`; CI released v0.7.0 (`cd063928`). #519, #520,
+#526 and #531 are closed as superseded. Status lines on the native-session-identity,
+native-only-history, legacy-import, history-storage and harness-session pages now say
+shipped instead of unmerged or draft. Checked against the final docs pass
+(`d077bd08`, `16316419`, `72741b3a`): Pi primaries load Meridian's managed extensions
+with `-e` (fixed in `pi-lifecycle`, `launch-system`, `harness-adapters`); `session
+repair --native` covers Claude, Codex, OpenCode and Pi; 0.6.7 runs finish only if they
+survive the reinstall.
+
+---
 ## 2026-09-26 — PR #534 old-Pi recovery, archive digest, upgrade guide
 
 Reconciled with `feat/native-session-identity` @ `50f95c1a` (diff `853aab3a..50f95c1a`).
