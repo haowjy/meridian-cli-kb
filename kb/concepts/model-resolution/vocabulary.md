@@ -6,7 +6,7 @@ index see [../../vocabulary.md](../../vocabulary.md).
 
 | Term | Definition | See also |
 |---|---|---|
-| **Alias entry** | A Mars model catalog entry mapping a human-readable alias (e.g., `sonnet`) to a concrete model ID with resolved harness, default effort, and default autocompact. Defined in `mars.toml` or loaded from `mars models list --json`. | [aliases-and-routing.md](aliases-and-routing.md) |
+| **Alias entry** | A Mars-defined mapping from a human-readable alias (e.g., `sonnet`) to model identity and optional authored routing preferences/defaults. A preferred harness is not proof of a currently runnable route. Read alias definitions from `mars models aliases`, not the curated human inventory. | [aliases-and-routing.md](aliases-and-routing.md) |
 | **Approval mode** | A per-spawn policy controlling how tool calls are approved. Four values: `default` (harness decides), `confirm` (user approves each call), `auto` (auto-approve safe operations), `yolo` (approve everything). Resolved through the precedence chain. | [../../architecture/sandbox-projection.md](../../architecture/sandbox-projection.md) |
 | **Model alias** | A human-readable model name (e.g., `sonnet`, `opus`) resolved at launch time to a concrete model string by Mars. Aliases are defined in the Mars model catalog, not hardcoded in Meridian. | [aliases-and-routing.md](aliases-and-routing.md) |
 | **Fallback candidate chain** | The ordered `model-policies` `model`/`alias` entries tried when target-constrained harness-availability fallback fires. Entries are considered in profile list order; `no-fallback: true` and `model-glob` entries are excluded. An explicit model request disables fallback. | [model-policies.md](model-policies.md) |

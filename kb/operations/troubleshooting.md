@@ -216,14 +216,19 @@ which mars
 
 **Diagnosis:**
 ```bash
-# List available models and their harness mappings
+# Inspect the human-facing harness/model inventory and alias definitions
 meridian mars models list
+meridian mars models aliases
 
 # Check current config resolution
 meridian config show
 ```
 
-**Fix:** Use a model name from `meridian mars models list`. Aliases like `"sonnet"` or `"gpt-5"` are resolved through the catalog; bare version strings or typos will fail.
+**Fix:** Treat `models list` as a human-facing, curated harness/model view—not
+as an alias API or proof that a route will be selected. Inspect aliases with
+`meridian mars models aliases`, and use `meridian mars models resolve <alias>`
+or the launch bundle for the project-specific runtime resolution. Curation only
+changes display; it does not repair an unresolved alias or alter routing.
 
 ---
 
@@ -282,7 +287,9 @@ git log --oneline -10
 | Health check + clean | `meridian doctor --prune --global` |
 | List active spawns | `meridian spawn list` |
 | Check config resolution | `meridian config show` |
-| List available models | `meridian mars models list` |
+| Show curated harness/model inventory | `meridian mars models list` |
+| List model aliases | `meridian mars models aliases` |
+| Show raw provider catalog | `meridian mars models catalog` |
 | Check workspace config | `meridian config show` (workspace section) |
 
 ## Cross-References

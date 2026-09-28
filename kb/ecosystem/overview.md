@@ -71,7 +71,7 @@ See [architecture/system-overview.md](../architecture/system-overview.md) for th
 - Reader → Compiler → Target sync pipeline
 - Dependency resolution with semver, git tags, path sources
 - Native target emission: `.claude/settings.json` + `.mcp.json`, `.codex/codex_hooks.json`, etc.
-- Model alias catalog with per-harness routing and visibility
+- Model aliases and launch routing, plus separate Possible discovery and display-only Curated inventory
 - Lock file (`mars.lock`) for reproducible resolution
 
 **Canonical local path:** `../mars-agents/`

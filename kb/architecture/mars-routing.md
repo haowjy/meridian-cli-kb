@@ -40,9 +40,11 @@ resolution rules (applied at launch-bundle build into `harness_model`).
 
 ## Routing Parity (PR #72)
 
-`mars models list`, `mars models resolve`, and `mars build launch-bundle` share the
-same routing evidence assembly: models.dev catalog slugs plus cached probe results,
-driven by the same **`ModelsRefreshControl`** (see [mars-model-refresh.md](mars-model-refresh.md)).
+`mars models resolve` and `mars build launch-bundle` share runtime routing
+evidence assembly: models.dev catalog slugs plus cached probe results, driven by
+the same **`ModelsRefreshControl`** (see [mars-model-refresh.md](mars-model-refresh.md)).
+`mars models list` is a separate human-facing Possible/Curated inventory; it may
+read those evidence sources, but curation cannot affect route selection.
 
 ### Default harness_order
 

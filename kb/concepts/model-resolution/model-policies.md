@@ -1,12 +1,9 @@
 # Model Policies
 
-Model policies are two distinct mechanisms that both use the word "policy":
-
-1. **`model-policies` rules** in agent profile frontmatter or
-   `[agents.<name>]` overlays — typed selector rules that apply behavioral
-   overrides when a specific model or alias is selected for a spawn.
-2. **Model visibility policy** — filtering rules that determine which models
-   appear in `meridian models list` output.
+`model-policies` are typed selector rules in agent profile frontmatter or
+`[agents.<name>]` overlays. They apply behavioral overrides when a specific
+model or alias is selected for a spawn and can contribute fallback candidates.
+They do not control which rows appear in the model inventory.
 
 ## model-policies Rules
 
@@ -139,12 +136,13 @@ Explicit model pins disable model backups; explicit harness pins only that dimen
 See [the decision](../../decisions/model-resolution.md#target-constrained-model-policy-fallback)
 for the reason primary settings and backup enumeration are separate.
 
-## Model Inventory and Visibility
+## Model Inventory Is a Separate Concern
 
-Model inventory, default visibility, and supersession belong to Mars.
-`meridian models list` is a redirect that tells callers to use
-`meridian mars models list`; Meridian has no `ModelVisibilityConfig`,
-`is_default_visible_model()`, or `compute_superseded_ids()` implementation.
+Mars separates Possible discovery, display-only Curated rules, and Selection
+routing. `model-policies` participate in Selection; Curated rules affect only
+the human-facing `models list` view and never filter aliases, resolve results,
+or launch-bundle routes. See the [model-catalog decision](../../decisions/model-resolution.md#model-catalog-layers-2026-09)
+for command responsibilities and cross-repo boundaries.
 
 ## Migration: fanout → model-policies
 

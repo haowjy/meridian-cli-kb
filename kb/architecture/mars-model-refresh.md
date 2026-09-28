@@ -41,7 +41,9 @@ parser for `--refresh-models` / `--no-refresh-models` on all supported subcomman
 
 | Command | `--refresh-models` | `--no-refresh-models` | Default (`ModelsRefreshControl::auto()`) |
 |---------|-------------------|----------------------|------------------------------------------|
-| `mars models list` | Yes | Yes | Catalog **Auto**, probes **Background** |
+| `mars models list` | Yes | Yes | Catalog **Auto**, probes **Background** for its Possible inventory |
+| `mars models aliases` | Yes | Yes | Catalog **Auto**, no harness probes |
+| `mars models catalog` | Yes | Yes | Catalog **Auto**, no harness probes |
 | `mars models resolve` | Yes | Yes | Same |
 | `mars models prompting` | Yes | Yes | Same |
 | `mars sync` | Yes | Yes | Same |
@@ -122,13 +124,18 @@ Probe TTL: `MARS_PROBE_CACHE_TTL_SECS` (default 60s). Cache paths under
 
 The same **`ModelsRefreshControl`** flows into:
 
-1. **`mars models list|resolve`** — `cli/models.rs` + shared routing evidence assembly
-2. **`mars models prompting`** — `cli/models.rs` — agent resolution uses `PolicyInput.models_refresh` for launch-policy-backed model resolution; direct model alias resolution uses it for catalog-backed model name lookup
-3. **`mars sync`** — alias refresh at end of sync (`sync/mod.rs`)
-4. **`mars build launch-bundle`** — `PolicyInput.models_refresh` before harness routing
+1. **`mars models resolve`** — `cli/models.rs` + shared routing evidence assembly
+2. **`mars models list`** — refreshes the evidence used to derive Possible rows; optional live eligibility uses routing assessment, then the renderer applies Curated display rules
+3. **`mars models aliases` / `mars models catalog`** — use catalog refresh without probing harnesses
+4. **`mars models prompting`** — `cli/models.rs` — agent resolution uses `PolicyInput.models_refresh` for launch-policy-backed model resolution; direct model alias resolution uses it for catalog-backed model name lookup
+5. **`mars sync`** — alias refresh at end of sync (`sync/mod.rs`)
+6. **`mars build launch-bundle`** — `PolicyInput.models_refresh` before harness routing
 
-Routing evidence (catalog slugs + probe results) is aligned across these entry points
-so `mars models resolve` and launch-bundle see the same native/prefix match behavior.
+Routing evidence (catalog slugs + probe results) is aligned across
+`mars models resolve` and launch-bundle so they see the same native/prefix match
+behavior. `models list` uses the same underlying Possible evidence but is an
+inventory renderer, not a second alias list or an alternate launch decision;
+Curated rules affect only its display.
 See [mars-routing.md](mars-routing.md#routing-parity-pr-72).
 
 ---

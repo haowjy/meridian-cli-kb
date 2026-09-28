@@ -19,7 +19,6 @@ graph TD
     RETAIN["surface_ownership::retention\nRemovalPlan + WritePermit"]
     HOOKS["compile hooks\nsrc/compiler/hooks/"]
     MCP["compile MCP servers\nsrc/compiler/mcp/"]
-    VIS["validate visibility\nsrc/compiler/visibility/"]
     NATIVE["reconcile native agent surfaces"]
     LOCK["finalize mars.lock + report"]
 
@@ -32,7 +31,6 @@ graph TD
     CE --> RETAIN
     CTX --> HOOKS
     CTX --> MCP
-    CTX --> VIS
     AGENTS --> NATIVE
     CE_RESOLVE --> LOCK
     RETAIN --> LOCK
@@ -58,8 +56,6 @@ src/compiler/
   skills/
     mod.rs             ← universal skill frontmatter parsing + lowering
   variants.rs          ← skills/<name>/variants/<harness>/<model>/SKILL.md indexing
-  visibility/
-    mod.rs             ← model visibility validation
 
 src/surface_ownership/
   retention.rs         ← stale removal, evidence retention, write permits
@@ -135,19 +131,6 @@ an invalid fragment cannot leave partial state.
 Parses `mcp.toml`, preserves symbolic env references (`${VAR}` form for Claude,
 plain variable names for Codex), pre-flights missing env vars, lowers parsed MCP
 items into target entries. Collision resolution is shared with `config_entries/`.
-
-### Visibility (`compiler/visibility/`)
-
-Validates model visibility patterns from `[settings] model_visibility` against
-the resolved alias table. Default visibility by artifact kind:
-
-| Kind | Default |
-|---|---|
-| Agents | Exported (visible) |
-| Skills | Exported (visible) |
-| Bootstrap docs | Exported (visible) |
-| Hooks | Local (not exported) |
-| MCP servers | Local (not exported) |
 
 ## CompilerContext
 

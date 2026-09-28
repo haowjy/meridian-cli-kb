@@ -28,7 +28,11 @@ Invalid shortcuts are part of the contract. Benchmark agents must not edit bench
 
 ## Model And Routing Decisions
 
-The package inherits model aliases and descriptions from `meridian-base`. It intentionally does not define local `[models]` entries or `[settings.model_visibility]` overrides. Benchmark routing should select among configured agent profiles using active model descriptions and task evidence; it should not invent ad hoc model aliases during a run.
+The package inherits model aliases and descriptions from its dependencies. It
+does not define local aliases. Benchmark routing should select among configured
+agent profiles using active model descriptions and task evidence; it should not
+invent ad hoc model aliases during a run. Display curation is separate and
+cannot select a model or change runtime routing.
 
 This keeps benchmark comparisons tied to named, inspectable profiles instead of one-off model strings embedded in prompts. A report should say which profiles and aliases ran, not merely which provider family was used.
 

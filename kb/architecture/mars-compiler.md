@@ -29,8 +29,6 @@ src/compiler/
     mod.rs            # fragment discovery, event validation, substitution
   mcp/
     mod.rs            # MCP server lowering + collision resolution
-  visibility/
-    mod.rs            # model visibility validation
 
 src/surface_ownership/
   mod.rs              # per-target path ownership: may_delete, copy_decision

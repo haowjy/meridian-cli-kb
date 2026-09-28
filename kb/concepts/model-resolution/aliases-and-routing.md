@@ -6,10 +6,11 @@ harness from Python prefix tables.
 
 ## Alias Authority
 
-Aliases originate in package and consumer `[models]` configuration. Mars
-resolves them and supplies the launch bundle; `.mars/models-merged.json` is the
-compiled alias catalog used for local catalog fallback. Meridian has no built-in
-alias definitions.
+Aliases originate in package and consumer `[models]` configuration. Mars owns
+their definitions, identity resolution, and launch routing; Meridian has no
+built-in alias table and does not guess a harness from model-name patterns.
+See [the model-catalog decision](../../decisions/model-resolution.md#model-catalog-layers-2026-09)
+for the Possible / Curated / Selection boundary and command contract.
 
 `AliasEntry` is a frozen Pydantic model with canonical `model_id`, optional
 `resolved_harness`, defaults, ordered harness candidates, and a tuple of
@@ -34,20 +35,18 @@ missing. `runnable_paths` is not a dict, and the entry has no
 `harness_model_id_for()` helper. The harness-specific model string used for a
 launch comes from `routing.harness_model` in the Mars launch bundle.
 
-## Read-only static inventory
+## Inventory and resolution surfaces
 
-Dry-run does not use a second alias resolver. Its existing `models_readonly`
-choice reaches the same static `mars models list --json` path used by normal
-policy composition, adding `--no-refresh-models` for both fresh resolution and
-snapshot replay. Normal callers default to refresh-enabled behavior.
+`models list` is the human-facing Possible-through-Curated harness/model view;
+`models aliases` provides static alias definitions; `models catalog` provides
+raw provider data; and `models resolve` resolves an alias. Meridian machine
+consumers must not read the curated display list as alias inventory. An alias's
+harness is an authored preference, not proof of an available route.
 
-`CatalogSession` keys its memoized alias map by the read-only boolean, and its
-operation-scoped `MarsResultCache` includes that boolean in the static-list key.
-Consequently a cache-only result or failure cannot poison a later normal lookup,
-and a normal result cannot masquerade as read-only. If cache-only listing cannot
-produce an inventory, the existing pinned `.mars/models-merged.json` fallback is
-used; automatic aliases that require Mars expansion remain unresolved. There is
-no error-triggered retry without the flag.
+For runtime launch, the launch bundle remains the authority for harness
+selection and the harness-specific model string. Catalog rows, Possible rows,
+and aliases by themselves do not establish a runnable route. Exact cache,
+fallback, and dry-run behavior is owned by Meridian's catalog package docs.
 
 ## Identity and Routing
 

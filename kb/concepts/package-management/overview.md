@@ -122,7 +122,10 @@ Full reference: `meridian mars --help`.
 | `meridian mars add <source>` | Add a dependency to `mars.toml` and sync |
 | `meridian mars upgrade` | Upgrade dependencies to latest versions |
 | `meridian mars list` | List installed agents and skills |
-| `meridian mars models list` | List model alias definitions |
+| `meridian mars models list` | Human-facing Possible/Curated harness–model view |
+| `meridian mars models aliases` | List model alias definitions for machine consumers |
+| `meridian mars models catalog` | Read raw models.dev catalog entries |
+| `meridian mars models resolve <alias>` | Resolve an alias in the current project |
 | `meridian mars check` | Validate `mars.toml` and installed content |
 | `meridian mars doctor` | Diagnose common configuration issues |
 | `meridian mars why <item>` | Explain why an item is installed (dependency chain) |

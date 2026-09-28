@@ -12,22 +12,77 @@ For mechanism, see:
 
 ## Alias Authority
 
-### Mars owns model alias resolution; Meridian calls `mars models list --json`
+### Mars owns model aliases and routing
 
-**Decision:** Model alias resolution (human-readable names like `sonnet`, `codex`, `gpt55` → concrete model strings) is delegated to Mars. Meridian calls `mars models list --json` at resolve time rather than maintaining its own alias table.
+**Decision:** Mars owns model alias definitions, model identity resolution, and
+runtime harness selection. Meridian must not maintain a second alias table or
+infer a harness from model-name patterns. Authored alias harness values are
+preferences, not proof that a route is currently available; the launch bundle
+is the runtime routing decision.
 
-**Why:** Model aliases change frequently as providers update naming, new models are released, and organizational routing preferences evolve. Maintaining aliases in Meridian source would require a Meridian release for every alias change. Mars as the package manager already has the catalog refresh mechanism (24h TTL cache) and the organizational package override system. Delegating avoids duplication of the catalog layer.
+Aliases travel with packages because the package that declares an agent can
+also declare the model name that agent expects. Keeping alias ownership in Mars
+lets that package-level vocabulary evolve without adding a Meridian alias
+release for each change.
 
-**Why aliases travel with packages:** The same `mars.toml` that installs the `coder` agent declares which model name the `coder` profile was designed for. One config change propagates to all spawns that use that package.
+The command surfaces are deliberately distinct: `mars models aliases` exposes
+alias definitions, `mars models catalog` exposes raw provider-catalog data,
+`mars models resolve` resolves an alias, and `mars models list` is the human
+model-inventory view. Meridian consumers must use the surface matching the data
+they need; the curated human list is not an alias or catalog API.
 
-**Fallback chain when Mars is unavailable:**
-1. Run `mars models list --json` → structured alias definitions
-2. If Mars binary unavailable → fall back to `.mars/models-merged.json`
-3. If neither → empty alias table (bare model IDs still work via pattern fallback)
+**Superseded mechanism:** Earlier Meridian code used `mars models list --json`
+as its static alias inventory and could fall back to `.mars/models-merged.json`
+or a Python model-name router. That command conflated human inventory with
+machine data, and the fallback/router duplicated Mars policy. The current
+consumer contract is owned by [Model catalog layers](#model-catalog-layers-2026-09).
 
 **Alternatives rejected:**
-- Hardcoded alias table in Meridian — breaks on every new model, requires a Meridian release
-- Alias TOML in the repo — requires a repo commit for every model change, defeats the cache benefit
+- Hardcoded alias table in Meridian — duplicates fast-changing provider and
+  package vocabulary and requires a Meridian release for alias changes.
+- Using the human display list as machine inventory — display curation would
+  silently alter alias consumers.
+- Python prefix routing — a model-name pattern is not evidence of harness
+  support or account readiness.
+
+### Model catalog layers (2026-09) {#model-catalog-layers-2026-09}
+
+**Decision:** Keep three concerns separate across Mars and Meridian:
+
+- **Possible** is a derived view of discovered harness–model evidence, not a
+  second persisted catalog.
+- **Curated** applies authored display choices to that view. It affects only
+  the human `models list` presentation; it does not affect alias resolution,
+  sync/materialization, or Selection.
+- **Selection** is runtime route choice from support/auth evidence and authored
+  policy. It does not read Curated. A supported authored harness preference
+  remains meaningful when auth is unchecked if model support is confirmed or
+  constrained (mere installed-harness passthrough is insufficient), subject to
+  the latest failed credential-gated listing. A successful credential-gated
+  listing can provide auth evidence; a public model listing alone cannot.
+
+The command boundary follows the same separation: `models list` renders the
+human-facing inventory; `models aliases` supplies alias definitions;
+`models catalog` supplies raw provider data; `models resolve` explains alias
+resolution, and the launch bundle makes the final runtime routing decision. A
+list entry, alias preference, or catalog record alone does not establish a
+runnable route.
+
+Mars and Meridian must release in dependency order: land and release the Mars
+producer command/schema change first, then update Meridian's exact Mars pin and
+release the migrated consumer. Do not add a dual-command compatibility path to
+hide a mismatched pin. The current implementation details (curation files and
+matching, cache/probe semantics, route evidence, and Meridian subprocess
+handling) belong in each source tree's colocated docs, not here.
+
+**Status:** Implemented on Mars commit `2230e6f` and Meridian consumer commit
+`cfb33b0`, but not release-converged at the time of capture: Meridian's branch
+still pins the previous Mars release. The consumer pin update follows the Mars
+release; this is a release gate, not a reason to weaken the API boundary.
+
+**Provenance:** `work:harness-model-catalog-layers`; design
+`design/model-catalog-layers.md`; consumer sequencing and evidence in
+`p4-meridian-consumer-evidence.md` and `verification/p5-regression.md`.
 
 ---
 
