@@ -192,14 +192,14 @@ See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-
 
 ## Startup Watchdog
 
-`_start_spawn_with_timeout()` in `launch/streaming/attempt.py` wraps the entire pre-connect
+`_start_spawn_with_timeout()` in `streaming_runner.py` wraps the entire pre-connect
 span (backend boot, connection establishment, session handshake) with an outer
 `asyncio.timeout`. The default bound is 5 minutes, configured via
 `timeouts.startup_minutes` (TOML) or `MERIDIAN_STARTUP_TIMEOUT_MINUTES` (env).
 Both `execute_with_streaming()` (spawn path) and `run_streaming_spawn()`
 (streaming-serve path) use the same helper.
 
-Exceeding the bound raises `StartupPhaseTimeout`, classified as a non-retryable
+Exceeding the bound raises `StartupPhaseTimeout` and finalizes the turn as a
 terminal failure. The timeout is resolved from the config snapshot via
 `resolve_startup_timeout_seconds()` in `launch/resolve.py`. The streaming-serve
 caller passes the resolved value rather than hardcoding the 300s default.
@@ -207,31 +207,23 @@ caller passes the resolved value rather than hardcoding the 300s default.
 Rationale: before the watchdog, the pre-connect span was unbounded. The recorded
 worst case was a spawn that wedged for 2h18m with no liveness signal.
 
-## Attempt Evidence Preservation
+## One Launch-Level Attempt
 
-When a streaming spawn retries, `preserve_attempt_artifacts()` in
-`launch/attempt_artifacts.py` rotates the completed attempt's disk artifacts into
-`attempt-N/` under the spawn log directory. The rotated disk files are
-`runner-lifecycle.jsonl`, `stderr.log`, `tokens.json` and `report.md`. The retry no
-longer writes a runner-stream header or a `meridian.attempt.completed` marker (PR 3);
-attempt facts are folded in memory per attempt
-([run facts](attempt-facts-and-delivery.md#attempt-folds)). The rotation is crash-atomic: files are staged under
-`attempt-N.tmp/` and committed with a single `os.replace()`. Artifact-store copies
-and active-key deletion happen only after the filesystem commit, so the next attempt
-never reads stale keys from a prior attempt.
+Each harness turn calls `_run_streaming_attempt()` once. The returned runtime facts
+feed extraction, post-run guardrails, identity conclusion, and finalization without
+an enclosing launch loop. Typed terminal outcomes stay causal; transport, startup,
+timeout, guardrail, identity, cleanup, cancellation, and generic failures all
+finalize instead of replaying the harness.
 
-### Automatic startup retry
+Adapters may keep bounded readiness or transport polling only when the operation is
+idempotent and precedes turn submission. This is local connection progress, not a
+second Meridian launch attempt. Cleanup and process-scope recovery remain necessary
+to stop or reap the one owned process tree.
 
-Automatic retry is startup recovery, never turn replay. `launch/retry.py` permits a
-new attempt only for a typed transient failure with a definitely unsubmitted initial
-turn, verified-quiescent teardown, and exact native-create evidence proving the
-planned identity was not materialized (or is not applicable), with attempts remaining.
-Unknown or incomplete evidence, explicit terminal outcomes, completed submission,
-guardrail failures, cancellation, and materialized identities stop. A retry re-arms
-the same prebound identity; it never mints or rebinds a chat. The connection layer
-reports typed progress and cleanup facts but does not decide policy, and one causal
-failure record drives both retry disposition and final reporting. See [the launch
-decision](../decisions/launch.md#d-streaming-retry-safety-startup-recovery-is-not-turn-replay).
+Older runtime directories may contain `attempt-N/` directories from the retired
+retry design. They are legacy, read-only evidence. New runs write the active root
+artifacts directly and do not create or rotate attempt directories. See the
+[launch decision](../decisions/launch.md#d-one-launch-attempt-harness-turn-failures-finalize-without-replay).
 
 ## Ownership-Transfer Guard
 
@@ -298,7 +290,7 @@ graph TD
    - Materializes fork if needed (only after row exists — invariant I-10)
    - **Rebuilds `LaunchContext`** with real paths (report path, actual state root, work_id)
    - Runs PTY or pipe subprocess
-   - Finalizes inline; calls `conclude_native_run()` once per attempt after teardown
+   - Finalizes inline; calls `conclude_native_run()` once per turn after teardown
 
 Two-phase context building is intentional: the preview context exists for `--dry-run` display; the runtime context drives actual execution with concrete paths.
 
@@ -457,7 +449,7 @@ The full 13 invariants live at `.meridian/invariants/launch-composition-invarian
 |-----------|------|
 | I-1 | All composition happens inside `build_launch_context()` |
 | I-2 | No driving adapter reconstructs argv, env, or permissions independently |
-| I-4 | `conclude_native_run()` once per attempt after teardown joins: IDs → adapter → boundary → attribution |
+| I-4 | `conclude_native_run()` once per turn after teardown joins: IDs → adapter → boundary → attribution |
 | I-5 | `SpawnRequest` / `LaunchRuntime` carry no derived state; `LaunchContext` complete at construction |
 | I-10 | Fork materialization happens only after spawn row exists |
 | I-13 | `LaunchContext.warnings` is the sole channel for composition warnings |
@@ -582,10 +574,7 @@ launch/
   request.py            SpawnRequest, LaunchRuntime, LaunchArgvIntent, LaunchCompositionSurface
   plan.py               build_primary_spawn_request/runtime() — primary-path input builders
   process/              run_harness_process(); PTY/pipe; primary-path executor
-  streaming_runner.py   execute_with_streaming(); run-level orchestration
-  streaming/attempt.py  one attempt: startup watchdog, connection, drain, teardown
-  retry.py              typed failure/replay assessment and sole retry decision
-  attempt_artifacts.py  crash-atomic retry evidence rotation
+  streaming_runner.py   one-turn startup, connection, drain, teardown, and finalization
   policies.py           resolve_policies() → ResolvedPolicies
   permissions.py        resolve_permission_pipeline()
   command.py            resolve_launch_spec_stage(), build_launch_argv()
@@ -634,10 +623,10 @@ recorded as the child.
 OpenCode creation sends `{providerID, id}`. Every invocation's initial prompt—an
 explicit prompt or a plain recorded continuation—sends `{providerID, modelID}`;
 only subsequent resident/injected messages omit the model. Invalid or timed-out
-creation does not downgrade to `{}`. Transport-local session-creation polling is
-distinct from streaming launch retry: the latter follows the typed, fail-closed
-startup-recovery rule above and never replays a submitted turn. Named-model resume
-remains unsupported, with no UI replacement.
+creation does not downgrade to `{}`. Bounded transport-local session readiness
+polling is separate from launch orchestration and must remain idempotent and
+pre-turn. A creation or prompt failure finalizes the one launch attempt. Named-model
+resume remains unsupported, with no UI replacement.
 
 Tracked raw native IDs passed to `spawn --continue` now resolve against their
 recorded session provenance. An explicitly supplied older native ID is retained

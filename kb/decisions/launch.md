@@ -84,26 +84,35 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 **`complete_spawn()` idempotency** enables safe layered catches — if the record is already terminal, the call is a no-op. Known issue #153: concurrent finalizers silently drop the second set of metrics.
 
-### D-streaming-retry-safety: startup recovery is not turn replay
+### D-one-launch-attempt: harness-turn failures finalize without replay
 
-**Decision (2026-09, issue #542):** Streaming launch retry is permitted only when
-the typed failure is transient, replay safety is proven, and attempts remain.
-Replay safety requires a definitely unsubmitted initial turn, verified-quiescent
-teardown, and exact native-create evidence proving the planned identity is
-unmaterialized (or the operation has no create identity). Unknown, terminal,
-submitted, materialized, failed, skipped, abandoned, or cancelled evidence fails
-closed.
+**Decision (2026-09, issue #542):** Each Meridian harness turn gets one
+launch-level attempt. Terminal outcomes, transport and startup failures, timeouts,
+guardrail failures, identity failures, cleanup failures, cancellation, and generic
+subprocess failures finalize that turn. Meridian does not automatically launch the
+harness again.
 
-An affirmative retry re-arms the existing `NativeRun`; it does not mint or rebind a
-chat/native identity. For Claude create, the prebound `--session-id` is reusable only
-in that proven-unconsumed case. Connections report typed submission and teardown
-facts; `launch/retry.py` owns the sole decision and the same causal failure record
-drives final reporting. Guardrail and transport failures do not have separate retry
-paths.
+A runtime audit found 22 retrying lineages among 10,247 observed lineages. Twenty-one
+lineages failed, and 63 of 64 later attempts failed. Seventeen Claude lineages hid
+the causal quota result behind a reused-identity collision; four Cursor lineages
+repeated the same authentication failure. The sole recovery was an old Codex run
+whose local SQLite runtime failed before session creation. One pre-session recovery
+does not justify a cross-harness replay policy, especially when a retry can repeat
+model, tool, child-process, or native-create side effects.
 
-This is startup recovery, not an automatic continuation mechanism. See [launch
-system](../architecture/launch-system.md#automatic-startup-retry) and [native session
-binding](../architecture/native-session-binding.md#retry-safety).
+Exact typed terminal outcomes remain the causal final result. Cleanup,
+cancellation handling, process-scope ownership, and post-exit identity observation
+still run for the one attempt; they prevent orphans and preserve evidence rather
+than authorize replay. Bounded adapter-local polling may remain when it is
+demonstrably idempotent and completes before the turn is submitted, such as safe
+readiness checks or owned port reselection.
+
+**Rejected:** a typed safe-startup exception based on unsubmitted-turn,
+quiescent-teardown, and unmaterialized-identity proof. That design required retry
+policy/configuration, permits, native-run rearming, replay classification, backoff,
+and artifact rotation. The proof narrowed the unsafe cases but did not establish a
+valuable generic recovery mechanism. See the [launch system](../architecture/launch-system.md#one-launch-level-attempt)
+and [native session binding](../architecture/native-session-binding.md#one-attempt-causality).
 
 ---
 
@@ -341,10 +350,10 @@ OpenCode preserves the native HTTP model contract: session creation uses
 `{providerID, id}`, while every invocation's initial prompt—including an
 explicit prompt or a plain recorded continuation—uses `{providerID, modelID}`.
 Only subsequent resident/injected messages omit the model. Invalid or timed-out
-creation does not downgrade to `{}`. Transport-local session-creation polling is
-distinct from streaming launch retry; launch retries follow the typed, fail-closed
-startup-recovery rule and never replay a submitted turn. This remains one create per
-startup attempt, not one create per invocation.
+creation does not downgrade to `{}`. Bounded transport-local session readiness
+polling is separate from launch orchestration and must remain idempotent and
+pre-turn. Meridian does not replay the harness launch after a creation or prompt
+failure: one invocation has one create path.
 
 The primary OpenCode named-model resume remains unsupported and has no UI
 replacement. Tracked raw native IDs for `spawn --continue` are now accepted.

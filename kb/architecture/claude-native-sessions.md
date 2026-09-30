@@ -35,16 +35,14 @@ Meridian does not isolate the config directory per spawn. It avoids relying on a
 of these behaviors: every launch names the exact session, and every read opens one
 exact file.
 
-## Create retry safety
+## One-attempt identity
 
-A Claude create launch binds its `--session-id` to the chat before exec. That identity
-is reusable on a later startup attempt only when the initial turn was definitely not
-submitted, teardown verified the complete owned process scope quiescent, and the exact
-`<store>/<session-id>.jsonl` path is proven absent. A transient error or an empty path
-alone is insufficient: submitted, materialized, failed, skipped, abandoned, or
-ambiguous evidence stops without replay. Retry reuses the existing binding; it never
-mints a second UUID or rebinds the chat. The shared rule and connection-owned facts
-are documented in [launch retry safety](native-session-binding.md#retry-safety).
+A Claude create launch binds its `--session-id` to the chat before exec and invokes
+Claude once. An exact typed terminal result, including quota exhaustion, remains the
+causal final result; Meridian does not reuse the assigned identity in a second launch.
+Cleanup still owns the complete process scope, and post-exit observation still checks
+the exact native path for the one turn. See [native session
+binding](native-session-binding.md#one-attempt-causality).
 
 ## Operations
 
