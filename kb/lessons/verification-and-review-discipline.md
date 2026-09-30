@@ -99,7 +99,8 @@ remote or auth failure. Make each prompting step non-interactive with the
 narrowest switch available. For pnpm that is `--config.confirmModulesPurge=false`:
 it still fails on lockfile drift under `--frozen-lockfile`. Don't export `CI=true`
 across the gate, because it changes other tools' defaults and leaks into pytest.
-(Provenance: `work:noninteractive-prepush-pnpm`, spawns p7317 and p7319.)
+(Provenance: `work:noninteractive-prepush-pnpm`: p7317 and p7319 diagnosed it;
+p7328 verified the fix with pnpm 10.34.3 through a real `git push --dry-run`.)
 
 ### Record exit status and working directory
 
@@ -107,6 +108,11 @@ A copied success-looking line is not a validation record. Capture the command,
 exit status, working directory, and the revision or artifact under test. A
 wrong-CWD validator can inspect an empty or different tree and still exit zero;
 a shell pipeline can hide an upstream failure unless pipe status is preserved.
+When you detach a command from the terminal to reproduce a Git hook, use
+`setsid --wait`. Plain `setsid` forks and exits 0 at once when it is already a
+process-group leader, so its status says nothing about the command it launched.
+(Provenance: `work:noninteractive-prepush-pnpm`, reviewer p7327; reproduced with
+util-linux 2.39.)
 
 ## Measurement Discipline
 
