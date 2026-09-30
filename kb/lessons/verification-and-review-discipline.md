@@ -90,6 +90,17 @@ preflight ahead of pytest and packaging, and kept those tests strict. A skip on
 When a CI job gains a prerequisite step, add it to the local full gate in the same
 change.
 
+Mirror CI's environment too, not only its steps. CI runners set `CI=true`, which
+switches tools to non-interactive defaults; a Git hook has no TTY and no `CI`. The
+same locked `pnpm install` that passed in CI aborted inside pre-push with
+`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` when a stale local `node_modules`
+needed recreating. Git reported only "failed to push some refs", which looks like a
+remote or auth failure. Make each prompting step non-interactive with the
+narrowest switch available. For pnpm that is `--config.confirmModulesPurge=false`:
+it still fails on lockfile drift under `--frozen-lockfile`. Don't export `CI=true`
+across the gate, because it changes other tools' defaults and leaks into pytest.
+(Provenance: `work:noninteractive-prepush-pnpm`, spawns p7317 and p7319.)
+
 ### Record exit status and working directory
 
 A copied success-looking line is not a validation record. Capture the command,
