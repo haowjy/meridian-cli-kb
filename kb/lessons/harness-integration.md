@@ -139,7 +139,7 @@ Two managed extensions ship as package data:
 
 **The bug:** Codex/OpenCode spawns could finish a turn while Meridian-tracked
 `--bg` child work was still active. Treating the successful turn frame as finalization
-closed the parent early; if a child was still launching or retrying a managed backend,
+closed the parent early; if a child was still launching a managed backend,
 the backend could survive as an orphan.
 
 **The tempting fix:** Teach the generic drain loop to keep every successful terminal

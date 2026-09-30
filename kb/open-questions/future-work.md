@@ -296,9 +296,9 @@ durable publication ahead of cleanup is a separate store-pipeline concern.
   after `stop_spawn()`.
 
 **Remaining:**
-- `streaming_runner.py` is 1,500+ lines; timeout state spans arbitration, drain
-  normalization, retry/error classification, and lifecycle projection. Extraction
-  of attempt-result normalization would prevent another ad-hoc boolean branch.
+- `streaming_runner.py` remains large; timeout state spans arbitration, drain
+  normalization, failure projection, and lifecycle finalization. Extraction
+  of turn-result normalization would prevent another ad-hoc boolean branch.
 
 **Why deferred:** The probe-fix cycle resolved the structural conflation.
 Store-level ordering is a pipeline concern tracked as #431 evidence.

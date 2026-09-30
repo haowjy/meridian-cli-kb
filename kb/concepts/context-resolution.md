@@ -124,6 +124,6 @@ This migration is about physical on-disk layout, not TOML config. It runs every 
 
 ## Related
 
-- [concepts/config-precedence.md](config-precedence.md) — operational config (timeouts, retries) that loads separately from context paths
+- [concepts/config-precedence.md](config-precedence.md) — operational config (timeouts, retention, spawn depth) that loads separately from context paths
 - [concepts/workspace-projection.md](workspace-projection.md) — filesystem scope grants invisible to agents
 - [operations/configuration-guide.md](../operations/configuration-guide.md) — practical context setup, git-backed KB walkthrough

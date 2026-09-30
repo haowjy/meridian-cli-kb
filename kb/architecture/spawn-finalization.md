@@ -270,19 +270,19 @@ Before the refactor, 8 scattered call sites each independently chose `status`, `
 ## Discriminated Lifecycle Facts (PR #423, Typed State Contracts)
 
 Lifecycle evidence that was previously spread across flat top-level fields is now
-nested into typed frozen sub-models. The split prevents the reaper from treating
-per-attempt evidence as spawn-level truth, and makes it structurally impossible to
-construct a terminal spawn without complete terminal facts.
+nested into typed frozen sub-models. The split prevents the reaper from treating a
+pre-finalization harness exit as spawn-level truth, and makes it structurally
+impossible to construct a terminal spawn without complete terminal facts.
 
-### Attempt-level fields (flat, overwritten on each retry)
+### Pre-finalization harness-exit fields
 
 | Field | Type | Semantics |
 |-------|------|-----------|
-| `last_attempt_exit_code` | `int \| None` | Exit code of the most recently drained harness attempt |
-| `last_attempt_exited_at` | `str \| None` | ISO timestamp of the most recently drained attempt |
+| `last_attempt_exit_code` | `int \| None` | Exit code captured after the harness drain |
+| `last_attempt_exited_at` | `str \| None` | ISO timestamp captured after the harness drain |
 
-These carry no spawn-level terminal meaning. A `0` exit code can precede retries
-or post-attempt budget failures.
+These retained field names carry no spawn-level terminal meaning. A `0` exit code
+can precede a post-run guardrail failure or a crash before runner intent is persisted.
 
 ### Runner terminal intent: `runner_exit: RunnerExitFacts | None`
 
@@ -348,9 +348,9 @@ contract.
 ## Reaper `runner_exit` Invariant
 
 The reaper's `decide_generic_reconciliation()` pivots entirely on
-`runner_exit is not None` (the `RunnerExitFacts` sub-model). Attempt-level
-fields (`last_attempt_exit_code`, `last_attempt_exited_at`) carry no terminal
-weight in the reaper's decision.
+`runner_exit is not None` (the `RunnerExitFacts` sub-model). Pre-finalization
+harness-exit fields (`last_attempt_exit_code`, `last_attempt_exited_at`) carry no
+terminal weight in the reaper's decision.
 
 ### When `runner_exit is not None`
 
@@ -365,7 +365,8 @@ before the reaper steps in.
 ### When `runner_exit is None` and the runner is dead
 
 Always `FailOrphan`. The reaper does **not** check `durable_report` or
-`last_attempt_exit_code`. Both are attempt-level evidence that could be stale.
+`last_attempt_exit_code`. Both are pre-finalization evidence: a report can exist
+before a post-run guardrail changes the final outcome.
 
 This closes two false-success channels that existed before this work:
 - `process_exit_code == 0` → `FinalizeSucceededFromExit` (attempt exit code misread as spawn terminal exit code)
@@ -384,12 +385,13 @@ orphan finalization.
 
 ### `FinalizeSucceededFromReport` — preserved paths
 
-Kept for non-retry scenarios where a `report.md` cannot be stale from a prior attempt:
+Kept only on paths where a `report.md` is reliable terminal evidence:
 - Pre-worker stalls: still-published rows before detached-worker takeover
 - Missing-runner-pid fallback
 - `ManagedPrimaryReconciliationStrategy`
 
-These are single-attempt paths where a durable report is reliable terminal evidence.
+These paths do not infer that a generic dead runner succeeded merely because it
+wrote a report before finalization.
 
 ### Updated decision tree (sketch)
 

@@ -67,9 +67,9 @@ for the connection seam.
 Each `rearm` signal grants one deadline extension. Grants are unlimited by
 default (`None`). `--resident-rearm-budget` / `MERIDIAN_RESIDENT_REARM_BUDGET` /
 profile `resident-rearm-budget` / `timeouts.resident_rearm_budget` opts into a
-maximum grant count. The running count is SPAWN-scoped: initialized from the
-persisted `resident_rearm_count` in `state.json` and monotonic across streaming
-retries. Attempt-scoped would let retry loops bypass the bound.
+maximum grant count. The running count is spawn-scoped: initialized from the
+persisted `resident_rearm_count` in `state.json`, monotonic across resident rearm
+signals, and preserved across process recovery.
 
 Exhaustion (only when a budget is configured) produces `timed_out` with
 `resident_rearm_budget_exhausted`. Pre-expiry `timeout_soon` nudge behavior is
