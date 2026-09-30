@@ -36,10 +36,11 @@ Check 7 runs the same `_spawn_target` chain as `session log pN`: `continue_chat_
 or DB row. The sessions projection is built once per pass.
 
 **What gets deleted.** `runner_stream_files` looks under `spawns/<id>` and legacy
-`artifacts/<id>`, plus their `attempt-<n>/` subdirectories. In each it takes the
+`artifacts/<id>`, plus their legacy read-only `attempt-<n>/` subdirectories. New
+runs do not create these directories. In each it takes the
 `RETIRED_RUNNER_STREAM_FILENAMES` (`history.jsonl`, `last-observed-event.json`) and
 their `.<name>.*.tmp` atomic temps. It takes only regular files under `lstat`, and
-skips symlinked directories and `attempt-N.tmp` staging directories. `state.json`,
+skips symlinked directories and legacy `attempt-N.tmp` staging directories. `state.json`,
 `report.md`, logs, `pi-lifecycle.json`, native data, ZIPs and `sessions.jsonl` are
 never touched.
 

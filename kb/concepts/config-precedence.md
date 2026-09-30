@@ -4,7 +4,9 @@ Meridian resolves spawn configuration through two distinct systems: a file-backe
 
 ## Two Systems, Two Problems
 
-**`MeridianConfig`** holds persistent, project-wide operational settings: retry policies, timeouts, verbosity, retention. These are loaded from TOML files at startup and apply broadly across all spawns unless overridden.
+**`MeridianConfig`** holds persistent, project-wide operational settings: timeouts,
+verbosity, retention, and spawn depth. These are loaded from TOML files at startup
+and apply broadly across all spawns unless overridden.
 
 **`RuntimeOverrides`** holds per-spawn behavioral choices: which model, which harness, which approval mode. These are assembled fresh for each spawn from CLI flags, environment variables, agent profile frontmatter, and config file defaults — then merged with first-non-`None` semantics.
 
@@ -122,7 +124,6 @@ In practice: `defaults < user config < project meridian.toml < local meridian.lo
 model = ""             # empty = harness picks; default harness is "codex"
 harness = "codex"
 max_depth = 3          # max spawn nesting
-max_retries = 3
 
 [timeouts]
 wait_minutes = 30.0

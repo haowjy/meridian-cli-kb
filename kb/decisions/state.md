@@ -99,7 +99,10 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### StreamingRunConclusion replaces mutable sentinel locals
 
-**Decision (2026-05):** Execution outcome accumulation across retry attempts uses a `StreamingRunConclusion` dataclass instead of six mutable locals. Centralizes terminal-state resolution logic that was previously scattered across retry loops and exception handlers.
+**Decision (2026-05):** One-turn execution outcome accumulation uses a
+`StreamingRunConclusion` dataclass instead of scattered mutable locals. It
+centralizes terminal-state resolution across startup, drain, extraction, guardrails,
+identity conclusion, and exception handling. The runner has no launch-retry loop.
 
 ---
 

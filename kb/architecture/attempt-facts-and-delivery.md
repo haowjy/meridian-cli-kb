@@ -1,7 +1,7 @@
 # Attempt Facts and Delivery
 
 How usage, failure, "produced output" and the first session ID are computed from
-the events an attempt saw live, and how those events reach subscribers. No runner
+the events one harness turn saw live, and how those events reach subscribers. No runner
 `history.jsonl` stream is involved; Meridian no longer writes one. Why the stream stopped being the
 source: [native-only history](../decisions/native-only-history.md). How a chat's
 conversation is read from the harness's native transcript: [native transcript
@@ -40,7 +40,7 @@ observer were deleted in PR 2.
 
 **Attempt folds.** Each registered extractor is stateless. Its `create_fold()` returns a
 per-harness `AttemptFold` subclass (`ClaudeFold`, `CodexFold`, `OpenCodeFold`,
-`PiFold`, `CursorFold`) in `harness/extractors/`. The fold holds one attempt's
+`PiFold`, `CursorFold`) in `harness/extractors/`. The fold holds the turn's
 `AttemptFacts` (`harness/attempt_facts.py`):
 - `first_session_id` and `output_seen`;
 - `final_text`, capped at 1 MiB, with `text_capped`;
@@ -59,7 +59,7 @@ Both mark the facts incomplete.
 finalization (`launch/extract.enrich_finalize`) logs `facts_incomplete`.
 - If the harness has already set a specific total (`usage_is_specific`, as with a
   Claude `total_cost_usd` result or Pi's totals), that total survives.
-- Otherwise the generic usage is dropped to `None` for the rest of the attempt
+- Otherwise the generic usage is dropped to `None` for the rest of the turn
   (`generic_usage_lost`), never a partial sum passed off as a total.
 - Unparseable stdout lines mark `incomplete` but do not drop usage.
 
@@ -68,9 +68,9 @@ The streaming budget check reads the same usage.
 **Report precedence** (`launch/report.extract_or_fallback_report`):
 1. an explicit `report.md`;
 2. a Pi typed failure (`facts.failure`);
-3. the exact native reply named by this attempt's events. OpenCode V2 looks up its
+3. the exact native reply named by this turn's events. OpenCode V2 looks up its
    message ID exactly. OpenCode 1.x has no V2 `assistantMessageID`, so its fallback
-   reads the final assistant response from this attempt's exact bound native session;
+   reads the final assistant response from this turn's exact bound native session;
    it never selects an ambient or merely newest session.
 4. the fold's `final_text`;
 5. the failure reason;
@@ -87,7 +87,7 @@ lifecycle facts only.
 **Pi lifecycle sidecar.** A harness bundle declares `event_sinks(runtime_root,
 spawn_id)`, which defaults to none. Pi's sink writes phase events to
 `spawns/<id>/pi-lifecycle.json` through `state/pi_lifecycle.record`:
-- it stores the last phase and cleanup status per attempt;
+- it stores the last phase and cleanup status for the current turn;
 - the whole read-modify-write runs under `mutate_published_spawn_artifact`, so a late
   phase cannot recreate a deleted spawn.
 
@@ -117,9 +117,9 @@ PR 3 deleted every writer of runner `spawns/<id>/history.jsonl`:
   repair, causal rehydration, the `last-observed-event.json` checkpoint,
   `write_retained_child_stream` and `ingest_portable_history`;
 - the writer-only managed-primary causal tracker (`state/managed_primary.py`);
-- the retry header write and the `meridian.attempt.completed` marker. A retry now
-  rotates only `runner-lifecycle.jsonl`, `stderr.log`, `tokens.json` and `report.md`
-  into `attempt-N/`;
+- the retry header write and the `meridian.attempt.completed` marker. Legacy
+  `attempt-N/` directories remain read-only evidence; new runs do not create or
+  rotate them;
 - the reaper's `last_observed_event` orphan evidence. Liveness evidence is unchanged.
 
 New spawns and primaries create neither file. Old files stay on disk until the user
@@ -131,7 +131,7 @@ prunes them ([runner-history prune](../operations/session-archive-pruning.md#run
 detection in `retention_archive`, and prune. No new code should use it to write.
 
 **History-blind test mode.** `pytest --runner-history=off` traps every read of a
-spawn, attempt or artifact `history.jsonl` (`tests/support/runner_history_blind/`).
+spawn, legacy attempt, or artifact `history.jsonl` (`tests/support/runner_history_blind/`).
 Only `state.retention_archive` may read one, to hash legacy ZIP members.
 Subprocesses inherit the trap through a test-only `sitecustomize`, which also covers
 `python -m meridian` children. There are no writers left, so PR 3 retired the

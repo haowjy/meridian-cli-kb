@@ -210,17 +210,16 @@ configurable watchdog. Default: 5 minutes. Configurable via
 `timeouts.startup_minutes` (TOML) or `MERIDIAN_STARTUP_TIMEOUT_MINUTES` (env).
 Exceeding the bound produces terminal `failed` with error `startup phase timeout
 after <N>s`. Both the spawn subprocess path and the streaming-serve path apply
-the same bound via `launch/streaming/attempt.py`.
+the same bound via `streaming_runner.py`.
 
-### Attempt Evidence Preservation
+### One launch-level attempt
 
-When a streaming spawn retries after a proven-safe startup failure, the runner
-preserves the prior attempt's `stderr.log`, `report.md`, `runner-lifecycle.jsonl`,
-and `tokens.json` under `attempt-N/` within the spawn log directory. The rotation
-is crash-atomic: files stage under `attempt-N.tmp/` and commit with a single
-`os.replace()`. After commit, artifact-store copies are made and active keys are
-deleted so the next attempt starts clean rather than reusing stale evidence. Retry
-is startup recovery, never turn replay; see [launch retry safety](../decisions/launch.md#d-streaming-retry-safety-startup-recovery-is-not-turn-replay).
+Each harness turn executes once. Terminal, transport, timeout, guardrail, identity,
+cleanup, cancellation, and generic failures finalize rather than trigger another
+launch. The spawn's `stderr.log`, `report.md`, `runner-lifecycle.jsonl`, and
+`tokens.json` remain at the spawn root. Existing `attempt-N/` directories are legacy,
+read-only retry evidence; new runs do not create or rotate them. See the [one-attempt
+decision](../decisions/launch.md#d-one-launch-attempt-harness-turn-failures-finalize-without-replay).
 
 ### Prompt Source
 

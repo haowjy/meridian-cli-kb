@@ -199,9 +199,10 @@ named seven behavior changes, each with a red-first test. Two are material:
   Before, attach and post-exit bound the fork chat to the source's key, so two
   chats held one key.
 
-**Keeping retries working.** Codex and OpenCode create retries still succeed. The
-first-signal check compares only against pre-exec facts, so attempt 2's new thread
-ID is diagnostic and the entry keeps attempt 1's key.
+**One turn, one first-signal check.** The check compares only against pre-exec facts.
+The first owned signal may complete an unassigned native key or contradict an
+assigned/fork source key; later transport IDs are diagnostic and never move the
+entry key. Meridian does not re-arm the check for another launch attempt.
 
 ## Exit identity is observed or unresolved
 
@@ -289,9 +290,9 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   shared primary store would block every fresh launch. Minting skips unreadable
   headers with a warning. Source resolution and post-exit verification stay
   fail-closed.
-- **Failing a run on any observed ID that differs from the key.** Codex and
-  OpenCode create retries legitimately see a new thread ID on attempt 2, and a TUI
-  may switch sessions. Only a first signal that contradicts a pre-exec fact is fatal.
+- **Failing a run on any observed ID that differs from the key.** A TUI or transport
+  may switch sessions during the turn. Only a first signal that contradicts a
+  pre-exec fact is fatal; later IDs remain diagnostic.
 - **Logging conflicts during replay.** The fold re-reported every historical
   multi-ID chat on every command: 153 warnings per command on real data. Writers
   log once, when a conflict is attempted.

@@ -305,7 +305,7 @@ Rejected:
 
 Usage, failure, "produced output" and the first session ID come from an in-memory
 fold over the events the runner already received live, one per-harness `AttemptFold`
-per attempt, with a fixed report-source precedence. The fold, `AttemptFacts` and the
+for the turn, with a fixed report-source precedence. The fold, `AttemptFacts` and the
 precedence order are in [attempt facts and
 delivery](../architecture/attempt-facts-and-delivery.md#attempt-folds). Otherwise the
 value is unknown (`None`, never zero).
@@ -413,11 +413,12 @@ The policy choices behind its shape are:
   identity, so every Claude, Codex and OpenCode row written by a PR 1-or-later build is
   skipped. On the copy that was 55 spawns (124 MB). New runs write no stream, so this
   set does not grow.
-- **Live process scopes are skipped; multi-attempt runs qualify.** Archive's
+- **Live process scopes are skipped; legacy multi-attempt runs qualify.** Archive's
   active-chat and dependency protections were deliberately not imported: a terminal
   spawn's stream is final, and deleting it does not change ancestry. Meridian reads no
-  runner bytes for any attempt, and each attempt's turns stay in the harness's own
-  files (review question 10, answered "no change").
+  runner bytes from legacy attempt directories, and those turns stay in the harness's
+  own files (review question 10, answered "no change"). New runs do not create
+  `attempt-N/` directories.
 - **Apply revalidates per spawn under locks.** A changed record or no-longer-resolving
   native source prevents deletion; one spawn's failure does not stop the pass. The
   exact checks and deletion scope are documented in the [operator contract](../operations/session-archive-pruning.md#runner-history-prune).

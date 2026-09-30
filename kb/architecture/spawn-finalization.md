@@ -172,9 +172,12 @@ Both `run_streaming_spawn()` and `_run_streaming_attempt()` delegate to `arbitra
 
 ---
 
-## StreamingRunConclusion: Attempt Accumulator
+## StreamingRunConclusion: One-Turn Accumulator
 
-`StreamingRunConclusion` in `streaming_runner.py` accumulates execution outcome across retry attempts, replacing six previously scattered mutable sentinel locals. The attempt mechanism and retry policy are separate: `launch/streaming/attempt.py` returns one `AttemptRuntime`, while `launch/retry.py` classifies the typed failure and replay evidence.
+`StreamingRunConclusion` in `streaming_runner.py` accumulates the one turn's outcome
+across startup, drain, extraction, guardrails, identity conclusion, and finalization.
+`_run_streaming_attempt()` returns one `_AttemptRuntime`; there is no surrounding
+retry classifier or launch loop.
 
 ```python
 @dataclass
@@ -182,14 +185,8 @@ class StreamingRunConclusion:
     exit_code: int = DEFAULT_INFRA_EXIT_CODE
     failure_reason: str | None = None
     extracted: FinalizeExtraction | None = None
-    final_attempt_terminal_observed: bool = False
+    authoritative_terminal_status: TerminalSpawnStatus | None = None
     cancellation_observed: bool = False
-    retries_attempted: int = 0
-
-    def commit_attempt(
-        self, attempt: AttemptRuntime, *, failure: AttemptFailure | None, ...
-    ) -> None:
-        ...  # select final fields from the typed attempt outcome
     
     def terminal_facts(
         self, *, received_signal
@@ -433,9 +430,7 @@ decide_generic_reconciliation(record, snapshot, now):
 | `ops/spawn/failure_policy.py` | Fixed terminal tuple for all launch failure sites |
 | `ops/spawn/execute.py` | 3-phase decomposition; `PreparedExecutionHandoff`; `ExitStack` transfer |
 | `launch/streaming/terminal_arbitrator.py` | Single arbitration point; priority-ordered trigger race |
-| `launch/streaming_runner.py` | Run orchestration and `StreamingRunConclusion`; delegates to `arbitrate_terminal()` |
-| `launch/streaming/attempt.py` | One-attempt startup, drain, watchdog, terminal and teardown mechanics |
-| `launch/retry.py` | Typed failure/replay assessment and sole retry decision |
+| `launch/streaming_runner.py` | One-turn startup, drain, watchdog, teardown, `StreamingRunConclusion`, and finalization; delegates to `arbitrate_terminal()` |
 
 ---
 

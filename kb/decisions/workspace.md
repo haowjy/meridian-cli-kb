@@ -88,7 +88,7 @@ The distinction keeps partial-checkout ergonomics intact while making broken loc
 
 **Why not on MeridianConfig:**
 
-1. `MeridianConfig` is for scalar operational settings (timeouts, depths, retry policies). Workspace needs structured findings, per-root path resolution, and filesystem evaluation — a different shape of concern that doesn't fit scalar normalization.
+1. `MeridianConfig` is for scalar operational settings (timeouts, depths, retention policies). Workspace needs structured findings, per-root path resolution, and filesystem evaluation — a different shape of concern that doesn't fit scalar normalization.
 2. Pydantic's `extra="allow"` stores extra fields as raw dicts, not typed models. It does **not** coerce named subtables (`[workspace.frontend]`) into `WorkspaceEntryConfig` instances. The type safety that makes named entries viable requires a dedicated `TypeAdapter`.
 
 **Alternative rejected:** `WorkspaceConfig(extra="allow")` mirroring `ContextConfig` — verified to not work. Pydantic `extra="allow"` stores extras as raw dicts, not typed models. This was prototyped and rejected, not merely theorized.

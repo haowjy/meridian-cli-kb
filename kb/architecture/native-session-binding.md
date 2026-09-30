@@ -169,20 +169,12 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
    replaced three runner copies that disagreed.
 3. **`NativeRun.note(id)`**: the connection's *current* ID after exit. It is always
    diagnostic, because transports overwrite it on legitimate switches. Each
-   candidate is bound once per attempt.
-4. **`NativeRun.rearm(attempt, permit)`** re-arms the first-signal check only after
-   `launch/retry.py` issues a `RetryPermit` from proven-safe evidence. The permit
-   carries the same pre-exec facts; it cannot be constructed for an unknown,
-   submitted, materialized, or non-quiescent attempt. On a Claude create retry the
-   exact prebound ID is reused only when the initial turn was not submitted and the
-   native file is absent after verified teardown. On a Codex or OpenCode create
-   retry, attempt 2's newly observed thread ID stays diagnostic and the entry keeps
-   attempt 1's immutable key.
-5. **`conclude_native_run(...)`**, once per attempt, **after the child exited and
+   candidate is bound once per turn.
+4. **`conclude_native_run(...)`**, once per turn, **after the child exited and
    teardown was joined**. The first error wins, and later identity steps are
    skipped:
    1. **Candidate first signal:** on PR 1, an ID extracted from artifacts. In PR 2
-      it is the attempt fold's `first_session_id`, observed from live events
+      it is the turn fold's `first_session_id`, observed from live events
       ([run facts](attempt-facts-and-delivery.md#attempt-folds)).
    2. **Current ID:** the connection's current ID goes to `note`.
    3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
@@ -201,14 +193,13 @@ Real Pi showed the failure mode: the streaming runner read the boundary record a
 there is no polling or timeout
 ([lesson](../lessons/native-session-identity.md#terminal-status-is-not-process-exit)).
 
-### Retry safety
+### One-attempt causality
 
-Launch retries are startup recovery, not turn replay. A transient cause alone is not
-permission to retry: the initial turn must be definitely unsubmitted, teardown must
-prove the complete owned process scope quiescent, and a planned create identity must
-be proven unmaterialized. Any unknown or contradictory observation fails closed. The
-retry path re-arms the same `NativeRun`; it never mints a second identity or rebinds
-the chat. See [D-streaming-retry-safety](../decisions/launch.md#d-streaming-retry-safety-startup-recovery-is-not-turn-replay).
+The native run is not re-armed. A startup, terminal, identity, transport, timeout,
+guardrail, cleanup, cancellation, or generic failure finalizes the same harness turn.
+Teardown must still join before conclusion so late native evidence is visible and the
+owned process scope is not orphaned; quiescence is a cleanup and observation contract,
+not permission to replay. See [D-one-launch-attempt](../decisions/launch.md#d-one-launch-attempt-harness-turn-failures-finalize-without-replay).
 
 **Serve.** `streaming serve` concludes like the other runners. The original error
 survives, cleanup runs in `finally`, and the conclusion runs once.

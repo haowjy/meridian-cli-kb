@@ -126,13 +126,6 @@ guardrail_timeout_minutes = 0.5   # 30 seconds for guardrail checks
 wait_timeout_minutes = 30.0       # meridian spawn wait checkpoint interval
 ```
 
-### Retry
-
-```toml
-max_retries = 3                   # spawn retries on transient failure
-retry_backoff_seconds = 0.25      # initial retry backoff (doubles each retry)
-```
-
 ### Depth
 
 ```toml
