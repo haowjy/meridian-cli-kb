@@ -170,9 +170,14 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
 3. **`NativeRun.note(id)`**: the connection's *current* ID after exit. It is always
    diagnostic, because transports overwrite it on legitimate switches. Each
    candidate is bound once per attempt.
-4. **`NativeRun.retry(attempt)`** re-arms the first-signal check for a new startup
-   attempt against the same pre-exec facts. On a Codex or OpenCode create retry,
-   attempt 2's new thread ID stays diagnostic, and the entry keeps attempt 1's ID.
+4. **`NativeRun.rearm(attempt, permit)`** re-arms the first-signal check only after
+   `launch/retry.py` issues a `RetryPermit` from proven-safe evidence. The permit
+   carries the same pre-exec facts; it cannot be constructed for an unknown,
+   submitted, materialized, or non-quiescent attempt. On a Claude create retry the
+   exact prebound ID is reused only when the initial turn was not submitted and the
+   native file is absent after verified teardown. On a Codex or OpenCode create
+   retry, attempt 2's newly observed thread ID stays diagnostic and the entry keeps
+   attempt 1's immutable key.
 5. **`conclude_native_run(...)`**, once per attempt, **after the child exited and
    teardown was joined**. The first error wins, and later identity steps are
    skipped:
@@ -195,6 +200,15 @@ Real Pi showed the failure mode: the streaming runner read the boundary record a
 4 s before Pi wrote `quit`. The fix orders the read after `SpawnManager.join_teardown`;
 there is no polling or timeout
 ([lesson](../lessons/native-session-identity.md#terminal-status-is-not-process-exit)).
+
+### Retry safety
+
+Launch retries are startup recovery, not turn replay. A transient cause alone is not
+permission to retry: the initial turn must be definitely unsubmitted, teardown must
+prove the complete owned process scope quiescent, and a planned create identity must
+be proven unmaterialized. Any unknown or contradictory observation fails closed. The
+retry path re-arms the same `NativeRun`; it never mints a second identity or rebinds
+the chat. See [D-streaming-retry-safety](../decisions/launch.md#d-streaming-retry-safety-startup-recovery-is-not-turn-replay).
 
 **Serve.** `streaming serve` concludes like the other runners. The original error
 survives, cleanup runs in `finally`, and the conclusion runs once.

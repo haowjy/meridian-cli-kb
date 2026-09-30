@@ -249,9 +249,14 @@ callers pick based on their execution context.
 | `ScopedProcessHandle.terminate(grace_seconds)` | Async callers: `SpawnManager`, `connection.stop` | `platform/process_scope/base.py` |
 | `terminate_scope_sync(scope, grace_seconds, reason)` | Sync callers: reaper, cancel path, session-exit | `platform/process_scope/__init__.py` |
 
-Both are **exception-safe** — cleanup paths must not propagate. Both dispatch to the
-same POSIX / Windows / fallback adapters based on `scope.containment`. Both return a
-`CleanupResult`.
+Synchronous cleanup is no-throw; backend exceptions are reduced to a degraded
+`CleanupResult`. The async handle also reduces ordinary backend exceptions, but
+caller `asyncio.CancelledError` intentionally propagates so the handle and scope
+remain recoverable. Only the ownership-transfer guard
+`reap_on_ownership_transfer_failure()` shields cleanup across cancellation at the
+startup boundary. Both entry points dispatch to the same POSIX / Windows / fallback
+adapters based on `scope.containment` and return typed cleanup evidence when they
+complete.
 
 `terminate_scope_sync()` is a public function in the platform layer (not a helper in
 `core/`). This keeps mechanism co-located with the adapters it dispatches to: callers

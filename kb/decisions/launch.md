@@ -84,6 +84,27 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 **`complete_spawn()` idempotency** enables safe layered catches — if the record is already terminal, the call is a no-op. Known issue #153: concurrent finalizers silently drop the second set of metrics.
 
+### D-streaming-retry-safety: startup recovery is not turn replay
+
+**Decision (2026-09, issue #542):** Streaming launch retry is permitted only when
+the typed failure is transient, replay safety is proven, and attempts remain.
+Replay safety requires a definitely unsubmitted initial turn, verified-quiescent
+teardown, and exact native-create evidence proving the planned identity is
+unmaterialized (or the operation has no create identity). Unknown, terminal,
+submitted, materialized, failed, skipped, abandoned, or cancelled evidence fails
+closed.
+
+An affirmative retry re-arms the existing `NativeRun`; it does not mint or rebind a
+chat/native identity. For Claude create, the prebound `--session-id` is reusable only
+in that proven-unconsumed case. Connections report typed submission and teardown
+facts; `launch/retry.py` owns the sole decision and the same causal failure record
+drives final reporting. Guardrail and transport failures do not have separate retry
+paths.
+
+This is startup recovery, not an automatic continuation mechanism. See [launch
+system](../architecture/launch-system.md#automatic-startup-retry) and [native session
+binding](../architecture/native-session-binding.md#retry-safety).
+
 ---
 
 ### D-primary-approval: Managed-primary Codex approval routing
@@ -320,9 +341,10 @@ OpenCode preserves the native HTTP model contract: session creation uses
 `{providerID, id}`, while every invocation's initial prompt—including an
 explicit prompt or a plain recorded continuation—uses `{providerID, modelID}`.
 Only subsequent resident/injected messages omit the model. Invalid or timed-out
-creation does not downgrade to `{}`. Existing outer same-model runtime retry
-policy is unchanged; this is one create per startup attempt, not one create per
-invocation.
+creation does not downgrade to `{}`. Transport-local session-creation polling is
+distinct from streaming launch retry; launch retries follow the typed, fail-closed
+startup-recovery rule and never replay a submitted turn. This remains one create per
+startup attempt, not one create per invocation.
 
 The primary OpenCode named-model resume remains unsupported and has no UI
 replacement. Tracked raw native IDs for `spawn --continue` are now accepted.

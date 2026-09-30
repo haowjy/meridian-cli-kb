@@ -210,17 +210,17 @@ configurable watchdog. Default: 5 minutes. Configurable via
 `timeouts.startup_minutes` (TOML) or `MERIDIAN_STARTUP_TIMEOUT_MINUTES` (env).
 Exceeding the bound produces terminal `failed` with error `startup phase timeout
 after <N>s`. Both the spawn subprocess path and the streaming-serve path apply
-the same bound via `_start_spawn_with_timeout()`.
+the same bound via `launch/streaming/attempt.py`.
 
 ### Attempt Evidence Preservation
 
-When a streaming spawn retries after a startup or runtime failure, the runner
-preserves the prior attempt's artifacts (history, stderr, report, lifecycle
-journal, diagnostic marker) under `attempt-N/` within the spawn log directory.
-The rotation is crash-atomic: files stage under `attempt-N.tmp/` and commit with
-a single `os.replace()`. After commit, artifact-store copies are made and active
-keys are deleted so the next attempt starts clean rather than reusing stale
-evidence from a prior attempt.
+When a streaming spawn retries after a proven-safe startup failure, the runner
+preserves the prior attempt's `stderr.log`, `report.md`, `runner-lifecycle.jsonl`,
+and `tokens.json` under `attempt-N/` within the spawn log directory. The rotation
+is crash-atomic: files stage under `attempt-N.tmp/` and commit with a single
+`os.replace()`. After commit, artifact-store copies are made and active keys are
+deleted so the next attempt starts clean rather than reusing stale evidence. Retry
+is startup recovery, never turn replay; see [launch retry safety](../decisions/launch.md#d-streaming-retry-safety-startup-recovery-is-not-turn-replay).
 
 ### Prompt Source
 

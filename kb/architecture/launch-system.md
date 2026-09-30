@@ -192,7 +192,7 @@ See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-
 
 ## Startup Watchdog
 
-`_start_spawn_with_timeout()` in `streaming_runner.py` wraps the entire pre-connect
+`_start_spawn_with_timeout()` in `launch/streaming/attempt.py` wraps the entire pre-connect
 span (backend boot, connection establishment, session handshake) with an outer
 `asyncio.timeout`. The default bound is 5 minutes, configured via
 `timeouts.startup_minutes` (TOML) or `MERIDIAN_STARTUP_TIMEOUT_MINUTES` (env).
@@ -209,8 +209,8 @@ worst case was a spawn that wedged for 2h18m with no liveness signal.
 
 ## Attempt Evidence Preservation
 
-When a streaming spawn retries, `_preserve_attempt_artifacts()` in
-`streaming_runner.py` rotates the completed attempt's disk artifacts into
+When a streaming spawn retries, `preserve_attempt_artifacts()` in
+`launch/attempt_artifacts.py` rotates the completed attempt's disk artifacts into
 `attempt-N/` under the spawn log directory. The rotated disk files are
 `runner-lifecycle.jsonl`, `stderr.log`, `tokens.json` and `report.md`. The retry no
 longer writes a runner-stream header or a `meridian.attempt.completed` marker (PR 3);
@@ -219,6 +219,19 @@ attempt facts are folded in memory per attempt
 `attempt-N.tmp/` and committed with a single `os.replace()`. Artifact-store copies
 and active-key deletion happen only after the filesystem commit, so the next attempt
 never reads stale keys from a prior attempt.
+
+### Automatic startup retry
+
+Automatic retry is startup recovery, never turn replay. `launch/retry.py` permits a
+new attempt only for a typed transient failure with a definitely unsubmitted initial
+turn, verified-quiescent teardown, and exact native-create evidence proving the
+planned identity was not materialized (or is not applicable), with attempts remaining.
+Unknown or incomplete evidence, explicit terminal outcomes, completed submission,
+guardrail failures, cancellation, and materialized identities stop. A retry re-arms
+the same prebound identity; it never mints or rebinds a chat. The connection layer
+reports typed progress and cleanup facts but does not decide policy, and one causal
+failure record drives both retry disposition and final reporting. See [the launch
+decision](../decisions/launch.md#d-streaming-retry-safety-startup-recovery-is-not-turn-replay).
 
 ## Ownership-Transfer Guard
 
@@ -569,7 +582,10 @@ launch/
   request.py            SpawnRequest, LaunchRuntime, LaunchArgvIntent, LaunchCompositionSurface
   plan.py               build_primary_spawn_request/runtime() — primary-path input builders
   process/              run_harness_process(); PTY/pipe; primary-path executor
-  streaming_runner.py   execute_with_streaming(); async executor (spawn/streaming-serve paths)
+  streaming_runner.py   execute_with_streaming(); run-level orchestration
+  streaming/attempt.py  one attempt: startup watchdog, connection, drain, teardown
+  retry.py              typed failure/replay assessment and sole retry decision
+  attempt_artifacts.py  crash-atomic retry evidence rotation
   policies.py           resolve_policies() → ResolvedPolicies
   permissions.py        resolve_permission_pipeline()
   command.py            resolve_launch_spec_stage(), build_launch_argv()
@@ -618,10 +634,10 @@ recorded as the child.
 OpenCode creation sends `{providerID, id}`. Every invocation's initial prompt—an
 explicit prompt or a plain recorded continuation—sends `{providerID, modelID}`;
 only subsequent resident/injected messages omit the model. Invalid or timed-out
-creation does not downgrade to `{}`. The existing outer same-model runtime
-retry policy remains unchanged and applies per startup attempt; this does not
-mean one create per invocation. Named-model resume remains unsupported, with no
-UI replacement.
+creation does not downgrade to `{}`. Transport-local session-creation polling is
+distinct from streaming launch retry: the latter follows the typed, fail-closed
+startup-recovery rule above and never replays a submitted turn. Named-model resume
+remains unsupported, with no UI replacement.
 
 Tracked raw native IDs passed to `spawn --continue` now resolve against their
 recorded session provenance. An explicitly supplied older native ID is retained

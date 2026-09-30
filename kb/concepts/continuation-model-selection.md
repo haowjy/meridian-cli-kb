@@ -48,9 +48,10 @@ the child without recording its parent as the child.
 For OpenCode, session creation uses `{providerID, id}`. Every invocation's
 initial prompt, whether explicit or a plain recorded continuation, uses
 `{providerID, modelID}`; only later resident/injected messages omit the model.
-Invalid or timed-out creation does not fall back to `{}`. The outer same-model
-runtime retry policy is unchanged and remains per startup attempt. Primary
-named-model resume remains unsupported and has no UI replacement.
+Invalid or timed-out creation does not fall back to `{}`. Transport-local
+session-creation polling is distinct from streaming launch retry; launch retries
+follow the typed, fail-closed startup-recovery rule and never replay a submitted
+turn. Primary named-model resume remains unsupported and has no UI replacement.
 
 A runtime C7 probe still shows raw native IDs passed to `spawn --continue`
 erroring. The uniform reference contract is therefore still an audit item, not
