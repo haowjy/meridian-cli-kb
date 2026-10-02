@@ -6,6 +6,7 @@ Decision records explain why durable architectural choices were made — what al
 
 | Page | Coverage |
 |---|---|
+| [pi-runtime.md](pi-runtime.md) | Pi live execution ownership, exact notification delivery evidence, and bounded cross-store failure |
 | [chat-backend.md](chat-backend.md) | Chat pipeline architecture: custom protocol, event model, acquisition, HITL, command layer, structural refactors (D1–D2, D8–D31) |
 | [dev-frontend.md](dev-frontend.md) | Unified dev setup for `meridian chat --dev`: portless, Vite, exposure model, env scrub, launcher strategy (DF-D1–DF-D7) |
 | [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, target-constrained model-policy fallback (D52–D57, D72–D74) |

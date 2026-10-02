@@ -1,7 +1,7 @@
 # Pi Runtime Vocabulary
 
-> **Status:** Canonical. Pi-bg-redesign shipped. This page defines the current
-> vocabulary for the pi-runtime background-work surface.
+> **Status:** Canonical current vocabulary for Pi runtime background work and
+> extension coordination. Release status belongs in the CLI changelog.
 
 Domain vocabulary for the pi-runtime background-work redesign. This page defines the authoritative terms for the redesigned bash tool, background-task lifecycle, cross-extension coordination, and quiescence rule. This page stays current-only.
 
@@ -33,8 +33,8 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 
 | Term | Definition | See also |
 |---|---|---|
-| **`managed-bash`** | The mechanism extension. Owns: `bash` tool registration, `bash_manage` tool registration, the `b-*` bash registry, and env-var injection of `MERIDIAN_PI_BASH_ID` into child processes. Slash commands: `/ps` (with combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background`), `/ps:kill`, `/ps:logs`, `/ps:clear`. Writes `pi-bash/<spawn-id>/bash-records.json`. | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
-| **`meridian-spawn-watch`** | The policy extension. Owns: spawn-record observation, env-var correlation filter, implicit-wait notification dispatch, and `/spawn*` UI. Slash commands: `/spawn`, `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear`. Registers no tools. **No `/mspawn` compatibility alias.** | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
+| **`managed-bash`** | The mechanism extension. Owns: `bash` tool registration, `bash_manage` tool registration, the `b-*` bash registry, launch-scoped live process ownership, and injection of `_MERIDIAN_PI_BASH_ID` into child processes. Slash commands: `/ps` (with combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background`), `/ps:kill`, `/ps:logs`, `/ps:clear`. Writes `pi-bash/<spawn-id>/bash-records.json`. | [../../concepts/harness-abstraction.md](../../concepts/harness-abstraction.md) |
+| **`meridian-spawn-watch`** | The policy extension. Owns: canonical direct-child observation, idle-only implicit-wait publication, exact native-admission receipts, delivery faults, and `/spawn*` UI. Slash commands: `/spawn`, `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear`. Registers no tools. **No `/mspawn` compatibility alias.** | [coordination.md](coordination.md) |
 
 ---
 
@@ -47,7 +47,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 | **`/ps:kill <id>`** | `managed-bash` | Terminate a tracked bash. |
 | **`/ps:logs <id>`** | `managed-bash` | Show log tail for a bash record. Uses centered log overlay. |
 | **`/ps:clear`** | `managed-bash` | Hide finished bash rows for the current Pi session. |
-| **`/spawn`** | `meridian-spawn-watch` | List spawn records (policy view). Shows only `p-*` records correlated to this session via `originating_bash_id`. Renamed from `/mspawn` — no compatibility alias. |
+| **`/spawn`** | `meridian-spawn-watch` | List canonical direct-child `p-*` rows for the current parent. `originating_bash_id` may link a row to its Bash launcher but does not establish membership. Renamed from `/mspawn` — no compatibility alias. |
 | **`/spawn:wait <id>`** | `meridian-spawn-watch` | Block on a spawn completion. |
 | **`/spawn:cancel <id>`** | `meridian-spawn-watch` | Cancel a spawn (proxies `meridian spawn cancel`). |
 | **`/spawn:show <id>`** | `meridian-spawn-watch` | Full-screen task-panel view with lifecycle + report + log tail (`meridian session log <id> -n 20` default). |
@@ -60,9 +60,9 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 
 | Variable | Definition | See also |
 |---|---|---|
-| **`MERIDIAN_PI_BASH_ID`** | Injected by `managed-bash` into every child process's environment with the value of the launching bash's `bash_id`. Read by meridian-cli's spawn-store at spawn-record creation time and persisted to the spawn record as `originating_bash_id`. The cross-extension correlation bridge. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_TASK_PING_INTERVAL_MS`** | Cadence in milliseconds for tracked background-bash ping notifications. Default is 55 minutes. Meridian resolves `timeouts.pi_task_ping_interval_seconds` / `MERIDIAN_PI_TASK_PING_INTERVAL_SECONDS` to this extension env var. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`MERIDIAN_PI_TASK_PING_RESET_ON_ACTIVITY`** | Boolean-ish flag for whether tracked background-bash pings reset on log activity. Default `true`; set to `false` to keep the original ping deadline. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`_MERIDIAN_PI_BASH_ID`** | Injected by `managed-bash` into each child process with the launching Bash ID. Spawn creation may persist it as `originating_bash_id`; that link transfers a launcher's result obligation but does not define child membership. | [coordination.md](coordination.md) |
+| **`_MERIDIAN_PI_TASK_PING_INTERVAL_MS`** | Cadence in milliseconds for tracked background-Bash ping notifications. Default is 55 minutes. Meridian resolves `timeouts.pi_task_ping_interval_seconds` / `MERIDIAN_PI_TASK_PING_INTERVAL_SECONDS` to this extension variable. Pings are advisory and cannot fail task execution. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`_MERIDIAN_PI_TASK_PING_RESET_ON_ACTIVITY`** | Whether tracked background-Bash pings reset on log activity. Default `true`; set to `false` to keep the original ping deadline. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 
 ---
 
@@ -70,7 +70,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 
 | Field | Definition | See also |
 |---|---|---|
-| **`originating_bash_id?: string`** | Field on spawn records. Populated at creation time from `MERIDIAN_PI_BASH_ID` if set in the environment. Used by `meridian-spawn-watch` to filter `/spawn` rows to spawns originating from the current session's bash invocations. The detection signal is disk state + env, never argv parsing. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`originating_bash_id?: string`** | Field on a spawn record copied from `_MERIDIAN_PI_BASH_ID` when present. It links the child to its launching Bash record and transfers that result obligation. Canonical `parent_id` rows, not this field, define direct-child membership. | [coordination.md](coordination.md) |
 
 ---
 
@@ -79,10 +79,10 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 | Term | Definition | See also |
 |---|---|---|
 | **Tracked bash** | A bash background record that blocks pi quiescence until it terminates. The default state for all `bash({background: true})` calls and fg→bg-timeout transitions. Opt out by calling `bash_manage({action: "detach", bash_id})`. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **Detached bash** | A bash background record that does NOT block pi quiescence. Created by an explicit `bash_manage({action: "detach", bash_id})` call. The process continues until natural exit; pi shutdown sends a cleanup signal on exit. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **Implicit-wait notification** | A `sendMessage` issued by `meridian-spawn-watch` when a tracked spawn or tracked bash background record terminates, regardless of whether the agent called an explicit wait. The safety net for "agent backgrounded work then forgot to wait." Wave-batched: multiple terminations close together produce one notification. Default `triggerTurn: true` for spawns and tracked bash; configurable. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **Env-var correlation** | The cross-extension bridge between `managed-bash` and `meridian-spawn-watch`. Two channels: (1) `managed-bash` injects `MERIDIAN_PI_BASH_ID` into commands; meridian-cli writes `originating_bash_id` into spawn records at creation time. (2) A sidecar `spawn-origins.json` file records bash IDs independently of `bash-records.json` timing, covering cases where bash processes start before the records file is persisted. `meridian-spawn-watch` reads both channels to scope `/spawn` to this session's spawns. Detection signal is disk state + env, never argv parsing. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **Quiescence** | A pi spawn is considered finished when, AFTER the most recent `agent_end` event: (1) no active **transitive** persisted descendants in the reconciled descendant spawn tree (cycle-safe traversal of valid `parent_id` links from the current spawn, reconciled via the non-mutating projection — so a `finalizing` row with a durable report counts terminal; an unreadable store blocks as typed `unknown`, never an empty tree), AND (2) no tracked bash background records for this session in non-terminal state, AND (3) no pending implicit-wait notifications (delivered but no follow-up `agent_end` yet). All three conditions must hold simultaneously. Spawn rows publish atomically, and only valid reconciled parent links create persisted-descendant blockers. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **Detached bash** | A bash background record that does NOT block pi quiescence. Created by an explicit `bash_manage({action: "detach", bash_id})` call. Detach releases tracking but leaves the process owned by the live runtime; natural exit or normal Pi shutdown ends it. A cold runtime cannot reclaim or signal it. | [coordination.md](coordination.md) |
+| **Implicit-wait notification** | Idle-only `sendMessage` follow-up from `meridian-spawn-watch` for eligible unattended child or tracked Bash results. Queueing is not delivery: native admission and Python's exact public-event observation are separate evidence. Terminal waits can consume results before publication. | [coordination.md](coordination.md) |
+| **Bash origin link** | `managed-bash` injects `_MERIDIAN_PI_BASH_ID`; spawn creation may persist that value as `originating_bash_id` on a child row. It transfers a Bash launcher's result obligation to its canonical child; `parent_id`, not this field, defines child membership. No origin sidecar supplies authority. | [coordination.md](coordination.md) |
+| **Quiescence** | A Pi spawn is finished only after its semantic turn and when there are no active transitive descendants, live tracked Bash tasks, owed terminal results, or unresolved delivery receipts. Exact notification admission must have its matching public-event observation and a later idle terminal turn; unknown evidence cannot become an empty set. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 
 ---
 
@@ -107,7 +107,9 @@ Applies to both bash records and spawn records.
 | Artifact | Definition | See also |
 |---|---|---|
 | **`pi-bash/<spawn-id>/bash-records.json`** | Per-spawn aggregate file for bash records. Written by `managed-bash`, watched by `PiDiskWatcher` / `PiQuiescenceTracker` to evaluate condition (2) of the revised quiescence rule. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`pi-bash/<spawn-id>/spawn-origins.json`** | Sidecar origin-tracking file. Written by `managed-bash` via `rememberSpawnOriginBashIds()` at process start. Records bash IDs for this spawn so `meridian-spawn-watch` can discover correlation even when `bash-records.json` hasn't been persisted yet (atomic write timing) or when concurrent bash processes write origins simultaneously. Serialized via per-file promise chain. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`pi-bash/<spawn-id>/last-notification.json`** | Notification marker file. Written by `meridian-spawn-watch` when it calls `sendMessage({triggerTurn: true})`. Python quiescence checker requires `agent_end_ts > last_notification_ts` (condition 3) before declaring quiescence. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`pi-bash/<spawn-id>/delivery-receipts.json`** | Exact native custom-message admission written from `message_start`; maps each delivery identity to its precise work membership. A `sendMessage()` return is not admission proof. | [coordination.md](coordination.md) |
+| **`pi-bash/<spawn-id>/delivery-observations.json`** | Python's durable observation of the matching public RPC event, written after marking the parent active. Separate from the native receipt. A receipt without this observation is bounded unknown evidence. | [coordination.md](coordination.md) |
+| **`pi-bash/<spawn-id>/delivery-fault.json`** | Bounded scan, admission, or persistence diagnostics separate from Bash execution failures. | [coordination.md](coordination.md) |
+| **`pi-bash/<spawn-id>/last-notification.json`** | Retired timestamp marker, ignored by current completion policy. It cannot prove exact message membership, native admission, or public-event observation. Old unconsumed results may repeat after upgrade. | [coordination.md](coordination.md) |
 | **`pi-bash/<spawn-id>/cleared-spawns.json`** | Cleared-spawns tracking file. Persists spawn IDs the user has cleared from the `/spawn` view so they stay hidden across Pi session restarts. | [../pi-lifecycle.md](../pi-lifecycle.md) |
-| **`pi-bash/<spawn-id>/observed-spawns.json`** | Observed-spawns tracking file. Records spawn IDs that Pi's meridian-spawn-watch extension has already seen (suppressed spawn IDs), preventing duplicate notifications for terminal spawns. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`pi-bash/<spawn-id>/observed-spawns.json`** | CLI wait's durable exact observations, diagnostic waiting IDs, and process-owned wait reservations. Temporary reservations suppress notices only while caller PID, process-birth identity, and expiry match. | [coordination.md](coordination.md) |

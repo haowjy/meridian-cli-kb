@@ -1,9 +1,11 @@
 # pi-runtime — Pi Runtime Domain
 
-This domain holds the canonical terminology for Pi's background-work and
-extension-coordination surface. The spawned-session lifecycle remains owned by
+This domain holds current Pi background-work architecture and its canonical
+vocabulary. Start with coordination and result-delivery ownership; the broader
+spawned-session drain lifecycle remains in
 [../pi-lifecycle.md](../pi-lifecycle.md).
 
 ## Pages
 
-- [vocab.md](vocab.md) — canonical terms for Pi background work, managed extensions, correlation, and quiescence.
+- [coordination.md](coordination.md) — canonical child scope, Bash ownership, completion delivery, receipts, RPC bounds, usage and failure limits.
+- [vocab.md](vocab.md) — canonical terms for Pi background work, managed extensions, delivery evidence, and quiescence.

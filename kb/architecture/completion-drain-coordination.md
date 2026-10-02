@@ -69,8 +69,9 @@ corpus-sized.
 Pi-private work remains separate because a `SpawnRecord` cannot represent it.
 `PiPrivateWorkLedger` owns immutable snapshots of:
 
-- tracked bash;
-- pending follow-up marker (disk notification);
+- live tracked Bash execution and unconsumed terminal results;
+- explicit wait consumption and live wait reservations;
+- exact native delivery receipts and matching public-event observations;
 - private-work read failures.
 
 Rowless subspawn tracking and PID/PGID cleanup handles were retired in PR #447
@@ -78,11 +79,11 @@ Rowless subspawn tracking and PID/PGID cleanup handles were retired in PR #447
 tracker and process cleanup module were deleted. Descendant discovery now
 relies solely on the reconciled persisted spawn tree.
 
-`PiDiskWatcher` observes only the private bash and notification-marker files. It
-does not scan spawn directories or infer descendants. Finish-anchored polling provides
-progress without lifecycle notifications, and refresh completion reuses the drain's
-auxiliary wake path. No descendant ledger, counter, or notification bus participates in
-completion authority.
+`PiDiskWatcher` observes only Pi-private Bash and delivery-evidence files. It
+does not scan spawn directories or infer descendants. Finish-anchored polling
+provides progress without lifecycle notifications, and refresh completion reuses
+the drain's auxiliary wake path. No descendant ledger, counter, or notification
+bus participates in persisted-descendant authority.
 
 ## Readability is required even for `done`
 
@@ -93,6 +94,11 @@ publication. A `done` directive may override known blockers, but it cannot turn
 unreadability fails at the single completion deadline with
 `resident_evidence_unreadable` or `pi_evidence_unreadable`; the rendered failure directs
 the operator to the session log.
+
+Pi narrows that override: an explicit done may override known running execution
+or descendant liveness, but not an owed result publication/admission/public-event
+observation, an active parent reply, or a non-idle parent. The Pi profile suppresses
+done nudges while delivery is owed. See [Pi lifecycle](pi-lifecycle.md#idle-done-nudge).
 
 Closing the event stream does not bypass this gate. Event reads stop, but the same drain
 waiter continues refresh, stabilization, nudge, and deadline arbitration. The qualifying

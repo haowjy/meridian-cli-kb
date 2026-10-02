@@ -35,6 +35,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, web frontend, prompt 
 Durable decision rationale, clustered by domain. Start with [decisions.md](decisions.md) for the chronological index; follow anchors into domain pages for full reasoning.
 
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
+- [decisions/pi-runtime.md](decisions/pi-runtime.md) — Why Pi keeps live shell authority with its owner and uses exact admission plus public-event evidence for completion delivery
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP retained-history authority, disposable indexes named by schema (never migrated in place), retention and restore, archive digests over stored record JSON, and post-stop native capture; which parts native-only history superseded
 - [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; refusals before row creation; one binding and drift rule; run-boundary outcomes; combined PR #534 phase and probe-fix decisions
@@ -112,6 +113,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/drain-plans.md](architecture/drain-plans.md) — streaming drain-plan composition, resident completion behavior, and publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
+- [architecture/pi-runtime/coordination.md](architecture/pi-runtime/coordination.md) — Pi Bash owner recovery, canonical child membership, exact completion delivery, bounded RPC reception, usage accounting, and failure limits
 - [architecture/legacy-native-import.md](architecture/legacy-native-import.md) — One-time exact import of legacy chat native keys: trigger, locking, recovery, candidate stores (incl. Pi interactive root), in-place OpenCode reads, deferral backoff, report mode, cost, late binding, legacy Pi recovery, and `session repair`
 - [architecture/pi-native-sessions.md](architecture/pi-native-sessions.md) — Pi exact identity (mint/verify, exact argv), session-boundary exit observation, real Pi 0.87.1 behaviors (lazy persistence, ctx invalidation, one-turn create, agent-dir credential route), limits, reopen-lineage readback
 - [architecture/native-session-binding.md](architecture/native-session-binding.md) — Cross-harness identity after the PR 1 restructure: types, one bind rule and fold, adapter template and primitives, runner pipeline (bind_entry → observe → conclude_native_run after teardown), spawn-row run_boundary and continue_chat_id

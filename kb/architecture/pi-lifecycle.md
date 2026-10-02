@@ -2,11 +2,11 @@
 
 Pi spawned sessions use a **quiescence-based completion model** — the Pi process stays running to handle follow-up turns (when tracked child work completes). Meridian declares a spawn done only after the quiescence state machine reaches a final state, not when the Pi process exits.
 
-Pi still has the deepest quiescence machinery because it must combine semantic
-completion, disk-backed background work, and implicit-wait notification delivery
-before shutdown. Codex and OpenCode now have a narrower resident-done path for
-Meridian-tracked descendant spawns, but they do not use Pi's bash-record or
-notification-marker machinery. Claude/plain streaming harnesses complete from the
+Pi still has the deepest quiescence machinery because it combines semantic
+completion, disk-backed background work, and native follow-up delivery before
+shutdown. Codex and OpenCode now have a narrower resident-done path for
+Meridian-tracked descendant spawns; they do not use Pi's private execution-owner
+or exact-delivery evidence. Claude/plain streaming harnesses complete from the
 ordinary terminal-event / connection-close path.
 
 Pi and resident completion share the
@@ -18,7 +18,7 @@ transitive spawn tree for persisted descendants.
 
 ## Extension Architecture
 
-Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships three managed extensions as package data under `src/meridian/pi_runtime/extensions/`. The third, `session-boundary`, records exit identity and is covered in [Pi native sessions](pi-native-sessions.md). This page covers the two lifecycle extensions:
+Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships three managed extensions as package data under `src/meridian/pi_runtime/extensions/`. The third, `session-boundary`, records exit identity and is covered in [Pi native sessions](pi-native-sessions.md). This page covers the two lifecycle extensions; their cross-layer ownership and delivery contracts are in [Pi Runtime Coordination](pi-runtime/coordination.md).
 
 **Two extensions, two independent concerns.** Each extension can be loaded alone or together. The split is intentional: mechanism and policy are separated.
 
@@ -33,11 +33,11 @@ Registers tools:
 | `bash` | Unified bash tool. `command: string` required. `timeout_min?: 1-59` (default 55) — foreground budget only; after this elapses, bg transition occurs and tool returns `{bash_id, status: "backgrounded"}` in tool_result content. `background?: boolean` (default false) — detach immediately. |
 | `bash_manage` | Single discriminated-action ops tool. Actions: `list`, `output`, `kill`, `wait`, `detach`. |
 
-Also owns: b-* bash registry, env-var injection (`MERIDIAN_PI_BASH_ID` into every child process's env).
+Also owns: b-* Bash registry, live process ownership, and `_MERIDIAN_PI_BASH_ID` injection into child processes.
 
 Slash commands: `/ps` (bash record list; supports combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background` — fg→bg mid-flight), `/ps:kill`, `/ps:logs`, `/ps:clear` (hide finished rows for this session).
 
-Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn bash records, atomic tmp+rename). Python quiescence checker (`PiDiskWatcher` / `PiQuiescenceTracker`) watches this file.
+Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn Bash records, atomic tmp+rename). Python's `PiDiskWatcher` wakes the private-work ledger when task evidence changes.
 
 ### meridian-spawn-watch (policy extension)
 
@@ -45,11 +45,17 @@ Watches spawn records on disk and manages agent notification for completed spawn
 
 No tool registration.
 
-Owns: spawn-record disk watcher (`watchfiles`-based, cross-platform), env-var correlation filter, implicit-wait completion notifications, ping timer.
+Owns: canonical direct-child discovery, `/spawn*` UI, idle-only implicit-wait
+publication, exact native-admission receipts, and delivery fault reporting.
+Advisory Bash pings belong to `managed-bash`; a failed ping never fails the shell.
 
 Slash commands: `/spawn` (spawn record list, filtered to this session's spawns), `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear` (hide finished rows for this session). **Renamed from `/mspawn` — no compatibility alias.**
 
-**Implicit-wait notification:** when a watched spawn or tracked bash bg terminates, `meridian-spawn-watch` fires a `sendMessage({triggerTurn: true})` to the agent — wave-batched for concurrent completions. Covers the failure mode where an agent backgrounds work then forgets to call explicit wait.
+**Implicit-wait notification:** when an eligible spawn or tracked Bash result
+terminates, `meridian-spawn-watch` batches it with other ready work and publishes
+only while Pi's native context is idle. `sendMessage()` queues a follow-up but
+does not prove it was admitted; see [Pi Runtime Coordination](pi-runtime/coordination.md)
+for the receipt and public-event evidence required by completion policy.
 
 ### Extension composition
 
@@ -94,44 +100,16 @@ Extension behavior is role-gated via `MERIDIAN_PI_SESSION_ROLE`. The quiescence 
 
 ---
 
-## Env-Var Correlation: Linking Bash Records to Spawn Records
+## Canonical Child Membership
 
-Correlation uses two channels. Neither depends on argv parsing.
-
-### Channel 1 — Env Propagation
-
-`managed-bash` injects `MERIDIAN_PI_BASH_ID=b-<id>` into every child process's environment. When meridian-cli creates a spawn record, the spawn-store reads this env var and persists it as `originating_bash_id: string` on the spawn record.
-
-`meridian-spawn-watch` reads `originating_bash_id` to filter `/spawn` rows to spawns originating from the current session's bash invocations.
-
-Any wrapper (`uv run meridian spawn`, shell aliases, custom scripts) converges on the same spawn-store write and inherits the parent env.
-
-### Channel 2 — Sidecar Origin File
-
-A separate sidecar file `pi-bash/<spawn-id>/spawn-origins.json` bridges gaps in the
-env-propagation chain. `managed-bash` calls `rememberSpawnOriginBashIds()` at process
-start to record the bash ID. `meridian-spawn-watch` calls `readSpawnOriginBashIds()`
-to discover bash IDs for correlation, covering cases where:
-
-- A bash process starts before `bash-records.json` is persisted (atomic write timing).
-- Concurrent bash processes write origins simultaneously (serialized via per-file
-  promise chain — no origin is lost).
-- A spawn `state.json` appears on disk before the bash record that launched it
-  (discovery polling discovers the spawn by ID, then the sidecar confirms correlation).
-
-**The two channels are complementary, not redundant.** Env propagation provides the
-primary correlation at spawn-creation time. The sidecar fills in timing gaps that
-env propagation alone cannot cover. Together they ensure `/spawn` filtering and
-quiescence tracking work across concurrent bash and spawn processes.
-
-### Detection Signal Is Disk State
-
-The detection signal is **disk state + env, never argv parsing.** Command-string
-parsing would need to know every wrapper anyone might invent.
-
-**Cross-reference columns:** when a spawn record's `originating_bash_id` matches a b-* bash record, `/ps` shows a `→ SPAWN` column linking the bash row to its spawn. `/spawn` shows a `← BASH` column linking back.
-
-**Two-row case (no correlation):** only occurs if something runs `meridian spawn` *without* `MERIDIAN_PI_BASH_ID` set — e.g. agent shells out outside the bash tool, or human runs spawn from a separate terminal. Two honest rows, no merge. Acceptable degradation.
+The watcher selects child work from persisted rows whose `parent_id` is the
+current spawn. That direct membership is authoritative for `/spawn`, completion
+obligations, and exact notification batches. `originating_bash_id` links a
+child to the Bash launcher and transfers that launcher's result obligation; it
+does not create child membership by itself. Bash logs, remembered scan history,
+timers, and the retired `spawn-origins.json` sidecar are not authority. See
+[Pi Runtime Coordination](pi-runtime/coordination.md) for the receipt and
+observation boundary.
 
 ---
 
@@ -143,12 +121,17 @@ A pi spawn is finished when, AFTER the most recent `agent_end`:
 
 1. No active **transitive persisted descendants** remain in the cycle-safe
    reconciled spawn tree, AND
-2. No **tracked** bash bg records (b-*) for this session remain non-terminal, AND
-3. No **pending implicit-wait notifications** remain — every
-   `sendMessage({triggerTurn: true})` queued by `meridian-spawn-watch` has been
-   delivered AND the agent has responded with a fresh `agent_end`.
+2. No tracked Bash execution remains live, and no unattended terminal Bash
+   result remains owed, AND
+3. No child or Bash result delivery remains owed or unknown. For each
+   unattended completion, exact native admission and its matching Python
+   public-event observation must be recorded, and the agent must respond with a
+   fresh `agent_end`.
 
-The "after the most recent `agent_end`" qualifier is what condition 3 captures: if a notification fires AFTER `agent_end #1`, that doesn't quiesce. Wait for `agent_end #2` (which the notification's `triggerTurn: true` produces).
+The "after the most recent `agent_end`" qualifier is what condition 3 captures:
+if a follow-up is admitted after `agent_end #1`, that does not quiesce. Wait for
+the agent's next terminal turn. A native receipt without the matching public
+event remains unknown and cannot satisfy the rule.
 
 ```mermaid
 stateDiagram-v2
@@ -176,24 +159,22 @@ agent processes notification → takes turn → agent_end #2
   → check (1)+(2)+(3) → all empty → quiesce → stop(reason=quiescent)
 ```
 
-**Implementation note:** The policy extension writes a
-`last-notification.json` marker file
-(`pi-bash/<spawn-id>/last-notification.json`) when it calls
-`sendMessage({triggerTurn: true})`. `PiPrivateWorkLedger`, fed by
-`PiDiskWatcher`, requires `agent_end_ts > last_notification_ts` and no tracked
-bash work. Persisted descendants come only from
-the shared cached descendant assessment. Its single-flight worker uses
+**Implementation note:** `PiPrivateWorkLedger`, fed by `PiDiskWatcher`, combines
+tracked Bash evidence with exact wait-consumption, admission-receipt, public-event
+observation, and wait-lease evidence. The retired `last-notification.json`
+timestamp is ignored. Persisted descendants come only from the shared cached
+assessment. Its single-flight worker uses
 `ReconciledDescendantEvidence` for indexed transitive discovery and authoritative
 selected-row reconciliation; finish-anchored polling refreshes that assessment while
 completion is pending.
 
 ### Drain Correctness Constraints
 
-`PiDiskWatcher` wakes the Python drain loop when Pi-private bash records or
-notification markers change. Those wakeups refresh private state and reevaluate policy;
-they are not persisted-descendant authority, and a parent cannot rely only on stdout
-events after `agent_end`. Descendant refresh is periodic and request-sequenced rather
-than watcher- or event-driven.
+`PiDiskWatcher` wakes the Python drain loop when Pi-private Bash and delivery
+evidence changes. Those wakeups refresh private state and reevaluate policy;
+they are not persisted-descendant authority, and a parent cannot rely only on
+stdout events after `agent_end`. Descendant refresh is periodic and
+request-sequenced rather than watcher- or event-driven.
 
 Current safeguards:
 
@@ -206,8 +187,9 @@ Current safeguards:
   when a new child wave appears.
 - Store and private-file read failures surface as typed `unknown` instead of
   silently allowing false quiescence.
-- Blockers retain their categories: persisted descendants, tracked bash, and
-  pending follow-up marker are not all called “children.”
+- Blockers retain their categories: persisted descendants, tracked Bash
+  execution/results, and unresolved delivery evidence are not all called
+  “children.”
 - Pi stream-exit classification uses the category-complete
   `classify_outstanding_work()` for exit decisions. `pending_children_at_exit()`
   recognizes `spawn_children`, `unknown_spawn_children`, and
@@ -234,9 +216,13 @@ This is the Pi instance of the
 
 ## Implicit-Wait Wave Batching
 
-Multiple tracked items completing close together are batched into one aggregate notification — one `sendMessage` per wave, not one per completed item. This prevents rapid-fire notification cycles when a Pi session has many children completing concurrently.
-
-Wave batching is internal to `meridian-spawn-watch` extension. The extension debounces its own `sendMessage` calls. (In the legacy architecture this was handled Python-side; that logic is deleted.)
+The watcher batches currently eligible items into one aggregate notification. It
+holds a batch reservation through formatting and native send, preventing parallel
+flushes from publishing the same IDs; IDs arriving after reservation wait for the
+next batch. A failed send leaves its items eligible for a later ordinary scan,
+without a retry loop. See [Pi Runtime Coordination](pi-runtime/coordination.md)
+for the consumption recheck and admission evidence that close races around a
+batch.
 
 ---
 
@@ -244,13 +230,18 @@ Wave batching is internal to `meridian-spawn-watch` extension. The extension deb
 
 Pi spawned sessions use the same narrowed drain seam as other streaming paths, but
 `PiDrainCoordinator` owns Pi-specific completion policy. When the parent Pi session
-is idle while disk-backed child/background work remains, the coordinator may send an
-advisory done nudge through `SendPiDoneNudge`. The nudge differentiates between
-spawn children and Pi-managed background processes so it can ask Pi to resume only
-when the idle parent needs to observe completed work.
+is idle while known execution remains, the coordinator may send an advisory done
+nudge through `SendPiDoneNudge`. A done directive may retain the intentional
+override of known running execution or descendant liveness, but it cannot bypass
+a causal child/Bash result whose publication, native admission, or exact public
+event observation is still owed. No nudge is sent for that delivery blocker.
+Done also remains pending while the parent is active, before a reply to an admitted
+notice reaches a fresh terminal event, or while evidence is unknown.
 
-The nudge is a progress aid, not the authority. Disk state (`state.json`,
-`bash-records.json`, notification markers) remains the completion authority.
+The nudge is a progress aid, not the authority. Canonical `state.json` child
+rows, `bash-records.json`, and exact delivery/observation evidence remain the
+completion authority. See [Pi Runtime Coordination](pi-runtime/coordination.md)
+for the delivery evidence boundary.
 
 ## Child Cleanup
 
@@ -292,13 +283,15 @@ Never writes orphan state from the nested read path. Surfaces as a synthetic ter
 
 ---
 
-## Follow-Up Marker
+## Delivery Evidence
 
-`meridian-spawn-watch` writes `last-notification.json` when it fires a
-`sendMessage({triggerTurn: true})`. `PiPrivateWorkLedger` reads this marker and
-requires `agent_end_ts > last_notification_ts` before declaring quiescence.
-This is a disk-state contract between the extension and Python; no Python-side
-notification event parsing or timeout machinery exists.
+`sendMessage()` does not prove native admission. The spawn watcher writes an
+exact receipt from Pi's `message_start` hook; Python separately persists its
+observation of the matching public event after marking the parent active. A
+receipt without that observation is bounded unknown evidence, not success. The
+retired `last-notification.json` timestamp is ignored. See
+[Pi Runtime Coordination](pi-runtime/coordination.md) for the files, ordering,
+leases, and cross-store crash limit.
 
 ## Pi Failure Reports
 
@@ -314,4 +307,5 @@ Pi prompt/auth/crash failures persist a human-readable `# Spawn failed` Markdown
 - [../lessons/pi-rpc-quiescence-impl.md](../lessons/pi-rpc-quiescence-impl.md) — implementation lessons, Windows path handling, CI pitfalls
 - [launch-system.md](launch-system.md) — Pi dual launch path in the spawn subprocess path
 - [pi-runtime/vocab.md](pi-runtime/vocab.md) — canonical vocabulary for the pi-runtime background-work surface
+- [pi-runtime/coordination.md](pi-runtime/coordination.md) — current Pi execution ownership, exact result delivery, RPC transport, usage, and failure boundaries
 - [pi-native-sessions.md](pi-native-sessions.md) — how fresh primary native identities are discovered and how journals are read back

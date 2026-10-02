@@ -193,9 +193,11 @@ See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#clau
 The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned.
 
 **Disk-backed quiescence.** Pi RPC stdout is the JSONL protocol stream only. Background
-bash, nested child spawns, and implicit-wait notification markers are observed through
-disk state (`spawns/<child>/state.json`, `pi-bash/<parent>/bash-records.json`,
-`pi-bash/<parent>/last-notification.json`) by the streaming layer.
+Bash, canonical direct child rows, wait consumption, exact native admission, and
+the matching public event observation are coordinated through disk state. The
+streaming layer treats receipts and observations as separate facts; the retired
+`last-notification.json` timestamp is not authority. See
+[Pi Runtime Coordination](../architecture/pi-runtime/coordination.md).
 
 **Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
 

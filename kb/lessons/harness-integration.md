@@ -101,17 +101,17 @@ The user sees the normal TUI. Meridian sees all events.
 
 ## Why Extension Injection for Pi (Managed-Bash and Spawn Watch)
 
-**The problem:** Pi's JSONL RPC event stream doesn't surface background job completion or session quiescence. No `job.finished` or `session.idle` event exists. Meridian needs to know when tracked child work completes before declaring a spawn done — and Pi's protocol doesn't provide it.
+**The problem:** Pi's JSONL RPC event stream does not provide durable background-task ownership, canonical child membership, or proof that a queued follow-up was admitted and observed. Meridian needs those facts before declaring a spawned session done.
 
 **The solution:** Meridian injects TypeScript extensions into Pi via `-e <path>` flags. These extensions run inside Pi's process, access Pi's bash execution context, and write durable coordination state. Python watches that disk state to decide quiescence.
 
 Two managed extensions ship as package data:
 - **`managed-bash`** — overrides Pi's bash builtin. Registers `bash` tool (with `background?: boolean` + `timeout_min?: 1-59` parameters) and `bash_manage` ops tool. Returns immediately with `{bash_id, status: "backgrounded"}` for tracked bg transitions; blocks for synchronous calls.
-- **`meridian-spawn-watch`** — observes spawn records for the current Pi session, dispatches implicit-wait completion notifications (`sendMessage({triggerTurn: true})`) when tracked work terminates, writes a `last-notification.json` marker, and provides the `/spawn` family of slash commands (renamed from `/mspawn` — no compatibility alias).
+- **`meridian-spawn-watch`** — observes canonical direct child rows, dispatches idle-only implicit-wait follow-ups (`sendMessage({triggerTurn: true})`), records exact native admission and delivery faults, and provides the `/spawn` family of slash commands (renamed from `/mspawn` — no compatibility alias).
 
-**Why disk-state observation:** `managed-bash` writes `pi-bash/<spawn-id>/bash-records.json`; `meridian-spawn-watch` writes `pi-bash/<spawn-id>/last-notification.json`; Meridian's spawn store writes `runtime_root/spawns/<child>/state.json`. Python-side `PiDiskWatcher` wakes `PiQuiescenceTracker` on those changes. Disk state is the canonical signal; env-var correlation (`MERIDIAN_PI_BASH_ID` → `originating_bash_id`) bridges bash and spawn observations without command-string parsing.
+**Why disk-state observation:** `managed-bash` writes `pi-bash/<spawn-id>/bash-records.json`; the watcher writes exact `delivery-receipts.json`; Python writes matching `delivery-observations.json`; and Meridian's spawn store writes `runtime_root/spawns/<child>/state.json`. Python-side `PiDiskWatcher` wakes completion policy when private evidence changes. `parent_id` defines child membership; `originating_bash_id` transfers a launcher obligation but cannot establish membership. `last-notification.json` and origin sidecars do not supply authority.
 
-**The lesson:** When a harness's native protocol doesn't expose enough structure for quiescence detection, extension injection lets Meridian add a code path inside the harness process rather than working around it. The tradeoff is coupling to Pi's extension API: if Pi changes its extension loading mechanism, the extensions may need updates. The compatibility probe (`pi --help` must advertise `--no-extensions` and `-e`) gates the harness before any spawn.
+**The lesson:** When a harness's native protocol doesn't expose enough structure for task ownership and completion evidence, extension injection lets Meridian add a code path inside the harness process rather than working around it. The tradeoff is coupling to Pi's extension API: if Pi changes its extension loading mechanism, the extensions may need updates. The compatibility probe (`pi --help` must advertise `--no-extensions` and `-e`) gates the harness before any spawn. Exact native admission and Python event observation remain separate because they cannot commit atomically across a process crash.
 
 **Where this lives:** `src/meridian/pi_runtime/extensions/` (managed-bash + meridian-spawn-watch), `src/meridian/lib/harness/connections/pi_rpc.py`, `src/meridian/lib/streaming/pi_drain.py`, `src/meridian/lib/streaming/disk_watcher.py`, `src/meridian/lib/streaming/pi_quiescence.py`
 
