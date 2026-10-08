@@ -148,7 +148,8 @@ only its decoded attempt outcome is retained privately until settlement.
 stateDiagram-v2
     [*] --> Running: spawn started
     Running --> AttemptSettling: agent_end received
-    AttemptSettling --> SemanticComplete: agent_settled + no open compaction
+    AttemptSettling --> Running: native retry or continuation
+    AttemptSettling --> SemanticComplete: run settled AND no open compaction
     SemanticComplete --> WaitingTrackedWork: tracked bash bg or child spawns pending
     SemanticComplete --> Quiescent: conditions 1+2+3 all clear
     WaitingTrackedWork --> NotificationFired: work completes → implicit-wait sendMessage

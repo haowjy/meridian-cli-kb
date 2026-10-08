@@ -13,9 +13,9 @@ history is neither read nor written.
 
 ## The emit path
 
-For drained spawns, normalization happens once before this consumer ordering;
-the completion coordinator may refine or deduplicate the semantic descriptor
-while preserving the raw event envelope. Pi's `agent_end` frame therefore still
+In pending PR #547 (source `7b1568a1`), drained spawns normalize once before
+this consumer ordering; the completion coordinator may drop duplicate events
+or refine descriptors while preserving their raw event envelopes. Pi's `agent_end` frame therefore still
 reaches raw hooks and subscribers; only its decoded attempt outcome is private
 until `agent_settled`.
 

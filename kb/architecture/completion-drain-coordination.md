@@ -171,7 +171,8 @@ reason, or cleanup-phase policy.
 7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
    against double publication; cleanup and lifecycle effects cannot replace the
    outcome.
-8. Per event, normalization is followed by coordinator refinement/deduplication,
+8. In pending PR #547 (source `7b1568a1`), per-event normalization is followed
+   by coordinator refinement/deduplication,
    then refined connection semantics, inline hooks on the raw frame, subscriber
    fan-out of the raw envelope carrying refined semantics, `note_event_delivered`
    on the raw frame, and terminal handling. There is no history write to gate
