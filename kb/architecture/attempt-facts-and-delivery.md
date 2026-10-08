@@ -13,6 +13,12 @@ history is neither read nor written.
 
 ## The emit path
 
+For drained spawns, normalization happens once before this consumer ordering;
+the completion coordinator may refine or deduplicate the semantic descriptor
+while preserving the raw event envelope. Pi's `agent_end` frame therefore still
+reaches raw hooks and subscribers; only its decoded attempt outcome is private
+until `agent_settled`.
+
 Each event reaches three consumers, all in memory, in this order:
 1. **inline event hooks**, through `core/event_hooks.run_event_hooks`, which logs and
    isolates each hook's exception. The attempt fold and harness event sinks (the Pi

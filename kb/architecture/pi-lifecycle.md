@@ -14,6 +14,11 @@ Pi and resident completion share the
 profile and private-work evidence while both profiles use the same reconciled
 transitive spawn tree for persisted descendants.
 
+> [!NOTE]
+> The settlement boundary described below is the design delivered by PR #547
+> at source `7b1568a1`, pending merge. The installed Meridian 0.9.0 contract
+> must not be inferred from this pending source description.
+
 ---
 
 ## Extension Architecture
@@ -117,7 +122,12 @@ observation boundary.
 
 ### Quiescence Rule (S11)
 
-A pi spawn is finished when, AFTER the most recent `agent_end`:
+A Pi spawn can become natively idle only after the most recent automatic run has
+settled (`agent_end` followed by `agent_settled`) and no compaction remains open.
+Settlement and compaction events may arrive in either order: ending a compaction
+after an already-settled run needs no second settlement, while `compaction_end`
+alone cannot settle an active run.
+Once that native idle boundary is reached, it is finished when:
 
 1. No active **transitive persisted descendants** remain in the cycle-safe
    reconciled spawn tree, AND
@@ -125,22 +135,24 @@ A pi spawn is finished when, AFTER the most recent `agent_end`:
    result remains owed, AND
 3. No child or Bash result delivery remains owed or unknown. For each
    unattended completion, exact native admission and its matching Python
-   public-event observation must be recorded, and the agent must respond with a
-   fresh `agent_end`.
+   public-event observation must be recorded, and the agent must complete a
+   fresh settled turn (`agent_end` plus `agent_settled`).
 
-The "after the most recent `agent_end`" qualifier is what condition 3 captures:
-if a follow-up is admitted after `agent_end #1`, that does not quiesce. Wait for
-the agent's next terminal turn. A native receipt without the matching public
-event remains unknown and cannot satisfy the rule.
+The settlement qualifier is what condition 3 captures: if a follow-up is admitted
+after attempt `agent_end #1`, that does not quiesce; wait for its settlement and
+the next terminal turn. A native receipt without the matching public event remains
+unknown and cannot satisfy the rule. The raw `agent_end` frame remains observable;
+only its decoded attempt outcome is retained privately until settlement.
 
 ```mermaid
 stateDiagram-v2
     [*] --> Running: spawn started
-    Running --> SemanticComplete: agent_end received
+    Running --> AttemptSettling: agent_end received
+    AttemptSettling --> SemanticComplete: agent_settled + no open compaction
     SemanticComplete --> WaitingTrackedWork: tracked bash bg or child spawns pending
     SemanticComplete --> Quiescent: conditions 1+2+3 all clear
     WaitingTrackedWork --> NotificationFired: work completes → implicit-wait sendMessage
-    NotificationFired --> SemanticComplete: agent processes notification → agent_end
+    NotificationFired --> AttemptSettling: agent processes notification → agent_end
     Quiescent --> CleanupStopSent: stop(reason=quiescent) sent
     CleanupStopSent --> [*]: cleanup complete/failed/escalated
 ```
@@ -148,14 +160,15 @@ stateDiagram-v2
 ### Lifecycle pattern
 
 ```
-agent_end #1 → check (1)+(2)+(3) → tracked work pending → wait
+agent_end #1 → agent_settled (+ no open compaction) → check (1)+(2)+(3)
+  → tracked work pending → wait
 
 tracked work completes
   → meridian-spawn-watch queues implicit-wait notification (wave-batched)
   → sendMessage({triggerTurn: true}) fires
-  → notification "in flight" until next agent_end
+  → notification "in flight" until the next settled turn
 
-agent processes notification → takes turn → agent_end #2
+agent processes notification → takes turn → agent_end #2 → agent_settled
   → check (1)+(2)+(3) → all empty → quiesce → stop(reason=quiescent)
 ```
 
@@ -173,13 +186,15 @@ completion is pending.
 `PiDiskWatcher` wakes the Python drain loop when Pi-private Bash and delivery
 evidence changes. Those wakeups refresh private state and reevaluate policy;
 they are not persisted-descendant authority, and a parent cannot rely only on
-stdout events after `agent_end`. Descendant refresh is periodic and
+stdout events after settlement. Descendant refresh is periodic and
 request-sequenced rather than watcher- or event-driven.
 
 Current safeguards:
 
 - Micro-drain rechecks private-work evidence and waits for a post-proposal descendant
   refresh before accepting terminal success.
+- The shared `CompletionCoordinator` owns completion phase and validation state;
+  native run facts and compaction-in-progress remain independent evidence.
 - Spawn rows publish atomically as complete directories built beneath
   `spawns/.staging/<unique>/`; only valid reconciled parent links create
   descendant blockers.

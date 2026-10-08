@@ -171,8 +171,10 @@ reason, or cleanup-phase policy.
 7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
    against double publication; cleanup and lifecycle effects cannot replace the
    outcome.
-8. Per event, inline hooks run first, then subscriber fan-out, then
-   `note_event_delivered`, then terminal handling. There is no history write to gate
+8. Per event, normalization is followed by coordinator refinement/deduplication,
+   then refined connection semantics, inline hooks on the raw frame, subscriber
+   fan-out of the raw envelope carrying refined semantics, `note_event_delivered`
+   on the raw frame, and terminal handling. There is no history write to gate
    delivery (PR 3 renamed `note_event_persisted` and deleted the writer;
    [emit path](attempt-facts-and-delivery.md#the-emit-path)).
 9. Pi nudges route through serialized `SpawnManager.inject()`.
