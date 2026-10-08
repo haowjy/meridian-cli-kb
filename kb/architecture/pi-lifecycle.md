@@ -79,11 +79,18 @@ for the receipt and public-event evidence required by completion policy.
 |---|---|---|
 | Launch mode | Native Pi TUI (no `--mode`) | Pi RPC (`--mode rpc`) |
 | Extensions loaded | Meridian's managed extensions via `-e` (managed-bash and spawn-watch when their `[harness.pi]` toggles are on, session-boundary always); no `--no-extensions`, so the user's own Pi extensions still load; passthrough `-e`/`--no-extensions` refused | the same managed `-e` set after `--no-extensions` (omitted when `load_all_pi_extensions` is on) |
-| `MERIDIAN_PI_SESSION_ROLE` | `"primary"` | `"spawned"` |
+| `_MERIDIAN_PI_SESSION_ROLE` | `"primary"` | `"spawned"` |
 | Quiescence auto-stop | No — user stays in TUI | Yes — quiescence triggers `stop(reason="quiescent")` |
 | Prompt delivery | User types in TUI | Meridian writes prompt JSON to Pi's stdin |
 
-Extension behavior is role-gated via `MERIDIAN_PI_SESSION_ROLE`. The quiescence machinery (auto-stop, tracked-work checking) runs only in spawned sessions.
+The role comes from `run_params.interactive`. Python owns the role split: the
+quiescence machinery (auto-stop, tracked-work checking) runs only for spawned
+sessions, which Meridian drives over RPC, and the Pi connection gets the role as
+`pi_session_role` on its config. `_MERIDIAN_PI_SESSION_ROLE` is read back only
+by the Pi prelaunch to choose the runtime compatibility probe. No TypeScript
+extension reads it. A settled decision replaces it with one cross-harness
+`MERIDIAN_SESSION_ROLE=primary|spawn`; that is not built yet
+([D-session-role](../decisions/idle-notifications.md#d-session-role--one-meridian_session_role-at-the-bind-seam)).
 
 ---
 
@@ -325,3 +332,4 @@ Pi prompt/auth/crash failures persist a human-readable `# Spawn failed` Markdown
 - [pi-runtime/vocab.md](pi-runtime/vocab.md) — canonical vocabulary for the pi-runtime background-work surface
 - [pi-runtime/coordination.md](pi-runtime/coordination.md) — current Pi execution ownership, exact result delivery, RPC transport, usage, and failure boundaries
 - [pi-native-sessions.md](pi-native-sessions.md) — how fresh primary native identities are discovered and how journals are read back
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned Pi idle adapter and primary-only session role

@@ -23,7 +23,7 @@ default_harness = "claude"        # default harness
 [primary]
 model = "claude-opus-4-6"         # model for interactive primary (meridian with no spawn)
 approval = "auto"                 # auto-approve safe tool calls
-autocompact = 80                  # compact context at 80% usage
+autocompact = 120000              # compact at ~120k context tokens (min 1000); see #548
 timeout = 3600.0                  # 1-hour session timeout
 
 [state]
@@ -144,16 +144,15 @@ opencode = "gemini-pro"
 
 ## Environment Variable Overrides
 
-Most environment variables override their corresponding config field; `MERIDIAN_HARNESS` is intentionally excluded because it is spawn-local runtime metadata, not a user policy override:
+Most environment variables override their corresponding config field. The spawn-local harness identity `_MERIDIAN_HARNESS` is internal metadata, not an override, and a plain `MERIDIAN_HARNESS` is not read:
 
 | Variable | Config field |
 |---|---|
 | `MERIDIAN_MODEL` | Per-spawn model |
-| `MERIDIAN_HARNESS` | Spawn-local selected harness metadata; not consumed as a config override |
 | `MERIDIAN_EFFORT` | Effort level |
 | `MERIDIAN_APPROVAL` | Approval mode |
 | `MERIDIAN_TIMEOUT` | Spawn timeout |
-| `MERIDIAN_AUTOCOMPACT` | Autocompact percentage |
+| `MERIDIAN_AUTOCOMPACT` | Autocompact threshold in context tokens (not a percentage; Claude projection bug #548) |
 | `MERIDIAN_STATE_RETENTION_DAYS` | `state.retention_days` |
 | `MERIDIAN_HOME` | User state root (default: `~/.meridian/`) |
 | `MERIDIAN_RUNTIME_DIR` | Runtime state root override (bypasses UUID lookup) |
@@ -226,5 +225,6 @@ meridian context work    # just the work path
 ## Cross-References
 
 - [../concepts/config-precedence.md](../concepts/config-precedence.md) — conceptual model of config precedence and runtime overrides
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned `[notify]` / `[idle]` namespaces and per-harness idle settings
 - [troubleshooting.md](troubleshooting.md) — workspace config invalid pattern
 - [../principles/design-principles.md](../principles/design-principles.md) — progressive disclosure principle

@@ -226,7 +226,15 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 
 ## Harness Identity and Environment
 
+> [!FLAG] **Needs human review (2026-10-08).** D32, D33 and D57 below retain
+> the pre-PR #388 `MERIDIAN_HARNESS` spelling in their decision text. The
+> current internal handle is `_MERIDIAN_HARNESS`; a plain `MERIDIAN_HARNESS`
+> remains an unimplemented user override. Reconcile the historical wording
+> without changing the recorded rationale.
+
 ### D32: `MERIDIAN_HARNESS` is a one-hop env var; does not cascade to grandchildren
+
+> **Renamed (PR #388).** The variable is now the internal handle `_MERIDIAN_HARNESS`, set in `bind_launch_context()`; the decision is unchanged.
 
 **Decision:** `build_launch_context()` writes `MERIDIAN_HARNESS = harness.id.value` into every spawned process's environment. NOT in `ALLOWED_CHILD_ENV_KEYS` — does not propagate to grandchildren. Each spawn level gets its own value from its own harness resolution.
 

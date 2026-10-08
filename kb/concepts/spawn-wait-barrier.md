@@ -157,20 +157,25 @@ orchestrator itself is running inside — not by the harnesses of the spawns
 being waited on. The yield protects the orchestrator's own prompt-cache
 context window, so the orchestrator's session TTL is the right signal.
 
-Harness detection reads `os.getenv("MERIDIAN_HARNESS")`, which
-`build_launch_context()` sets in every spawned process's environment
-(see [architecture/launch-system.md](../architecture/launch-system.md) —
-MERIDIAN_HARNESS child env injection).
+Harness detection reads `os.getenv("_MERIDIAN_HARNESS")`, which
+`bind_launch_context()` sets in every launched process's environment
+(see [Launch System](../architecture/launch-system.md#_meridian_harness-child-env-injection)).
 
 | Harness | Default yield interval |
 |---|---|
 | all harnesses (unified) | 3000 seconds (50 minutes) |
 | minimum clamp | 30 seconds |
 
-All harnesses default to 3000 seconds because extended prompt-cache TTLs
-are available for Claude Code (`ENABLE_PROMPT_CACHING_1H=1`), Codex, and
-OpenCode. If a spawn record lacks harness metadata, the same unified value
-applies.
+All harnesses default to 3000 seconds. If a spawn record lacks harness
+metadata, the same unified value applies.
+
+> [!FLAG] **Needs human review.** The 3000-second default was chosen because
+> every harness was believed to keep the prompt cache about an hour. As of
+> 2026-10-08 that holds only for Claude Code sessions with a 1-hour cache:
+> Codex on GPT-5.6+ caches for 30 minutes, and OpenCode and default Pi for
+> 5 minutes. Neither Codex nor OpenCode exposes a setting to extend it. A
+> 50-minute yield therefore outlives those caches. See
+> [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md).
 
 Config keys: `[spawn].default_wait_yield_seconds`, `[spawn].min_wait_yield_seconds`,
 `[harness.claude].wait_yield_seconds`, `[harness.codex].wait_yield_seconds`,
@@ -253,3 +258,4 @@ error.
 - [State Model](state-model.md) — JSONL event stores and crash-only design
 - `../operations/configuration-guide.md` — TOML config and env var reference
 - [Spawn Output Contract](spawn-output-contract.md) — what `spawn wait` prints when a single spawn completes; report-first default, transcript pointer, progressive disclosure
+- [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md) — current provider TTL evidence and the open question behind the 3000-second default

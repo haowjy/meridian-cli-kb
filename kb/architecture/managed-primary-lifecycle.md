@@ -10,6 +10,7 @@ Related pages:
 - [architecture/spawn-finalization.md](spawn-finalization.md) — finalization authority lattice
 - [architecture/process-scope.md](process-scope.md) — process-scope ownership model; spawn_owned vs session_owned split for managed primaries
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — Codex/OpenCode adapter notes and approval routing
+- [decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned idle adapter hosting for Codex/OpenCode primaries
 - [operations/troubleshooting.md](../operations/troubleshooting.md#managed-primary-orphan-orphan_primary) — operational diagnosis for `orphan_primary`
 - [lessons/arch-refactor-pitfalls.md](../lessons/arch-refactor-pitfalls.md) — implementation pitfalls behind the PR #184 cleanup refinement
 

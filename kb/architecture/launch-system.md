@@ -474,11 +474,11 @@ Two steps inside `build_launch_context()`:
 
 Roots are stored in `run_params.projected_roots` / `ResolvedLaunchSpec.projected_roots`. Harness projections convert that field into argv or env at the edge; `extra_args` remains user-owned passthrough only. OpenCode env results merge into `LaunchContext.env_overrides`.
 
-**Pi env overrides.** `PiAdapter.env_overrides()` injects two Pi-specific env vars into every Pi child process:
+**Pi env overrides.** Two Pi-specific env vars reach every Pi child process:
 - `PI_CODING_AGENT_SESSION_DIR` — scopes Pi's session file storage to `~/.meridian/meridian-pi/sessions` (Meridian-managed path, not Pi's default)
-- `MERIDIAN_PI_SESSION_ROLE` — `"primary"` or `"spawned"`; extensions use this to gate quiescence machinery to spawned-only sessions
+- `_MERIDIAN_PI_SESSION_ROLE` — `"primary"` or `"spawned"`, from `run_params.interactive`. A Pi-only branch in `build_harness_env_overrides()` (`lib/launch/env.py`) sets it. Python's Pi prelaunch reads it back to choose the runtime compatibility probe for the role. No TypeScript extension reads it.
 
-These are set by the adapter's `env_overrides()` method and flow through `build_harness_child_env()` alongside other harness-specific overrides.
+The settled [session-role decision](../decisions/idle-notifications.md#d-session-role--one-meridian_session_role-at-the-bind-seam) replaces `_MERIDIAN_PI_SESSION_ROLE` with one public `MERIDIAN_SESSION_ROLE=primary|spawn`, set for every harness next to `_MERIDIAN_HARNESS` in `bind_launch_context()`. It is not built yet.
 
 ## Claude Native Agent Permission Injection
 
@@ -514,21 +514,36 @@ claude_native_agents_enabled = (
 See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#claude-native-agent-routing)
 for the full policy.
 
-## MERIDIAN_HARNESS Child Env Injection
+## Child Env Boundaries
 
-`build_launch_context()` writes `MERIDIAN_HARNESS = harness.id.value` into the
-child process's environment overrides (via `runtime_overrides` in
-`ChildEnvContext.child_context()`). This means every spawned process knows which
-harness it is running inside from the moment it starts.
+`inherit_child_env()` (`lib/launch/env.py`) builds every harness child's env from
+the parent's. It drops every `MERIDIAN_SECRET_*` key from **every** harness
+child, primaries included, and guardrail scripts get the same stripping
+(`lib/safety/guardrails.py`). A secret exported as `MERIDIAN_SECRET_*` therefore
+reaches Meridian's own process and nothing that runs inside a harness session.
+Tooling the agent or an in-harness plugin calls, such as `meridian notify` run
+from a Claude mod, can never read it. A plain `MERIDIAN_*` variable does get
+through, but every spawn inherits it and any agent can print it. The idle-notify
+SMTP password uses a 0600 file for this reason
+([D-notify-smtp-password-file](../decisions/idle-notifications.md#d-notify-smtp-password-file--smtp-password-from-a-file-env-as-leaky-fallback)).
 
-**One-hop semantics.** `MERIDIAN_HARNESS` is **not** in `ALLOWED_CHILD_ENV_KEYS`
+## _MERIDIAN_HARNESS Child Env Injection
+
+`bind_launch_context()` writes `_MERIDIAN_HARNESS = harness.id.value` into the
+child context env, next to `MERIDIAN_PROJECT_DIR` and `MERIDIAN_TASK_DIR`.
+Every launched process therefore knows which harness it runs inside from the
+moment it starts. The variable is an internal handle (`env_registry.py`); it was
+`MERIDIAN_HARNESS` before PR #388. A plain `MERIDIAN_HARNESS` is not read
+anywhere today.
+
+**One-hop semantics.** `_MERIDIAN_HARNESS` is **not** in `ALLOWED_CHILD_ENV_KEYS`
 and does not cascade to grandchildren. Each spawn level gets its own value —
-derived independently during its own `build_launch_context()` call. This is
+derived independently during its own `bind_launch_context()` call. This is
 intentional: a grandchild spawn uses a different harness in principle (resolved
 from its own profile/model/config), so inheriting the grandparent's harness would
 be wrong.
 
-**Usage at wait time.** `spawn_wait_sync()` reads `os.getenv("MERIDIAN_HARNESS")`
+**Usage at wait time.** `spawn_wait_sync()` reads `os.getenv("_MERIDIAN_HARNESS")`
 to determine the yield interval. This is the orchestrator's own harness — the one
 whose prompt-cache TTL the yield is designed to preserve. The orchestrator is
 asking "how long until *my* cache expires?" — the answer is its own harness, not
@@ -536,7 +551,7 @@ the harnesses of the spawns it is waiting on.
 
 ```python
 # In ops/spawn/api.py — _resolve_wait_yield_after_seconds()
-parent_harness = os.getenv("MERIDIAN_HARNESS")
+parent_harness = os.getenv("_MERIDIAN_HARNESS")
 return float(config.wait_yield_seconds_for_harness(parent_harness))
 ```
 
@@ -607,6 +622,7 @@ ops/spawn/execute.py
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection
 - [mars-model-refresh.md](mars-model-refresh.md) — Mars catalog/probe refresh controls used by dry-run bundle preparation
 - [pi-lifecycle.md](pi-lifecycle.md) — Pi's quiescence-based completion model and extension architecture
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned bind-time session role and child-environment boundaries for idle adapters
 
 ## Accepted startup selection and OpenCode transport (2026-09)
 

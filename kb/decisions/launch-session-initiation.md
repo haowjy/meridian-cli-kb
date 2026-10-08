@@ -43,7 +43,16 @@ See [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md).
 
 **Alternatives rejected:** A single configurable global — doesn't adapt to harness differences. TTL-minus-buffer modeling — too implementation-specific and brittle when TTLs change. Per-harness split defaults (240s/900s) — obsolete now that all harnesses support comparable extended cache TTLs.
 
-> **Implementation updated (2026-05-05).** Values unified to 3000s for all harnesses. Previous split: unknown/default 240s, claude/codex 900s. Harness detection still uses `os.getenv("MERIDIAN_HARNESS")` (D33, 2026-04-30).
+> **Implementation updated (2026-05-05).** Values unified to 3000s for all harnesses. Previous split: unknown/default 240s, claude/codex 900s. Harness detection reads `os.getenv("_MERIDIAN_HARNESS")` (D33, 2026-04-30; the variable gained its `_` prefix in PR #388).
+
+> [!FLAG] **Needs human review: premise contradicted (2026-10-08).** The "Why"
+> above assumes every harness caches for roughly an hour. Codex sets no
+> retention parameter, and OpenAI GPT-5.6+ caches for 30 minutes. OpenCode
+> sends Anthropic `ephemeral` without a `ttl`, which gives 5 minutes. Pi
+> defaults to 5 minutes unless `PI_CACHE_RETENTION=long` is set. See
+> [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md).
+> The 3000-second default stands until someone decides whether per-harness
+> defaults should return.
 
 ---
 
@@ -345,3 +354,4 @@ model, advisory vs authoritative resolution.
 - [Launch composition decisions](launch.md)
 - [Launch process ownership](launch-process-ownership.md)
 - [TUI framework](tui-framework.md)
+- [../research/prompt-cache-retention.md](../research/prompt-cache-retention.md) — provider TTL evidence relevant to the wait-yield premise

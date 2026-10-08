@@ -201,7 +201,7 @@ streaming layer treats receipts and observations as separate facts; the retired
 
 **Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
 
-**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected so extensions can gate quiescence machinery to spawned-only sessions. Spawned sessions are per-spawn scoped and primaries share one flat root. In both cases Meridian mints the native ID and emits `--session-dir`/`--session-id` before exec (resume: `--session <abs path>`), so identity is never discovered from disk. See [pi-native-sessions.md](../architecture/pi-native-sessions.md).
+**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `_MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected by a Pi-only branch in `lib/launch/env.py`. Only the Pi prelaunch reads it, to pick the runtime compatibility probe; no extension reads it (see [Pi Lifecycle](../architecture/pi-lifecycle.md#primary-vs-spawned-split)). Spawned sessions are per-spawn scoped and primaries share one flat root. In both cases Meridian mints the native ID and emits `--session-dir`/`--session-id` before exec (resume: `--session <abs path>`), so identity is never discovered from disk. See [pi-native-sessions.md](../architecture/pi-native-sessions.md).
 
 **Runtime resolution.** `PiRuntimeResolver` probes the installed `pi` binary before launch (`pi --version`, `pi --help` surface check). Fails fast with install guidance if binary is missing or incompatible. `MERIDIAN_PI_BINARY` env var overrides PATH discovery.
 
@@ -234,3 +234,4 @@ qualified owned events. Pi additionally reports exit through `observe_after_exit
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
 - [../decisions/model-resolution.md](../decisions/model-resolution.md#d76-harness-specific-model-ids-via-runnablepath) — D76: harness-specific model projection
 - [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned per-harness idle adapter hosting and session-role contract

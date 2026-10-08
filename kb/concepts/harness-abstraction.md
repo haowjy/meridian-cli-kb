@@ -115,3 +115,5 @@ independent agent catalog.
 - [Native Session Binding](../architecture/native-session-binding.md) — cross-harness identity plan, bind, and verification seams
 - [Composition Pipeline](composition-pipeline.md)
 - [Spawn Finalization](../architecture/spawn-finalization.md)
+- [Idle Notifications](../decisions/idle-notifications.md) — cross-harness adapter hosting and the core-decides boundary
+- [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md) — provider cache lifetimes that affect idle behavior

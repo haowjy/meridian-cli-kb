@@ -215,11 +215,11 @@ confused with a prompt-generation feature.
 
 ## Known Limitation
 
-`MERIDIAN_HARNESS` env var is **not** a `RuntimeOverrides.from_env()` policy
-override — it's spawn-local, set by Meridian in child process environments for
-yield timing. It influences config defaults only, not the runtime override layer.
-Source: `src/meridian/lib/core/overrides.py:126-146`. A rename to clarify this
-is tracked in [decisions/model-resolution.md](../../decisions/model-resolution.md).
+There is no env-var harness override. Meridian writes the spawn-local identity
+handle `_MERIDIAN_HARNESS` into child environments for yield timing, and
+`RuntimeOverrides.from_env()` does not read it. A plain `MERIDIAN_HARNESS` is not
+read anywhere yet; wiring it as a routing input is open
+([decisions/model-resolution.md](../../decisions/model-resolution.md), D57).
 
 ## Related
 

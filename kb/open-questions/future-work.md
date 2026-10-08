@@ -391,7 +391,7 @@ These items were scoped out of v1 agent-model-overrides and are documented here 
 
 These items were identified in the mars-capability-packaging final gate (alignment reviewer, p2857) as "partially delivered" — accepted as follow-up work, not blocking.
 
-1. **`MERIDIAN_HARNESS` env var not a policy override (S1.2).** The spec describes `MERIDIAN_HARNESS` as a user-facing harness override. Currently it's spawn-local only (`overrides.py` explicitly ignores it). Before wiring it as a policy override, the spawn-local write should be renamed to `MERIDIAN_SELECTED_HARNESS` to avoid collision with nested launches inheriting the parent's resolved harness. See [decisions.md](../decisions.md) D57.
+1. **`MERIDIAN_HARNESS` env var not a policy override (S1.2).** The spec describes `MERIDIAN_HARNESS` as a user-facing harness override. The spawn-local write has been renamed to the internal `_MERIDIAN_HARNESS` (PR #388), so the name is free, but nothing reads a plain `MERIDIAN_HARNESS` yet. Wiring it into `RuntimeOverrides.from_env()` is the remaining work. See [decisions.md](../decisions.md) D57.
 
 2. **Layer-by-layer debug routing logging not implemented (S6.2/S6.3).** `--dry-run` output shows final provenance but not the full layer-by-layer resolution trace. Adding a debug log per layer would help diagnose unexpected routing behavior.
 

@@ -165,11 +165,17 @@ Legacy `models:` still parsed but emits a deprecation warning when present witho
 
 ### D57: `MERIDIAN_HARNESS` is spawn-local, not a user-facing policy override
 
+> [!FLAG] **Needs human review (2026-10-08).** The “Future work” sentence
+> below says to rename the spawn-local variable, then notes that PR #388
+> already performed the rename to `_MERIDIAN_HARNESS`. Keep the historical
+> decision, but clarify the remaining work (consuming a plain
+> `MERIDIAN_HARNESS`) so readers do not treat the rename as still pending.
+
 **Decision:** `MERIDIAN_HARNESS` written to child process environments by `build_launch_context()` is an informational spawn-local value. It is NOT consumed as a user policy override by `resolve_policies()`.
 
 **Why:** `MERIDIAN_HARNESS` tells the child process "which harness you are running inside." If it were treated as a policy override, nested launches would inherit the parent's resolved harness, bypassing their own profile and config.
 
-**Future work:** Rename the spawn-local env var to `MERIDIAN_SELECTED_HARNESS` (or similar) so a user-facing `MERIDIAN_HARNESS` env var can safely be consumed as a routing input.
+**Future work:** Rename the spawn-local env var so a user-facing `MERIDIAN_HARNESS` env var can safely be consumed as a routing input. The rename is done: PR #388 made it the internal `_MERIDIAN_HARNESS`. Consuming a plain `MERIDIAN_HARNESS` is still open.
 
 See [launch decisions](launch.md#d57-meridian_harness-is-spawn-local-not-a-user-facing-policy-override) for the launch-side rationale.
 

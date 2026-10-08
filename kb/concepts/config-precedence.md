@@ -73,7 +73,7 @@ This means a `model-policies` rule can override a profile's generic `approval: a
 | `from_spawn_config(config)` | `config.default_model` for spawned agents |
 | `from_spawn_input(payload)` | `spawn create` REST API payload |
 
-**`MERIDIAN_HARNESS` is not read by `from_env()`** — it is intentionally excluded because harness is spawn-local, not a user policy override. It does influence the config layer via `primary.harness`, but it does not enter the `RuntimeOverrides` env layer. See `src/meridian/lib/core/overrides.py:126-146`.
+**The harness identity handle `_MERIDIAN_HARNESS` is not read by `from_env()`**, because it is spawn-local metadata, not a user policy override (see [Launch System](../architecture/launch-system.md#_meridian_harness-child-env-injection)). A plain `MERIDIAN_HARNESS` env var is not read anywhere; the harness comes from CLI flags, profile and config (`primary.harness`, `defaults.harness`).
 
 ### What goes where
 
@@ -97,7 +97,7 @@ effort = "medium"
 
 [[agents.tech-lead.model-policies]]
 match = { model-glob = "gpt*" }
-override = { effort = "medium", autocompact = 40 }
+override = { effort = "medium", autocompact = 120000 }
 ```
 
 ## MeridianConfig: File Precedence
@@ -133,7 +133,7 @@ kill_grace_minutes = 5.0
 model = "claude-sonnet-4-5"
 harness = "claude"
 approval = "auto"
-autocompact = 80
+autocompact = 120000   # context tokens (min 1000); autocompact_pct is the 1-100 form
 
 [state]
 retention_days = 30    # -1 = never prune
@@ -153,6 +153,43 @@ meridian config set/get/reset # operate on meridian.toml, not user config
 ```
 
 `meridian config show` is the fastest way to understand what's actually active: it annotates each value with whether it came from builtin, user, project, local, or env.
+
+`autocompact` is a token count and `autocompact_pct` is a percentage from 1 to
+100. Today the Claude launch path writes the token count into
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`, which Claude reads as a percentage, and never
+projects `autocompact_pct` (GitHub #548). Neither field has an "off" value.
+
+### Declaring config keys
+
+Each key is declared on its model in `lib/config/settings.py` with
+`config_field(canonical_key, value_kind=, file_aliases=, env_vars=, ...)`.
+`build_option_catalog` walks the `MeridianConfig` model tree to build the option
+catalog behind `meridian config show/get`. Before adding keys, know these limits:
+
+- **Env names are explicit.** They are never derived from the TOML path. The
+  loose convention is `MERIDIAN_<SECTION>_<KEY>` for plain sections and
+  `MERIDIAN_HARNESS_<KEY>_<HARNESS>` for per-harness keys, so make the key and
+  its env suffix match.
+- **New top-level tables are silently dropped.** The TOML normalizer
+  dispatches by hand per known section. Only the `[defaults]` and `[timeouts]`
+  branch is driven by the catalog. Any other unknown table logs "Ignoring
+  unknown Meridian config key" and is discarded. `[harness.<h>]` sub-keys are
+  also hand-listed, so a nested `[harness.<h>.<sub>]` table is dropped too.
+- **One annotated model can't be shared by harnesses.** If one annotated
+  sub-model hangs off each harness profile, the catalog walks it once per
+  harness and raises `Duplicate config canonical key`. Static field metadata
+  also can't carry a different env name per harness. The existing per-harness
+  `wait_yield_seconds` works around this: it is unannotated and read through
+  hand-written `hidden_env_specs`.
+- **List values from env arrive as raw strings.** `parse_env_scalar` returns a
+  `str_list` env value unsplit, and an empty env value is rejected, so an env
+  var can't blank a file value.
+
+The idle-notify work removes the first two limits before adding keys:
+catalog-driven loading of new and nested tables, plus a factory that builds one
+explicitly keyed model per harness (refactor R1 in
+[Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence)).
+Until that lands, the limits above describe the code.
 
 ## Project Root Discovery
 
@@ -203,3 +240,4 @@ Set via `--approval` flag, `MERIDIAN_APPROVAL` env var, profile frontmatter, or 
 - [decisions/model-resolution.md#d72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface) — agent overlay config design rationale
 - [decisions/model-resolution.md#d73](../decisions/model-resolution.md#d73-canonical-launch-parameter-compiler-in-compilerpy-with-pure-data-contract) — compiler-era rationale, now superseded by Mars bundle routing
 - [operations/configuration-guide.md](../operations/configuration-guide.md) — practical config setup guide
+- [decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned idle/notify namespaces and per-harness precedence
