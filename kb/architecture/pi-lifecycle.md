@@ -15,8 +15,8 @@ profile and private-work evidence while both profiles use the same reconciled
 transitive spawn tree for persisted descendants.
 
 > [!NOTE]
-> The settlement boundary described below is the design delivered by PR #547
-> at source `7b1568a1`, pending merge. The installed Meridian 0.9.0 contract
+> The settlement boundary described below is the design delivered by pending PR #547
+> at source checkpoint `c1b64bcf`. The installed Meridian release contract
 > must not be inferred from this pending source description.
 
 ---
@@ -180,6 +180,21 @@ agent processes notification → takes turn → agent_end #2 → agent_settled
   → check (1)+(2)+(3) → all empty → quiesce → stop(reason=quiescent)
 ```
 
+### Native evidence boundaries
+
+`agent_end` is a provisional low-level attempt, not a session-level idle or terminal
+boundary. `agent_settled` resolves that retained attempt; missing or malformed
+settlement data fails closed, and a Boolean `aborted` is required. The raw frames remain
+visible to hooks and subscribers even though only the decoded attempt outcome is held
+privately until settlement. Native idle also requires that no compaction is open.
+
+Retries and ordinary compaction are separate supported facts: retry/agent-start and
+compaction activity keep the parent active, while `compaction_end` cannot settle an
+otherwise active run. Pi's `summarization_retry_*` and `queue_update` notifications
+remain observable raw telemetry but do not carry activity semantics. In particular,
+arbitrary third-party branch-summary lifecycles are unsupported and are not a safety
+qualification for this completion model.
+
 **Implementation note:** `PiPrivateWorkLedger`, fed by `PiDiskWatcher`, combines
 tracked Bash evidence with exact wait-consumption, admission-receipt, public-event
 observation, and wait-lease evidence. The retired `last-notification.json`
@@ -202,7 +217,10 @@ Current safeguards:
 - Micro-drain rechecks private-work evidence and waits for a post-proposal descendant
   refresh before accepting terminal success.
 - The shared `CompletionCoordinator` owns completion phase and validation state;
-  native run facts and compaction-in-progress remain independent evidence.
+  native run facts and compaction-in-progress remain independent evidence. Its
+  `stabilizing` phase has a policy timer; after that timer elapses it enters a distinct
+  `validating` phase, disarms stabilization, and waits for the already-requested fresh
+  descendant evidence. Activity invalidates a candidate in either phase.
 - Spawn rows publish atomically as complete directories built beneath
   `spawns/.staging/<unique>/`; only valid reconciled parent links create
   descendant blockers.

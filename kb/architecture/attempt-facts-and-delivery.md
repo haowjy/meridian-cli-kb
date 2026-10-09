@@ -13,11 +13,16 @@ history is neither read nor written.
 
 ## The emit path
 
-In pending PR #547 (source `7b1568a1`), drained spawns normalize once before
+In pending PR #547 (source checkpoint `c1b64bcf`), drained spawns normalize once before
 this consumer ordering; the completion coordinator may drop duplicate events
 or refine descriptors while preserving their raw event envelopes. Pi's `agent_end` frame therefore still
 reaches raw hooks and subscribers; only its decoded attempt outcome is private
 until `agent_settled`.
+
+The Pi settlement refinement does not turn every Pi telemetry frame into activity:
+`summarization_retry_*` and `queue_update` remain raw facts without activity semantics.
+Automatic runs and ordinary compaction retain separate lifecycle facts, and arbitrary
+third-party branch-summary lifecycles remain outside the supported safety boundary.
 
 Each event reaches three consumers, all in memory, in this order:
 1. **inline event hooks**, through `core/event_hooks.run_event_hooks`, which logs and

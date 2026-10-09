@@ -45,7 +45,14 @@ flowchart TD
   `$PI_CODING_AGENT_DIR/auth.json`, got `No API key found for deepseek`, and spent no
   turn; Pi had created an empty `auth.json` under the isolated `HOME` instead.
 
-## Pi 0.87.1 behavior Meridian relies on
+## Historical Pi 0.87.1 behavior (not a supported managed runtime)
+
+Pending PR #547's managed Pi launch contract requires a stable Pi `>=1.1.0 <2`
+for both native TUI primaries and RPC-spawned roles. The resolver rejects
+prerelease, ambiguous or unparseable version output and newer majors before provider
+work. The 0.87.1 observations below are retained as historical evidence for journal
+and identity readback behavior; they do not qualify that runtime for a managed launch
+and do not describe an installed-release guarantee.
 
 Verified against installed Pi 0.87.1 source (`dist/main.js`,
 `dist/core/session-manager.js`, `dist/core/agent-session-runtime.js`). Items marked

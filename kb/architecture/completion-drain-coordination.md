@@ -22,11 +22,14 @@ flowchart LR
 ## The coordinator accepts evidence; it does not discover work
 
 The coordinator retains a successful parent terminal candidate, evaluates immutable
-work assessments, schedules one completion deadline, and manages any stabilization
-window. When policy proposes success, it requests a qualifying descendant refresh and
-does not publish until that request is covered. Assessments are `ready`, `blocked`, or
-`unknown`. A discovery, authoritative-read, or observation failure produces typed
-`unknown`; it never becomes an empty work set.
+work assessments, schedules one completion deadline, and manages stabilization and
+validation. When policy proposes success, it requests a qualifying descendant refresh
+and does not publish until that request is covered. After the stabilization window
+elapses, the coordinator disarms that timer and enters a distinct `validating` phase;
+the already-requested fresh read wakes validation, and activity invalidates a candidate
+in either phase. Assessments are `ready`, `blocked`, or `unknown`. A discovery,
+authoritative-read, or observation failure produces typed `unknown`; it never becomes
+an empty work set.
 
 Events, file notifications, refresh completions, and bounded polls only wake policy
 evaluation or request refresh. They carry no completion truth. A profile can allow
@@ -159,7 +162,8 @@ reason, or cleanup-phase policy.
 
 ## Invariants
 
-1. A request-sequenced, post-proposal refresh precedes every success.
+1. A request-sequenced, post-proposal refresh precedes every success; stabilization and
+   fresh-evidence validation are distinct coordinator phases.
 2. `unknown` blocks success, including a `done`-directed success.
 3. One completion cycle has at most one deadline expiry, one latched cleanup,
    and one published terminal outcome.
@@ -171,7 +175,7 @@ reason, or cleanup-phase policy.
 7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
    against double publication; cleanup and lifecycle effects cannot replace the
    outcome.
-8. In pending PR #547 (source `7b1568a1`), per-event normalization is followed
+8. In pending PR #547 (source checkpoint `c1b64bcf`), per-event normalization is followed
    by coordinator refinement/deduplication,
    then refined connection semantics, inline hooks on the raw frame, subscriber
    fan-out of the raw envelope carrying refined semantics, `note_event_delivered`
