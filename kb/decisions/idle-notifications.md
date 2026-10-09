@@ -1,9 +1,10 @@
 # Decisions: Idle Notifications and Idle Compaction
 
-**Status (2026-10-08): settled, not built.** The user accepted the design and
-made every open call; no code exists yet. Each section notes where today's
-code still differs. Provenance: `work:idle-cache-notify`, `spawn:p7415`
-(design), `chat:c7280` (user decisions U1–U6), `chat:c7275` (planning).
+**Status (2026-10-08): built.** The user accepted the design and made every
+open call; the core, four adapters, prompt rule, documentation, and
+cross-harness smoke are complete. Provenance: `work:idle-cache-notify`,
+`spawn:p7415` (design), `chat:c7280` (user decisions U1–U6), `chat:c7275`
+(planning).
 
 ## The problem
 
@@ -32,6 +33,49 @@ The default schedule, measured from the last cache write:
 Stages that don't fit inside the TTL are dropped. With a 5-minute cache only the
 push fits; with an unknown TTL there is only the push. Which harness has which
 TTL is in [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md).
+
+## Built shape and implementation corrections
+
+The implementation lives in these seams:
+
+| Concern | Code |
+|---|---|
+| Notify delivery and CLI | `src/meridian/lib/notify/`, `src/meridian/cli/notify_cmd.py` |
+| Idle policy, sidecar, CLI, and state | `src/meridian/lib/idle/`, `src/meridian/cli/idle_cmd.py`, `src/meridian/lib/state/idle_store.py` |
+| Harness ports and Python adapters | `src/meridian/lib/harness/idle_types.py`, `bundle.py`, `claude_idle.py`, `pi_idle.py`, `codex_idle.py`, `opencode_idle.py` |
+| In-harness adapters | `src/meridian/claude_runtime/meridian-idle/`, `src/meridian/pi_runtime/extensions/meridian-idle/` |
+| Launch hosting | `src/meridian/lib/launch/process/primary_attach.py` |
+| Agent notification rule | meridian-base `skills/work-artifacts/SKILL.md` |
+
+Runtime probes corrected several assumptions before the adapters were built:
+
+- Claude identifies a real return through composer-origin `prompt.submit` or
+  `command.run`, not `turn.start`. It compacts from an idle clock callback and
+  trusts the compact promise result because its own compact turn is not exposed
+  through the normal turn hooks. The mod also checks the interactive surface,
+  so loading under `claude -p` remains inert.
+- Pi does not expose its own `compaction.enabled` setting to extensions.
+  Unknown therefore stays inert for that guard. The shared extension resolver
+  had loaded every bundle into spawned RPC sessions, so `meridian-idle` gained
+  an explicit primary-only projection gate as well as its role check.
+- Codex `notify` does fire on the app-server/TUI path. Its `input-messages` list
+  is cumulative, so the adapter persists the previous count and treats growth
+  as the user-return signal. `/compact` itself emits no notify event.
+- OpenCode summarize preserves the session model when the current provider and
+  model are supplied. User-message updates repeat, so return detection dedupes
+  message IDs and ignores `{type: "compaction"}` parts. Draft text comes from
+  the attached TUI pane; context size remains unobservable and therefore uses
+  the accepted fail-open rule.
+
+The launcher-side seam was tightened during integration review. The idle task
+is cancelled before its connection is stopped, and its liveness follows the TUI
+launch task rather than the observer stream. Synchronous policy/store calls run
+through `asyncio.to_thread`; raw-event, event-stream, timer, store-poll, and
+compaction failures are contained and recorded in spawn-local debug telemetry
+without writing to the TUI. The role decision now receives `interactive`
+end-to-end. Failed or vetoed compaction clears the expected-turn marker and
+opens no grace window; a closed successfully compacted stretch can open the
+next stretch normally after a user return.
 
 ## D-idle-core-decides — Adapters report facts, core decides
 
@@ -75,9 +119,11 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
 - **`lib/state/idle_store.py`** owns the state file, because `lib/state/`
   owns all disk I/O.
 
-Both packages depend only on `lib/core`, `lib/config`, `lib/state` and
-`lib/platform`. Harness modules never import them; they supply sensors,
-event parsers and env facts through types in `lib/harness/idle_types.py`.
+`lib/notify` depends on config and platform helpers. `lib/idle` depends on
+config, state, platform helpers, and the neutral contracts in
+`lib/harness/idle_types.py`; it imports notification delivery lazily. Harness
+modules never import the idle policy package. They supply sensors, event
+parsers and env facts through the bundle ports.
 
 **Why:** `lib/ops/` is policy over spawns, sessions and work and drives launch.
 Sending a message touches none of that. Keeping notify separate from idle lets
@@ -91,28 +137,30 @@ is attempted, whatever the result. Each finished turn inside the stretch
 re-anchors the schedule, because the cache was just refreshed. Re-anchoring
 moves pending stages later, but never re-enables a stage that already ran.
 
-From the moment core says `act` until 30 s after the adapter reports `done`
-(the *compaction window*), plain turn-finished reports are ignored, so the
-compaction's own turn can't restart the timeline. A positively identified user
-prompt is always honoured, even inside the window. The guard order puts the
-cheap checks first and the compaction-only checks last:
+From the moment core says `act`, plain turn-finished reports are ignored so the
+compaction's own turn can't restart the timeline. A successful `done` extends
+that *compaction window* by 30 seconds; failed or vetoed completion clears it.
+A positively identified user prompt is always honoured, even inside the
+window. The guard order puts the cheap checks first and the compaction-only
+checks last:
 
 1. not a primary
 2. idle disabled for this harness
 3. stage already done in this stretch
 4. stretch closed, or the timer is stale
-5. timer fired late (machine slept)
+5. timer fired early
+6. timer fired late (machine slept)
 
 Compaction only, after those:
 
-6. compaction disabled for this harness
-7. cache already cold
-8. harness busy
-9. unsent draft
-10. agents running in the harness
-11. child spawns still active
-12. context under `min_compact_tokens`
-13. harness's own auto-compaction off
+7. compaction disabled for this harness
+8. cache already cold
+9. harness busy
+10. unsent draft
+11. agents running in the harness
+12. child spawns still active
+13. context under `min_compact_tokens`
+14. harness's own auto-compaction off
 
 **Unknown facts (D6, user-accepted):**
 
@@ -152,10 +200,10 @@ because TypeScript adapters, agents and user scripts all read it.
 `primary`. The Claude mod therefore also requires an interactive TUI surface
 before it arms.
 
-**Current code (divergence):** only Pi has a role marker,
-`_MERIDIAN_PI_SESSION_ROLE=primary|spawned`, set in
-`build_harness_env_overrides` (`lib/launch/env.py`). No TypeScript extension
-reads it. See [Pi Lifecycle](../architecture/pi-lifecycle.md#primary-vs-spawned-split).
+`MERIDIAN_SESSION_ROLE` is now the sole role marker. Pi's prelaunch maps
+`spawn` to its internal `spawned` launch profile; the old
+`_MERIDIAN_PI_SESSION_ROLE` marker is gone. See
+[Pi Lifecycle](../architecture/pi-lifecycle.md#primary-vs-spawned-split).
 
 ## D-idle-adapter-hosting — Where each adapter runs
 
@@ -164,7 +212,7 @@ reads it. See [Pi Lifecycle](../architecture/pi-lifecycle.md#primary-vs-spawned-
 | Harness | Adapter host | How it gets there | Compacts with | Default |
 |---|---|---|---|---|
 | Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` | push, warn, compact |
-| Pi | a fourth bundled extension | `-e` entrypoint, primary role only | `ctx.compact()` | push only (5 min cache) unless `PI_CACHE_RETENTION=long` |
+| Pi | a fourth bundled extension | `-e` entrypoint, primary role only | `ctx.compact()` | push only (5 min cache); long retention enables later stages when the provider is recognized |
 | OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor` | `POST /session/{id}/summarize` with the session's current model | push only (`ttl_seconds` 300) |
 | Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, check that it landed, then press Enter | push, warn, compact (`ttl_seconds` 1800) |
 
@@ -205,9 +253,12 @@ the flag. Claude sessions started outside meridian can opt in through
 
 - The Codex tmux actuator narrows the race with a returning user but can't
   close it.
-- Whether Codex `notify` fires for TUI turns when set on the app-server is
-  unprobed (P0b). If it doesn't, the next option is a rollout-file watch.
-- Claude mod APIs are confirmed only from Claude Code 2.1.295's generated types.
+- Claude and Pi embed runtime APIs owned by their harnesses. Their adapter
+  tests and live smoke pin current behavior, but upstream API drift remains a
+  maintenance cost.
+- Pi provider IDs other than native `openai` and `anthropic` are treated as
+  unknown by TTL detection. For example, `openai-codex` stays push-only even
+  with `PI_CACHE_RETENTION=long` until provider-family normalization is added.
 
 ## D-idle-config — Separate `[notify]` / `[idle]` namespaces, standard precedence
 
@@ -274,7 +325,7 @@ adapters in parallel worktrees once shared core merges. The tech-lead's
 user's standing rule: if non-Claude harnesses are covered at all, cover all of
 them.
 
-**Build order:** probes for each harness and four enabling refactors run first:
+**Implementation order:** probes for each harness and four enabling refactors ran first:
 
 - **R1:** catalog-driven loading of new config tables, plus the per-harness model
   factory.
@@ -282,7 +333,7 @@ them.
 - **R3:** the launcher idle-task hook.
 - **R4:** the Claude bundled-mod seam.
 
-After those come notify core, idle core, the `meridian idle` CLI, the four
+After those came notify core, idle core, the `meridian idle` CLI, the four
 adapters, the prompt rule, then docs and a cross-harness smoke test.
 
 ## Related
@@ -299,8 +350,8 @@ adapters, the prompt rule, then docs and a cross-harness smoke test.
 
 ## Revisit when
 
-- A probe (P0a–P0d) contradicts an adapter assumption, especially Codex
-  `notify` on the app-server.
+- A harness update invalidates one of the runtime-probed event or compaction
+  contracts above.
 - A provider changes its default cache retention, or Codex/OpenCode add a
   retention setting.
 - A harness gains a native idle or compaction hook that would replace a

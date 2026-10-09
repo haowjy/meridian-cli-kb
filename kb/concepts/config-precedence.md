@@ -164,17 +164,18 @@ projects `autocompact_pct` (GitHub #548). Neither field has an "off" value.
 Each key is declared on its model in `lib/config/settings.py` with
 `config_field(canonical_key, value_kind=, file_aliases=, env_vars=, ...)`.
 `build_option_catalog` walks the `MeridianConfig` model tree to build the option
-catalog behind `meridian config show/get`. Before adding keys, know these limits:
+catalog behind `meridian config show/get`. Before adding keys, know these rules:
 
 - **Env names are explicit.** They are never derived from the TOML path. The
   loose convention is `MERIDIAN_<SECTION>_<KEY>` for plain sections and
   `MERIDIAN_HARNESS_<KEY>_<HARNESS>` for per-harness keys, so make the key and
   its env suffix match.
-- **New top-level tables are silently dropped.** The TOML normalizer
-  dispatches by hand per known section. Only the `[defaults]` and `[timeouts]`
-  branch is driven by the catalog. Any other unknown table logs "Ignoring
-  unknown Meridian config key" and is discarded. `[harness.<h>]` sub-keys are
-  also hand-listed, so a nested `[harness.<h>.<sub>]` table is dropped too.
+- **Catalog-declared tables normalize generically.** After special dynamic and
+  legacy sections are handled, `_normalize_toml_payload()` asks the option
+  catalog whether a top-level table prefix exists and recursively normalizes
+  it. `_normalize_harness_table()` does the same for nested per-harness tables.
+  Unknown tables are still warned and discarded; adding an annotated key no
+  longer requires another hand-written normalizer branch.
 - **One annotated model can't be shared by harnesses.** If one annotated
   sub-model hangs off each harness profile, the catalog walks it once per
   harness and raises `Duplicate config canonical key`. Static field metadata
@@ -185,11 +186,16 @@ catalog behind `meridian config show/get`. Before adding keys, know these limits
   `str_list` env value unsplit, and an empty env value is rejected, so an env
   var can't blank a file value.
 
-The idle-notify work removes the first two limits before adding keys:
-catalog-driven loading of new and nested tables, plus a factory that builds one
-explicitly keyed model per harness (refactor R1 in
-[Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence)).
-Until that lands, the limits above describe the code.
+`[notify]`, `[idle]`, and `[harness.<h>.idle]` use that generic path. The
+per-harness idle models are still separate generated model classes, built by
+`harness_idle_model()`, because each field needs a unique canonical key and env
+name. Idle's effective-value resolver adds one feature-specific rule on top of
+ordinary file loading: compare precedence level first, then use the
+per-harness value over the global value within that level. Thus
+`MERIDIAN_HARNESS_IDLE_COMPACT_CODEX` beats `MERIDIAN_IDLE_COMPACT`, either env
+value beats every file, and a per-harness file key beats a global file key
+after the file layers merge. See
+[Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence).
 
 ## Project Root Discovery
 
@@ -240,4 +246,4 @@ Set via `--approval` flag, `MERIDIAN_APPROVAL` env var, profile frontmatter, or 
 - [decisions/model-resolution.md#d72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface) — agent overlay config design rationale
 - [decisions/model-resolution.md#d73](../decisions/model-resolution.md#d73-canonical-launch-parameter-compiler-in-compilerpy-with-pure-data-contract) — compiler-era rationale, now superseded by Mars bundle routing
 - [operations/configuration-guide.md](../operations/configuration-guide.md) — practical config setup guide
-- [decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned idle/notify namespaces and per-harness precedence
+- [decisions/idle-notifications.md](../decisions/idle-notifications.md) — built idle/notify namespaces and per-harness precedence

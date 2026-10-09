@@ -3,27 +3,28 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
-## 2026-10-08 — Idle notifications design captured (`work:idle-cache-notify`)
+## 2026-10-08 — Idle notifications designed and built (`work:idle-cache-notify`)
 
 - **New decision page:** [Idle Notifications](decisions/idle-notifications.md).
   Records the user-settled design (U1–U6) for idle push, cache-expiry warning and
-  idle compaction in primaries, with rejected alternatives and the current-code
-  divergences. Not built.
+  idle compaction in primaries, the runtime-probe corrections, implementation
+  seams, and rejected alternatives. Built for all four harnesses.
 - **New research page:** [Prompt-Cache Retention by Harness](research/prompt-cache-retention.md).
 - **Corrected stale facts:**
   - The harness identity env var is `_MERIDIAN_HARNESS` (since PR #388), not
     `MERIDIAN_HARNESS`. Fixed in launch-system, spawn-wait-barrier,
     config-precedence, configuration-guide, aliases-and-routing and future-work;
     D32 and D57 got a rename note.
-  - The Pi role var is `_MERIDIAN_PI_SESSION_ROLE`, and no extension reads it.
-    Fixed in pi-lifecycle, launch-system and harness-adapters.
+  - At design capture, the Pi role var was `_MERIDIAN_PI_SESSION_ROLE`. The
+    implementation replaced it with cross-harness `MERIDIAN_SESSION_ROLE` and
+    added the primary-only Pi idle extension gate.
   - `autocompact` is a token count, not a percentage. Fixed in the
     config-precedence and configuration-guide examples; the projection bug is
     GitHub #548.
 - **Added:**
   - the `MERIDIAN_SECRET_*` stripping boundary
     ([launch-system](architecture/launch-system.md#child-env-boundaries));
-  - the config-key declaration limits
+  - the catalog-driven config-key declaration rules
     ([config-precedence](concepts/config-precedence.md#declaring-config-keys)).
 - **Flagged:** the 3000-second spawn-wait yield default rests on a premise the
   cache research contradicts. Flags are in spawn-wait-barrier and

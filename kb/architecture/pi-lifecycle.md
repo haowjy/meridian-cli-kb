@@ -23,7 +23,14 @@ transitive spawn tree for persisted descendants.
 
 ## Extension Architecture
 
-Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships three managed extensions as package data under `src/meridian/pi_runtime/extensions/`. The third, `session-boundary`, records exit identity and is covered in [Pi native sessions](pi-native-sessions.md). This page covers the two lifecycle extensions; their cross-layer ownership and delivery contracts are in [Pi Runtime Coordination](pi-runtime/coordination.md).
+Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships
+four managed extensions as package data under
+`src/meridian/pi_runtime/extensions/`. `session-boundary` records exit identity
+and is covered in [Pi native sessions](pi-native-sessions.md); `meridian-idle`
+translates primary-TUI events into the shared idle policy and is covered in
+[Idle Notifications](../decisions/idle-notifications.md). This page covers the
+two lifecycle extensions; their cross-layer ownership and delivery contracts
+are in [Pi Runtime Coordination](pi-runtime/coordination.md).
 
 **Two extensions, two independent concerns.** Each extension can be loaded alone or together. The split is intentional: mechanism and policy are separated.
 
@@ -78,18 +85,19 @@ for the receipt and public-event evidence required by completion policy.
 | Aspect | Primary | Spawned |
 |---|---|---|
 | Launch mode | Native Pi TUI (no `--mode`) | Pi RPC (`--mode rpc`) |
-| Extensions loaded | Meridian's managed extensions via `-e` (managed-bash and spawn-watch when their `[harness.pi]` toggles are on, session-boundary always); no `--no-extensions`, so the user's own Pi extensions still load; passthrough `-e`/`--no-extensions` refused | the same managed `-e` set after `--no-extensions` (omitted when `load_all_pi_extensions` is on) |
-| `_MERIDIAN_PI_SESSION_ROLE` | `"primary"` | `"spawned"` |
+| Extensions loaded | Meridian's managed extensions via `-e` (managed-bash and spawn-watch when their `[harness.pi]` toggles are on, session-boundary always, meridian-idle for the primary); no `--no-extensions`, so the user's own Pi extensions still load; passthrough `-e`/`--no-extensions` refused | managed-bash and spawn-watch when enabled, plus session-boundary, after `--no-extensions` (ambient extensions retained when `load_all_pi_extensions` is on); meridian-idle is excluded |
+| `MERIDIAN_SESSION_ROLE` | `"primary"` | `"spawn"` |
 | Quiescence auto-stop | No — user stays in TUI | Yes — quiescence triggers `stop(reason="quiescent")` |
 | Prompt delivery | User types in TUI | Meridian writes prompt JSON to Pi's stdin |
 
 The role comes from `run_params.interactive`. Python owns the role split: the
 quiescence machinery (auto-stop, tracked-work checking) runs only for spawned
 sessions, which Meridian drives over RPC, and the Pi connection gets the role as
-`pi_session_role` on its config. `_MERIDIAN_PI_SESSION_ROLE` is read back only
-by the Pi prelaunch to choose the runtime compatibility probe. No TypeScript
-extension reads it. A settled decision replaces it with one cross-harness
-`MERIDIAN_SESSION_ROLE=primary|spawn`; that is not built yet
+`pi_session_role` on its config. Pi prelaunch reads the cross-harness
+`MERIDIAN_SESSION_ROLE` to choose the runtime compatibility probe and maps
+`spawn` to the internal `spawned` profile. The `meridian-idle` extension also
+uses the public role through `meridian idle config --interactive`; other Pi
+extensions do not need it
 ([D-session-role](../decisions/idle-notifications.md#d-session-role--one-meridian_session_role-at-the-bind-seam)).
 
 ---

@@ -22,7 +22,7 @@ syncing, notifying, logging, triggering external systems.
 
 Hooks see spawn and work events, not turns inside a harness session. They
 can't tell when a primary went idle or when its prompt cache is about to
-expire. That job belongs to the planned idle adapters and `meridian notify`
+expire. That job belongs to the idle adapters and `meridian notify`
 ([Idle Notifications](../decisions/idle-notifications.md)). The idle adapters
 are harness mods and launcher tasks, not Meridian hooks.
 

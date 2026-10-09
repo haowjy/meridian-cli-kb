@@ -474,11 +474,13 @@ Two steps inside `build_launch_context()`:
 
 Roots are stored in `run_params.projected_roots` / `ResolvedLaunchSpec.projected_roots`. Harness projections convert that field into argv or env at the edge; `extra_args` remains user-owned passthrough only. OpenCode env results merge into `LaunchContext.env_overrides`.
 
-**Pi env overrides.** Two Pi-specific env vars reach every Pi child process:
-- `PI_CODING_AGENT_SESSION_DIR` — scopes Pi's session file storage to `~/.meridian/meridian-pi/sessions` (Meridian-managed path, not Pi's default)
-- `_MERIDIAN_PI_SESSION_ROLE` — `"primary"` or `"spawned"`, from `run_params.interactive`. A Pi-only branch in `build_harness_env_overrides()` (`lib/launch/env.py`) sets it. Python's Pi prelaunch reads it back to choose the runtime compatibility probe for the role. No TypeScript extension reads it.
-
-The settled [session-role decision](../decisions/idle-notifications.md#d-session-role--one-meridian_session_role-at-the-bind-seam) replaces `_MERIDIAN_PI_SESSION_ROLE` with one public `MERIDIAN_SESSION_ROLE=primary|spawn`, set for every harness next to `_MERIDIAN_HARNESS` in `bind_launch_context()`. It is not built yet.
+**Pi env overrides.** `PI_CODING_AGENT_SESSION_DIR` scopes Pi's session file
+storage to `~/.meridian/meridian-pi/sessions` (a Meridian-managed path, not
+Pi's default). Role is no longer Pi-specific: every harness child receives
+`MERIDIAN_SESSION_ROLE=primary|spawn` from `bind_launch_context()`. Pi's
+prelaunch maps `spawn` to its internal `spawned` profile when choosing the
+runtime compatibility probe. The old `_MERIDIAN_PI_SESSION_ROLE` marker is
+gone.
 
 ## Claude Native Agent Permission Injection
 
@@ -526,6 +528,25 @@ from a Claude mod, can never read it. A plain `MERIDIAN_*` variable does get
 through, but every spawn inherits it and any agent can print it. The idle-notify
 SMTP password uses a 0600 file for this reason
 ([D-notify-smtp-password-file](../decisions/idle-notifications.md#d-notify-smtp-password-file--smtp-password-from-a-file-env-as-leaky-fallback)).
+
+`bind_launch_context()` also overwrites `MERIDIAN_SESSION_ROLE` on every launch,
+next to `_MERIDIAN_HARNESS`: `primary` for an interactive primary and `spawn`
+for a delegated subprocess. Unlike the internal harness identity, the role is a
+public child handle because bundled adapters and user-launched tools consume it.
+A nested spawn cannot accidentally inherit its parent's `primary` value.
+
+## Primary Idle Sidecar
+
+`HarnessBundle.primary_idle_sensor` is the optional managed-attach hook used by
+Codex and OpenCode. `PrimaryAttachLauncher` constructs the sensor after the TUI
+starts and hosts `lib/idle/sidecar.py` on the launcher event loop. The context
+carries the live connection, native session ID, final child env, tmux pane,
+spawn directory, and a `tui_alive` callback tied to the TUI launch task.
+
+Teardown cancels and awaits the sidecar before stopping the connection. Raw
+event callbacks and the sidecar's event, timer, store-poll, and compaction paths
+contain their own failures; synchronous policy/store work runs off-loop. The
+black-box attach fallback has no idle sidecar.
 
 ## _MERIDIAN_HARNESS Child Env Injection
 
@@ -622,7 +643,7 @@ ops/spawn/execute.py
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — semantic IR + adapter projection
 - [mars-model-refresh.md](mars-model-refresh.md) — Mars catalog/probe refresh controls used by dry-run bundle preparation
 - [pi-lifecycle.md](pi-lifecycle.md) — Pi's quiescence-based completion model and extension architecture
-- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned bind-time session role and child-environment boundaries for idle adapters
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — built bind-time session role and child-environment boundaries for idle adapters
 
 ## Accepted startup selection and OpenCode transport (2026-09)
 

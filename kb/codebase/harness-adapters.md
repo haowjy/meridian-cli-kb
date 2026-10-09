@@ -25,6 +25,29 @@ contract for this behavior; semantic helpers and coordinators should not grow
 harness-specific compatibility parameters. OpenCode report extraction uses the same
 boundary so child assistant text cannot become the parent `report.md`.
 
+### Idle bundle ports
+
+Idle policy does not add harness cases to shared launch code. `HarnessBundle`
+has four optional ports: `primary_idle_sensor`, `parse_idle_event`,
+`idle_env_facts`, and `detect_ttl`. Native parsing, cache facts, draft/busy
+observation, and compaction actuators live in `claude_idle.py`, `pi_idle.py`,
+`codex_idle.py`, and `opencode_idle.py`; `lib/idle` owns the schedule, guards,
+state, and notification decisions.
+
+Claude and Pi use in-process runtime adapters under
+`src/meridian/claude_runtime/meridian-idle/` and
+`src/meridian/pi_runtime/extensions/meridian-idle/`. The Claude mod is injected
+only into an interactive launch. Pi's fourth managed extension is likewise
+projected only into a primary TUI. Codex and OpenCode instead register
+`primary_idle_sensor` for the managed attach launcher; Codex also projects an
+interactive-only native `notify` command whose payload reaches
+`parse_idle_event`.
+
+The launcher-hosted sidecar begins only after the TUI starts, follows the TUI
+launch task, and is cancelled before its live connection is stopped. Sensor
+failures are contained and written to spawn-local debug telemetry so they
+cannot replace the primary session outcome or corrupt the terminal.
+
 The unscoped fallback is harness-specific. Codex keeps the legacy conservative behavior:
 an unscoped `turn/completed` still counts when the main thread is known. OpenCode does
 not treat unscoped `session.idle` / `session.error` as parent events once the parent
@@ -187,8 +210,8 @@ See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#clau
 ## Pi-Specific Notes
 
 **Dual launch path.** Pi is the only harness with fully separate launch configurations per role:
-- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`; Meridian's managed extensions (managed-bash, spawn-watch, session-boundary) loaded with `-e`, passthrough `-e`/`--no-extensions` refused
-- **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e <managed extensions>`), prompt written to stdin, JSONL events drained from stdout
+- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`; Meridian's managed extensions (managed-bash, spawn-watch, session-boundary, and primary-only meridian-idle) loaded with `-e`, passthrough `-e`/`--no-extensions` refused
+- **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e <managed extensions>`), prompt written to stdin, JSONL events drained from stdout; meridian-idle is excluded
 
 The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned.
 
@@ -201,7 +224,7 @@ streaming layer treats receipts and observations as separate facts; the retired
 
 **Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
 
-**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env_overrides. `_MERIDIAN_PI_SESSION_ROLE` (primary/spawned) is injected by a Pi-only branch in `lib/launch/env.py`. Only the Pi prelaunch reads it, to pick the runtime compatibility probe; no extension reads it (see [Pi Lifecycle](../architecture/pi-lifecycle.md#primary-vs-spawned-split)). Spawned sessions are per-spawn scoped and primaries share one flat root. In both cases Meridian mints the native ID and emits `--session-dir`/`--session-id` before exec (resume: `--session <abs path>`), so identity is never discovered from disk. See [pi-native-sessions.md](../architecture/pi-native-sessions.md).
+**Session isolation.** Pi isolates session storage via `PI_CODING_AGENT_SESSION_DIR` set in env overrides. The shared `MERIDIAN_SESSION_ROLE=primary|spawn` marker selects Pi's runtime compatibility profile and prevents the idle extension from automating spawned RPC sessions (see [Pi Lifecycle](../architecture/pi-lifecycle.md#primary-vs-spawned-split)). Spawned sessions are per-spawn scoped and primaries share one flat root. In both cases Meridian mints the native ID and emits `--session-dir`/`--session-id` before exec (resume: `--session <abs path>`), so identity is never discovered from disk. See [pi-native-sessions.md](../architecture/pi-native-sessions.md).
 
 **Runtime resolution.** `PiRuntimeResolver` probes the installed `pi` binary before launch (`pi --version`, `pi --help` surface check). Fails fast with install guidance if binary is missing or incompatible. `MERIDIAN_PI_BINARY` env var overrides PATH discovery.
 
@@ -234,4 +257,4 @@ qualified owned events. Pi additionally reports exit through `observe_after_exit
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
 - [../decisions/model-resolution.md](../decisions/model-resolution.md#d76-harness-specific-model-ids-via-runnablepath) — D76: harness-specific model projection
 - [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination
-- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned per-harness idle adapter hosting and session-role contract
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — built per-harness idle adapter hosting and session-role contract
