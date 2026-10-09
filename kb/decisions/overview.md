@@ -7,7 +7,7 @@ Decision records explain why durable architectural choices were made — what al
 | Page | Coverage |
 |---|---|
 | [pi-runtime.md](pi-runtime.md) | Pi live execution ownership, exact notification delivery evidence, and bounded cross-store failure |
-| [idle-notifications.md](idle-notifications.md) | Idle push, cache-expiry warning and idle compaction for primaries: core-decides split, leaf packages, session role, adapter hosting per harness, config namespaces, SMTP password handling, TTL defaults, per-adapter contracts, plan-vs-built divergences and the three review gates (built 2026-10-08) |
+| [idle-notifications.md](idle-notifications.md) | Idle push, cache-expiry warning and idle compaction for primaries: core-decides split, leaf packages, session role, adapter hosting per harness, config namespaces, SMTP password handling, TTL defaults, per-adapter contracts, invariants to keep, plan-vs-built divergences, the review gates and final review, structural-debt pointers, the Gmail verification gap (built 2026-10-08; PR #550 `release:patch`) |
 | [chat-backend.md](chat-backend.md) | Chat pipeline architecture: custom protocol, event model, acquisition, HITL, command layer, structural refactors (D1–D2, D8–D31) |
 | [dev-frontend.md](dev-frontend.md) | Unified dev setup for `meridian chat --dev`: portless, Vite, exposure model, env scrub, launcher strategy (DF-D1–DF-D7) |
 | [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, target-constrained model-policy fallback (D52–D57, D72–D74) |

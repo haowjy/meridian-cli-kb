@@ -1,11 +1,13 @@
 # Decisions: Idle Notifications and Idle Compaction
 
-**Status (2026-10-08): built, gated, PR pending.** The core, all four
-adapters, the prompt rule and the docs are on `feat/idle-cache-notify`. Three
-review gates passed, and so did a cross-harness live smoke. Provenance:
-`work:idle-cache-notify` (`design/`, `DIVERGENCE/summary.md`, `reviews/`),
-`spawn:p7415` (design), `chat:c7280` (user decisions U1–U6), `chat:c7275`
-(planning).
+**Status (2026-10-09): built, gated, PR #550 ready (`release:patch`, next
+tag v0.9.1), merge pending the user's OK.** The core, all four adapters, the
+prompt rule and the docs are on `feat/idle-cache-notify`. Three review gates,
+a cross-harness live smoke and a final whole-branch maintainability review
+passed. Provenance: `work:idle-cache-notify` (`design/`,
+`DIVERGENCE/summary.md`, `reviews/`, `reviews/thermo-final.md`), `spawn:p7415`
+(design), `spawn:p7493` (final review), `chat:c7280` (user decisions U1–U6
+and the release label), `chat:c7275` (planning).
 
 ## The problem
 
@@ -47,6 +49,33 @@ TTL is in [Prompt-Cache Retention by Harness](../research/prompt-cache-retention
 | Layering guard | `tests/unit/harness/test_layering.py` |
 | Agent notification rule | meridian-base `skills/work-artifacts/SKILL.md` |
 
+## Invariants to keep
+
+The final review (p7493) named these as the parts of the design that work.
+Any change to the idle feature must keep them.
+
+- **Compaction checks live only in the ordered guards.** `lib/idle/guards.py`
+  is one ordered pure function that matches the guard list below line by line.
+  A new check goes there, never into an adapter. Adapters keep only their
+  last-second veto re-checks between `act` and the compact call.
+- **`IdleStore.mutate(fn)` is the only write path.** It locks, reads, applies
+  a pure transition and writes atomically, and it is the one seam tests
+  replace. `IdleStore.write` exists only as a test convenience; don't add a
+  second production write path.
+- **The timeline is absolute-time.** `timeline.schedule` is pure and returns
+  wall-clock deadlines. That is why an adapter can rebuild its timers from the
+  state file after a reload. Relative timers would make reload recovery
+  impossible.
+- **Harness isolation.** `launch/` and `lib/idle` contain no `HarnessId`
+  branches. Harness modules depend only on `lib/harness/idle_types.py`, never
+  on `lib/idle` ([D-idle-leaf-packages](#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services)).
+  The branch deleted a Pi-specific role branch instead of adding a new one
+  ([D-session-role](#d-session-role--one-meridian_session_role-at-the-bind-seam)).
+- **Launcher fault containment.** The idle task is cancelled before the
+  connection stops and is awaited under `suppress`, so a broken sensor cannot
+  change the session's outcome
+  ([D-idle-adapter-hosting](#d-idle-adapter-hosting--where-each-adapter-runs)).
+
 ## D-idle-core-decides — Adapters report facts, core decides
 
 **Decision:** Each harness adapter only observes and acts. It reports
@@ -61,10 +90,10 @@ In-session TypeScript adapters (Claude, Pi) talk to core through a hidden
 `meridian idle config|status|arm|return|fire|done` CLI and pass `--interactive`
 on **every** call. Codex's native `notify` callback enters through
 `meridian idle event`. Adapters hosted in meridian's launcher (Codex, OpenCode)
-call the same service in-process. Facts visible in env, such as
-`DISABLE_AUTO_COMPACT`, `OPENCODE_DISABLE_AUTOCOMPACT` and `PI_CACHE_RETENTION`,
-reach core through harness bundle hooks, so the idle package never names a
-harness.
+call the same service in-process. Facts visible in env reach core through
+harness bundle hooks, so the idle package never names a harness:
+`DISABLE_AUTO_COMPACT` (Claude) and `OPENCODE_DISABLE_AUTOCOMPACT` through the
+`autocompact_off` hook, and `PI_CACHE_RETENTION` through Pi's `detect_ttl`.
 
 **Why:** Four harnesses, each with its own TypeScript or Python adapter. If
 policy lived in the adapters, four copies of the guard list and the
@@ -87,8 +116,10 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
   with idle turned off. ntfy titles are RFC 2047-encoded, because the HTTP
   `Title` header is Latin-1 and the label's `·` would otherwise arrive mangled.
 - **`lib/idle/`** holds the policy: a pure timeline, pure guards, a service
-  over the state file, and the sidecar loop. It reaches notification delivery
-  through a `NotifySender` protocol with a lazy default, never the reverse.
+  over the state file, and the sidecar loop. It builds `lib.notify.Notice`
+  values and calls `lib.notify.send` directly; `lib/notify` never imports
+  `lib/idle`. The service's `notify_sender` parameter is only a seam for
+  tests.
 - **`lib/state/idle_store.py`** owns the state file, because `lib/state/`
   owns all disk I/O.
 
@@ -96,7 +127,7 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
 contracts in `lib/harness/idle_types.py`. **`lib/harness` never imports
 `lib/idle`.** An AST test (`test_layering.py`) enforces this, including
 function-local imports. Harness modules supply sensors, event parsers, env
-facts and callbacks through optional `HarnessBundle` ports. When a harness
+readers and callbacks through optional `HarnessBundle` ports. When a harness
 parser needs stored state, the caller injects it. `meridian idle event` passes
 the Codex parser a `session_reader` built from its own `IdleService`, applies
 the parsed event, and then calls the bundle's `idle_event_applied` hook. That
@@ -290,8 +321,9 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   accepted as a gap.
 - **Sharing adapter code between the Claude mod and the Pi extension:** the
   host APIs differ (`$.process.run` against `node:child_process`). The
-  duplicated arm-reply handling is better removed by having core's `arm` return
-  only the live deadlines (G2 X3, deferred).
+  duplicated reply handling is better removed by having core return the
+  pending stages from `arm` and `status` (GitHub #549; see
+  [Structural debt](#structural-debt)).
 
 **Known fragility:** each adapter embeds harness behaviour that can change
 upstream. Most drift fails closed: returns go unseen or compaction is skipped.
@@ -413,7 +445,6 @@ evidence that killed it.
 | Long config key names | `push_seconds`, `warn_minutes`, `compact_minutes` | D3 |
 | `--implies-return` honoured only after the window; failed/vetoed `done` opens a window | implies-return honoured any time; only `done ok` opens the window | G1 S2 |
 | Role gate = `MERIDIAN_SESSION_ROLE == primary` | unset role + `--interactive` on every call also counts; `spawn` always disabled | G1 S1, G2 C1 |
-| `lib/idle` imports `lib/notify` directly | `NotifySender` protocol with a lazy default | the two cores were built in parallel |
 | tmux-pane fallback, off by default | not built | D5 |
 | ntfy as an email backend | not built | needs a role-aware result contract |
 
@@ -429,6 +460,7 @@ them. Notes were either folded in where cheap or routed as follow-ups.
 | **G0** | R1–R4 refactors | The idle task is cancelled before the connection stops on every teardown path. `tui_alive` follows the TUI launch task instead of the launcher. Claude's generated plugin types no longer ship in the wheel. Per-harness idle fields come from one shared base, with per-harness defaults in the generated models. |
 | **G1** | notify core and idle core | The sidecar keeps a compaction alive across a user return, so its `done` is recorded. Core gained Codex's `implies_return` and input-count path. The role gate gained `interactive` from end to end. Failed or vetoed compaction no longer opens a window. ntfy titles became RFC 2047. Sidecar calls moved off the loop, and each event became its own failure domain. |
 | **G2** | the four adapters | Every adapter call carries `--interactive` (C1). Pi stopped blocking input and re-checks before compacting (P1, P2). OpenCode got timeouts and marks its own compaction (O1, O2). Codex reports `ok` only on the completion marker, stays quiet while busy, and re-checks the TUI before Enter (K1, K2, K4). `lib/harness` stopped importing `lib/idle`, with an AST test (K3). Pi's Vitest suites run in CI; `claude plugin test` is a required local gate because CI has no `claude` binary (X1). |
+| **Final** (p7493, maintainability only) | the whole branch | Verdict: ship after F4. F4 deleted contract and state surface that nothing read, before a second adapter could code against it: the `busy`/`idle` event kinds and `IdleEvent.message_id`/`provider`/`timestamp`; the two-field env-facts dataclass, now a single `autocompact_off(env)` port, which Pi doesn't register; `IdleState.spawn_id`/`main_thread_id`; and the `NoticeSpec` shim in favour of `lib.notify.Notice`. Every other finding was routed as debt, listed below. |
 
 Between G1 and G2, a separate fix lane made a closed stretch always reopen on
 arm. Without that, a session that compacted and then saw the user return never
@@ -437,6 +469,41 @@ pushed again. Process lessons from these gates are in
 and [Verification and Review Discipline](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
 with the layering-specific lesson in
 [Harness Integration](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).
+
+## Structural debt
+
+The final review found no blockers beyond F4. It found two cross-cutting
+problems and several local ones. The details live with the tracker; this page
+only says where to look.
+
+| Debt | Tracked in |
+|---|---|
+| Core never returns the stages still pending, so the idle protocol is written four times (sidecar, Claude mod, Pi extension, CLI). Fix: `arm` *and* `status` return them. | GitHub #549 (widened by F1) |
+| Policy assembly sits in the CLI (TTL ladder, env-fact merge, reason remap) and OpenCode's sensor repeats the merge. The idle bundle ports are spread across the bundle; group them as `HarnessIdlePorts` and let the service apply policy. | GitHub #554 (F2 + F3) |
+| State machine lift to `machine.py`; launcher-owned sensor lifecycle; split of `IdleSensor`; dedicated Codex identity pin; arm-drift diagnostic | `src/meridian/lib/idle/.context/FUTURE` |
+| `effective()` re-derives the option catalog by hand; idle/notify config models belong in their own modules | `src/meridian/lib/config/.context/FUTURE` |
+| `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
+| Claude-only `claude_plugin_dirs` touched six projections; three tmux helpers | `src/meridian/lib/harness/.context/FUTURE` |
+| Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
+| Pi `openai-*` provider normalization for TTL detection | `src/meridian/lib/harness/.context/TODO` |
+
+## Verification gaps
+
+**The Gmail channel has never sent a real email.** Every live smoke used ntfy.
+The gmail path (`smtp.gmail.com:587`, STARTTLS, app password read from a 0600
+`smtp_password_file`) is covered only by unit tests with a fake transport. A
+first real send could still fail on login or TLS.
+
+To close the gap, the user sets up an app password and sends one test notice:
+
+1. Turn on 2-Step Verification for the Google account. App passwords are
+   unavailable without it.
+2. Create an app password for Mail.
+3. Save it to `~/.meridian/smtp.pass` and `chmod 600` the file.
+4. Set `email_to`, `smtp_user` and `smtp_password_file` under `[notify]`
+   (`email_backend` already defaults to `gmail`).
+5. Run `meridian notify "test" --json`. The report's `gmail` result should
+   carry no `error`, and the message should arrive in the inbox.
 
 ## Related
 
@@ -460,7 +527,8 @@ with the layering-specific lesson in
   retention setting.
 - A harness gains a native idle or compaction hook that would replace a
   launcher task or the tmux actuator.
-- The `arm` contract changes next. That is when core should return only live
-  deadlines and give Codex a dedicated identity-pin call. Both follow-ups are
-  tracked in `src/meridian/lib/idle/.context/FUTURE`; the Pi provider
-  normalization is in `src/meridian/lib/harness/.context/TODO`.
+- The `arm` contract changes next, or a fifth adapter is about to be written.
+  Do #549 first (pending stages from `arm` and `status`), plus the Codex
+  identity-pin op from `lib/idle/.context/FUTURE`, so the new adapter
+  doesn't become a fifth copy of the protocol.
+- A new idle capability needs a bundle port. Group the ports first (#554).

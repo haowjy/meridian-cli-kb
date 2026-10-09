@@ -3,6 +3,24 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-09 — Idle notifications: final review captured (`work:idle-cache-notify`)
+
+- **[Idle Notifications](decisions/idle-notifications.md)** matches
+  `feat/idle-cache-notify` at `ced18936`, after the final maintainability
+  review (p7493) and its F4 deletions (`f38bd08d`). New sections: "Invariants
+  to keep" (ordered pure guards, `IdleStore.mutate` as the only write path,
+  absolute-time timeline, harness isolation, launcher fault containment),
+  "Structural debt" (pointers to #549, #554 and five `.context/FUTURE` files),
+  and "Verification gaps" (Gmail never sent live, with setup steps). The review
+  gates table gained the final review.
+- **Stale facts corrected:** `lib/idle` now imports `lib/notify` directly (the
+  `NotifySender` lazy shim is gone, and its plan-vs-built row with it); the
+  env-facts port is now `autocompact_off`, and Pi's cache retention reaches core
+  only through `detect_ttl`. The harness-adapters port list was updated to match.
+- **Release label:** no KB page covers release labels; `docs/releasing.md`
+  (`0eb7e80f`) is the only authority (the bump tracks breakage, not size).
+
+---
 ## 2026-10-08 — Idle notifications reconciled with the gated branch (`work:idle-cache-notify`)
 
 - **[Idle Notifications](decisions/idle-notifications.md)** now matches

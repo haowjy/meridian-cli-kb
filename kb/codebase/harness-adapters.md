@@ -29,10 +29,14 @@ boundary so child assistant text cannot become the parent `report.md`.
 
 Idle policy does not add harness cases to shared launch code. `HarnessBundle`
 has five optional ports: `primary_idle_sensor`, `parse_idle_event`,
-`idle_event_applied`, `idle_env_facts`, and `detect_ttl`. Native parsing, cache
-facts, draft/busy observation, and compaction actuators live in `claude_idle.py`,
-`pi_idle.py`, `codex_idle.py`, and `opencode_idle.py`; `lib/idle` owns the
-schedule, guards, state, and notification decisions.
+`idle_event_applied`, `autocompact_off` (an env reader that returns whether the
+harness's own auto-compaction is off, registered by Claude and OpenCode), and
+`detect_ttl`. Native parsing, cache facts, draft/busy observation, and
+compaction actuators live in `claude_idle.py`, `pi_idle.py`, `codex_idle.py`,
+and `opencode_idle.py`; `lib/idle` owns the schedule, guards, state, and
+notification decisions. Harness modules import only `idle_types.py` from the
+idle contract. The five ports are really three capabilities; grouping them
+as one `HarnessIdlePorts` field is tracked in GitHub #554.
 
 No module under `lib/harness` imports `lib/idle`, not even inside a function;
 `tests/unit/harness/test_layering.py` walks the AST to enforce it. A parser that
