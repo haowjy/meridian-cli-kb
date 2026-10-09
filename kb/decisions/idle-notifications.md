@@ -420,8 +420,9 @@ evidence that killed it.
 ## Review gates
 
 Each gate reviewed a merged tree and ran ruff, pyright, the full pytest suite
-and, from G2 on, the TypeScript suites. Every finding was fixed with a
-failing-then-passing test before the next wave started.
+and, from G2 on, the TypeScript suites. Blocking and should-fix findings
+were fixed, with failing-then-passing tests, before the wave that depended on
+them. Notes were either folded in where cheap or routed as follow-ups.
 
 | Gate | Reviewed | What it changed |
 |---|---|---|
