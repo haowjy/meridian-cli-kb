@@ -299,7 +299,10 @@ That hook runs after the event is applied, instead of the parser registering
 **The lesson:** a layering rule that only import-time checks enforce is not
 enforced. Function-local imports and defaulted callbacks are the two ways around
 it. Inject the dependency without a default, as in the section above, and enforce
-the direction with an AST test that includes function bodies.
+the direction with an AST test that includes function bodies. The corresponding
+idle adapter review is recorded in
+[Idle Notifications — Review gates](../decisions/idle-notifications.md#review-gates),
+G2 (K3).
 
 ---
 

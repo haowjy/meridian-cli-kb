@@ -433,7 +433,9 @@ Between G1 and G2, a separate fix lane made a closed stretch always reopen on
 arm. Without that, a session that compacted and then saw the user return never
 pushed again. Process lessons from these gates are in
 [Spawn Lane Operations](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames)
-and [Verification and Review Discipline](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate).
+and [Verification and Review Discipline](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
+with the layering-specific lesson in
+[Harness Integration](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).
 
 ## Related
 

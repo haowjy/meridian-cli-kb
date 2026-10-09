@@ -83,4 +83,5 @@ where a collision shows up, so run it before handing the merge to review.
 
 **Provenance:** `work:idle-cache-notify` (`reviews/G1-review.md` "Gates"; spawn
 `p7454`; commit `b5fc8682`, cherry-picked as `ec6aa8d9` and merged with `icn/g0fix`
-as `520de295`).
+as `520de295`). The gate context is summarized in [Idle Notifications — Review
+gates](../decisions/idle-notifications.md#review-gates).

@@ -129,7 +129,8 @@ The fix added `pnpm test` to CI's fast gate after the bundle build. It also made
 suite must run wherever the producer's does, and it must assert the contract
 itself: here, that every recorded call carries the flag.
 (Provenance: `work:idle-cache-notify`, `reviews/G2-review.md` C1 and X1; spawn
-`p7466`.)
+`p7466`; see [Idle Notifications — Review gates](../decisions/idle-notifications.md#review-gates),
+G2.)
 
 ### Record exit status and working directory
 
