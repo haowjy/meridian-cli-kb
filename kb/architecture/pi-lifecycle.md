@@ -220,7 +220,8 @@ Current safeguards:
   native run facts and compaction-in-progress remain independent evidence. Its
   `stabilizing` phase has a policy timer; after that timer elapses it enters a distinct
   `validating` phase, disarms stabilization, and waits for the already-requested fresh
-  descendant evidence. Activity invalidates a candidate in either phase.
+  descendant evidence. Activity interrupts either phase and invalidates pending
+  validation; a new run separately invalidates the retained candidate.
 - Spawn rows publish atomically as complete directories built beneath
   `spawns/.staging/<unique>/`; only valid reconciled parent links create
   descendant blockers.

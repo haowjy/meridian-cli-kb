@@ -26,8 +26,9 @@ work assessments, schedules one completion deadline, and manages stabilization a
 validation. When policy proposes success, it requests a qualifying descendant refresh
 and does not publish until that request is covered. After the stabilization window
 elapses, the coordinator disarms that timer and enters a distinct `validating` phase;
-the already-requested fresh read wakes validation, and activity invalidates a candidate
-in either phase. Assessments are `ready`, `blocked`, or `unknown`. A discovery,
+the already-requested fresh read wakes validation. Activity interrupts either phase
+and invalidates pending validation. Clearing the retained candidate is a separate
+operation. Assessments are `ready`, `blocked`, or `unknown`. A discovery,
 authoritative-read, or observation failure produces typed `unknown`; it never becomes
 an empty work set.
 
