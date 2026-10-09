@@ -13,7 +13,7 @@ GPT-5.6+ gets 30 minutes.
 | Harness | Idle retention by default | Can the user extend it? | Source |
 |---|---|---|---|
 | Claude Code | 1 h or 5 min, per session. Each transcript cache write records `ephemeral_1h` or `ephemeral_5m`, so the TTL can be read from the transcript instead of assumed. | Claude Code settings; not verified here | Claude Code transcripts; planning session `chat:c7275` |
-| Pi | **5 min** (short retention) | `PI_CACHE_RETENTION=long` → Anthropic `cache_control.ttl: "1h"`, OpenAI `prompt_cache_retention: "24h"` | Pi `docs/environment-variables.md`; `packages/ai/test/cache-retention.test.ts` |
+| Pi | **5 min** (short retention) | `PI_CACHE_RETENTION=long` → Anthropic `cache_control.ttl: "1h"`, OpenAI `prompt_cache_retention: "24h"`. Not on the `openai-codex` provider: Pi 1.1.0's `openai-codex-responses.js` sends only `prompt_cache_key` and ignores the variable. | Pi `docs/environment-variables.md`; `packages/ai/test/cache-retention.test.ts`; installed Pi 1.1.0 (`chat:c7347`) |
 | Codex CLI | Whatever OpenAI's default is for the model. Codex sends only `prompt_cache_key`, with no retention field (`codex-rs/core/client.rs:946-963`). | **No.** No config key in `config.schema.json` | `openai/codex` at `rust-v0.161.0` |
 | OpenCode | Anthropic: **5 min**. It sends `cache_control: {type: "ephemeral"}` without a `ttl` (`packages/llm/src/cache-policy.ts:40-41`). OpenAI-compatible routes get no inline cache hints and rely on provider defaults. | No built-in config key. The internal `CachePolicy.ttlSeconds` needs caller or plugin code. | `anomalyco/opencode` at `v1.18.34` |
 
@@ -39,12 +39,19 @@ hour at a higher cache-write price
 ## What Meridian does with this
 
 - **Idle notifications.** These facts set the defaults: Codex
-  `ttl_seconds = 1800`, OpenCode `300`. Pi gets the idle push only unless
-  `PI_CACHE_RETENTION=long` is set. Claude reads the TTL from the transcript.
-  See [Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence).
+  `ttl_seconds = 1800`, OpenCode `300`. Claude reads the TTL from the
+  transcript, and Pi's extension derives it from the provider and
+  `PI_CACHE_RETENTION`. See
+  [Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence).
+- **Pi primaries get long retention.** Meridian sets `PI_CACHE_RETENTION=long`
+  for interactive Pi primaries unless the user set it; spawns keep Pi's
+  5-minute default. That buys a one-hour Anthropic cache at the higher write
+  price. See
+  [D-pi-cache-retention](../decisions/idle-notifications.md#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention).
 - **Spawn-wait yield.** The unified 3000-second yield default assumes about an
   hour of cache for every harness. These facts contradict that assumption for
-  Codex on GPT-5.6+, OpenCode and default Pi. See
+  Codex on GPT-5.6+, OpenCode, Pi spawns, and Pi primaries on short retention
+  or the `openai-codex` provider. See
   [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md#harness-aware-yield-defaults).
 
 Recheck this page when Codex or OpenCode releases a new version, or when a

@@ -3,6 +3,30 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-09 — Pi primaries launch with long cache retention (`work:idle-cache-notify`, U9)
+
+- **[Idle Notifications](decisions/idle-notifications.md)** gained
+  D-pi-cache-retention: Meridian sets `PI_CACHE_RETENTION=long` for interactive
+  Pi primaries (user value wins, blank filled, spawns untouched, independent of
+  `[idle]`), the cost of one-hour Anthropic writes, the launch-aware
+  `env_defaults(config, *, run)` seam, and the rejected `apply_env_defaults`
+  hook. Pi hosting row, plan-vs-built row, debt row and revisit triggers updated.
+- **Withdrawn premise:** `openai-*` → `openai` normalisation. Pi 1.1.0's
+  `openai-codex` adapter never applies `PI_CACHE_RETENTION`, so `openai-codex`
+  stays push-only by evidence. Recorded in the cache research table.
+- **New flag:** `pi_idle.detect_ttl` treats Pi `openai` + long as 86400 s, which
+  OpenAI's docs don't support; compaction can run on a cold cache. Not routed.
+- **Stale facts corrected:** Pi agent and session dirs are env *defaults*, not
+  overrides, and a caller-set `PI_CODING_AGENT_DIR` wins
+  ([Pi Native Sessions](architecture/pi-native-sessions.md),
+  [Harness Adapters](codebase/harness-adapters.md)). The spawn-wait yield flags
+  ([Spawn Wait Barrier](concepts/spawn-wait-barrier.md),
+  [Launch and Session Initiation](decisions/launch-session-initiation.md)) now
+  distinguish Pi primaries from Pi spawns.
+  [Launch System](architecture/launch-system.md#child-env-boundaries) documents
+  the two adapter env hooks.
+
+---
 ## 2026-10-09 — Idle notifications: final review captured (`work:idle-cache-notify`)
 
 - **[Idle Notifications](decisions/idle-notifications.md)** matches

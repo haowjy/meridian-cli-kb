@@ -535,6 +535,15 @@ for a delegated subprocess. Unlike the internal harness identity, the role is a
 public child handle because bundled adapters and user-launched tools consume it.
 A nested spawn cannot accidentally inherit its parent's `primary` value.
 
+Adapters shape the child env through two hooks, applied in
+`build_harness_child_env()`. `env_overrides(config)` is forced adapter policy.
+`env_defaults(config, *, run)` is launch-aware and fills a key only when the
+bound child value is missing or blank, so anything the user exported or
+configured wins. Pi uses it for its agent and session directories and, only
+when `run.interactive`, for `PI_CACHE_RETENTION=long`
+([D-pi-cache-retention](../decisions/idle-notifications.md#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)).
+A launch-dependent default belongs in `env_defaults`, not in a second hook.
+
 ## Primary Idle Sidecar
 
 `HarnessBundle.primary_idle_sensor` is the optional managed-attach hook used by

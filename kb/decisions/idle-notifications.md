@@ -7,7 +7,8 @@ a cross-harness live smoke and a final whole-branch maintainability review
 passed. Provenance: `work:idle-cache-notify` (`design/`,
 `DIVERGENCE/summary.md`, `reviews/`, `reviews/thermo-final.md`), `spawn:p7415`
 (design), `spawn:p7493` (final review), `chat:c7280` (user decisions U1–U6
-and the release label), `chat:c7275` (planning).
+and the release label), `chat:c7347` (U9, Pi cache retention, built at
+`bac44c01`), `chat:c7275` (planning).
 
 ## The problem
 
@@ -237,7 +238,7 @@ before it arms.
 | Harness | Adapter host | How it gets there | Compacts with | Default |
 |---|---|---|---|---|
 | Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` | push, warn, compact |
-| Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push only (5 min cache); long retention enables later stages when the provider is recognized |
+| Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push, warn, compact on `anthropic` and `openai`, because Meridian launches primaries with long retention ([D-pi-cache-retention](#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)); push only with `PI_CACHE_RETENTION=short` or any other provider |
 | OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor` | `POST /session/{id}/summarize` with the session's current model | push only (`ttl_seconds` 300) |
 | Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, verify, press Enter, wait for the completion marker | push, warn, compact (`ttl_seconds` 1800) |
 
@@ -339,9 +340,15 @@ These cases fail open or fail silently:
   after the first stretch. This fails silently.
 - The Codex tmux actuator narrows the race with a returning user but can't
   close it.
-- Pi provider IDs other than native `openai` and `anthropic` are treated as
-  unknown by TTL detection. For example, `openai-codex` stays push-only even
-  with `PI_CACHE_RETENTION=long` until provider-family normalization is added.
+- **Pi `openai` with long retention is taken as 24 h.** `pi_idle.detect_ttl`
+  returns 86400 for provider `openai` when `PI_CACHE_RETENTION=long`, which is
+  now the primary default. OpenAI documents `prompt_cache_retention: "24h"` as
+  usually about 30 minutes, and GPT-5.6+ caches for 30 minutes whatever the
+  request says ([cache research](../research/prompt-cache-retention.md#openai-retention-which-codex-inherits)).
+  The warning and compaction are then scheduled about 24 h out, long after the
+  cache has gone cold. This fails open: the warning comes too late to help, and
+  the cache-cold guard (`guards.py`) compares against the same TTL, so it lets
+  a compaction run on a cold cache. Not yet routed to a tracker.
 
 ## D-idle-config — Separate `[notify]` / `[idle]` namespaces, standard precedence
 
@@ -373,6 +380,57 @@ env name per harness. The loader limits behind this are in
 `ttl_seconds = 1800`, OpenCode `300`. Claude and Pi detect the TTL from the
 session. The design first proposed 3600 for Codex; research showed GPT-5.6+
 caches for 30 minutes, so 3600 was withdrawn.
+
+## D-pi-cache-retention — Meridian launches Pi primaries with long cache retention
+
+**Decision (U9, `chat:c7347`):** Meridian sets `PI_CACHE_RETENTION=long` in
+the child env of every interactive Pi primary it launches. A user value from
+the shell, profile env or project env always wins. A blank value counts as
+missing and is filled. Spawns and non-interactive launches never get the
+default. It is launch behaviour, independent of `[idle]`: a Pi primary gets
+the one-hour Anthropic cache (or OpenAI's extended retention) even with idle
+notifications off. `PI_CACHE_RETENTION=short` is the opt-out.
+
+**Why:** The idle rule is the same on every harness; the cache TTLs are not.
+Pi's 5-minute default left room for the push only, so warning and compaction
+never fit (see the schedule above). Pi's retention switch is the only cache
+lever Meridian can pull from outside a harness. The user asked why the four
+harnesses behaved differently out of the box and chose consistency.
+
+**Cost:** Anthropic prices one-hour cache writes above five-minute writes
+([Anthropic retention](../research/prompt-cache-retention.md#anthropic-retention-which-opencode-and-pi-inherit)).
+The tech-lead had left the default to the user for this reason. It ships as a
+spend change: the CHANGELOG upgrade notes and `docs/upgrading.md` name it and
+give the opt-out.
+
+**Seam:** the harness adapter's `env_defaults(config, *, run)` is launch-aware.
+`lib/launch/env.py::build_harness_child_env` calls it after inherited and
+runtime values are bound and writes a key only when the child value is missing
+or blank. Pi adds `PI_CACHE_RETENTION=long` when `run.interactive`, next to its
+agent-dir and session-dir defaults. Forced adapter policy stays in
+`env_overrides()`. See [Launch System](../architecture/launch-system.md#child-env-boundaries).
+
+**Not covered, by evidence:**
+
+- **Pi `openai-codex`** stays push-only. Pi 1.1.0's
+  `openai-codex-responses.js` sends only `prompt_cache_key` and never applies
+  `PI_CACHE_RETENTION`, so warning and compaction would target a cache that
+  isn't there. An earlier follow-up to normalise `openai-*` provider IDs to
+  `openai` rested on the false premise that Pi extends retention there; it was
+  withdrawn. `src/meridian/lib/harness/.context/TODO` holds the revisit
+  trigger.
+- **OpenCode** stays push-only by default. Its 5-minute Anthropic cache is
+  hard-coded, with no external switch.
+
+**Rejected:**
+
+- **Leaving Pi on short retention** and documenting `PI_CACHE_RETENTION=long`
+  as an opt-in: cheaper per write, but Pi primaries would stay the one harness
+  where only the push fires.
+- **A separate `apply_env_defaults(child_env, *, run, config)` hook**
+  (`2c7c7f78`): review rejected it as a second seam for one concept. Folding
+  `run` into `env_defaults` keeps one place where adapter defaults live and one
+  missing-or-blank rule in `build_harness_child_env` (`bac44c01`).
 
 ## D-notify-smtp-password-file — SMTP password from a file, env as leaky fallback
 
@@ -435,7 +493,7 @@ evidence that killed it.
 
 | Planned | Built | Forced by |
 |---|---|---|
-| Pi caches for 1 h by default | 5 min; push-only unless `PI_CACHE_RETENTION=long` | Pi README; cache research |
+| Pi caches for 1 h by default | Pi defaults to 5 min, so Meridian sets `PI_CACHE_RETENTION=long` for interactive Pi primaries | Pi README; cache research; U9 |
 | OpenCode adapter as a TS plugin on `session.idle`, compaction unconfirmed | Python sensor in the attach launcher; summarize confirmed; push-only at 300 s | probe P0c |
 | Codex TTL 3600 | 1800 | GPT-5.6+ 30-min retention; Codex sets none (U4) |
 | Claude return = `turn.start` with text | composer/bridge `prompt.submit` / `command.run`; compact only from a timer callback; `isInteractive` gate | probe P0a |
@@ -485,7 +543,7 @@ only says where to look.
 | `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
 | Claude-only `claude_plugin_dirs` touched six projections; three tmux helpers | `src/meridian/lib/harness/.context/FUTURE` |
 | Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
-| Pi `openai-*` provider normalization for TTL detection | `src/meridian/lib/harness/.context/TODO` |
+| Pi `openai-codex` stays push-only until Pi applies `PI_CACHE_RETENTION` in that adapter | `src/meridian/lib/harness/.context/TODO` |
 
 ## Verification gaps
 
@@ -523,8 +581,10 @@ To close the gap, the user sets up an app password and sends one test notice:
 
 - A harness update invalidates one of the runtime-probed event or compaction
   contracts above, especially a fail-open one.
-- A provider changes its default cache retention, or Codex/OpenCode add a
-  retention setting.
+- A provider changes its default cache retention or the price of long cache
+  writes, or Codex/OpenCode add a retention setting.
+- Pi applies `PI_CACHE_RETENTION` in its `openai-codex` adapter, or renames or
+  drops the variable.
 - A harness gains a native idle or compaction hook that would replace a
   launcher task or the tmux actuator.
 - The `arm` contract changes next, or a fifth adapter is about to be written.

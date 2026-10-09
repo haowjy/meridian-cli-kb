@@ -172,9 +172,11 @@ metadata, the same unified value applies.
 > [!FLAG] **Needs human review.** The 3000-second default was chosen because
 > every harness was believed to keep the prompt cache about an hour. As of
 > 2026-10-08 that holds only for Claude Code sessions with a 1-hour cache:
-> Codex on GPT-5.6+ caches for 30 minutes, and OpenCode and default Pi for
-> 5 minutes. Neither Codex nor OpenCode exposes a setting to extend it. A
-> 50-minute yield therefore outlives those caches. See
+> Codex on GPT-5.6+ caches for 30 minutes, and OpenCode and Pi spawns for
+> 5 minutes. Neither Codex nor OpenCode exposes a setting to extend it.
+> Meridian launches interactive Pi primaries with `PI_CACHE_RETENTION=long`
+> (1 h on Anthropic), so those are covered unless the user opts out. A
+> 50-minute yield therefore outlives the other caches. See
 > [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md).
 
 Config keys: `[spawn].default_wait_yield_seconds`, `[spawn].min_wait_yield_seconds`,

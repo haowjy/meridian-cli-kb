@@ -37,11 +37,11 @@ flowchart TD
 - A tracked source with no recorded store refuses as
   `NativeSessionUnavailable(unbound)`. Pi stores are never borrowed from primary or
   owner metadata.
-- **Agent dir and credentials.** The adapter's `env_overrides()` sets the child's
-  `PI_CODING_AGENT_DIR` to `<HOME>/.pi/agent` (`pi_agent_dir_env_override()` resolves
-  from `HOME` and ignores a caller-set `PI_CODING_AGENT_DIR`). Pi reads `auth.json`
-  and settings from that directory, so under Meridian credentials come from
-  `<HOME>/.pi/agent/auth.json`. The first isolated real-Pi run placed auth at
+- **Agent dir and credentials.** The adapter's `env_defaults()` fills the child's
+  `PI_CODING_AGENT_DIR` when it is missing or blank, with `<HOME>/.pi/agent`
+  (`pi_agent_dir_env_override()`). A non-blank caller-set `PI_CODING_AGENT_DIR`
+  wins. Pi reads `auth.json` and settings from that directory, so by default
+  credentials come from `<HOME>/.pi/agent/auth.json`. The first isolated real-Pi run placed auth at
   `$PI_CODING_AGENT_DIR/auth.json`, got `No API key found for deepseek`, and spent no
   turn; Pi had created an empty `auth.json` under the isolated `HOME` instead.
 
