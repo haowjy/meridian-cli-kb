@@ -276,6 +276,33 @@ widening where the new parameter controls correctness, not just convenience.
 
 ---
 
+## A Function-Local Import Hides a Layering Cycle
+
+**The bug:** The Codex idle parser in `lib/harness/codex_idle.py` had to know
+whether a `notify` event's thread was a pinned primary, which lives in idle state.
+Its default `session_reader` built an `IdleService` through a function-local
+`from meridian.lib.idle.service import IdleService`. `lib/idle` already imports
+`lib/harness/idle_types`, so this made a `harness ↔ idle` cycle. Because the import
+ran only at call time, nothing failed at import, and every test passed.
+
+**How it was caught:** the G2 adapter review read the imports by hand. The fix lane
+first wrote an AST test that walks every module under `lib/harness`, function bodies
+included. The test failed on `codex_idle.py:119`.
+
+**The fix:** the caller now owns the state access. `meridian idle event` builds the
+`session_reader` from its own service and passes it in; the parameter has no
+default. Side effects that belonged to the CLI, such as chaining the user's own
+Codex `notify` command, moved to a separate bundle hook (`idle_event_applied`).
+That hook runs after the event is applied, instead of the parser registering
+`atexit` handlers.
+
+**The lesson:** a layering rule that only import-time checks enforce is not
+enforced. Function-local imports and defaulted callbacks are the two ways around
+it. Inject the dependency without a default, as in the section above, and enforce
+the direction with an AST test that includes function bodies.
+
+---
+
 ## Codex Live-Fork Rollout Snapshots
 
 **The failure (probe-proven):** Forking a live Codex session used to clone

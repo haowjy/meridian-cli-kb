@@ -61,3 +61,26 @@ importer.
 auth failure → Claude backups" and "Recheck PASS WITH FIXES; V2 partial; lane D";
 `evidence/pr2-fix-d-report.md`; spawns `p7149`, `p7150`, `p7151`; for the squash
 lesson, `evidence/pr3-p3a-report.md`, `review/pr3-review.md`, `spawn:p7155`).
+
+## Parallel Lanes Can Collide on Test Basenames
+
+**What happened (2026-10-08):** two parallel lanes each added a new test directory
+without an `__init__.py`. The notify-core lane wrote `tests/unit/notify/test_service.py`
+and the idle-core lane wrote `tests/unit/idle/test_service.py`. Each lane's full suite
+passed. Once both were merged, pytest stopped at collection with `import file
+mismatch`. Under pytest's default import mode, two test files with the same basename
+in non-package directories map to one module name. The merge contained no
+conflict, and no reviewer reading either diff could see the problem.
+
+**What worked:** one commit added empty `__init__.py` files to the new test
+directories (`b5fc8682`). The tech lead then cherry-picked it into every lane still
+running, before their full-suite gates.
+
+**The lesson:** when lanes will add test directories in parallel, the brief should
+fix the convention first: every new test directory is a package, or test basenames
+must be unique. The first full-suite run on the merged tree is the earliest point
+where a collision shows up, so run it before handing the merge to review.
+
+**Provenance:** `work:idle-cache-notify` (`reviews/G1-review.md` "Gates"; spawn
+`p7454`; commit `b5fc8682`, cherry-picked as `ec6aa8d9` and merged with `icn/g0fix`
+as `520de295`).

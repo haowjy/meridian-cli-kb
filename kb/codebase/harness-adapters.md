@@ -28,11 +28,17 @@ boundary so child assistant text cannot become the parent `report.md`.
 ### Idle bundle ports
 
 Idle policy does not add harness cases to shared launch code. `HarnessBundle`
-has four optional ports: `primary_idle_sensor`, `parse_idle_event`,
-`idle_env_facts`, and `detect_ttl`. Native parsing, cache facts, draft/busy
-observation, and compaction actuators live in `claude_idle.py`, `pi_idle.py`,
-`codex_idle.py`, and `opencode_idle.py`; `lib/idle` owns the schedule, guards,
-state, and notification decisions.
+has five optional ports: `primary_idle_sensor`, `parse_idle_event`,
+`idle_event_applied`, `idle_env_facts`, and `detect_ttl`. Native parsing, cache
+facts, draft/busy observation, and compaction actuators live in `claude_idle.py`,
+`pi_idle.py`, `codex_idle.py`, and `opencode_idle.py`; `lib/idle` owns the
+schedule, guards, state, and notification decisions.
+
+No module under `lib/harness` imports `lib/idle`, not even inside a function;
+`tests/unit/harness/test_layering.py` walks the AST to enforce it. A parser that
+needs stored idle state receives it from its caller: `meridian idle event` hands
+the Codex parser a `session_reader`, applies the parsed event, and then calls
+`idle_event_applied`, which chains the user's own Codex `notify` command.
 
 Claude and Pi use in-process runtime adapters under
 `src/meridian/claude_runtime/meridian-idle/` and

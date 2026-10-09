@@ -96,8 +96,9 @@ sessions, which Meridian drives over RPC, and the Pi connection gets the role as
 `pi_session_role` on its config. Pi prelaunch reads the cross-harness
 `MERIDIAN_SESSION_ROLE` to choose the runtime compatibility probe and maps
 `spawn` to the internal `spawned` profile. The `meridian-idle` extension also
-uses the public role through `meridian idle config --interactive`; other Pi
-extensions do not need it
+depends on the public role: it passes `--interactive` on every `meridian idle`
+call, and core lets that flag stand in for the role only when the role is
+unset. Other Pi extensions do not need it
 ([D-session-role](../decisions/idle-notifications.md#d-session-role--one-meridian_session_role-at-the-bind-seam)).
 
 ---
@@ -359,4 +360,4 @@ Pi prompt/auth/crash failures persist a human-readable `# Spawn failed` Markdown
 - [pi-runtime/vocab.md](pi-runtime/vocab.md) — canonical vocabulary for the pi-runtime background-work surface
 - [pi-runtime/coordination.md](pi-runtime/coordination.md) — current Pi execution ownership, exact result delivery, RPC transport, usage, and failure boundaries
 - [pi-native-sessions.md](pi-native-sessions.md) — how fresh primary native identities are discovered and how journals are read back
-- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned Pi idle adapter and primary-only session role
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — Pi idle adapter contract and primary-only session role

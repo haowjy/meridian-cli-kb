@@ -225,6 +225,6 @@ meridian context work    # just the work path
 ## Cross-References
 
 - [../concepts/config-precedence.md](../concepts/config-precedence.md) — conceptual model of config precedence and runtime overrides
-- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — planned `[notify]` / `[idle]` namespaces and per-harness idle settings
+- [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — `[notify]` / `[idle]` namespaces and per-harness idle settings
 - [troubleshooting.md](troubleshooting.md) — workspace config invalid pattern
 - [../principles/design-principles.md](../principles/design-principles.md) — progressive disclosure principle

@@ -545,7 +545,10 @@ spawn directory, and a `tui_alive` callback tied to the TUI launch task.
 
 Teardown cancels and awaits the sidecar before stopping the connection. Raw
 event callbacks and the sidecar's event, timer, store-poll, and compaction paths
-contain their own failures; synchronous policy/store work runs off-loop. The
+contain their own failures; synchronous policy/store work runs off-loop.
+Compaction runs as its own task, so a user return doesn't cancel an actuator
+mid-action. For sensors that learn of turns only from external callbacks
+(Codex), push and warn are skipped while the sensor reports busy. The
 black-box attach fallback has no idle sidecar.
 
 ## _MERIDIAN_HARNESS Child Env Injection

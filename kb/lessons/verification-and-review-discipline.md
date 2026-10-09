@@ -102,6 +102,35 @@ across the gate, because it changes other tools' defaults and leaks into pytest.
 (Provenance: `work:noninteractive-prepush-pnpm`: p7317 and p7319 diagnosed it;
 p7328 verified the fix with pnpm 10.34.3 through a real `git push --dry-run`.)
 
+The same prerequisite applies to every fresh worktree and to every bundle
+change. `src/meridian/pi_runtime/dist/` is gitignored, so a new lane worktree has no
+Pi bundles. Its first `pytest-llm` run fails on missing Pi extension artifacts and
+looks like a regression. A bundle source change without a rebuild leaves the
+Python tests exercising the old bundle. In the idle-cache-notify work this hit
+several lane worktrees (F2b and F3 among them) until the briefs began with `pnpm install --frozen-lockfile && pnpm run build:extensions`.
+Put the rebuild in the brief for any lane that runs the full suite, and repeat it
+after editing anything under `pi_runtime/extensions/`.
+(Provenance: `work:idle-cache-notify`, `chat:c7280`; `evidence/corefix-gates.txt`.)
+
+### Run every adapter suite in a gate
+
+A test suite that no gate runs protects nothing. The idle adapters for Claude and
+Pi are TypeScript that runs inside the harness, with their own Vitest and
+`claude plugin test` suites. CI built the Pi bundles but ran neither suite. When
+the Python core began requiring `--interactive` on every idle call, the Claude mod
+still sent it only on `config`. Every Python test passed. The TypeScript tests,
+the only ones covering the hook-to-command mapping, never ran and had no
+assertion on the flags anyway. G2 found it by hand-probing the CLI.
+
+The fix added `pnpm test` to CI's fast gate after the bundle build. It also made
+`claude plugin validate` and `claude plugin test` a required local gate in
+`tests/AGENTS.md` for `claude_runtime/` changes, because CI runners have no
+`claude` binary. When a contract spans a language boundary, the consumer's
+suite must run wherever the producer's does, and it must assert the contract
+itself: here, that every recorded call carries the flag.
+(Provenance: `work:idle-cache-notify`, `reviews/G2-review.md` C1 and X1; spawn
+`p7466`.)
+
 ### Record exit status and working directory
 
 A copied success-looking line is not a validation record. Capture the command,

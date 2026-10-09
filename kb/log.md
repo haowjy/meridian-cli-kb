@@ -3,6 +3,26 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-08 — Idle notifications reconciled with the gated branch (`work:idle-cache-notify`)
+
+- **[Idle Notifications](decisions/idle-notifications.md)** now matches
+  `feat/idle-cache-notify` at `0d7b94fe`, after the G1-fix, corefix and G2 fix
+  waves. It has per-call `--interactive` role resolution, the `lib/harness` →
+  `lib/idle` import ban and the `idle_event_applied` port, and per-adapter
+  contracts. Two new sections: "What the plan got wrong" (the DIVERGENCE record
+  as rejected mechanisms) and "Review gates" (G0–G2 and what each changed).
+- **Neighbours corrected:** harness-adapters (five idle ports, layering test),
+  launch-system (independent compaction task, Codex busy suppression),
+  pi-lifecycle (`--interactive` on every call), configuration-guide (dropped
+  "planned").
+- **New lessons:** parallel lanes colliding on test basenames
+  ([spawn-lane-operations](lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames));
+  Pi bundle rebuilds in fresh worktrees and running every adapter suite in a gate
+  ([verification-and-review-discipline](lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate));
+  function-local imports hiding a layering cycle
+  ([harness-integration](lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle)).
+
+---
 ## 2026-10-08 — Idle notifications designed and built (`work:idle-cache-notify`)
 
 - **New decision page:** [Idle Notifications](decisions/idle-notifications.md).
