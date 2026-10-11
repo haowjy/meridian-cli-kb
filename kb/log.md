@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-11 — Claude native exit verification captured (`work:exit-identity-reporting`)
+
+- Reconciled the native-session identity decision and architecture pages with the
+  launch-correlated Claude classic-hook receipt: fresh nonce, actual child PID,
+  bounded atomic per-spawn record, immutable entry check, final-reason allowlist,
+  and exact final transcript/header validation before exit-chat allocation.
+- Marked the reporting-only PR #559 limit (“only Pi verifies exits”; Claude
+  `/clear` remains untracked) as superseded while retaining its rationale against
+  trampoline/history guesses. Missing or stale evidence, hard kills, and old runs
+  remain unresolved/unverified; the production-wheel primary/spawn/fork probe was
+  still open at capture.
+- Updated native-only-history pruning guidance and the KB catalog/index. The
+  separate boundary plugin remains distinct from optional interactive idle.
+
+---
 ## 2026-10-08 — Idle notifications designed and built (`work:idle-cache-notify`)
 
 - **New decision page:** [Idle Notifications](decisions/idle-notifications.md).

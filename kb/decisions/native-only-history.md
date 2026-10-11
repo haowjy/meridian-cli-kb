@@ -409,10 +409,11 @@ The policy choices behind its shape are:
   exit moved the run elsewhere.
 - **A run boundary that is `unresolved` or `mismatch` is skipped** (`exit_unresolved`):
   the run may have ended in a native session nobody identified. A boundary of `None`
-  (runs from before exit tracking) qualifies. Consequence: only Pi reports an exit
-  identity, so every Claude, Codex and OpenCode row written by a PR 1-or-later build is
-  skipped. On the copy that was 55 spawns (124 MB). New runs write no stream, so this
-  set does not grow.
+  (runs from before exit tracking) qualifies. Claude rows with a valid
+  launch-correlated boundary and exact native source can qualify too; unresolved or
+  mismatched Claude rows, and rows for Codex/OpenCode without an exit boundary, are
+  skipped. The older copy measured 55 skipped spawns (124 MB); new runs write no
+  stream, so that legacy set does not grow.
 - **Live process scopes are skipped; legacy multi-attempt runs qualify.** Archive's
   active-chat and dependency protections were deliberately not imported: a terminal
   spawn's stream is final, and deleting it does not change ancestry. Meridian reads no

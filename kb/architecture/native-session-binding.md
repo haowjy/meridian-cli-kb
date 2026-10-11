@@ -277,8 +277,11 @@ chats.
   - 1,000 generated histories;
   - a launch-golden matrix of harness × operation × mode.
 
-This qualifies Meridian's boundary. It does not qualify a real harness's lazy
-persistence, lifecycle races or credentials
+The focused suite and the Claude 2.1.296 classic-hook probe qualify Meridian's
+receipt boundary for the exercised startup, switch and final-exit paths. They do
+not qualify every real harness lifecycle (including hard kills, disabled hooks,
+hook timeouts, logout, all empty-input exits, or production-wheel primary/spawn/
+fork composition) or credentials
 ([lesson](../lessons/native-session-identity.md#green-suites-did-not-find-the-seam-defects)).
 
 ## Related
@@ -301,3 +304,6 @@ persistence, lifecycle races or credentials
   [decision page](../decisions/native-session-identity.md);
 - code checked at `08499af0`; final live probe and targeted re-probes are recorded in
   `work:native-harness-session-identity` evidence.
+- Claude boundary extension: `work:exit-identity-reporting`, commit `3aa18aae`,
+  review `spawn:p7571`, classic runtime evidence `claude-boundary-live-probe.md`;
+  production-wheel qualification remains open.

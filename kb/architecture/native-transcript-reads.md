@@ -72,6 +72,12 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
 chat, otherwise the entry chat. When the chat is known but unbound, the error names the
 chat (`unbound: … for c4904`), not the spawn. Old installs named the spawn.
 
+For Claude, `verified` means the launch-correlated classic-hook receipt identified a
+final session, matched the actual child and immutable entry, and the exact native
+transcript header passed validation before the exit chat was allocated. Missing,
+stale, corrupt or hard-killed boundary evidence remains `unresolved`; the reader
+never discovers a final transcript by scanning or timestamp.
+
 **Capture resolves differently.** `purpose="capture"` (archive capture) accepts only an
 identified terminal local `pN`. It reads the key of the run's *exact session
 generation* (`session_identity.session_records_for_spawns`), never the chat's current

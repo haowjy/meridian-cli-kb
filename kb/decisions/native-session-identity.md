@@ -1,7 +1,7 @@
 # Decision: Pin each chat to one native session; wrap native transcripts
 
 **Status: settled 2026-09-24; extended through probe-fix on 2026-09-26; shipped in
-v0.7.0.** The combined implementation is PR #534 (`feat/native-session-identity`),
+v0.7.0; extended for Claude exit verification on 2026-10-11.** The combined implementation is PR #534 (`feat/native-session-identity`),
 merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
@@ -213,10 +213,17 @@ The entry key never moves. What the user ended on is a separate fact:
   exit. Shutdown for a switch, a missing record, a restart after quit, or an
   unreadable identity leaves exit `unresolved`. The record is read only after the
   child has exited and its teardown has been joined.
-- **Claude** exit is always `unresolved` today. The TUI trampoline successor
-  (`/tui fullscreen`) is recorded as a diagnostic `trampoline_successor_id` and
-  becomes neither an entry rebind nor an exit chat.
-- Pi's owned boundary is the only input to the one finalizer and one allocator. A
+- **Claude** can report a verified exit through its separate
+  `meridian-session-boundary` classic-hook plugin. The launcher passes a fresh
+  nonce, spawn-owned receipt path and Python interpreter to primary and spawned
+  Claude. The receipt retains the initial exact identity while recording the
+  current one; `clear` and `resume` are switches, not final exits. Only final
+  `SessionEnd` reasons (`prompt_input_exit`, `logout`, `other`) qualify. The
+  receipt must match the launch nonce and actual Claude child PID, its initial
+  key must match the immutable planned entry, and the exact final transcript
+  header must validate before allocation. The TUI trampoline successor remains
+  a diagnostic and never rebinds the entry or names an exit chat.
+- Pi and Claude owned boundaries are inputs to the one finalizer and one allocator. A
   verified exit key maps to the chat that already owns that exact key (stopped chats
   included), else a new chat. The lookup and creation run under the sessions lock.
 - If the boundary's initial identity contradicts the immutable entry key, the run
@@ -233,7 +240,7 @@ immutable. It records one `run_boundary` outcome:
 | Status | Meaning | `exit_chat_id` |
 |---|---|---|
 | `verified` | An owned exit key was observed, and its native file exists | set (the owning or new chat) |
-| `unresolved` | No owned exit signal (Claude, Codex, OpenCode today), or Pi ended without a readable quit | none |
+| `unresolved` | No valid owned final-exit evidence, including missing/corrupt/stale receipts, hook failure, hard kill, or a harness without an exit boundary | none |
 | `mismatch` | The run failed `entry_mismatch` | none |
 
 "Continue after this run" has one rule, `continue_chat_id`: a terminal run's
@@ -316,21 +323,27 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   and continuing it fails `missing`.
 - A Pi run whose stdin closes while a session replacement is still settling can end
   with no readable quit identity. Its exit is `unresolved`, not guessed.
-- **Only Pi reports an exit identity.** Every Claude, Codex and OpenCode run records
-  `run_boundary: unresolved`. This is the design, not a defect: none of them has a
-  launch-owned exit signal. A read-only tally of about 110 recent real rows found 0
-  verified. Missing exit proof is not a process failure: primary completion omits
-  the absence-only identity diagnostic; `spawn show pN` calls it unverified. Raw
-  JSON retains `unresolved`. Mismatches and possible successors still warn
-  ([presentation policy](../architecture/claude-native-sessions.md#tui-trampoline)).
-  `--continue pN`, `--fork pN` and `session log pN` use the entry chat. The runner-history
-  prune rule skips these rows as `exit_unresolved`
-  ([prune rule](native-only-history.md#the-prune-rule)).
-- Claude runs never report a verified exit, including after `/tui fullscreen`.
-  `session log pN` shows the entry chat with an entry-based label, and the entry
-  chat's transcript may be nearly empty when the conversation moved to a successor.
-  `/clear` creates a new native transcript that remains untracked (#533). Closing these
-  gaps needs launch-correlated Claude evidence, not a better scan.
+- **Claude verification is conditional and fail-closed.** A launch can be
+  `verified` only when the boundary plugin writes a nonce/PID-matching receipt,
+  the initial identity matches the planned entry, and the final exact native
+  transcript/header validates. Missing or disabled hooks, stale/corrupt/overlarge
+  receipts, hook timeouts, hard kills, and missing final transcripts remain
+  `unresolved`; an initial identity contradiction is `mismatch`. There are no
+  scans, timestamps, or guesses, and old runs are not retroactively marked.
+  The original entry binding stays unchanged; `continue_chat_id` uses the exit
+  chat only for `verified`, otherwise the entry chat.
+- The classic lifecycle probe exercised Claude 2.1.296 TUI/headless startup,
+  `/clear`, in-process `/resume`, final exit, exact headers, and synchronous hook
+  completion. Focused integration/identity/projection coverage passes. The
+  production-wheel Meridian primary/spawn/fork probe remains an open evidence
+  gate, so this record does not claim universal production qualification.
+- **Superseded accepted limit (reporting-only PR #559, 2026-09-26):** the
+  earlier capture said that only Pi reported an exit identity, that Claude runs
+  always remained `unresolved`, and that `/clear` stayed untracked (#533). That
+  was accurate for the reporting-only implementation: the presentation change
+  suppressed absence-only output but did not add proof. It is superseded by the
+  launch-correlated Claude boundary implementation captured here; the rationale
+  for refusing trampoline/history guesses remains current.
 - Model/provider selection on reopen is a separate concern and never changes identity.
 
 ## Phases
@@ -352,8 +365,8 @@ operations-seam regressions; late binding and browse behavior were exercised on 
 copied runtime. Do not describe every formerly failing live scenario as rerun green.
 The first probe failures also included wrong expectations: Claude `output.jsonl` is
 process-runner-only, and TUI probing requires a separate Enter after staging text in
-tmux. Claude `/clear` remains untracked, and Claude/Codex/OpenCode exit identity
-remains unresolved because only Pi reports a launch-owned exit identity.
+tmux. At that phase's capture Claude `/clear` remained untracked and only Pi had a
+launch-owned exit identity; the later Claude boundary work supersedes that limit.
 
 Out of scope here: duplicate Pi completion-notification turns (GitHub #517).
 
@@ -381,3 +394,8 @@ reviews `spawn:p7083`–`spawn:p7085`; phases `spawn:p7100`, `spawn:p7102`,
 (`review/pr1-alignment.md`), fix pass `spawn:p7126`
 (`evidence/pr1-p5-fixes-report.md`); install readiness
 `evidence/pr1-install-readiness-report.md`; conversation `chat:c6945`.
+
+Claude exit-verification extension: `work:exit-identity-reporting`, settled intent
+in `DIVERGENCE/01-verify-claude-exit.md`, implementation `3aa18aae`, review
+`spawn:p7571`, and classic runtime evidence in `claude-boundary-live-probe.md`.
+The production-wheel Meridian probe was still in progress at this capture.
