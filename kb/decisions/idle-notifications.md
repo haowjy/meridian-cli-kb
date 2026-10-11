@@ -1,15 +1,5 @@
 # Decisions: Idle Notifications and Idle Compaction
 
-**Status (2026-10-11, task HEAD `bacc8c43`):** the four thermo round-2
-blockers found against baseline `e12a4314` are fixed and focused evidence is
-green; the integrated full gate and re-review are still pending. Do not treat
-this as a passed release gate or merge approval. The earlier G0–G2 gates,
-cross-harness smoke, and final maintainability review describe the pre-round-2
-baseline. Provenance: `work:idle-cache-notify` (`design/`, `DIVERGENCE/`,
-`reviews/`, `evidence/thermo-core-fix/`, `evidence/thermo-adapters-fix/`),
-`thermo-r2-plan.md`, `chat:c7280` (user decisions U1–U6), `chat:c7347` (U9,
-Pi cache retention), `chat:c7275` (planning).
-
 ## The problem
 
 A primary session sits idle in tmux. When the provider's prompt cache expires,
@@ -51,9 +41,6 @@ TTL is in [Prompt-Cache Retention by Harness](../research/prompt-cache-retention
 | Agent notification rule | meridian-base `skills/work-artifacts/SKILL.md` |
 
 ## Invariants to keep
-
-The final review (p7493) named these as the parts of the design that work.
-Any change to the idle feature must keep them.
 
 - **Compaction checks live only in the ordered guards.** `lib/idle/guards.py`
   is one ordered pure function that matches the guard list below line by line.
@@ -152,7 +139,7 @@ from import-time checks (G2 K3).
 
 ## D-idle-notice-context — Reason-first titles and send-time cache countdown
 
-**Decision (title/countdown follow-up, `773d9508`, `e12a4314`):** Idle notice
+**Decision:** Idle notice
 titles lead with the reason, then include the terminal and explicit work
 context when available. The shape is `[idle] a2: pi on work: "idle-cache-notify"`;
 cache warnings use `[cache warning]`, and compaction results use their result
@@ -178,8 +165,7 @@ the schedule and compaction guards are unchanged.
 terminal and explicit work label identify which session needs attention. Rendering
 from persisted state at send time avoids publishing a stale precomputed deadline.
 The confidence marker prevents a provider heuristic or configured fallback from
-looking like a provider guarantee. Provenance: `work:idle-cache-notify`,
-`DIVERGENCE/notification-title-context.md`, `reviews/notification-titles.md`.
+looking like a provider guarantee.
 
 ## D-idle-stretch-at-most-once — Each stage fires at most once per stretch
 
@@ -395,15 +381,6 @@ These cases fail open or fail silently:
   after the first stretch. This fails silently.
 - The Codex tmux actuator narrows the race with a returning user but can't
   close it.
-- **Pi `openai` with long retention is taken as 24 h.** `pi_idle.detect_ttl`
-  returns 86400 for provider `openai` when `PI_CACHE_RETENTION=long`, which is
-  now the primary default. OpenAI documents `prompt_cache_retention: "24h"` as
-  usually about 30 minutes, and GPT-5.6+ caches for 30 minutes whatever the
-  request says ([cache research](../research/prompt-cache-retention.md#openai-retention-which-codex-inherits)).
-  The warning and compaction are then scheduled about 24 h out, long after the
-  cache has gone cold. This fails open: the warning comes too late to help, and
-  the cache-cold guard (`guards.py`) compares against the same TTL, so it lets
-  a compaction run on a cold cache. Not yet routed to a tracker.
 
 ## D-idle-config — Separate `[notify]` / `[idle]` namespaces, standard precedence
 
@@ -432,9 +409,10 @@ env name per harness. The loader limits behind this are in
 [Config Precedence](../concepts/config-precedence.md#declaring-config-keys).
 
 **TTL defaults for harnesses that don't expose one (U4):** Codex
-`ttl_seconds = 1800`, OpenCode `300`. Claude and Pi detect the TTL from the
-session. The design first proposed 3600 for Codex; research showed GPT-5.6+
-caches for 30 minutes, so 3600 was withdrawn.
+`ttl_seconds = 1800`, OpenCode `300`. Claude reads the transcript TTL. Pi
+uses the provider and `PI_CACHE_RETENTION`: Anthropic gets 300 or 3600 seconds;
+OpenAI long retention uses an estimated 1800 seconds, not the request's `24h`
+label. Other Pi providers have no detected TTL.
 
 ## D-pi-cache-retention — Meridian launches Pi primaries with long cache retention
 
@@ -517,77 +495,7 @@ deliberately. A meridian-base prompt rule says when: blocked on a decision,
 long work done, or a failure; not for routine progress. Idle push, warn and
 compaction run only in primaries.
 
-## D-idle-staging — All four harnesses in one work item
-
-**Decision (U1):** Claude, Pi, Codex and OpenCode ship in one work item, with
-adapters in parallel worktrees once shared core merges. The tech-lead's
-"Claude and Pi first, Codex/OpenCode as a follow-on" proposal was declined. The
-user's standing rule: if non-Claude harnesses are covered at all, cover all of
-them.
-
-**Implementation order:** probes for each harness and four enabling refactors
-ran first:
-
-- **R1:** catalog-driven loading of new config tables, plus the per-harness model
-  factory.
-- **R2:** the session role variable.
-- **R3:** the launcher idle-task hook.
-- **R4:** the Claude bundled-mod seam.
-
-After those came notify core, idle core, the `meridian idle` CLI, the four
-adapters, the prompt rule, then docs and a cross-harness smoke test. A review
-gate sat between each wave.
-
-## What the plan got wrong
-
-The intent never changed: primaries only, four harnesses, two layers,
-everything configurable with standard precedence, and agents can ping on
-purpose. These mechanisms did change between the user-confirmed plan, the
-accepted design, and the build. Each row is a rejected alternative with the
-evidence that killed it.
-
-| Planned | Built | Forced by |
-|---|---|---|
-| Pi caches for 1 h by default | Pi defaults to 5 min, so Meridian sets `PI_CACHE_RETENTION=long` for interactive Pi primaries | Pi README; cache research; U9 |
-| OpenCode adapter as a TS plugin on `session.idle`, compaction unconfirmed | Python sensor in the attach launcher; summarize confirmed; push-only at 300 s | probe P0c |
-| Codex TTL 3600 | 1800 | GPT-5.6+ 30-min retention; Codex sets none (U4) |
-| Claude return = `turn.start` with text | composer/bridge `prompt.submit` / `command.run`; compact only from a timer callback; `isInteractive` gate | probe P0a |
-| Codex return = non-empty `input-messages`; hooks as fallback | growth of the cumulative count; no hooks; pin on `harness_session_id` | probe P0b |
-| Pi extensions already load primary-only | the resolver never checked `interactive`; `meridian-idle` gained the gate | probe P0d |
-| SMTP password via env | 0600 file first; env as a leaky fallback | `MERIDIAN_SECRET_*` stripping (U3) |
-| Long config key names | `push_seconds`, `warn_minutes`, `compact_minutes` | D3 |
-| `--implies-return` honoured only after the window; failed/vetoed `done` opens a window | implies-return honoured any time; only `done ok` opens the window | G1 S2 |
-| Role gate = `MERIDIAN_SESSION_ROLE == primary` | unset role + `--interactive` on every call also counts; `spawn` always disabled | G1 S1, G2 C1 |
-| tmux-pane fallback, off by default | not built | D5 |
-| ntfy as an email backend | not built | needs a role-aware result contract |
-
-## Review gates
-
-Each gate reviewed a merged tree and ran ruff, pyright, the full pytest suite
-and, from G2 on, the TypeScript suites. Blocking and should-fix findings
-were fixed, with failing-then-passing tests, before the wave that depended on
-them. Notes were either folded in where cheap or routed as follow-ups.
-
-| Gate | Reviewed | What it changed |
-|---|---|---|
-| **G0** | R1–R4 refactors | The idle task is cancelled before the connection stops on every teardown path. `tui_alive` follows the TUI launch task instead of the launcher. Claude's generated plugin types no longer ship in the wheel. Per-harness idle fields come from one shared base, with per-harness defaults in the generated models. |
-| **G1** | notify core and idle core | The sidecar keeps a compaction alive across a user return, so its `done` is recorded. Core gained Codex's `implies_return` and input-count path. The role gate gained `interactive` from end to end. Failed or vetoed compaction no longer opens a window. ntfy titles became RFC 2047. Sidecar calls moved off the loop, and each event became its own failure domain. |
-| **G2** | the four adapters | Every adapter call carries `--interactive` (C1). Pi stopped blocking input and re-checks before compacting (P1, P2). OpenCode got timeouts and marks its own compaction (O1, O2). Codex reports `ok` only after an appended `compacted` rollout record, stays quiet while busy, and re-checks the TUI before Enter (K1, K2, K4). `lib/harness` stopped importing `lib/idle`, with an AST test (K3). Pi's Vitest suites run in CI; `claude plugin test` is a required local gate because CI has no `claude` binary (X1). |
-| **Final** (p7493, maintainability only) | the whole branch | Verdict: ship after F4. F4 deleted contract and state surface that nothing read, before a second adapter could code against it: the `busy`/`idle` event kinds and `IdleEvent.message_id`/`provider`/`timestamp`; the two-field env-facts dataclass, now a single `autocompact_off(env)` port, which Pi doesn't register; `IdleState.spawn_id`/`main_thread_id`; and the `NoticeSpec` shim in favour of `lib.notify.Notice`. Every other finding was routed as debt, listed below. |
-
-Between G1 and G2, a separate fix lane made a closed stretch always reopen on
-arm. Without that, a session that compacted and then saw the user return never
-pushed again. Process lessons from these gates are in
-[Spawn Lane Operations](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames)
-and [Verification and Review Discipline](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
-with the layering-specific lesson in
-[Harness Integration](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).
-
 ## Structural debt
-
-The pre-round-2 final review found no blockers beyond F4. Round 2 then found
-and fixed four correctness blockers; its integrated full gate and re-review are
-still pending. The remaining structural debt below is not claimed fixed.
 
 | Debt | Tracked in |
 |---|---|
@@ -661,3 +569,12 @@ To close the gap, the user sets up an app password and sends one test notice:
   identity-pin op from `lib/idle/.context/FUTURE`, so the new adapter
   doesn't become a fifth copy of the protocol.
 - A new idle capability needs a bundle port. Group the ports first (#554).
+
+## Sources
+
+- `work:idle-cache-notify`: `design/`, `DIVERGENCE/`, `reviews/`, and `evidence/`
+  hold implementation history, rejected mechanisms, and verification records.
+- `chat:c7280`: user decisions U1–U6; `chat:c7347`: Pi retention decision U9.
+- Process lessons: [parallel test lanes](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames),
+  [adapter-suite coverage](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
+  and [dependency injection](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).

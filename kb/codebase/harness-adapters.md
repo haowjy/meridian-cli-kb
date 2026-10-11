@@ -34,18 +34,12 @@ auto-compaction is off, registered by Claude and OpenCode), and `detect_ttl`.
 `native_idle_hook` groups native observation with downstream delegation; the
 idle service delegates in `finally`, even when observation rejects or fails.
 Native parsing, cache facts, draft/busy observation, and compaction actuators
-live in `claude_idle.py`, `pi_idle.py`, `codex_idle.py`, and `opencode_idle.py`;
-`lib/idle` owns the schedule, guards, state, and notification decisions.
-Harness modules import only `idle_types.py` from the idle contract. Residual
-capability grouping and sidecar lifecycle ownership remain deferred in GitHub
-#554; its policy-placement portion is already resolved in `IdleService`.
-
-No module under `lib/harness` imports `lib/idle`, not even inside a function;
-`tests/unit/harness/test_layering.py` walks the AST to enforce it. A native hook
-that needs stored idle state receives a reader from its caller: `meridian idle
-event` observes the Codex payload, applies a supported event, and always
-delegates the user's own Codex `notify` command in a `finally` path. Rejected,
-malformed, unpinned, blank, and apply-failing payloads are delegated too.
+live in the harness's idle module; `lib/idle` owns the schedule, guards, state,
+and notification decisions. A native hook receives its state reader from the
+caller. No module under `lib/harness` imports `lib/idle`, even inside a function;
+`tests/unit/harness/test_layering.py` enforces that boundary. See
+[idle decisions](../decisions/idle-notifications.md) for contracts and remaining
+capability/lifecycle work.
 
 Claude and Pi use in-process runtime adapters under
 `src/meridian/claude_runtime/meridian-idle/` and

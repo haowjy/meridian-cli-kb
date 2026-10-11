@@ -4,19 +4,13 @@ These are the non-obvious discoveries from integrating Claude, Codex, and OpenCo
 
 ## Why PTY Capture for Claude Primary Launch
 
-**The constraint:** Claude's interactive TUI emits its session ID to the terminal on startup. There's no flag to get the session ID programmatically, and it doesn't emit structured JSON on stdout during interactive mode.
+Claude's interactive TUI needs a terminal for input and rendering. Meridian's
+PTY launcher supplies that terminal and relays its output; piping stdout is not
+an equivalent interactive surface.
 
-**The naive approach:** Pipe stdout and parse for the session ID. This fails because the TUI is designed to talk to a terminal. Interactive behavior, colors, and in-place rendering require a TTY. Piping stdout gets garbled or suppressed output.
-
-**The solution:** Launch Claude under a PTY (pseudo-terminal). The PTY convinces Claude it's talking to a real terminal. Meridian reads the PTY output, extracts the session ID from the startup banner, and then hands the PTY to the user's terminal so the interactive session proceeds normally.
-
-**The lesson:** When a tool is designed for humans, observation requires meeting it on its terms. PTY capture is the minimum machinery needed to observe session ID without reimplementing Claude's TUI. It's explicitly limited to that extraction use case — not used as a general control mechanism.
-
-**Where this lived:** `launch/process/pty_launcher.py`; the `detect_primary_session_id()` hook was deleted in the PR 1 restructure.
-
-**Identity no longer depends on this.** Claude accepts `--session-id <uuid>`, so
-Meridian now assigns the ID and binds it before exec. PTY-observed IDs can only
-confirm it or conflict with it ([native session binding](../architecture/native-session-binding.md)).
+Fresh sessions receive an assigned ID through `--session-id <uuid>` before
+exec. Identity is not extracted from a startup banner. Keep terminal transport
+separate from [identity binding](../architecture/native-session-binding.md).
 
 ---
 
@@ -105,7 +99,7 @@ The user sees the normal TUI. Meridian sees all events.
 
 **The solution:** Meridian injects TypeScript extensions into Pi via `-e <path>` flags. These extensions run inside Pi's process, access Pi's bash execution context, and write durable coordination state. Python watches that disk state to decide quiescence.
 
-Two managed extensions ship as package data:
+Two managed extensions supply the completion evidence:
 - **`managed-bash`** — overrides Pi's bash builtin. Registers `bash` tool (with `background?: boolean` + `timeout_min?: 1-59` parameters) and `bash_manage` ops tool. Returns immediately with `{bash_id, status: "backgrounded"}` for tracked bg transitions; blocks for synchronous calls.
 - **`meridian-spawn-watch`** — observes canonical direct child rows, dispatches idle-only implicit-wait follow-ups (`sendMessage({triggerTurn: true})`), records exact native admission and delivery faults, and provides the `/spawn` family of slash commands (renamed from `/mspawn` — no compatibility alias).
 
@@ -285,24 +279,16 @@ Its default `session_reader` built an `IdleService` through a function-local
 `lib/harness/idle_types`, so this made a `harness ↔ idle` cycle. Because the import
 ran only at call time, nothing failed at import, and every test passed.
 
-**How it was caught:** the G2 adapter review read the imports by hand. The fix lane
-first wrote an AST test that walks every module under `lib/harness`, function bodies
-included. The test failed on `codex_idle.py:119`.
-
-**The fix:** the caller now owns the state access through the native idle hook.
-`meridian idle event` supplies the `session_reader`; the hook observes the
-payload, the service applies a supported event, and downstream delegation runs
-in `finally`. This preserves the user's own Codex `notify` callback even when
-the observation is rejected, malformed, unpinned, blank, or fails while being
-applied, without the parser registering `atexit` handlers.
+**The fix:** `meridian idle event` supplies the native hook's `session_reader`.
+The parser no longer constructs a policy service. An AST test checks every
+module under `lib/harness`, including function bodies.
 
 **The lesson:** a layering rule that only import-time checks enforce is not
 enforced. Function-local imports and defaulted callbacks are the two ways around
 it. Inject the dependency without a default, as in the section above, and enforce
-the direction with an AST test that includes function bodies. The corresponding
-idle adapter review is recorded in
-[Idle Notifications — Review gates](../decisions/idle-notifications.md#review-gates),
-G2 (K3).
+the direction with an AST test that includes function bodies. See the
+[idle dependency boundary](../decisions/idle-notifications.md#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services).
+Provenance: `work:idle-cache-notify`, `reviews/G2-review.md` K3.
 
 ---
 

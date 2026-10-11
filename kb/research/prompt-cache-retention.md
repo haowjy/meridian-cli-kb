@@ -40,8 +40,9 @@ hour at a higher cache-write price
 
 - **Idle notifications.** These facts set the defaults: Codex
   `ttl_seconds = 1800`, OpenCode `300`. Claude reads the TTL from the
-  transcript, and Pi's extension derives it from the provider and
-  `PI_CACHE_RETENTION`. See
+  transcript, and Pi's TTL detector uses the provider and `PI_CACHE_RETENTION`.
+  Pi OpenAI long retention is estimated at 1800 seconds; the request's `24h`
+  label is not a guaranteed lifetime. See
   [Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence).
 - **Pi primaries get long retention.** Meridian sets `PI_CACHE_RETENTION=long`
   for interactive Pi primaries unless the user set it; spawns keep Pi's
