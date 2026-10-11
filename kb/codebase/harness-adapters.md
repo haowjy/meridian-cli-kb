@@ -28,21 +28,24 @@ boundary so child assistant text cannot become the parent `report.md`.
 ### Idle bundle ports
 
 Idle policy does not add harness cases to shared launch code. `HarnessBundle`
-has five optional ports: `primary_idle_sensor`, `parse_idle_event`,
-`idle_event_applied`, `autocompact_off` (an env reader that returns whether the
-harness's own auto-compaction is off, registered by Claude and OpenCode), and
-`detect_ttl`. Native parsing, cache facts, draft/busy observation, and
-compaction actuators live in `claude_idle.py`, `pi_idle.py`, `codex_idle.py`,
-and `opencode_idle.py`; `lib/idle` owns the schedule, guards, state, and
-notification decisions. Harness modules import only `idle_types.py` from the
-idle contract. The five ports are really three capabilities; grouping them
-as one `HarnessIdlePorts` field is tracked in GitHub #554.
+has four optional idle ports: `primary_idle_sensor`, `native_idle_hook`,
+`autocompact_off` (an env reader that returns whether the harness's own
+auto-compaction is off, registered by Claude and OpenCode), and `detect_ttl`.
+`native_idle_hook` groups native observation with downstream delegation; the
+idle service delegates in `finally`, even when observation rejects or fails.
+Native parsing, cache facts, draft/busy observation, and compaction actuators
+live in `claude_idle.py`, `pi_idle.py`, `codex_idle.py`, and `opencode_idle.py`;
+`lib/idle` owns the schedule, guards, state, and notification decisions.
+Harness modules import only `idle_types.py` from the idle contract. Residual
+capability grouping and sidecar lifecycle ownership remain deferred in GitHub
+#554; its policy-placement portion is already resolved in `IdleService`.
 
 No module under `lib/harness` imports `lib/idle`, not even inside a function;
-`tests/unit/harness/test_layering.py` walks the AST to enforce it. A parser that
-needs stored idle state receives it from its caller: `meridian idle event` hands
-the Codex parser a `session_reader`, applies the parsed event, and then calls
-`idle_event_applied`, which chains the user's own Codex `notify` command.
+`tests/unit/harness/test_layering.py` walks the AST to enforce it. A native hook
+that needs stored idle state receives a reader from its caller: `meridian idle
+event` observes the Codex payload, applies a supported event, and always
+delegates the user's own Codex `notify` command in a `finally` path. Rejected,
+malformed, unpinned, blank, and apply-failing payloads are delegated too.
 
 Claude and Pi use in-process runtime adapters under
 `src/meridian/claude_runtime/meridian-idle/` and
@@ -51,7 +54,7 @@ only into an interactive launch. Pi's fourth managed extension is likewise
 projected only into a primary TUI. Codex and OpenCode instead register
 `primary_idle_sensor` for the managed attach launcher; Codex also projects an
 interactive-only native `notify` command whose payload reaches
-`parse_idle_event`.
+`native_idle_hook`.
 
 The launcher-hosted sidecar begins only after the TUI starts, follows the TUI
 launch task, and is cancelled before its live connection is stopped. Sensor

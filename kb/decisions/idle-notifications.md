@@ -1,14 +1,14 @@
 # Decisions: Idle Notifications and Idle Compaction
 
-**Status (2026-10-09): built, gated, PR #550 ready (`release:patch`, next
-tag v0.9.1), merge pending the user's OK.** The core, all four adapters, the
-prompt rule and the docs are on `feat/idle-cache-notify`. Three review gates,
-a cross-harness live smoke and a final whole-branch maintainability review
-passed. Provenance: `work:idle-cache-notify` (`design/`,
-`DIVERGENCE/summary.md`, `reviews/`, `reviews/thermo-final.md`), `spawn:p7415`
-(design), `spawn:p7493` (final review), `chat:c7280` (user decisions U1–U6
-and the release label), `chat:c7347` (U9, Pi cache retention, built at
-`bac44c01`), `chat:c7275` (planning).
+**Status (2026-10-11, task HEAD `bacc8c43`):** the four thermo round-2
+blockers found against baseline `e12a4314` are fixed and focused evidence is
+green; the integrated full gate and re-review are still pending. Do not treat
+this as a passed release gate or merge approval. The earlier G0–G2 gates,
+cross-harness smoke, and final maintainability review describe the pre-round-2
+baseline. Provenance: `work:idle-cache-notify` (`design/`, `DIVERGENCE/`,
+`reviews/`, `evidence/thermo-core-fix/`, `evidence/thermo-adapters-fix/`),
+`thermo-r2-plan.md`, `chat:c7280` (user decisions U1–U6), `chat:c7347` (U9,
+Pi cache retention), `chat:c7275` (planning).
 
 ## The problem
 
@@ -76,6 +76,10 @@ Any change to the idle feature must keep them.
   connection stops and is awaited under `suppress`, so a broken sensor cannot
   change the session's outcome
   ([D-idle-adapter-hosting](#d-idle-adapter-hosting--where-each-adapter-runs)).
+- **Idle GC keeps the lock stable.** Stale idle state may be deleted while the
+  per-state lock remains in place; GC does not unlink that lock while holding
+  it. Lock reclamation, if ever needed, belongs to the validated exclusive
+  lock-GC seam, not ordinary idle-state collection.
 
 ## D-idle-core-decides — Adapters report facts, core decides
 
@@ -90,8 +94,10 @@ and never compacts without `act`.
 In-session TypeScript adapters (Claude, Pi) talk to core through a hidden
 `meridian idle config|status|arm|return|fire|done` CLI and pass `--interactive`
 on **every** call. Codex's native `notify` callback enters through
-`meridian idle event`. Adapters hosted in meridian's launcher (Codex, OpenCode)
-call the same service in-process. Facts visible in env reach core through
+`meridian idle event`. An absorbed arm includes its `reason` on the real wire,
+so adapters can distinguish preserved timers from a genuine reschedule.
+Adapters hosted in meridian's launcher (Codex, OpenCode) call the same service
+in-process. Facts visible in env reach core through
 harness bundle hooks, so the idle package never names a harness:
 `DISABLE_AUTO_COMPACT` (Claude) and `OPENCODE_DISABLE_AUTOCOMPACT` through the
 `autocompact_off` hook, and `PI_CACHE_RETENTION` through Pi's `detect_ttl`.
@@ -129,12 +135,13 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
 `lib/idle` depends on config, state, platform helpers, and the neutral
 contracts in `lib/harness/idle_types.py`. **`lib/harness` never imports
 `lib/idle`.** An AST test (`test_layering.py`) enforces this, including
-function-local imports. Harness modules supply sensors, event parsers, env
-readers and callbacks through optional `HarnessBundle` ports. When a harness
-parser needs stored state, the caller injects it. `meridian idle event` passes
-the Codex parser a `session_reader` built from its own `IdleService`, applies
-the parsed event, and then calls the bundle's `idle_event_applied` hook. That
-hook chains the user's own Codex `notify` command through `atexit`.
+function-local imports. Harness modules supply sensors, native idle hooks, env
+readers, and TTL detectors through optional `HarnessBundle` ports. The
+`NativeIdleHook` groups native observation with downstream delegation:
+`meridian idle event` applies a supported event before delegation, but the
+delegation runs in `finally` for rejected, malformed, unpinned, blank, or
+apply-failing payloads too. The user's Codex `notify` callback is therefore
+not consumed by Meridian's parser.
 
 **Why:** `lib/ops/` is policy over spawns, sessions and work and drives launch.
 Sending a message touches none of that. Keeping notify separate from idle lets
@@ -342,12 +349,15 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   as any turn starts and is no evidence of completion (G2 K1).
 - **OpenCode.** Summarize keeps the session model when the current provider and
   model are supplied. The session GET times out at 10 s and the summarize POST
-  at 300 s; a hung backend reports `failed` instead of wedging later stretches
-  (G2 O1). The sensor flags its own compaction before the POST, and treats any
-  user message created while the flag is set as compaction rather than a
-  return. This holds whatever order OpenCode emits `busy` and the
-  `{type: "compaction"}` part (G2 O2). Draft text comes from the attached TUI
-  pane; context size is unobservable and uses the fail-open rule.
+  at 300 s; a hung backend reports `failed` instead of wedging later stretches.
+  The sensor marks its own compaction before the POST, and the first matching
+  `session.idle` ends compaction classification independently of POST response
+  ordering. Failed, timed-out, and cancelled summarize requests clear the
+  classification in the request's `finally`, so recovery does not require a
+  later event. Messages tied to the compaction part remain classified as
+  synthetic; the next real user return is not swallowed. Draft text comes
+  from the attached TUI pane; context size is unobservable and uses the
+  fail-open rule.
 
 **Rejected:**
 
@@ -575,14 +585,14 @@ with the layering-specific lesson in
 
 ## Structural debt
 
-The final review found no blockers beyond F4. It found two cross-cutting
-problems and several local ones. The details live with the tracker; this page
-only says where to look.
+The pre-round-2 final review found no blockers beyond F4. Round 2 then found
+and fixed four correctness blockers; its integrated full gate and re-review are
+still pending. The remaining structural debt below is not claimed fixed.
 
 | Debt | Tracked in |
 |---|---|
 | Core never returns the stages still pending, so the idle protocol is written four times (sidecar, Claude mod, Pi extension, CLI). Fix: `arm` *and* `status` return them. | GitHub #549 (widened by F1) |
-| Policy assembly sits in the CLI (TTL ladder, env-fact merge, reason remap) and OpenCode's sensor repeats the merge. The idle bundle ports are spread across the bundle; group them as `HarnessIdlePorts` and let the service apply policy. | GitHub #554 (F2 + F3) |
+| Policy assembly is resolved in `IdleService`; remaining work is grouping the loose idle capabilities and giving sidecar reporter/task lifecycle one owner. | GitHub #554 (residual grouping and sidecar ownership) |
 | State machine lift to `machine.py`; launcher-owned sensor lifecycle; split of `IdleSensor`; dedicated Codex identity pin; arm-drift diagnostic | `src/meridian/lib/idle/.context/FUTURE` |
 | `effective()` re-derives the option catalog by hand; idle/notify config models belong in their own modules | `src/meridian/lib/config/.context/FUTURE` |
 | `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
