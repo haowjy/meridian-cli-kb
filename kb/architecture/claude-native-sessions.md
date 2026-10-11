@@ -113,8 +113,13 @@ successor.
 
 **What the successor means: a diagnostic, nothing more.** It is returned as
 `PostExit.trampoline_successor_id` and persisted in the spawn row's `run_boundary`. It never rebinds the entry chat and never becomes an exit chat, so a Claude run's
-exit stays `unresolved`. `spawn show pN` prints `entry cA (<assigned>) → exit
-unresolved`, and `session log pN` shows the entry chat as an entry-based view. After
+exit stays `unresolved`. A possible successor produces an explicit warning naming
+the candidate and the recorded entry chat; it is not a verified continuation target.
+Without a successor, `spawn show pN` says `Exit-session identity: unverified`, while
+primary completion omits that absence-only diagnostic. The process result and saved
+continue command remain visible. This presentation rule is settled in
+[PR #559](https://github.com/haowjy/meridian-cli/pull/559); it does not add exit proof.
+`session log pN` still shows the entry chat as an entry-based view. After
 a fullscreen switch that transcript may be nearly empty. `session log cA` fails
 `missing` rather than following the successor, because entry chats never move.
 

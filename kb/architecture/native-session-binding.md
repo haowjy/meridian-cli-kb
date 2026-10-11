@@ -230,7 +230,10 @@ In `lib/state/spawn/model.py`:
   schema quarantines them. Since PR 3, `state/spawn/dogfood_migration.py` rewrites them
   once, run by `meridian doctor` and primary-launch background repairs; the read-time
   translator is gone ([why](../decisions/native-only-history.md#dogfood-rows-migrate-once-not-on-read)).
-- **`run_boundary_summary(row)`** renders `entry cN (…) → exit …` for `spawn show`.
+- **`run_boundary_summary(row)`** renders verified entry/exit mappings or explicit
+  unverified diagnostics for `spawn show`. Primary completion omits absence-only
+  diagnostics; mismatches and possible successors still warn. Presentation never
+  changes the boundary status or continue target.
 
 The history-index `SCHEMA_VERSION` is 5 at PR 1's head. It was bumped at each
 serialized record shape change so that older builds refuse the index with a typed

@@ -57,7 +57,8 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
 | `cN` | `cN` | none |
 | `pN`, running | `row.continue_chat_id`, which is the entry chat while running | `pN → cN (entry chat; run in progress)` |
 | `pN`, terminal, boundary `verified` | `row.continue_chat_id` (the exit chat) | names the selected chat and verified exit when it differs |
-| `pN`, terminal, boundary `unresolved` or `mismatch` | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; exit identity …)` |
+| `pN`, terminal, boundary `unresolved` | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; exit-session identity unverified)` |
+| `pN`, terminal, boundary `mismatch` | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; session identity mismatch)` |
 | `pN` with no `run_boundary` (row predates PR 1) | the entry chat | names the entry chat and predates-exit-tracking status |
 | `pN` with no chat | none | `unbound`, naming the spawn |
 | `pN` reclaimed | the chat of its metadata-index record, then as above | as above |

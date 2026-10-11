@@ -319,7 +319,10 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 - **Only Pi reports an exit identity.** Every Claude, Codex and OpenCode run records
   `run_boundary: unresolved`. This is the design, not a defect: none of them has a
   launch-owned exit signal. A read-only tally of about 110 recent real rows found 0
-  verified. What users see: `spawn show pN` prints `exit unresolved`, and
+  verified. Missing exit proof is not a process failure: primary completion omits
+  the absence-only identity diagnostic; `spawn show pN` calls it unverified. Raw
+  JSON retains `unresolved`. Mismatches and possible successors still warn
+  ([presentation policy](../architecture/claude-native-sessions.md#tui-trampoline)).
   `--continue pN`, `--fork pN` and `session log pN` use the entry chat. The runner-history
   prune rule skips these rows as `exit_unresolved`
   ([prune rule](native-only-history.md#the-prune-rule)).
