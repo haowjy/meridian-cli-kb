@@ -277,11 +277,14 @@ chats.
   - 1,000 generated histories;
   - a launch-golden matrix of harness × operation × mode.
 
-The focused suite and the Claude 2.1.296 classic-hook probe qualify Meridian's
-receipt boundary for the exercised startup, switch and final-exit paths. They do
-not qualify every real harness lifecycle (including hard kills, disabled hooks,
-hook timeouts, logout, all empty-input exits, or production-wheel primary/spawn/
-fork composition) or credentials
+The focused suite and built-wheel Claude 2.1.296 probes qualify the exercised
+primary `/clear` → `/exit` and exact continuation, a real cheap Haiku spawn with
+PID/transcript agreement, and a 0.9.3 fork → `/clear` → `/exit` with distinct
+entry/exit keys and unchanged source. The fork probe also qualifies the actual
+`SessionStart.source=fork` literal recognized by `b74dc0b3`. A no-turn launch
+without a native transcript remains unresolved, and the broad full gate was
+still running at capture. This does not qualify hard kills, crashes, logout,
+empty-input behavior in general, or every disabled-hook/timeout case
 ([lesson](../lessons/native-session-identity.md#green-suites-did-not-find-the-seam-defects)).
 
 ## Related
@@ -304,6 +307,7 @@ fork composition) or credentials
   [decision page](../decisions/native-session-identity.md);
 - code checked at `08499af0`; final live probe and targeted re-probes are recorded in
   `work:native-harness-session-identity` evidence.
-- Claude boundary extension: `work:exit-identity-reporting`, commit `3aa18aae`,
-  review `spawn:p7571`, classic runtime evidence `claude-boundary-live-probe.md`;
-  production-wheel qualification remains open.
+- Claude boundary extension: `work:exit-identity-reporting`, commits `3aa18aae`,
+  `3630a1f0b`, and `b74dc0b3`; review `spawn:p7571`; classic runtime evidence
+  `claude-boundary-live-probe.md`; final built-wheel evidence
+  `claude-final-live-probe.md` and `claude-fork-clear-final-proof.md`.

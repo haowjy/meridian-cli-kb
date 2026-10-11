@@ -18,6 +18,22 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   separate boundary plugin remains distinct from optional interactive idle.
 
 ---
+## 2026-10-11 — Final Claude native qualification captured (`work:exit-identity-reporting`)
+
+- Closed the built-wheel evidence gap: real primary `/clear` → `/exit` selected a
+  verified new exit chat and exact continuation resumed it; a real cheap Haiku
+  spawn matched receipt PID, worker PID and transcript; and the 0.9.3 fork →
+  `/clear` → `/exit` path kept the fork entry distinct, verified the post-clear
+  exit, and preserved the source transcript hash.
+- Captured the source-semantics correction from `b74dc0b3`: native fork startup
+  reports `SessionStart.source=fork`, so it is an initial-identity source beside
+  `startup` and `resume`. The no-turn/no-transcript case remains unresolved.
+- Recorded the alias-safe adapter fix (`3630a1f0b`): every final transcript is
+  validated before returning exit evidence, even when the core allocator can
+  reuse an existing chat alias without its existence callback. The broad full
+  gate was still running; no result is inferred.
+
+---
 ## 2026-10-08 — Idle notifications designed and built (`work:idle-cache-notify`)
 
 - **New decision page:** [Idle Notifications](decisions/idle-notifications.md).

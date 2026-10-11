@@ -332,11 +332,20 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   scans, timestamps, or guesses, and old runs are not retroactively marked.
   The original entry binding stays unchanged; `continue_chat_id` uses the exit
   chat only for `verified`, otherwise the entry chat.
-- The classic lifecycle probe exercised Claude 2.1.296 TUI/headless startup,
-  `/clear`, in-process `/resume`, final exit, exact headers, and synchronous hook
-  completion. Focused integration/identity/projection coverage passes. The
-  production-wheel Meridian primary/spawn/fork probe remains an open evidence
-  gate, so this record does not claim universal production qualification.
+- Built-wheel evidence now covers a real primary `/clear` → `/exit` with a
+  verified new exit chat and exact continuation, a real cheap Haiku spawn whose
+  receipt PID, worker PID and exact transcript agree, and the 0.9.3 native fork
+  `c12` → `/clear` → `/exit` path. That fork kept the entry chat on its first new
+  native ID, allocated a distinct verified post-clear exit chat, and left the
+  source transcript hash unchanged. The actual fork startup reason is
+  `SessionStart.source=fork`; `b74dc0b3` recognizes it alongside `startup` and
+  `resume`.
+- The no-turn/no-transcript case remains unresolved. The earlier p10 “verified”
+  result was an allocator bypass: an existing chat alias can be reused without
+  the core allocator's native-existence callback, so `ClaudeAdapter` now checks
+  every final transcript before returning exit evidence (`3630a1f0b`). The broad
+  full gate was still running at capture; do not infer its result or universal
+  hard-kill, crash, logout, or empty-input coverage.
 - **Superseded accepted limit (reporting-only PR #559, 2026-09-26):** the
   earlier capture said that only Pi reported an exit identity, that Claude runs
   always remained `unresolved`, and that `/clear` stayed untracked (#533). That
@@ -396,6 +405,8 @@ reviews `spawn:p7083`–`spawn:p7085`; phases `spawn:p7100`, `spawn:p7102`,
 `evidence/pr1-install-readiness-report.md`; conversation `chat:c6945`.
 
 Claude exit-verification extension: `work:exit-identity-reporting`, settled intent
-in `DIVERGENCE/01-verify-claude-exit.md`, implementation `3aa18aae`, review
-`spawn:p7571`, and classic runtime evidence in `claude-boundary-live-probe.md`.
-The production-wheel Meridian probe was still in progress at this capture.
+in `DIVERGENCE/01-verify-claude-exit.md`, implementation commits `3aa18aae`,
+`3630a1f0b`, and `b74dc0b3`, review `spawn:p7571`, classic runtime evidence in
+`claude-boundary-live-probe.md`, and final built-wheel evidence in
+`claude-final-live-probe.md` and `claude-fork-clear-final-proof.md`. The broad
+full gate was still in progress at this capture.

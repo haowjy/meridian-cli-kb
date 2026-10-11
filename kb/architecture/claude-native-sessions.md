@@ -145,8 +145,8 @@ Claude adapter supplies a fresh launch nonce, an absolute Python interpreter,
 and a spawn-owned `claude-session-boundary.json` path through private
 environment variables.
 
-`SessionStart` records the initial native session key (for startup or an
-explicit resume) and every later start/end event replaces the current key
+`SessionStart` records the initial native session key for `startup`, `resume`, or
+`fork`, and every later start/end event replaces the current key
 without changing the initial one. A `clear` or `resume` end is a switch, never
 final evidence; only `prompt_input_exit`, `logout`, or `other` can identify a
 final active chat. The recorder validates the session ID and exact
@@ -160,16 +160,25 @@ when its version, nonce, PID, and initial key are valid. The native-run
 finalizer compares that initial key with the immutable planned entry (a fork
 without a preassigned ID may complete its entry through this owned observation,
 but may not reuse the fork source), then validates the exact final transcript
-and its native header before allocating an exit chat. The original entry chat
-binding never moves. Missing, stale, corrupt, overlarge, late, or hard-killed
+and its native header before allocating an exit chat. Claude performs this exact
+final-transcript check even when the exit key already has a chat alias, because
+the core allocator may reuse such an alias without invoking its existence
+callback. The original entry chat binding never moves. Missing, stale, corrupt,
+overlarge, late, or hard-killed
 receipts remain unresolved; an initial mismatch is a mismatch. No transcript
 directory scan, timestamp, or trampoline guess substitutes for the receipt.
 
-The classic lifecycle seam is runtime-qualified for the exercised Claude
-2.1.296 TUI/headless paths, including `/clear`, in-process `/resume`, exact
-headers, and synchronous hook completion. The production-wheel Meridian
-primary/spawn/fork qualification is still an open gate; do not generalize the
-live probe beyond those exercised paths.
+Built-wheel Meridian qualification now covers the real primary `/clear` → `/exit`
+path (verified new exit chat and exact `--continue`), a real cheap Haiku spawn
+(receipt PID, process PID and exact transcript agree), and the 0.9.3 native fork
+`c12` → `/clear` → `/exit` path (verified exit chat, immutable fork entry, and
+unchanged source transcript). Claude 2.1.296's actual fork startup uses
+`SessionStart.source=fork`; commit `b74dc0b3` recognizes that source alongside
+`startup` and `resume`. A no-turn launch with no native transcript remains
+unresolved, and the earlier p10 result claiming it was verified was an allocator
+callback bypass fixed by validating every final transcript in the Claude adapter.
+The broad full gate was still running at this capture; these results do not claim
+universal hard-kill, crash, logout, or empty-input coverage.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
 `harness/claude_sessions.py`, `harness/claude_preflight.py`,
@@ -193,5 +202,7 @@ and projection tests.
 `spawn:p7064`; trampoline exit wiring `spawn:p7063`, removed after whole-change review
 `spawn:p7072` by fix pass `spawn:p7076` (recheck `spawn:p7077`). Boundary design and
 implementation: `work:exit-identity-reporting`, commit `3aa18aae`, review
-`spawn:p7571`; classic runtime probe: `claude-boundary-live-probe.md`. The
-production-wheel gate remains open.
+`spawn:p7571`; classic runtime probe: `claude-boundary-live-probe.md`; final
+built-wheel evidence `claude-final-live-probe.md` and
+`claude-fork-clear-final-proof.md`; alias-validation fix `3630a1f0b` and fork
+source fix `b74dc0b3`. The broad full gate was still running at this capture.
