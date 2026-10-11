@@ -150,7 +150,7 @@ cache warnings use `[cache warning]`, and compaction results use their result
 reason (`[compacted]`, `[compaction failed]`, or `[compaction skipped]`). The
 terminal prefix is the recorded tmux session when present, and is omitted
 outside tmux. A work item is labelled explicitly; when there is no work item,
-the label falls back to an explicitly labelled project. Custom titles supplied
+an explicitly labelled project is used when available. Custom titles supplied
 to `meridian notify` retain the terminal/actor/work context in the body rather
 than dropping it. There is no duplicated tmux footer.
 
