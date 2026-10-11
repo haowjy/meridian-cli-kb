@@ -7,11 +7,15 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 - Marked idle-only watcher publication as the installed (0.9.3) contract in
   `architecture/pi-runtime/coordination.md`, `decisions/pi-runtime.md` and
-  `lessons/harness-integration.md`, and recorded the unmerged
-  `fix/pi-result-delivery` tool-boundary steer path as pending source with its
-  30-second budget, native-queue ordering and admission-is-not-consumption caveats.
-- The admitted-or-lost queue concern is recorded as a pre-existing open limit, not
-  a reproduced defect. Fold into the decision after merge and release.
+  `lessons/harness-integration.md`, and recorded PR #560's tool-boundary steer as
+  pending, unmerged intent.
+- Replacement pass: the earlier cancellation-budget/preemption description is
+  removed as non-current. The pages now describe the finite idle-only collector,
+  direct report reads, hint-never-proves-absence rule and accepted 30.5 s idle
+  tradeoff; cross-cutting lessons went to the verification and review-convergence
+  pages (stale bundles, delete before cancel). Queue-loss and all-history-scan
+  limits are tracked in `open-questions/future-work.md`, not as reproduced bugs.
+  Fold into the decision after merge and release.
 
 ---
 ## 2026-10-11 — Claude native exit verification captured (`work:exit-identity-reporting`)

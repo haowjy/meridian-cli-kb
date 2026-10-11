@@ -68,17 +68,21 @@ observation still owed for a terminal result. Delivery blockers suppress the
 done nudge and hold the done decision. An active parent reply, non-idle parent,
 or unknown evidence also prevents done from completing the spawn.
 
-> **Pending source (branch `fix/pi-result-delivery`, unmerged; installed 0.9.3
-> is idle-only).** The pending change adds a tool-boundary path: a successful
-> tool-bearing `turn_end` awaits a fresh scan and queues eligible results through
-> Pi's native steer, so a parent in a long tool-using run sees them before its next
-> inference. Pi orders that message with other queued input; it is not a priority
-> channel over user steering, and native admission is not proof the model acted on
-> it. The boundary attempt has a 30-second cooperative cancellation budget (pending
-> filesystem reads may finish afterward, so it is not a hard deadline); slow
-> formatting or unstable membership leaves the work owed for the idle path. Details live in
-> `src/meridian/pi_runtime/.context/delivery-contract.md` on that branch. Without
-> that change, read the next paragraph as the whole contract.
+> **Pending source (PR #560, branch `fix/pi-result-delivery`; unmerged and
+> unreleased — installed 0.9.3 is idle-only).** Settled intent for that change: a
+> successful tool-bearing `turn_end` awaits fresh canonical child discovery and
+> queues eligible results through Pi's native steer before the next inference;
+> late results keep the idle follow-up on purpose. One finite, serialized collector
+> serves both paths. Active runs do no polling I/O; idle polling reads only a
+> disposable candidate set of canonical own rows plus parent-local evidence, with
+> boundary, root-event and 30-second full discovery covering new or missed rows
+> (about 30.5 s worst-case idle latency, an accepted tradeoff). Notices read
+> `report.md` directly (64 KiB cap, explicit truncated/missing/unreadable
+> outcomes) instead of `spawn wait`. Receipts, consumption and wait leases are
+> unchanged; Pi orders the steer with other queued input, and native admission is
+> not proof the model acted on it. Authoritative detail lives in
+> `src/meridian/pi_runtime/.context/delivery-contract.md` on that branch. Until it
+> ships, read the next paragraphs as the whole installed contract.
 
 The installed watcher publishes only while Pi's native context is idle. It formats spawn
 results with `spawn wait --no-observe`: reading details must not consume the

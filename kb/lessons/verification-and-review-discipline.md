@@ -143,6 +143,16 @@ process-group leader, so its status says nothing about the command it launched.
 (Provenance: `work:noninteractive-prepush-pnpm`, reviewer p7327; reproduced with
 util-linux 2.39.)
 
+### Matching hashes can all describe a stale bundle
+
+Source, tests, and the built, wheel-embedded and installed artifacts can agree
+with each other and still all be old: a restored generated `dist/` after a passing
+test run produced exactly that for a Pi extension. Build fresh from the target
+commit into a directory named by source SHA, record hashes, and add a positive
+behavior check that only the new code can satisfy (for example, a marker the
+old bundle lacks). Keep invalidated evidence, labeled invalid, rather than
+overwriting it. (Provenance: `work:pi-result-delivery`.)
+
 ## Measurement Discipline
 
 Measurements need a recoverable provenance note: command or method, dataset,

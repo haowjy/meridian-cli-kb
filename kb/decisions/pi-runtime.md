@@ -55,18 +55,38 @@ terminal Bash wait already returned, while leaving an unattended result eligible
 for its normal idle delivery. Wait reservations suppress only while the caller's
 PID, process-birth identity, and expiry lease remain valid.
 
-**Pending: tool-boundary delivery (branch `fix/pi-result-delivery`, not merged).**
+**Pending: tool-boundary delivery (PR #560, not merged or released).**
 Idle-only publication leaves a parent that keeps calling tools unaware of finished
-children until it stops. The pending change adds one serialized watcher path: at an
-awaited successful tool-bearing `turn_end`, rescan, revalidate and queue the batch
-through Pi's native steer, keeping the idle follow-up for genuinely late work. A
-consuming wait finishes before the boundary, so it still suppresses the notice. The
-receipt and public-event fence are unchanged, and no on-disk state changed. Rejected:
-steering as soon as a poll notices completion (races an explicit wait) and deferring
-all late results to the next turn (changes policy and can strand spawned RPC work).
-Open limit, not a reproduced bug: a queued message Pi never admits keeps its IDs
-reserved until admission or restart; this predates boundary steer. Fold this into
-the decision above once the PR merges and releases.
+children until it stops. The settled direction adds native steer at an awaited
+successful tool-bearing `turn_end`, keeps the idle follow-up for genuinely late
+work, and leaves receipts, public-event fence and on-disk state unchanged. A
+consuming wait finishes before the boundary, so it still suppresses the notice.
+Rejected: steering as soon as a poll notices completion (races an explicit wait)
+and deferring all late results to the next turn (changes policy and can strand
+spawned RPC work).
+
+The first candidate bolted a boundary drain with formatter cancellation, preemption
+and a 30-second budget onto always-on 500 ms scanning and the general `spawn wait`
+CLI. Measurement on a frozen 2,360-directory corpus showed that machinery was the
+cost (about 65 % of a core while busy with no owned children), so the user approved
+replacing it in the same PR. The calibration: keep native boundary steer and exact
+receipt semantics; delete the cancellation layer rather than tune it. Do not
+describe the budget or preemption as current behavior.
+
+Settled shape: one finite serialized collector; no timer scans while Pi is active;
+idle generation invalidated on agent start, rebind and stop, with final
+idle→snapshot→idle; direct bounded report reads; candidate IDs are hints narrowed
+to canonical own rows. **Hints never prove absence:** a bare Bash completion first
+triggers fresh canonical discovery, because a missed root event could hide a child
+that owns the launcher's obligation. Failed or superseded full discoveries stay
+dirty and only the newest scan commits. The accepted tradeoff is up to about 30.5 s
+idle latency for a child row whose publication was missed; that is not a bug.
+
+Open limits (pre-existing, not reproduced defects): a queued message Pi never
+admits keeps its IDs reserved until admission or restart, and full discovery at each
+boundary still scans all history, a known performance opportunity. See
+[future work](../open-questions/future-work.md#pi-result-delivery-limits). Fold this
+section into the decision above once the PR merges and releases.
 
 Completion keeps that causal delivery obligation separate from running execution:
 an explicit done may still override known running work, but it cannot bypass a

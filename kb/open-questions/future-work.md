@@ -409,6 +409,23 @@ These items were identified in the mars-capability-packaging final gate (alignme
 
 ---
 
+## Pi Result Delivery Limits {#pi-result-delivery-limits}
+
+Known limits of the tool-boundary delivery change (PR #560, pending). Neither is a
+reproduced defect or a must-do:
+
+- **Unadmitted queue claim.** A watcher message queued for native steer or
+  follow-up that Pi never admits (for example a cleared queue) keeps its IDs
+  reserved until admission or restart. This predates boundary steer; confirm a real
+  reproduction before designing a release path.
+- **All-history scan per boundary.** Fresh canonical discovery at each tool
+  boundary reads every project spawn row. Revisit only if boundary latency shows up
+  in real parent/child workflows. Removal trigger: a measured boundary cost or a
+  safe incremental index that does not become authority.
+
+Provenance: `work:pi-result-delivery`. Source details:
+`src/meridian/pi_runtime/.context/delivery-contract.md`.
+
 ## Telemetry
 
 ### Structural Refinements from v1 Final Gate
