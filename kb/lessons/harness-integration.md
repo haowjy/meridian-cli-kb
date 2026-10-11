@@ -289,12 +289,12 @@ ran only at call time, nothing failed at import, and every test passed.
 first wrote an AST test that walks every module under `lib/harness`, function bodies
 included. The test failed on `codex_idle.py:119`.
 
-**The fix:** the caller now owns the state access. `meridian idle event` builds the
-`session_reader` from its own service and passes it in; the parameter has no
-default. Side effects that belonged to the CLI, such as chaining the user's own
-Codex `notify` command, moved to a separate bundle hook (`idle_event_applied`).
-That hook runs after the event is applied, instead of the parser registering
-`atexit` handlers.
+**The fix:** the caller now owns the state access through the native idle hook.
+`meridian idle event` supplies the `session_reader`; the hook observes the
+payload, the service applies a supported event, and downstream delegation runs
+in `finally`. This preserves the user's own Codex `notify` callback even when
+the observation is rejected, malformed, unpinned, blank, or fails while being
+applied, without the parser registering `atexit` handlers.
 
 **The lesson:** a layering rule that only import-time checks enforce is not
 enforced. Function-local imports and defaulted callbacks are the two ways around
