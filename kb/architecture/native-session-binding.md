@@ -136,7 +136,7 @@ Each harness supplies small primitives:
 
 | Harness | create ID | resume | fork ID | Store pinned via | `observe_after_exit` |
 |---|---|---|---|---|---|
-| Claude | minted UUID, `--session-id` | `--resume <id>` after the source's `sessionId` checks | harness-assigned (`--resume <src> --fork-session`) | none (store is `<config root>/projects/<slug(cwd)>`; the source is seeded into it) | trampoline successor, diagnostic only |
+| Claude | minted UUID, `--session-id` | `--resume <id>` after the source's `sessionId` checks | harness-assigned (`--resume <src> --fork-session`) | none (store is `<config root>/projects/<slug(cwd)>`; the source is seeded into it) | launch-correlated classic-hook receipt; exact final transcript/header validation; trampoline successor remains diagnostic |
 | Codex | harness-assigned | exact rollout, `session_meta.payload.id` checked | pre-forked by Meridian before exec | `CODEX_HOME = store.parent` | default (nothing) |
 | OpenCode | harness-assigned | exact session row | harness-assigned (blackbox subprocess only; streaming and attach refuse forks) | `OPENCODE_DB = store` (`:memory:` is `unbound`) | default |
 | Pi | minted, `--session-id` | `--session <abs verified path>` | minted, `--fork <abs source> --session-id <new>` | `PI_CODING_AGENT_SESSION_DIR = store` (env only; Pi creates the dir) | header re-check plus the session-boundary record |
@@ -178,7 +178,8 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
       ([run facts](attempt-facts-and-delivery.md#attempt-folds)).
    2. **Current ID:** the connection's current ID goes to `note`.
    3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
-      the run's entry is `NativeEntryMismatch`.
+      the run's entry is `NativeEntryMismatch`. Claude's bounded receipt and exact
+      native header must both validate before its exit key is eligible.
    4. **Exit:** with no error and an exit key, `session_store.get_or_create_exit_chat`
       allocates only when the exact resolver finds the file.
    5. **One row write:** `run_boundary = RunBoundaryOutcome(status, exit_chat_id,

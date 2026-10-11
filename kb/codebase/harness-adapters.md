@@ -239,19 +239,31 @@ streaming layer treats receipts and observations as separate facts; the retired
 
 See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the quiescence model.
 
-## Claude TUI Trampoline Successor
+## Claude exit boundary and TUI trampoline successor
+
+Claude's `observe_after_exit()` first reads the launch-correlated
+`meridian-session-boundary` classic-hook receipt. The adapter supplies a fresh
+nonce, receipt path and Python interpreter to both primary and spawned launches;
+the receipt carries the hook's initial/current exact transcript identities and
+the child PID. Only final `SessionEnd` reasons (`prompt_input_exit`, `logout`,
+`other`) can produce an exit candidate. The runner compares the initial key to
+the immutable entry, then the exact native resolver validates the final
+transcript header before allocating an exit chat. A missing or invalid receipt
+is unresolved; this is an observation leg, not a directory scan or a second
+identity authority.
 
 Claude's `observe_after_exit()` detects the `/tui fullscreen` trampoline from
 Claude's own `history.jsonl` (Claude's prompt log, not Meridian's runner history). It
 returns the successor as `PostExit.trampoline_successor_id`, separate from entry
 identity. The runner pipeline persists it in the spawn row's `run_boundary` as a
 diagnostic only. It never rebinds the entry chat and never becomes
-the run's exit, so Claude exit stays `unresolved`. Detection is file-based only. See
+the run's exit. Detection is file-based only and remains a diagnostic fallback. See
 [Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline).
 
-No adapter has a filesystem identity leg. Identity comes from the assigned plan or
-qualified owned events. Pi additionally reports exit through `observe_after_exit`
-([Pi exit observation](../architecture/pi-native-sessions.md#exit-observation)).
+No adapter uses an ambient filesystem scan as identity evidence. Identity comes
+from the assigned plan or qualified owned events; Claude's receipt is launch
+correlated, and its transcript read is an exact persistence check. Pi additionally
+reports exit through `observe_after_exit` ([Pi exit observation](../architecture/pi-native-sessions.md#exit-observation)).
 
 ## Related Pages
 

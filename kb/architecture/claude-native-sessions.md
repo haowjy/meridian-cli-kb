@@ -3,8 +3,9 @@
 Claude Code keeps every conversation as one JSONL transcript in a directory that all
 Claude processes with the same config root share. This page explains how Meridian
 keeps chats pinned to the right transcript in that shared store. It covers the
-store layout, how a resume or fork source reaches the child, and how the TUI
-trampoline is handled. The cross-harness rule is the
+store layout, how a resume or fork source reaches the child, how a launch-owned
+boundary receipt identifies a final session, and how the TUI trampoline is
+handled. The cross-harness rule is the
 [native session identity decision](../decisions/native-session-identity.md). The
 shared seams are in [native session binding](native-session-binding.md). The Claude
 identity work described here shipped in v0.7.0 (PR #534, merge `3dae2434`).
@@ -135,12 +136,49 @@ way Pi's boundary record carries the launch nonce and child PID.
 **Why file-based.** A `claude --resume <id> --print` probe was tested and rejected. It
 performs model work that hits budget limits and is not deterministic.
 
-**Code:** `harness/claude.py`, `harness/claude_sessions.py`,
-`harness/claude_preflight.py`. Tests:
+## Launch-correlated session-boundary receipt
+
+Meridian loads the separate `meridian-session-boundary` classic command-hook
+plugin for both primary and spawned Claude launches. The optional idle plugin
+remains interactive-only; it is not an exit-identity source. Before exec, the
+Claude adapter supplies a fresh launch nonce, an absolute Python interpreter,
+and a spawn-owned `claude-session-boundary.json` path through private
+environment variables.
+
+`SessionStart` records the initial native session key (for startup or an
+explicit resume) and every later start/end event replaces the current key
+without changing the initial one. A `clear` or `resume` end is a switch, never
+final evidence; only `prompt_input_exit`, `logout`, or `other` can identify a
+final active chat. The recorder validates the session ID and exact
+`<session-id>.jsonl` path, writes a bounded mode-0600 receipt atomically, and
+does not recreate a deleted spawn directory. Its parent PID must remain the
+launched Claude child, so a nested Claude inheriting the environment cannot
+replace the receipt.
+
+After teardown, `ClaudeAdapter.observe_after_exit()` accepts the receipt only
+when its version, nonce, PID, and initial key are valid. The native-run
+finalizer compares that initial key with the immutable planned entry (a fork
+without a preassigned ID may complete its entry through this owned observation,
+but may not reuse the fork source), then validates the exact final transcript
+and its native header before allocating an exit chat. The original entry chat
+binding never moves. Missing, stale, corrupt, overlarge, late, or hard-killed
+receipts remain unresolved; an initial mismatch is a mismatch. No transcript
+directory scan, timestamp, or trampoline guess substitutes for the receipt.
+
+The classic lifecycle seam is runtime-qualified for the exercised Claude
+2.1.296 TUI/headless paths, including `/clear`, in-process `/resume`, exact
+headers, and synchronous hook completion. The production-wheel Meridian
+primary/spawn/fork qualification is still an open gate; do not generalize the
+live probe beyond those exercised paths.
+
+**Code:** `harness/claude.py`, `harness/claude_boundary.py`,
+`harness/claude_sessions.py`, `harness/claude_preflight.py`,
+`launch/native_run.py`, and `claude_runtime/meridian-session-boundary/`. Tests:
 `tests/integration/launch/test_launch_process_claude_session.py` (successor persisted
 as a diagnostic; an unrelated concurrent candidate leaves exit unresolved;
 contradictory `system/init` fails `entry_mismatch`),
-`tests/integration/harness/test_adapter_ownership.py`.
+`tests/integration/harness/test_adapter_ownership.py`, and the focused boundary
+and projection tests.
 
 ## Related
 
@@ -153,4 +191,7 @@ contradictory `system/init` fails `entry_mismatch`),
 **Provenance:** `work:native-harness-session-identity`; Lane C `spawn:p7041`, review
 `spawn:p7056`, recheck `spawn:p7062` (decoy reproduction), fix passes `spawn:p7058`,
 `spawn:p7064`; trampoline exit wiring `spawn:p7063`, removed after whole-change review
-`spawn:p7072` by fix pass `spawn:p7076` (recheck `spawn:p7077`).
+`spawn:p7072` by fix pass `spawn:p7076` (recheck `spawn:p7077`). Boundary design and
+implementation: `work:exit-identity-reporting`, commit `3aa18aae`, review
+`spawn:p7571`; classic runtime probe: `claude-boundary-live-probe.md`. The
+production-wheel gate remains open.
