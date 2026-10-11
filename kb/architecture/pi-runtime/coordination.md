@@ -74,8 +74,9 @@ or unknown evidence also prevents done from completing the spawn.
 > Pi's native steer, so a parent in a long tool-using run sees them before its next
 > inference. Pi orders that message with other queued input; it is not a priority
 > channel over user steering, and native admission is not proof the model acted on
-> it. The boundary attempt has a 30-second budget; slow formatting or unstable
-> membership leaves the work owed for the idle path. Details live in
+> it. The boundary attempt has a 30-second cooperative cancellation budget (pending
+> filesystem reads may finish afterward, so it is not a hard deadline); slow
+> formatting or unstable membership leaves the work owed for the idle path. Details live in
 > `src/meridian/pi_runtime/.context/delivery-contract.md` on that branch. Without
 > that change, read the next paragraph as the whole contract.
 
