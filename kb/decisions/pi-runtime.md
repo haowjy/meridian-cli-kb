@@ -79,8 +79,14 @@ idle→snapshot→idle; direct bounded report reads; candidate IDs are hints nar
 to canonical own rows. **Hints never prove absence:** a bare Bash completion first
 triggers fresh canonical discovery, because a missed root event could hide a child
 that owns the launcher's obligation. Failed or superseded full discoveries stay
-dirty and only the newest scan commits. The accepted tradeoff is up to about 30.5 s
-idle latency for a child row whose publication was missed; that is not a bug.
+dirty and only the newest scan commits; the negative decision is bound to the
+specific discovery's still-current revision, while positive revalidation of an
+already selected child rereads its own canonical ID so unrelated root churn cannot
+delay it. Every `session_shutdown` stops the watcher before Pi invalidates its
+context; reload keeps the owner and queued claims and restarts at fresh
+`session_start`. The accepted tradeoff is about 30.5 s
+(plus collector and filesystem time, not a hard deadline) of idle latency for a
+child row whose publication was missed; that is not a bug.
 
 Open limits (pre-existing, not reproduced defects): a queued message Pi never
 admits keeps its IDs reserved until admission or restart, and full discovery at each

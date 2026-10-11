@@ -76,7 +76,8 @@ or unknown evidence also prevents done from completing the spawn.
 > serves both paths. Active runs do no polling I/O; idle polling reads only a
 > disposable candidate set of canonical own rows plus parent-local evidence, with
 > boundary, root-event and 30-second full discovery covering new or missed rows
-> (about 30.5 s worst-case idle latency, an accepted tradeoff). Notices read
+> (about 30.5 s plus collector and filesystem time, an accepted tradeoff and not a
+> hard deadline). Notices read
 > `report.md` directly (64 KiB cap, explicit truncated/missing/unreadable
 > outcomes) instead of `spawn wait`. Receipts, consumption and wait leases are
 > unchanged; Pi orders the steer with other queued input, and native admission is
