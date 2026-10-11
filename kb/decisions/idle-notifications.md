@@ -141,6 +141,37 @@ ban keeps the dependency one-way. Without it, a harness parser that reads
 policy state creates a cycle, and a function-local import hides that cycle
 from import-time checks (G2 K3).
 
+## D-idle-notice-context — Reason-first titles and send-time cache countdown
+
+**Decision (title/countdown follow-up, `773d9508`, `e12a4314`):** Idle notice
+titles lead with the reason, then include the terminal and explicit work
+context when available. The shape is `[idle] a2: pi on work: "idle-cache-notify"`;
+cache warnings use `[cache warning]`, and compaction results use their result
+reason (`[compacted]`, `[compaction failed]`, or `[compaction skipped]`). The
+terminal prefix is the recorded tmux session when present, and is omitted
+outside tmux. A work item is labelled explicitly; when there is no work item,
+the label falls back to an explicitly labelled project. Custom titles supplied
+to `meridian notify` retain the terminal/actor/work context in the body rather
+than dropping it. There is no duplicated tmux footer.
+
+Idle and cache-warning notices calculate the remaining cache lifetime **at send
+time**, from the persisted idle anchor and TTL. A known TTL is shown plainly;
+an estimated TTL is prefixed `est.`; an unknown TTL has no countdown. The
+renderer uses `<1 min until cold` below a minute and `cache cold` after the
+deadline. Compaction-result notices omit the old countdown because compaction
+may refresh the cache. `ttl_estimated` is persisted with the idle state, with
+old records defaulting conservatively to estimated. Claude's observed transcript
+TTL and Pi's Anthropic retention are known; Pi's OpenAI heuristic and explicit,
+configured, or default TTLs are estimated. This changes notice context only;
+the schedule and compaction guards are unchanged.
+
+**Why:** A reason-first title tells the user why a notice arrived, while the
+terminal and explicit work label identify which session needs attention. Rendering
+from persisted state at send time avoids publishing a stale precomputed deadline.
+The confidence marker prevents a provider heuristic or configured fallback from
+looking like a provider guarantee. Provenance: `work:idle-cache-notify`,
+`DIVERGENCE/notification-title-context.md`, `reviews/notification-titles.md`.
+
 ## D-idle-stretch-at-most-once — Each stage fires at most once per stretch
 
 **Decision:** A *stretch* runs from one user prompt to the next. Push, warn
@@ -255,9 +286,20 @@ telemetry, never to the TUI's terminal.
 managed-attach primaries, so a meridian process already lives for the whole
 session, runs an event loop and holds the backend connection. OpenCode needs
 no plugin at all: meridian already consumes its raw live events and can POST to
-its server. Codex's TUI takes over the observer stream after attach, which
-leaves meridian blind to its turns, so Codex additionally needs `notify` as a
-sensor. (User decision U5 / design Q4.)
+its server. In the current Codex attach path, the TUI/observer arrangement
+leaves Meridian dependent on `notify` for the turn sensor, and production's
+compaction actuator remains tmux-based. (User decision U5 / design Q4.)
+
+**Bounded Codex backend probe (not a production change):** On `codex-cli
+0.162.1`, a second initialized WebSocket client resumed a thread while the
+native TUI was attached and successfully called `thread/compact/start`. Both
+WebSocket clients and the TUI remained usable, and the TUI rendered the
+completion. This corrects any categorical claim that backend compaction is
+impossible, but it does not remove the tmux dependency from production: the
+current actuator is unchanged, approval routing was not exercised, and the
+backend does not expose an unsent TUI draft. The pane-based draft guard must
+therefore remain conservative, including vetoing when draft state is unknown.
+Provenance: `evidence/codex-backend-compact-probe.md` (`work:idle-cache-notify`).
 
 **Why the Claude mod is bundled, not mars-synced:** the mod is code coupled
 to the `meridian idle` CLI contract of the same meridian version, not prompt
@@ -544,6 +586,20 @@ only says where to look.
 | Claude-only `claude_plugin_dirs` touched six projections; three tmux helpers | `src/meridian/lib/harness/.context/FUTURE` |
 | Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
 | Pi `openai-codex` stays push-only until Pi applies `PI_CACHE_RETENTION` in that adapter | `src/meridian/lib/harness/.context/TODO` |
+
+## Deferred adjacent issues
+
+These requests were found during idle-notification testing but are not delivered
+by this decision or its implementation:
+
+- **GitHub #557:** crash recovery can log an expected native-snapshot deferral
+  with a traceback into a resumed primary TUI. It remains a separate recovery
+  and ownership issue; the original crash cause is unknown.
+- **GitHub #558:** session browse may gain tmux labels and a recently-crashed
+  promotion group. The requested promotion expiry is **24 hours from the first
+  time the crash is shown in `meridian session browse`**, not from crash
+  detection or background indexing; later views must not reset it. This remains
+  a deferred issue, not a delivered browser feature.
 
 ## Verification gaps
 
