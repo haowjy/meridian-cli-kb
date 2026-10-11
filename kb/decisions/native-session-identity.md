@@ -219,9 +219,12 @@ The entry key never moves. What the user ended on is a separate fact:
   Claude. The receipt retains the initial exact identity while recording the
   current one; `clear` and `resume` are switches, not final exits. Only final
   `SessionEnd` reasons (`prompt_input_exit`, `logout`, `other`) qualify. The
-  receipt must match the launch nonce and actual Claude child PID, its initial
-  key must match the immutable planned entry, and the exact final transcript
-  header must validate before allocation. The TUI trampoline successor remains
+  receipt must match the launch nonce and actual Claude child PID, and its initial
+  key must match the immutable planned entry. The shared finalizer then invokes
+  the adapter's exact resolver/header check through
+  `session_store.get_or_create_exit_chat` under the history/session locks before
+  reusing an existing alias or creating an exit chat; the same persistence gate
+  serves Claude and Pi. The TUI trampoline successor remains
   a diagnostic and never rebinds the entry or names an exit chat. On a native
   fork, the hook's `SessionStart.source` is `fork` (not `startup` or `resume`),
   followed by `source=clear` after `/clear`; the first fork ID is the entry and
@@ -345,9 +348,12 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   `SessionStart.source=fork`; `b74dc0b3` recognizes it alongside `startup` and
   `resume`.
 - The no-turn/no-transcript case remains unresolved. The earlier p10 “verified”
-  result was an allocator bypass: an existing chat alias can be reused without
-  the core allocator's native-existence callback, so `ClaudeAdapter` now checks
-  every final transcript before returning exit evidence (`3630a1f0b`). The broad
+  result exposed an allocator alias-reuse bypass: an existing chat alias could be
+  reused without its native-existence callback. `a2713624` makes
+  `session_store.get_or_create_exit_chat` invoke that callback under the existing
+  history/session locks before every reuse/create; the shared native-run callback
+  applies each adapter's exact resolver/header validation, so Claude and Pi use
+  one persistence gate. Claude's duplicated prevalidation was removed. The broad
   full gate was still running at capture; do not infer its result or universal
   hard-kill, crash, logout, or empty-input coverage.
 - **Superseded accepted limit (reporting-only PR #559, 2026-09-26):** the
@@ -410,7 +416,8 @@ reviews `spawn:p7083`–`spawn:p7085`; phases `spawn:p7100`, `spawn:p7102`,
 
 Claude exit-verification extension: `work:exit-identity-reporting`, settled intent
 in `DIVERGENCE/01-verify-claude-exit.md`, implementation commits `3aa18aae`,
-`3630a1f0b`, and `b74dc0b3`, review `spawn:p7571`, classic runtime evidence in
+`3630a1f0b`, `b74dc0b3`, and shared persistence gate `a2713624`, review
+`spawn:p7571` with structural review `spawn:p7590`, classic runtime evidence in
 `claude-boundary-live-probe.md`, and final built-wheel evidence in
 `claude-final-live-probe.md` and `claude-fork-clear-final-proof.md`. The broad
 full gate was still in progress at this capture.

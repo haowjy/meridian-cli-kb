@@ -504,7 +504,7 @@ compaction run only in primaries.
 | State machine lift to `machine.py`; launcher-owned sensor lifecycle; split of `IdleSensor`; dedicated Codex identity pin; arm-drift diagnostic | `src/meridian/lib/idle/.context/FUTURE` |
 | `effective()` re-derives the option catalog by hand; idle/notify config models belong in their own modules | `src/meridian/lib/config/.context/FUTURE` |
 | `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
-| Claude-only `claude_plugin_dirs` touched six projections; three tmux helpers | `src/meridian/lib/harness/.context/FUTURE` |
+| Claude-only `claude_runtime` touches six projections; three tmux helpers | `src/meridian/lib/harness/.context/FUTURE` |
 | Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
 | Pi `openai-codex` stays push-only until Pi applies `PI_CACHE_RETENTION` in that adapter | `src/meridian/lib/harness/.context/TODO` |
 

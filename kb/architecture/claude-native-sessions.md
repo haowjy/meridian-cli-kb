@@ -159,11 +159,13 @@ After teardown, `ClaudeAdapter.observe_after_exit()` accepts the receipt only
 when its version, nonce, PID, and initial key are valid. The native-run
 finalizer compares that initial key with the immutable planned entry (a fork
 without a preassigned ID may complete its entry through this owned observation,
-but may not reuse the fork source), then validates the exact final transcript
-and its native header before allocating an exit chat. Claude performs this exact
-final-transcript check even when the exit key already has a chat alias, because
-the core allocator may reuse such an alias without invoking its existence
-callback. The original entry chat binding never moves. Missing, stale, corrupt,
+but may not reuse the fork source), then supplies the exit candidate to the shared
+native-run finalizer. Before either reusing an existing exit-chat alias or creating
+a new chat, that finalizer invokes the adapter's exact native resolver/header check
+through `session_store.get_or_create_exit_chat` under the history/session locks.
+The receipt proves owned identity, not transcript persistence; this one gate
+applies to Claude and Pi, so Claude has no duplicate adapter-local prevalidation.
+The original entry chat binding never moves. Missing, stale, corrupt,
 overlarge, late, or hard-killed
 receipts remain unresolved; an initial mismatch is a mismatch. No transcript
 directory scan, timestamp, or trampoline guess substitutes for the receipt.
@@ -175,8 +177,9 @@ path (verified new exit chat and exact `--continue`), a real cheap Haiku spawn
 unchanged source transcript). Claude 2.1.296's actual fork startup uses
 `SessionStart.source=fork`; commit `b74dc0b3` recognizes that source alongside
 `startup` and `resume`. A no-turn launch with no native transcript remains
-unresolved, and the earlier p10 result claiming it was verified was an allocator
-callback bypass fixed by validating every final transcript in the Claude adapter.
+unresolved. The earlier p10 result claiming it was verified exposed an allocator
+alias-reuse bypass; `a2713624` makes the shared allocator gate run before every
+reuse/create and removes the Claude-specific duplicate check.
 The broad full gate was still running at this capture; these results do not claim
 universal hard-kill, crash, logout, or empty-input coverage.
 
@@ -204,5 +207,6 @@ and projection tests.
 implementation: `work:exit-identity-reporting`, commit `3aa18aae`, review
 `spawn:p7571`; classic runtime probe: `claude-boundary-live-probe.md`; final
 built-wheel evidence `claude-final-live-probe.md` and
-`claude-fork-clear-final-proof.md`; alias-validation fix `3630a1f0b` and fork
-source fix `b74dc0b3`. The broad full gate was still running at this capture.
+`claude-fork-clear-final-proof.md`; alias-validation fix `3630a1f0b`, shared
+persistence gate `a2713624`, and fork source fix `b74dc0b3`. The broad full gate
+was still running at this capture.

@@ -178,10 +178,12 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
       ([run facts](attempt-facts-and-delivery.md#attempt-folds)).
    2. **Current ID:** the connection's current ID goes to `note`.
    3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
-      the run's entry is `NativeEntryMismatch`. Claude's bounded receipt and exact
-      native header must both validate before its exit key is eligible.
+      the run's entry is `NativeEntryMismatch`. Claude's bounded receipt supplies
+      owned identity, while the shared allocator's `native_exists` callback uses
+      the adapter's exact native resolver/header check.
    4. **Exit:** with no error and an exit key, `session_store.get_or_create_exit_chat`
-      allocates only when the exact resolver finds the file.
+      invokes that callback under the history/session locks before every reuse or
+      create. The same persistence gate serves Claude and Pi.
    5. **One row write:** `run_boundary = RunBoundaryOutcome(status, exit_chat_id,
       trampoline_successor_id)`.
    6. **On error:** `record_identity_failure(...)`, the one lifecycle writer for
@@ -308,6 +310,7 @@ empty-input behavior in general, or every disabled-hook/timeout case
 - code checked at `08499af0`; final live probe and targeted re-probes are recorded in
   `work:native-harness-session-identity` evidence.
 - Claude boundary extension: `work:exit-identity-reporting`, commits `3aa18aae`,
-  `3630a1f0b`, and `b74dc0b3`; review `spawn:p7571`; classic runtime evidence
+  `3630a1f0b`, `b74dc0b3`, and shared persistence gate `a2713624`; review
+  `spawn:p7571` and structural review `spawn:p7590`; classic runtime evidence
   `claude-boundary-live-probe.md`; final built-wheel evidence
   `claude-final-live-probe.md` and `claude-fork-clear-final-proof.md`.
