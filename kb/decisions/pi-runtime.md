@@ -48,12 +48,25 @@ window into a false success or an atomic exactly-once claim. The retired
 `last-notification.json` timestamp is ignored because it proves neither
 membership nor admission.
 
-**Publication policy:** The watcher checks Pi's native idle state immediately
+**Publication policy (installed 0.9.3, idle-only):** The watcher checks Pi's native idle state immediately
 before queueing and rechecks explicit waits after asynchronous formatting. The
 formatter uses a non-consuming spawn wait. This yields no follow-up when the
 terminal Bash wait already returned, while leaving an unattended result eligible
 for its normal idle delivery. Wait reservations suppress only while the caller's
 PID, process-birth identity, and expiry lease remain valid.
+
+**Pending: tool-boundary delivery (branch `fix/pi-result-delivery`, not merged).**
+Idle-only publication leaves a parent that keeps calling tools unaware of finished
+children until it stops. The pending change adds one serialized watcher path: at an
+awaited successful tool-bearing `turn_end`, rescan, revalidate and queue the batch
+through Pi's native steer, keeping the idle follow-up for genuinely late work. A
+consuming wait finishes before the boundary, so it still suppresses the notice. The
+receipt and public-event fence are unchanged, and no on-disk state changed. Rejected:
+steering as soon as a poll notices completion (races an explicit wait) and deferring
+all late results to the next turn (changes policy and can strand spawned RPC work).
+Open limit, not a reproduced bug: a queued message Pi never admits keeps its IDs
+reserved until admission or restart; this predates boundary steer. Fold this into
+the decision above once the PR merges and releases.
 
 Completion keeps that causal delivery obligation separate from running execution:
 an explicit done may still override known running work, but it cannot bypass a

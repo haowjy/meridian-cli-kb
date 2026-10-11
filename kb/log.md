@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-11 — Pi tool-boundary result delivery noted as pending (`work:pi-result-delivery`)
+
+- Marked idle-only watcher publication as the installed (0.9.3) contract in
+  `architecture/pi-runtime/coordination.md`, `decisions/pi-runtime.md` and
+  `lessons/harness-integration.md`, and recorded the unmerged
+  `fix/pi-result-delivery` tool-boundary steer path as pending source with its
+  30-second budget, native-queue ordering and admission-is-not-consumption caveats.
+- The admitted-or-lost queue concern is recorded as a pre-existing open limit, not
+  a reproduced defect. Fold into the decision after merge and release.
+
+---
 ## 2026-10-11 — Claude native exit verification captured (`work:exit-identity-reporting`)
 
 - Reconciled the native-session identity decision and architecture pages with the

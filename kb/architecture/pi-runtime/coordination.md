@@ -68,13 +68,25 @@ observation still owed for a terminal result. Delivery blockers suppress the
 done nudge and hold the done decision. An active parent reply, non-idle parent,
 or unknown evidence also prevents done from completing the spawn.
 
-The watcher publishes only while Pi's native context is idle. It formats spawn
+> **Pending source (branch `fix/pi-result-delivery`, unmerged; installed 0.9.3
+> is idle-only).** The pending change adds a tool-boundary path: a successful
+> tool-bearing `turn_end` awaits a fresh scan and queues eligible results through
+> Pi's native steer, so a parent in a long tool-using run sees them before its next
+> inference. Pi orders that message with other queued input; it is not a priority
+> channel over user steering, and native admission is not proof the model acted on
+> it. The boundary attempt has a 30-second budget; slow formatting or unstable
+> membership leaves the work owed for the idle path. Details live in
+> `src/meridian/pi_runtime/.context/delivery-contract.md` on that branch. Without
+> that change, read the next paragraph as the whole contract.
+
+The installed watcher publishes only while Pi's native context is idle. It formats spawn
 results with `spawn wait --no-observe`: reading details must not consume the
 same result whose notice is being prepared. Immediately before sending, it
 rechecks explicit consumption and live wait leases and rebuilds a partially
 consumed batch. Thus an explicit terminal wait during an active tool turn can
 consume its result before any follow-up is queued; an unattended eligible result
-is delivered once through the normal idle path.
+is delivered once through the normal idle path (late results still trigger an idle
+follow-up on purpose, even with the pending boundary path).
 
 The watcher reserves a batch through formatting and native send so parallel
 flushes cannot publish the same IDs. IDs that arrive after reservation wait for
