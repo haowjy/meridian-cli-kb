@@ -222,7 +222,11 @@ The entry key never moves. What the user ended on is a separate fact:
   receipt must match the launch nonce and actual Claude child PID, its initial
   key must match the immutable planned entry, and the exact final transcript
   header must validate before allocation. The TUI trampoline successor remains
-  a diagnostic and never rebinds the entry or names an exit chat.
+  a diagnostic and never rebinds the entry or names an exit chat. On a native
+  fork, the hook's `SessionStart.source` is `fork` (not `startup` or `resume`),
+  followed by `source=clear` after `/clear`; the first fork ID is the entry and
+  the later current ID can be the verified exit. This hook-source vocabulary is
+  distinct from Meridian's `BindSource=observed`.
 - Pi and Claude owned boundaries are inputs to the one finalizer and one allocator. A
   verified exit key maps to the chat that already owns that exact key (stopped chats
   included), else a new chat. The lookup and creation run under the sessions lock.
