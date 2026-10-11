@@ -110,12 +110,14 @@ returning mid-compaction) are solved once.
 **Decision:** Two new packages, modelled on `lib/artifact/` (a self-contained
 feature whose CLI is its only entry point), not on `lib/ops/`.
 
-- **`lib/notify/`** delivers notices. It builds the session label
-  (`[<tmux session>] <project> · <work id>`) and fans out to a channel
-  registry: `ntfy`, `smtp`, `gmail` (an SMTP preset), `command`, `none`. A
-  new channel is one module plus one registry entry. `meridian notify` works
-  with idle turned off. ntfy titles are RFC 2047-encoded, because the HTTP
-  `Title` header is Latin-1 and the label's `·` would otherwise arrive mangled.
+- **`lib/notify/`** delivers notices. It builds the reason-first session
+  context (terminal, actor, and explicit work/project label; see
+  [D-idle-notice-context](#d-idle-notice-context--reason-first-titles-and-send-time-cache-countdown))
+  and fans out to a channel registry: `ntfy`, `smtp`, `gmail` (an SMTP
+  preset), `command`, `none`. A new channel is one module plus one registry
+  entry. `meridian notify` works with idle turned off. ntfy titles are RFC
+  2047-encoded, because the HTTP `Title` header is Latin-1 and the label's `·`
+  would otherwise arrive mangled.
 - **`lib/idle/`** holds the policy: a pure timeline, pure guards, a service
   over the state file, and the sidecar loop. It builds `lib.notify.Notice`
   values and calls `lib.notify.send` directly; `lib/notify` never imports
@@ -271,7 +273,7 @@ before it arms.
 | Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` | push, warn, compact |
 | Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push, warn, compact on `anthropic` and `openai`, because Meridian launches primaries with long retention ([D-pi-cache-retention](#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)); push only with `PI_CACHE_RETENTION=short` or any other provider |
 | OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor` | `POST /session/{id}/summarize` with the session's current model | push only (`ttl_seconds` 300) |
-| Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, verify, press Enter, wait for the completion marker | push, warn, compact (`ttl_seconds` 1800) |
+| Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, verify, press Enter, wait for an appended `compacted` rollout record | push, warn, compact (`ttl_seconds` 1800) |
 
 The launcher task is an asyncio task inside `PrimaryAttachLauncher.run`. It
 starts after the TUI is running and follows the TUI launch task's liveness, not
@@ -333,10 +335,11 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   dropped. `input-messages` is cumulative, so a return is a growth in its
   length, not a non-empty list. Push and warn are skipped while the pane shows
   Codex working, because Codex has no return signal until the turn ends
-  (G2 K2). The actuator types `/compact`, verifies the text, re-checks that the
-  TUI is alive, presses Enter, and reports `ok` only when the `Context
-  compacted` marker count grows. An empty composer appears as soon as any turn
-  starts and is no evidence of completion (G2 K1).
+  (G2 K2). The current actuator types `/compact`, verifies the text, re-checks
+  that the TUI is alive, presses Enter, and reports `ok` only when a newly
+  appended `compacted` rollout record is observed. The TUI remains the current
+  submission and draft-observation surface; an empty composer appears as soon
+  as any turn starts and is no evidence of completion (G2 K1).
 - **OpenCode.** Summarize keeps the session model when the current provider and
   model are supplied. The session GET times out at 10 s and the summarize POST
   at 300 s; a hung backend reports `failed` instead of wedging later stretches
@@ -559,7 +562,7 @@ them. Notes were either folded in where cheap or routed as follow-ups.
 |---|---|---|
 | **G0** | R1–R4 refactors | The idle task is cancelled before the connection stops on every teardown path. `tui_alive` follows the TUI launch task instead of the launcher. Claude's generated plugin types no longer ship in the wheel. Per-harness idle fields come from one shared base, with per-harness defaults in the generated models. |
 | **G1** | notify core and idle core | The sidecar keeps a compaction alive across a user return, so its `done` is recorded. Core gained Codex's `implies_return` and input-count path. The role gate gained `interactive` from end to end. Failed or vetoed compaction no longer opens a window. ntfy titles became RFC 2047. Sidecar calls moved off the loop, and each event became its own failure domain. |
-| **G2** | the four adapters | Every adapter call carries `--interactive` (C1). Pi stopped blocking input and re-checks before compacting (P1, P2). OpenCode got timeouts and marks its own compaction (O1, O2). Codex reports `ok` only on the completion marker, stays quiet while busy, and re-checks the TUI before Enter (K1, K2, K4). `lib/harness` stopped importing `lib/idle`, with an AST test (K3). Pi's Vitest suites run in CI; `claude plugin test` is a required local gate because CI has no `claude` binary (X1). |
+| **G2** | the four adapters | Every adapter call carries `--interactive` (C1). Pi stopped blocking input and re-checks before compacting (P1, P2). OpenCode got timeouts and marks its own compaction (O1, O2). Codex reports `ok` only after an appended `compacted` rollout record, stays quiet while busy, and re-checks the TUI before Enter (K1, K2, K4). `lib/harness` stopped importing `lib/idle`, with an AST test (K3). Pi's Vitest suites run in CI; `claude plugin test` is a required local gate because CI has no `claude` binary (X1). |
 | **Final** (p7493, maintainability only) | the whole branch | Verdict: ship after F4. F4 deleted contract and state surface that nothing read, before a second adapter could code against it: the `busy`/`idle` event kinds and `IdleEvent.message_id`/`provider`/`timestamp`; the two-field env-facts dataclass, now a single `autocompact_off(env)` port, which Pi doesn't register; `IdleState.spawn_id`/`main_thread_id`; and the `NoticeSpec` shim in favour of `lib.notify.Notice`. Every other finding was routed as debt, listed below. |
 
 Between G1 and G2, a separate fix lane made a closed stretch always reopen on
