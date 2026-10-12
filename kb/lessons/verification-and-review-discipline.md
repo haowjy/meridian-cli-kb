@@ -171,11 +171,25 @@ overwriting it. (Provenance: `work:pi-result-delivery`.)
 A test that held a filler queue slot ahead of the failing write proved failure-
 before-stage and missed a real race: with a ping-claim write failing, the
 supervising `catch` ran one promise hop after the queue advanced, so a terminal
-slot queued behind it staged clean success first. The fix was a failure handler
-on the direct await, not a new scheduler. Write ordering tests with no filler slot
-and no sleeps, gate the real filesystem operation, and assert the first attempted
-payload; audit every caller's handler position, not just the one that failed.
+slot queued behind it staged clean success first. Patching that caller's handler
+fixed one site but left the rule for the next caller; the durable fix moved
+enforcement into the publication boundary, which runs the fatal policy
+synchronously in the failing slot. Write ordering tests with no filler slot and no
+sleeps, gate the real filesystem operation, assert the first attempted payload,
+and include a case where an extra async wrapper surrounds the call.
 (Provenance: `work:runtime-efficiency`, #561.)
+
+### Do not expose a completion promise to unrelated milestones
+
+Returning a repair promise from a synchronous failure claim made output draining
+inherit a metadata wait, so a foreground abort stayed pending behind an unrelated
+held records write. Fix ownership, not conditions: the claim returns nothing, and
+callers that need publication name the promise they observe. When a repair
+touches a shared queue, test with a real shell and a held write, and check that
+test's API assumptions (an intercepted `appendFile` that the code never calls is
+invalid evidence). Fixture teardown must also respect authority rules: release
+fixtures cooperatively through their own handles, never by signalling a saved
+numeric PID or process group.
 
 ## Measurement Discipline
 

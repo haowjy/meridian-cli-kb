@@ -3,6 +3,23 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-12 — Managed-Bash thermo follow-up reconciled (`work:runtime-efficiency`)
+
+- Reconciled against PR #563 source `1cf72c73` (draft, unreleased, no final
+  qualification recorded here): publication-owned failure ordering with void
+  claims, published snapshot versus live execution, single-flight recovery,
+  authoritative log availability and shared task outcome, wait cancellation at
+  acknowledgement staging, ESRCH authority retirement, ping lifetime guards,
+  truthful declined detach, and metadata-only `/ps` with one selected preview.
+- Updated [Pi Runtime Coordination](architecture/pi-runtime/coordination.md),
+  [Pi Runtime](decisions/pi-runtime.md), [vocabulary](architecture/pi-runtime/vocab.md),
+  [lifecycle](architecture/pi-lifecycle.md) and the ordering lesson in
+  [Verification and Review Discipline](lessons/verification-and-review-discipline.md);
+  replaced the earlier caller-handler ping description as stale. Routed foreground
+  attachment ownership and post-shell polling qualification to
+  [future work](open-questions/future-work.md#pi-result-delivery-limits).
+
+---
 ## 2026-10-12 — Managed-Bash efficiency candidate captured as unreleased (`work:runtime-efficiency`)
 
 - Recorded the source candidate's queue-owned coordination transitions, lifecycle-only

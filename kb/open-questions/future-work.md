@@ -433,6 +433,17 @@ reproduced defect or a must-do:
   #496, #500 and #473. Constraints carry over: an inventory is not proof of
   reclaimability, a foreign negative cache needs proof, and old-schema files remain
   mixed-version authority constraints. No production cleanup is authorized.
+- **Foreground attachment ownership (managed-Bash).** Foreground model and human
+  execution paths still duplicate settlement, abort/start-stop hooks and
+  foreground-count UI bookkeeping. Consider one attachment owner only if it
+  deletes that bookkeeping while preserving distinct model/human output APIs,
+  physical stop versus publication, and reload/background handoff. An optional
+  follow-on to PR #563, not a correctness defect.
+- **Post-shell polling cost (managed-Bash).** Groups whose descendants outlive the
+  shell are polled on a short cadence. #561 has only exploratory backoff
+  measurements, not full-runtime or macOS qualification; qualify output drain,
+  cancellation, ps failure, publication delay and ownership retirement before
+  changing cadence, and never turn observed host lag into a delivery bound.
 - **Large backlogs.** A backlog beyond one packet takes several genuine native
   opportunities, one message each; fair allocation fixed the avoidable per-result
   amplification, so only the unbounded-backlog case remains, with no

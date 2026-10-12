@@ -49,7 +49,7 @@ Also owns: b-* Bash registry, live process ownership, and `_MERIDIAN_PI_BASH_ID`
 
 Slash commands: `/ps` (bash record list; supports combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background` — fg→bg mid-flight), `/ps:kill`, `/ps:logs`, `/ps:clear` (hide finished rows for this session).
 
-Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn Bash records, atomic tmp+rename). Python's `PiDiskWatcher` wakes the private-work ledger when task evidence changes.
+Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn Bash records, atomic tmp+rename). Records are published through one serialized stage/write/adopt path; see [Pi Runtime Coordination](pi-runtime/coordination.md#published-state-live-execution-and-results). Python's `PiDiskWatcher` wakes the private-work ledger when task evidence changes.
 
 ### meridian-spawn-watch (policy extension)
 

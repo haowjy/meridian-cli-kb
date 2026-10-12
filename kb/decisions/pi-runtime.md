@@ -120,47 +120,69 @@ boundary still scans all history, a known performance opportunity. See
 speed, storage and resource follow-up from the PR's efficiency audit is tracked in
 [issue #561](https://github.com/haowjy/meridian-cli/issues/561), not here.
 
-### Unreleased managed-Bash publication candidate (#561 / #562)
+### Unreleased managed-Bash publication candidate (#561 / #562 / PR #563)
 
-The source candidate (commits `006237c3`, `f36c1b13`, `95e85d78`, `fe2dfb3e`,
-`a6dcc2ca`, and `878d0323`) is approved for its PR but is **not** v0.9.4, installed, merged,
-or deployed. It narrows managed-Bash records writes without changing the
-shipped delivery authority:
+The source candidate is draft PR #563 (reconciled against source head `1cf72c73`).
+It is **not** v0.9.4, installed, merged, or deployed, and this page does not record
+a final qualification result for those bytes. It narrows managed-Bash records
+writes without changing the shipped delivery authority:
 
 - Output appends update the log authority and in-memory progress; `log_bytes` in
   `bash-records.json` is only the size captured by a lifecycle write. There is no
   progress timer or periodic flush, and arbitrary log/list reads do not become
-  implicit result consumption. Existing explicit terminal wait/output
-  consumption rules remain.
-- Retractable coordination metadata uses one queue-owned transition: stage from
-  committed memory, write a prospective snapshot containing only that change, and
-  apply it to memory only after the write lands. Live handles, physical progress,
-  row creation, and failure evidence are private facts that may ride a snapshot;
-  they are not retracted as if they were committed coordination state.
-- Terminal publication remains after physical group exit and queued output. Until
-  the terminal write lands, observers see `running` and no result can be consumed.
-  Group-signalling authority retires when the live `ShellTask` observes its group
-  gone, independent of delayed or failed persistence and of stale in-flight `ps`
-  results. Foreground interruption waits for physical stop and flushed output,
-  not metadata publication.
+  implicit result consumption. Explicit terminal wait/output consumption rules
+  remain.
+- **Publication owns ordering.** One serialized publication stages, writes and
+  adopts a single immutable value; live handles, progress and first-fault evidence
+  are owned separately by the running task and overlaid for readers. The earlier
+  shape (a mutable runtime record, a serialization blacklist, and a metadata patch
+  plus an arbitrary commit closure that had to agree) is gone. Rejected: an
+  immutable whole-map swap alone, because it could overwrite a task or fault that
+  arrived during I/O.
+- **Task-fatal failure is claimed inside the failing slot.** The rule used to
+  live at each caller's direct `await`, and a ping-claim failure handled one
+  promise hop late let a queued terminal write stage clean success first. The
+  publication boundary now runs the task-fatal policy synchronously before any
+  successor stages. Caller-recoverable operations (detach, consumption, clear)
+  keep their own error path.
+- **Claiming is void.** It once returned the repair promise, so an output-queue
+  rejection inherited the metadata wait and a foreground abort could stay blocked
+  behind an unrelated held records write after the shell was already stopped.
+  Physical stop and output drain, durable publication, and native admission stay
+  three separate milestones: foreground interruption waits for the first, wait
+  and kill results for the second, and nothing here implies the third.
+- **Terminal publication** still happens after physical group exit and queued
+  output. Until the terminal write lands, observers see `running` and no result
+  can be consumed. Group-signalling authority retires when the live task observes
+  its group gone, including an ESRCH signal, independent of delayed or failed
+  persistence and stale in-flight `ps` results.
+- **Result outcome contract.** Retrieval returns a typed outcome plus explicit log
+  availability (`available`, `missing`, `unreadable`) instead of empty text; one
+  shared outcome projection feeds tool results and automatic notices, so a
+  nonzero exit or execution fault is never inferred from log text, and an
+  acknowledgement is persisted only for a result that was actually returned. Wait
+  cancellation is checked at the acknowledgement stage. A uniform visible outcome
+  header, including for empty successful output, is intentional: this work targets
+  metadata amplification, not header tokens.
+- UI inspection (`/ps` list, previews, `/ps:logs`, `p-*` inspection) stays
+  non-consuming; the list loads metadata only and one selected preview.
 
 Cold recovery of a durable `running` row adds `ownership_lost` to any existing
-`execution_error` once; it never replaces earlier fault evidence.
-
-A failed lifecycle write must claim its record at the await that observes it. A
-ping-claim failure used to claim one promise hop late, so a terminal write queued
-behind it could stage clean success first; `firePing` now handles claim/release
-rejection at the direct await. No scheduler was added. The candidate sits on the
-v0.9.5 base with no schema change, so v0.9.5 stop/backup/no-old-reader guidance
-still applies when upgrading from 0.9.4; the installed CLI is unchanged.
+`execution_error` once; it never replaces earlier fault evidence and never
+signals a stored PID. Concurrent retries of a failed recovery share one in-flight
+attempt. The candidate sits on the v0.9.5 base with no schema change, so v0.9.5
+stop/backup/no-old-reader guidance still applies when upgrading from 0.9.4; the
+installed CLI is unchanged.
 
 The terminal transition linearizes when it stages. A failure that has claimed the
 record first prevents a clean `exited` snapshot; a failure ordered after staging
 is repaired by its own write. A crash or failed repair in the rename window can
 still leave a recoverable success, so this is not a crash-atomic exactly-once
 error boundary. These limits are intentional and are not a reason to add a timer,
-periodic flush, or arbitrary-read consumption. Polling policy, CLI startup cost,
+periodic flush, or arbitrary-read consumption. Polling cadence, CLI startup cost,
 and log-follow cadence are separate work and are unchanged by this candidate.
+Deferred follow-ups (optional foreground attachment ownership, broader post-shell
+polling qualification) are in [future work](../open-questions/future-work.md#pi-result-delivery-limits).
 
 Completion keeps that causal delivery obligation separate from running execution:
 an explicit done may still override known running work, but it cannot bypass a

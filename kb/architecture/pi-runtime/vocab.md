@@ -24,7 +24,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 
 | Term | Definition | See also |
 |---|---|---|
-| **`bash`** | The unified bash tool. Replaces pi's built-in `bash`. Required parameter: `command: string`. Optional parameters: `timeout_min?: number` (1–59, default 55, foreground budget only) and `background?: boolean` (default `false`; if true, detach immediately). Returns a foreground success object `{stdout, stderr, exit_code, …}` on synchronous completion, or `{bash_id, status: "backgrounded" \| "started", …}` when backgrounded. | [../pi-lifecycle.md](../pi-lifecycle.md) |
+| **`bash`** | The unified bash tool. Replaces pi's built-in `bash`. Required parameter: `command: string`. Optional parameters: `timeout_min?: number` (1–59, default 55, foreground budget only) and `background?: boolean` (default `false`; if true, detach immediately). Returns a foreground outcome (status, exit code, any fault) with each stream's log availability on synchronous completion, or `{bash_id, status: "backgrounded" \| "started", …}` when backgrounded. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 | **`bash_manage`** | Single discriminated-action ops tool covering all background-bash operations. Required parameter: `action: "list" \| "output" \| "kill" \| "wait" \| "detach"`. Optional parameters: `bash_id?` (required for `output`/`kill`/`wait`/`detach`), `include_completed?` (`list` only, default `false`), `timeout_min?` (`wait` only, default 10, max 59). | [../pi-lifecycle.md](../pi-lifecycle.md) |
 
 ---
@@ -42,7 +42,7 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 
 | Command | Owner | Description |
 |---|---|---|
-| **`/ps`** | `managed-bash` | List bash records (mechanism view). Shows only `b-*` records for the current session. Supports combined/stdout/stderr stream filters. |
+| **`/ps`** | `managed-bash` | List bash records (mechanism view). Shows only `b-*` records for the current session. Supports combined/stdout/stderr stream filters. Loads row metadata only; the TUI reads one bounded preview for the selected row, and neither consumes a result. |
 | **`/ps:b <id>`** | `managed-bash` | Background a running foreground bash mid-flight. Alias: `/ps:background <id>`. |
 | **`/ps:kill <id>`** | `managed-bash` | Terminate a tracked bash. |
 | **`/ps:logs <id>`** | `managed-bash` | Show log tail for a bash record. Uses centered log overlay. |
@@ -81,6 +81,9 @@ See also: [../pi-lifecycle.md](../pi-lifecycle.md) for the pi spawn lifecycle ar
 | **Tracked bash** | A bash background record that blocks pi quiescence until it terminates. The default state for all `bash({background: true})` calls and fg→bg-timeout transitions. Opt out by calling `bash_manage({action: "detach", bash_id})`. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 | **Detached bash** | A bash background record that does NOT block pi quiescence. Created by an explicit `bash_manage({action: "detach", bash_id})` call. Detach releases tracking but leaves the process owned by the live runtime; natural exit or normal Pi shutdown ends it. A cold runtime cannot reclaim or signal it. | [coordination.md](coordination.md) |
 | **Implicit-wait notification** | `sendMessage` follow-up (idle) or native steer (tool-boundary, since v0.9.4) from `meridian-spawn-watch` for eligible unattended child or tracked Bash results. Queueing is not delivery: native admission and Python's exact public-event observation are separate evidence. Terminal waits can consume results before publication. | [coordination.md](coordination.md) |
+| **Log availability** | Result of a bounded read of a task log: `available` (text plus truncation flag), `missing` or `unreadable`. Missing output is never empty output; non-regular files are unreadable. Only `/ps` previews treat an absent log as blank. | [coordination.md](coordination.md) |
+| **Task outcome** | The shared projection of a Bash row used by tool results, `/ps` and automatic notices: status, exit code and fault. A present `execution_error` is a fault even if empty; an `exited` row without an exit code is incomplete evidence. Independent of log contents. | [coordination.md](coordination.md) |
+| **Published snapshot** | The immutable records-file value owned by the serialized publication. Live handles, progress and first-fault evidence are separate and are overlaid for readers; only publication makes a terminal result, consumption or tracking change durable. | [coordination.md](coordination.md) |
 | **Bash origin link** | `managed-bash` injects `_MERIDIAN_PI_BASH_ID`; spawn creation may persist that value as `originating_bash_id` on a child row. It transfers a Bash launcher's result obligation to its canonical child; `parent_id`, not this field, defines child membership. No origin sidecar supplies authority. | [coordination.md](coordination.md) |
 | **Quiescence** | A Pi spawn is finished only after its semantic turn and when there are no active transitive descendants, live tracked Bash tasks, owed terminal results, or unresolved delivery receipts. Exact notification admission must have its matching public-event observation and a later idle terminal turn; unknown evidence cannot become an empty set. | [../pi-lifecycle.md](../pi-lifecycle.md) |
 
