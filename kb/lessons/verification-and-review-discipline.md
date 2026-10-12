@@ -143,6 +143,16 @@ process-group leader, so its status says nothing about the command it launched.
 (Provenance: `work:noninteractive-prepush-pnpm`, reviewer p7327; reproduced with
 util-linux 2.39.)
 
+### A per-item bound is not an aggregate or concurrency bound
+
+Capping each item (a 64 KiB report) says nothing about how many are opened at once
+or how large their concatenation is: 512 capped reports exhausted a 256-descriptor
+limit and delivered nothing. Bound the batch (members, total bytes), the concurrency,
+and the per-opportunity work, and test with a resource limit lowered below the
+backlog. When clipping to fit, truncate only optional detail; never clip identity,
+outcome or the way to fetch the full result, or the packet claims a state the reader
+cannot see. (Provenance: `work:pi-result-delivery`.)
+
 ### Matching hashes can all describe a stale bundle
 
 Source, tests, and the built, wheel-embedded and installed artifacts can agree

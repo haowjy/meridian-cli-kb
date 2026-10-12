@@ -18,6 +18,16 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   Fold into the decision after merge and release.
 
 ---
+## 2026-10-11 — Pi bounded aggregate delivery captured, pending release (`work:pi-result-delivery`)
+
+- Recorded the 32-member / 64 KiB sequential-read bound, deferred-remainder
+  behavior and visible-outcome framing as pending PR #560 source in
+  `decisions/pi-runtime.md` and `architecture/pi-runtime/coordination.md`; added
+  the per-item-vs-aggregate lesson to `lessons/verification-and-review-discipline.md`
+  and routed the cross-cutting efficiency follow-up to issue #561 via
+  `open-questions/future-work.md`. Pending merge/release wording kept.
+
+---
 ## 2026-10-11 — Claude native exit verification captured (`work:exit-identity-reporting`)
 
 - Reconciled the native-session identity decision and architecture pages with the

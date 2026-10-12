@@ -78,8 +78,10 @@ or unknown evidence also prevents done from completing the spawn.
 > boundary, root-event and 30-second full discovery covering new or missed rows
 > (about 30.5 s plus collector and filesystem time, an accepted tradeoff and not a
 > hard deadline). Notices read
-> `report.md` directly (64 KiB cap, explicit truncated/missing/unreadable
-> outcomes) instead of `spawn wait`. Receipts, consumption and wait leases are
+> `report.md` directly (explicit truncated/missing/unreadable outcomes) instead of
+> `spawn wait`, sequentially, and one automatic message is bounded in members and
+> total bytes; the rest of a larger backlog stays owed for later opportunities
+> (see the decision for the bounds and rationale). Receipts, consumption and wait leases are
 > unchanged; Pi orders the steer with other queued input, and native admission is
 > not proof the model acted on it. Authoritative detail lives in
 > `src/meridian/pi_runtime/.context/delivery-contract.md` on that branch. Until it

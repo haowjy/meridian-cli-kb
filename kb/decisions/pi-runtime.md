@@ -88,10 +88,27 @@ context; reload keeps the owner and queued claims and restarts at fresh
 (plus collector and filesystem time, not a hard deadline) of idle latency for a
 child row whose publication was missed; that is not a bug.
 
+**Bounded aggregate delivery (implemented in the pending PR source).** The first
+replacement capped each report at 64 KiB but opened every owed report at once and
+joined them into one message; a 512-child probe at a 256 file-descriptor limit then
+failed with `EMFILE` and delivered nothing, so a per-item cap had become an
+unbounded aggregate. The review blocker was fixed in the PR, not deferred: one
+automatic message takes at most 32 members and 64 KiB of UTF-8 content, reports are
+read sequentially, and the rest of the backlog stays owed. Queueing, then exact
+admission, closes the current idle opportunity: there is no new timer, controller or
+drain-until-empty loop, so later tool boundaries or genuine idle transitions carry
+the remainder. This is not a one-inference-for-unbounded-backlog promise. Every
+included member keeps a visible ID, outcome and a concrete full-result lookup; only
+optional detail is truncated, and a member whose mandatory frame does not fit the
+remaining packet is deferred rather than shown clipped. Terminal `error` is a typed
+canonical field. Canonical limits live in the source delivery contract.
+
 Open limits (pre-existing, not reproduced defects): a queued message Pi never
 admits keeps its IDs reserved until admission or restart, and full discovery at each
 boundary still scans all history, a known performance opportunity. See
-[future work](../open-questions/future-work.md#pi-result-delivery-limits). Fold this
+[future work](../open-questions/future-work.md#pi-result-delivery-limits). Broader
+speed, storage and resource follow-up from the PR's efficiency audit is tracked in
+[issue #561](https://github.com/haowjy/meridian-cli/issues/561), not here. Fold this
 section into the decision above once the PR merges and releases.
 
 Completion keeps that causal delivery obligation separate from running execution:

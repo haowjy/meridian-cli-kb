@@ -411,7 +411,9 @@ These items were identified in the mars-capability-packaging final gate (alignme
 
 ## Pi Result Delivery Limits {#pi-result-delivery-limits}
 
-Known limits of the tool-boundary delivery change (PR #560, pending). Neither is a
+Known limits of the tool-boundary delivery change (PR #560, pending). Aggregate
+message size and report-read concurrency are bounded in the PR itself (32 members,
+64 KiB, sequential reads) and are not deferred. None of the items below is a
 reproduced defect or a must-do:
 
 - **Unadmitted queue claim.** A watcher message queued for native steer or
@@ -422,6 +424,15 @@ reproduced defect or a must-do:
   boundary reads every project spawn row. Revisit only if boundary latency shows up
   in real parent/child workflows. Removal trigger: a measured boundary cost or a
   safe incremental index that does not become authority.
+- **Cross-cutting efficiency audit.** Retained runner streams, doubled Bash log
+  writes, per-drain history polling, cold CLI process cost and old projection
+  namespaces are tracked in
+  [issue #561](https://github.com/haowjy/meridian-cli/issues/561) alongside #414,
+  #496, #500 and #473. Constraints carry over: an inventory is not proof of
+  reclaimability, a foreign negative cache needs proof, and old-schema files remain
+  mixed-version authority constraints. No production cleanup is authorized.
+- **Backlog latency.** A very large backlog takes several native opportunities, one
+  bounded message each; reassess only if real workflows show it matters.
 
 Provenance: `work:pi-result-delivery`. Source details:
 `src/meridian/pi_runtime/.context/delivery-contract.md`.
