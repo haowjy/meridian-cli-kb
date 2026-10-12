@@ -79,6 +79,8 @@ cross-harness gaps found by live probing:
   `last-observed-event.json` members are omitted. Runner-only legacy archive members
   remain inert bytes.
 - `pN` views name the selected chat and whether it is the entry or verified exit chat.
+  Later [Claude current-chat tracking](../architecture/claude-native-sessions.md)
+  adds a last-observed label, distinct from a verified exit.
   Text search prints a coverage line as well as JSON coverage. `session log --file`
   rejects SQLite and non-native files; OpenCode DB errors direct the user to the bound
   chat reference.

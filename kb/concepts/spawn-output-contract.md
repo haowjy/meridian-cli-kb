@@ -159,9 +159,12 @@ model, agent, description, `report_path`, and a bounded 500-char
   and was reverted (`27a57934`).
 
 The chat identity is always present instead, as `null` when absent: `chat_id` (the
-entry chat), `continue_chat_id` (a finished run's verified exit chat, otherwise the
-entry chat) and `run_boundary` (the typed exit outcome). A coordinator reads the
-conversation or resumes through these chat refs. It never needs the native key.
+entry chat), `continue_chat_id` (the selected continuation chat) and `run_boundary`
+(the typed exit outcome). In current-chat tracking (unmerged PR #559), historical
+rows have no continuation; mismatches retain the entry; otherwise a recorded
+current chat wins, then a finished run's verified exit, then the entry. Claude's
+current chat means last observed, not verified final or necessarily readable.
+A coordinator uses these chat refs; it never needs the native key.
 
 Multi-ID invocations (`spawn show p1 p2`) emit a JSON array where each
 element is the same sparse projection. Previously the list path bypassed

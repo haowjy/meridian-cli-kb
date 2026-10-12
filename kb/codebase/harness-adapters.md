@@ -239,21 +239,16 @@ streaming layer treats receipts and observations as separate facts; the retired
 
 See [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) for the quiescence model.
 
-## Claude exit boundary and TUI trampoline successor
+## Claude current chat and TUI trampoline successor
 
-Claude's `observe_after_exit()` first reads the launch-correlated
-`meridian-session-boundary` classic-hook receipt. The adapter supplies a fresh
-nonce, receipt path and Python interpreter to both primary and spawned launches;
-the receipt carries the hook's initial/current exact transcript identities and
-the child PID. Only final `SessionEnd` reasons (`prompt_input_exit`, `logout`,
-`other`) can produce an exit candidate. The runner compares the initial key to
-the immutable entry, then passes the exit candidate to
-`session_store.get_or_create_exit_chat`. Under the history/session locks, its
-shared `native_exists` callback invokes the adapter's exact native resolver/header
-validation before either reusing an existing alias or creating a chat. A missing
-or invalid receipt is unresolved; this is an observation leg, not a directory scan
-or a second identity authority. The receipt is ownership evidence, not persistence
-authority, and the same allocator gate serves Pi.
+Claude's `native_observation_reader()` decodes the launch-owned SessionStart
+journal, admitted against the launcher's captured child PID and nonce. A live
+`NativeRun` drainer publishes the last observed chat separately from the immutable
+entry. No SessionEnd or saved-transcript proof is required to record an observation;
+actual read and resume still validate the exact native transcript. This replaces
+the earlier final-exit receipt design in unmerged PR #559. See
+[Claude session observations](../architecture/claude-native-sessions.md) for
+admission, inheritance, ordering and failure limits.
 
 Claude's `observe_after_exit()` detects the `/tui fullscreen` trampoline from
 Claude's own `history.jsonl` (Claude's prompt log, not Meridian's runner history). It
@@ -264,9 +259,9 @@ the run's exit. Detection is file-based only and remains a diagnostic fallback. 
 [Claude native sessions](../architecture/claude-native-sessions.md#tui-trampoline).
 
 No adapter uses an ambient filesystem scan as identity evidence. Identity comes
-from the assigned plan or qualified owned events; Claude's receipt is launch
-correlated, while the shared finalizer's adapter callback performs the exact
-persistence check. Pi additionally reports exit through `observe_after_exit`
+from the assigned plan or qualified owned events. Claude records owned live
+observations; Pi reports a verified exit through `observe_after_exit` and the
+shared finalizer's exact persistence check
 ([Pi exit observation](../architecture/pi-native-sessions.md#exit-observation)).
 
 Claude runtime composition resolves an explicit `plugin_names` tuple once into

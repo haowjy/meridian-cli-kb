@@ -233,17 +233,20 @@ is what protects them.
 - *Code and fake tests:* focused state, runtime and process-seam tests in the
   worktree, including an injected atomic-write failure after chat materialization
   that checks the accepted transition sequence, torn-tail recovery and oversized-input
-  refusal. A strict read-only review of `19c8ba3e` found no hard blocker; its
-  `/resume` finding is addressed by the eligibility rule above in the later commits.
-- *Current live proof:* one isolated run with real Claude 2.1.296 and one Haiku turn.
-  Native `/clear` produced a second record from the same nonce and PID, and the
-  pointer moved to a new chat while the launcher was still running, with the entry
-  binding unchanged. After a turn and a normal `/exit`, `--continue pN` resolved to
-  the new chat and a real `resume` record carried the same native ID. A SIGTERM to the
-  native child left the pointer at the last observed chat. It was a single run on a
-  tree that was changing underneath it, so the exact tested source state is not pinned.
-  It did not exercise fork, `/compact`, repeated `/clear`, A → B → A or concurrent
-  writers.
+  refusal. Independent re-review approved the fixes. Full preflight passed 2,441
+  Python tests (one skipped), 77 Pi runtime tests, Ruff, Pyright (zero errors,
+  75 existing warnings), and both package builds.
+- *Pinned live proof:* real Claude 2.1.296, one Haiku turn, clean source `cea151fa`
+  unchanged before/after. `/clear` advanced the pointer while running and left the
+  entry unchanged. Work/settings were inherited without a lease or lineage copy.
+  Actual `--continue pN` resumed the new native ID; a separate fresh launch differed.
+  A zero-turn fork then emitted `source=fork`, bound its entry without a duplicate
+  alias, and advanced to another chat on `/clear`; its source transcript hash stayed
+  unchanged. All ended with normal `/exit`. This does not qualify `/compact`,
+  repeated switches, A → B → A or concurrent writers live.
+- *Intermediate live proof:* a previous one-turn run also retained the pointer
+  after SIGTERM of the native child. Its source was changing during the probe;
+  interruption was not repeated on the frozen tree.
 - *Historical, superseded:* the built-wheel `/clear` → `/exit` and 0.9.3 fork probes
   recorded under the previous `SessionEnd` design (`claude-final-live-probe.md`,
   `claude-fork-clear-final-proof.md`). They qualified the old verified-exit outcome,
@@ -256,8 +259,11 @@ projection moves to schema 7 in a new namespace. A strict 0.9.3 reader rejected 
 new field on a *copy* of a source-created runtime (`extra_forbidden`), so this is a
 minor release, not a patch. Stop active old runs and back up the runtime before
 upgrading. Rollback needs the pre-upgrade state plus a metadata-only index rebuild.
-No restore rehearsal beyond the copy probe is claimed. Native transcripts are never
-rewritten.
+A schema-only rehearsal seeded 0.9.3 state, backed it up, wrote new state, confirmed
+old-reader rejection on a copy, then restored the backup. The released reader
+accepted it and its metadata-only rebuild exited successfully (reporting one
+pending source). This did not exercise native content restoration. Native
+transcripts are never rewritten.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
 `harness/claude_sessions.py`, `harness/claude_preflight.py`,
@@ -289,5 +295,7 @@ runtime probe `claude-boundary-live-probe.md`; built-wheel evidence
 fix `3630a1f0b`, shared persistence gate `a2713624` (still used by Pi), fork source fix
 `b74dc0b3`. Current design: same work item, `DIVERGENCE/02-last-observed-session.md`,
 `current-chat-primary-refinements.md`, `current-chat-final-review-result.md`,
-`current-chat-live-probe-result.md`; commits `19c8ba3e`, `679ab27f`, `cea151fa`
-(unmerged, PR #559). Full verification and a frozen-source native probe were pending.
+`current-chat-live-probe-result.md`, `current-chat-frozen-probe-result.md` (spawn:p7642),
+`current-chat-rereview-result.md` (spawn:p7641), `current-chat-restore-probe.log` and
+`current-chat-final-preflight.log`; commits `19c8ba3e`, `679ab27f`, `cea151fa`
+(unmerged, PR #559). No release or installed-CLI change is claimed.
