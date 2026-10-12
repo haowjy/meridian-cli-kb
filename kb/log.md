@@ -3,6 +3,20 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-12 — Owned launch and mandatory notice error recorded (`work:runtime-efficiency`)
+
+- Synced to source `accb1ce5` (draft PR #563; no qualification of these bytes recorded):
+  launch separates the owned process from creation observation so foreground abort
+  and drain do not await creation metadata; pre-spawn cancellation launches nothing;
+  positive launch/handoff still follows publication. Corrected the earlier claim
+  that the candidate already covered initial-creation cancellation and clarified that
+  only per-chunk records rewrites were removed, not log appends or the combined-log
+  stat. Notices keep error presence in the mandatory prefix; a frame that cannot
+  fit leaves the item owed. Updated [Pi Runtime](decisions/pi-runtime.md),
+  [Coordination](architecture/pi-runtime/coordination.md), the review lesson and
+  future work.
+
+---
 ## 2026-10-12 — Managed-Bash thermo follow-up reconciled (`work:runtime-efficiency`)
 
 - Reconciled against PR #563 source `1cf72c73` (draft, unreleased, no final

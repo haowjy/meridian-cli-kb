@@ -187,7 +187,13 @@ held records write. Fix ownership, not conditions: the claim returns nothing, an
 callers that need publication name the promise they observe. When a repair
 touches a shared queue, test with a real shell and a held write, and check that
 test's API assumptions (an intercepted `appendFile` that the code never calls is
-invalid evidence). Fixture teardown must also respect authority rules: release
+invalid evidence). The same barrier survived at launch: both foreground APIs awaited creation
+publication before attaching cancellation, and an approving static review plus a
+green gate missed it until a public-factory probe held the first records write and
+aborted. Reviews are evidence, not authority; a lifecycle claim ("abort never waits
+on metadata") needs a runtime control at every entry point, including the first
+write. Likewise a test that aborts right after an async call does not show the work
+was already enqueued; observe the enqueue itself. Fixture teardown must also respect authority rules: release
 fixtures cooperatively through their own handles, never by signalling a saved
 numeric PID or process group.
 

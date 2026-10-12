@@ -122,13 +122,16 @@ speed, storage and resource follow-up from the PR's efficiency audit is tracked 
 
 ### Unreleased managed-Bash publication candidate (#561 / #562 / PR #563)
 
-The source candidate is draft PR #563 (reconciled against source head `1cf72c73`).
+The source candidate is draft PR #563 (reconciled against source head `accb1ce5`).
 It is **not** v0.9.4, installed, merged, or deployed, and this page does not record
 a final qualification result for those bytes. It narrows managed-Bash records
 writes without changing the shipped delivery authority:
 
 - Output appends update the log authority and in-memory progress; `log_bytes` in
-  `bash-records.json` is only the size captured by a lifecycle write. There is no
+  `bash-records.json` is only the size captured by a lifecycle write. What was
+  eliminated is the per-chunk records-file rewrite: each chunk still appends to the
+  combined and stream logs and the combined log is still statted for its size, so
+  no claim is made that other I/O or stat calls disappeared. There is no
   progress timer or periodic flush, and arbitrary log/list reads do not become
   implicit result consumption. Explicit terminal wait/output consumption rules
   remain.
@@ -151,6 +154,20 @@ writes without changing the shipped delivery authority:
   Physical stop and output drain, durable publication, and native admission stay
   three separate milestones: foreground interruption waits for the first, wait
   and kill results for the second, and nothing here implies the third.
+- **Launch separates ownership from creation.** `OwnedLaunch` returns the owned
+  process and, separately, the supervised observation that its creation row
+  landed. Both foreground APIs attach cancellation as soon as the process is owned,
+  so abort and output drain never await creation metadata (the older candidate
+  covered terminal and repair publication but not this initial barrier: a held
+  creation write kept an aborted foreground call pending while output kept
+  growing). Cancellation noticed after preparation I/O but before spawn removes
+  the empty logs and launches nothing. Positive results still follow publication:
+  a start awaits creation, and a foreground hotkey/timeout handoff (named
+  `launch` versus `handoff` phases) succeeds only if its slot finds a published,
+  still-running row; a creation failure or terminal row ahead of it declines the
+  handoff rather than resurrecting or backgrounding it. Creation failure keeps its
+  queue-owned fatal supervision, with a rejection observed even when the foreground
+  call has already returned.
 - **Terminal publication** still happens after physical group exit and queued
   output. Until the terminal write lands, observers see `running` and no result
   can be consumed. Group-signalling authority retires when the live task observes
@@ -164,6 +181,11 @@ writes without changing the shipped delivery authority:
   cancellation is checked at the acknowledgement stage. A uniform visible outcome
   header, including for empty successful output, is intentional: this work targets
   metadata amplification, not header tokens.
+- **Notices keep error presence mandatory.** The terminal-outcome prefix of an
+  automatic spawn or Bash notice states that the result had an error; only the
+  diagnostic text is optional detail. If even the complete mandatory frame cannot
+  fit the packet, the item stays owed rather than being admitted looking clean.
+  The 32-member and 64 KiB bounds and receipt/admission semantics are unchanged.
 - UI inspection (`/ps` list, previews, `/ps:logs`, `p-*` inspection) stays
   non-consuming; the list loads metadata only and one selected preview.
 

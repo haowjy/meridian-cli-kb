@@ -74,6 +74,14 @@ Managed Bash separates three facts that the source keeps in separate types:
   caller. A detach reports success only when its slot was adopted; if the record's
   creation never landed it reports `detached: false` instead of inventing one.
 
+Launch returns the owned process and its creation observation as separate things.
+Foreground abort (model or human API) attaches as soon as the process is owned and
+returns after physical stop and output drain without awaiting the creation write,
+which stays supervised and still repairs a failure. Cancellation seen after
+preparation but before spawn launches nothing. Positive start and background
+results await creation; a foreground hotkey/timeout handoff is positive only when
+its queued slot finds a published, still-running row, otherwise it declines.
+
 Recovery of an unreadable or invalid store retries under a single in-flight
 attempt: only the first caller to observe the failed ready promise restarts it,
 and later callers join that attempt, because recovery publishes a whole map and a

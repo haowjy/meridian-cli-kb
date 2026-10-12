@@ -437,8 +437,9 @@ reproduced defect or a must-do:
   execution paths still duplicate settlement, abort/start-stop hooks and
   foreground-count UI bookkeeping. Consider one attachment owner only if it
   deletes that bookkeeping while preserving distinct model/human output APIs,
-  physical stop versus publication, and reload/background handoff. An optional
-  follow-on to PR #563, not a correctness defect.
+  physical stop versus publication, and reload/background handoff. Launch already
+  separates the owned process from its creation observation, so this is only an
+  optional structural cleanup, not needed for any correctness behavior.
 - **Post-shell polling cost (managed-Bash).** Groups whose descendants outlive the
   shell are polled on a short cadence. #561 has only exploratory backoff
   measurements, not full-runtime or macOS qualification; qualify output drain,
