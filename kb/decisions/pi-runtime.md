@@ -120,6 +120,38 @@ boundary still scans all history, a known performance opportunity. See
 speed, storage and resource follow-up from the PR's efficiency audit is tracked in
 [issue #561](https://github.com/haowjy/meridian-cli/issues/561), not here.
 
+### Unreleased managed-Bash publication candidate (#561 / #562)
+
+The source candidate at `fe2dfb3e` (commits `006237c3`, `f36c1b13`, `95e85d78`,
+and `fe2dfb3e`) is approved for its PR but is **not** v0.9.4, installed, merged,
+or deployed. It narrows managed-Bash records writes without changing the
+shipped delivery authority:
+
+- Output appends update the log authority and in-memory progress; `log_bytes` in
+  `bash-records.json` is only the size captured by a lifecycle write. There is no
+  progress timer or periodic flush, and arbitrary log/list reads do not become
+  implicit result consumption. Existing explicit terminal wait/output
+  consumption rules remain.
+- Retractable coordination metadata uses one queue-owned transition: stage from
+  committed memory, write a prospective snapshot containing only that change, and
+  apply it to memory only after the write lands. Live handles, physical progress,
+  row creation, and failure evidence are private facts that may ride a snapshot;
+  they are not retracted as if they were committed coordination state.
+- Terminal publication remains after physical group exit and queued output. Until
+  the terminal write lands, observers see `running` and no result can be consumed.
+  Group-signalling authority retires when the live `ShellTask` observes its group
+  gone, independent of delayed or failed persistence and of stale in-flight `ps`
+  results. Foreground interruption waits for physical stop and flushed output,
+  not metadata publication.
+
+The terminal transition linearizes when it stages. A failure that has claimed the
+record first prevents a clean `exited` snapshot; a failure ordered after staging
+is repaired by its own write. A crash or failed repair in the rename window can
+still leave a recoverable success, so this is not a crash-atomic exactly-once
+error boundary. These limits are intentional and are not a reason to add a timer,
+periodic flush, or arbitrary-read consumption. Polling policy, CLI startup cost,
+and log-follow cadence are separate work and are unchanged by this candidate.
+
 Completion keeps that causal delivery obligation separate from running execution:
 an explicit done may still override known running work, but it cannot bypass a
 terminal result awaiting publication, admission, public-event observation, or the
