@@ -166,6 +166,20 @@ behavior check that only the new code can satisfy (for example, a marker the
 old bundle lacks). Keep invalidated evidence, labeled invalid, rather than
 overwriting it. (Provenance: `work:pi-result-delivery`.)
 
+Packaging does not compile. `uv build` packages whatever JavaScript already sits in
+the generated `dist/`, so wheel/sdist/dist hash parity, even against an "expected"
+hash read from that same `dist/`, shows the packages agree with each other, not that
+they came from the stamped commit. In #561 the audit compiled all four extensions
+from clean Git archives of each stated revision and compared: one revision matched
+entirely, a later freeze had a stale Bash bundle, and the next freeze had stale Bash
+and watcher bundles. A freeze must therefore be one owned sequence: clean source →
+explicit all-bundle compile → package → source-built/wheel/sdist parity → clean
+source unchanged → a new uniquely named manifest that refuses to overwrite an earlier
+one. The stale attempts stay on disk, labeled invalid. Source-only gates that built
+current bundles remain valid as source evidence, and an observation made against
+specific frozen bytes remains an observation of those hashes, never qualification of
+the whole source revision or of later bytes. (Provenance: `work:runtime-efficiency`.)
+
 ### A filler in an ordering test can hide the schedule
 
 A test that held a filler queue slot ahead of the failing write proved failure-

@@ -3,6 +3,15 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-12 — Build-provenance lesson recorded (`work:runtime-efficiency`)
+
+- Added to [Verification and Review Discipline](lessons/verification-and-review-discipline.md)
+  that packaging does not compile and package-hash parity is not source freshness;
+  freezes must compile all bundles from clean source and parity-check before a
+  unique manifest. No page in the KB made a positive whole-package qualification
+  claim for the stale revisions, so no other node changed.
+
+---
 ## 2026-10-12 — Owned launch and mandatory notice error recorded (`work:runtime-efficiency`)
 
 - Synced to source `accb1ce5` (draft PR #563; no qualification of these bytes recorded):
