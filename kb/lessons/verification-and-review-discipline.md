@@ -151,7 +151,10 @@ limit and delivered nothing. Bound the batch (members, total bytes), the concurr
 and the per-opportunity work, and test with a resource limit lowered below the
 backlog. When clipping to fit, truncate only optional detail; never clip identity,
 outcome or the way to fetch the full result, or the packet claims a state the reader
-cannot see. (Provenance: `work:pi-result-delivery`.)
+cannot see. One packet per inference bounds instantaneous flooding, not cumulative
+model cost: reserve every item's mandatory outcome before allocating optional text,
+or a greedy first item turns a backlog into one turn per result.
+(Provenance: `work:pi-result-delivery`.)
 
 ### Matching hashes can all describe a stale bundle
 

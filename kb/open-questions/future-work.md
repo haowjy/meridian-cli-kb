@@ -418,7 +418,9 @@ reproduced defect or a must-do:
 
 - **Unadmitted queue claim.** A watcher message queued for native steer or
   follow-up that Pi never admits (for example a cleared queue) keeps its IDs
-  reserved until admission or restart. This predates boundary steer; confirm a real
+  reserved, and because queueing closes the current opportunity it can also pause
+  unrelated automatic publication until a real native lifecycle callback, reload or
+  restart; timer and watcher wakeups do not reopen it. This predates boundary steer; confirm a real
   reproduction before designing a release path.
 - **All-history scan per boundary.** Fresh canonical discovery at each tool
   boundary reads every project spawn row. Revisit only if boundary latency shows up
@@ -431,8 +433,10 @@ reproduced defect or a must-do:
   #496, #500 and #473. Constraints carry over: an inventory is not proof of
   reclaimability, a foreign negative cache needs proof, and old-schema files remain
   mixed-version authority constraints. No production cleanup is authorized.
-- **Backlog latency.** A very large backlog takes several native opportunities, one
-  bounded message each; reassess only if real workflows show it matters.
+- **Large backlogs.** A backlog beyond one packet takes several genuine native
+  opportunities, one message each; fair allocation fixed the avoidable per-result
+  amplification in the PR, so only the unbounded-backlog case remains, with no
+  constant-total-inference promise.
 
 Provenance: `work:pi-result-delivery`. Source details:
 `src/meridian/pi_runtime/.context/delivery-contract.md`.

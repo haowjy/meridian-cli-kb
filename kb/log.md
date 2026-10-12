@@ -26,6 +26,10 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   the per-item-vs-aggregate lesson to `lessons/verification-and-review-discipline.md`
   and routed the cross-cutting efficiency follow-up to issue #561 via
   `open-questions/future-work.md`. Pending merge/release wording kept.
+- Follow-up (source 6a509676): fair optional-text allocation replaced the greedy
+  packet fill (a review-blocking turn amplification), the queue-loss limit now
+  notes it can pause unrelated automatic publication, and the low-priority backlog
+  note was reworded. Final native/model/full gates are not claimed here.
 
 ---
 ## 2026-10-11 — Claude native exit verification captured (`work:exit-identity-reporting`)

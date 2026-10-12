@@ -94,17 +94,27 @@ joined them into one message; a 512-child probe at a 256 file-descriptor limit t
 failed with `EMFILE` and delivered nothing, so a per-item cap had become an
 unbounded aggregate. The review blocker was fixed in the PR, not deferred: one
 automatic message takes at most 32 members and 64 KiB of UTF-8 content, reports are
-read sequentially, and the rest of the backlog stays owed. Queueing, then exact
+read sequentially, and the rest of the backlog stays owed. A greedy first version
+let one full report consume the packet, which turned a 512-report backlog into 512
+single-member component packets (not 512 measured native inferences). Review ruled
+that avoidable turn amplification a PR-local blocker, so the final source reserves
+every selected member's worst-case mandatory frame first and shares the remaining
+optional-text bytes fairly (unused shares carry forward); the same fixture is now 16
+packets of 32 with one open report handle. Queueing, then exact
 admission, closes the current idle opportunity: there is no new timer, controller or
 drain-until-empty loop, so later tool boundaries or genuine idle transitions carry
-the remainder. This is not a one-inference-for-unbounded-backlog promise. Every
+the remainder. An unbounded backlog still needs several genuine opportunities; there is no constant-total-inference promise. Every
 included member keeps a visible ID, outcome and a concrete full-result lookup; only
 optional detail is truncated, and a member whose mandatory frame does not fit the
-remaining packet is deferred rather than shown clipped. Terminal `error` is a typed
+remaining packet is deferred rather than shown clipped. A receipt for a member whose
+optional text was truncated records admission of the notice, not that the full
+report was read; the visible lookup is what makes the result recoverable. Terminal `error` is a typed
 canonical field. Canonical limits live in the source delivery contract.
 
 Open limits (pre-existing, not reproduced defects): a queued message Pi never
-admits keeps its IDs reserved until admission or restart, and full discovery at each
+admits keeps its IDs reserved and can also pause unrelated automatic publication
+until a real native lifecycle callback, reload or restart (timer wakeups alone do
+not reopen it; no timeout-based repair is designed), and full discovery at each
 boundary still scans all history, a known performance opportunity. See
 [future work](../open-questions/future-work.md#pi-result-delivery-limits). Broader
 speed, storage and resource follow-up from the PR's efficiency audit is tracked in

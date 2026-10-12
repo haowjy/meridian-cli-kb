@@ -80,7 +80,8 @@ or unknown evidence also prevents done from completing the spawn.
 > hard deadline). Notices read
 > `report.md` directly (explicit truncated/missing/unreadable outcomes) instead of
 > `spawn wait`, sequentially, and one automatic message is bounded in members and
-> total bytes; the rest of a larger backlog stays owed for later opportunities
+> total bytes with fairly shared optional text; the rest of a larger backlog stays
+> owed for later opportunities
 > (see the decision for the bounds and rationale). Receipts, consumption and wait leases are
 > unchanged; Pi orders the steer with other queued input, and native admission is
 > not proof the model acted on it. Authoritative detail lives in
