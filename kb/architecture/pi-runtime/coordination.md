@@ -34,15 +34,64 @@ longer owns the process; explicit detach releases tracking.
 
 Each live task owns its POSIX process group. Termination escalates from TERM to
 KILL with bounded waits; terminal state is published after the group exits and
-queued output writes finish. `bash_manage(detach)` only removes the task from
-tracking; it does not detach process ownership. Normal Pi shutdown still kills
-every group owned by that runtime, including explicitly detached tasks.
+queued output writes finish. Signalling authority ends where physical ownership
+does: once the live task observes its group gone, including ESRCH from a signal,
+it never signals or probes that group again, however long publication takes.
+`bash_manage(detach)` only removes the task from tracking; it does not detach
+process ownership. Normal Pi shutdown still kills every group owned by that
+runtime, including explicitly detached tasks.
 
 Ping notifications are advisory. If a native notification callback fails,
 managed-bash releases and persists the ping claim, warns, and leaves the shell
 running. It does not spin on the same broken callback. Hook rebinding or later
-task activity can schedule another attempt. Task, output, and record-publication
-failures remain execution failures.
+task activity can schedule another attempt. A ping claim or release exists only
+for a still-running, background, tracked task, checked at its serialized stage: a
+release queued behind terminal publication or detach is declined, not written, so
+it cannot manufacture a late fault. When a release is still applicable, its
+metadata failure remains task-fatal like any record-publication failure.
+
+### Published state, live execution and results
+
+Managed Bash separates three facts that the source keeps in separate types:
+
+- **Published snapshot.** `BashPublication` owns the immutable value the records
+  file says. Slots run one at a time: each stages a prospective value against the
+  previous adoption plus current live evidence, writes it, and adopts that same
+  value only on success. A declined stage writes nothing and reports that it did
+  not apply; a failed write leaves no tentative metadata behind.
+- **Live execution.** Handles, output queue, progress, creation proposals and the
+  first fault belong to the live task, not to the snapshot, so a snapshot swap
+  cannot replace them. Readers see the published row with live progress and
+  negative fault evidence overlaid. Positive terminal results, tracking and
+  background changes, ping claims, consumption and removal need publication.
+- **Task-fatal claims.** A task-fatal publication failure claims its record
+  synchronously inside the failing slot, before any successor stages, so no caller's
+  promise depth or wrapper can reorder it. The claim returns no promise: cleanup
+  and the repair write run outside the slot, so output drain and foreground
+  physical stop never wait on metadata that may itself be blocked. Operations that
+  genuinely observe publication use the task's finished/repair promise explicitly.
+  Detach, consumption and clear failures are not task-fatal; they reject to the
+  caller. A detach reports success only when its slot was adopted; if the record's
+  creation never landed it reports `detached: false` instead of inventing one.
+
+Recovery of an unreadable or invalid store retries under a single in-flight
+attempt: only the first caller to observe the failed ready promise restarts it,
+and later callers join that attempt, because recovery publishes a whole map and a
+stale second recovery could delete a newly published task.
+
+Result retrieval returns an explicit outcome and log availability instead of
+inferring either from text. Reading a task log is a bounded read of a regular
+file, reported as `available` (with a truncation flag), `missing` or `unreadable`;
+FIFOs, directories and device files are rejected without waiting for a writer.
+Missing is never empty. One shared outcome projection serves tool results, `/ps`
+status and automatic notices: an `execution_error` field that is present counts as
+a fault even when its text is empty (reported as an unspecified failure), and an
+`exited` row with no exit code is reported as unavailable evidence, an error that
+cannot be acknowledged. Foreground results carry each stream's log result once;
+an interrupted foreground command is an `aborted` outcome, not an invented
+infrastructure fault. `/ps` lists metadata only and never reads history; the TUI
+loads one bounded preview for the selected row, coalesced to the latest
+selection, and an earlier same-row preview may stay visible while it refreshes.
 
 ### Extension UI and RPC output
 
@@ -54,10 +103,15 @@ text never corrupts JSON-RPC stdout; print-mode commands retain plain text.
 
 ## Completion obligations and delivery
 
-Tracked terminal background Bash results remain owed until a terminal wait
-successfully persists `notification_consumed_at_ms`, or an exact unattended
-completion message is admitted. A wait that fails or times out while the task is
-still running does not consume the result. An admitted child message consumes
+Tracked terminal background Bash results remain owed until a terminal wait or
+`output` read that returns an available log and a non-fault outcome persists
+`notification_consumed_at_ms`, or an exact unattended completion message is
+admitted. Missing or unreadable logs, incomplete exit evidence and execution
+faults stay owed. A wait that fails or times out while the task is still running
+does not consume the result. Cancelling a wait before its acknowledgement stages
+leaves the result owed and reports the observed status; an acknowledgement that
+has already staged lands and returns its result, because cancellation and native
+model delivery are not atomic. An admitted child message consumes
 only its exact `work_ids`; a launcher Bash result is transferred only to its
 canonical direct children.
 
