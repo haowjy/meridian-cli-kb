@@ -9,6 +9,8 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   `log_bytes` snapshots, physical process-group retirement, explicit consumption
   boundary, rejected periodic flush/timer alternatives, and honest crash/error
   linearization limits in [Pi Runtime](decisions/pi-runtime.md).
+- Synced to `a6dcc2ca`: cold recovery appends `ownership_lost` to an existing durable
+  `execution_error` instead of replacing it.
 - Kept the shipped v0.9.4 delivery decision and the separate polling, CLI-startup,
   and log-follow follow-ups unchanged. The candidate is approved for its PR only;
   no merge, install, deploy, or production cleanup is claimed.
