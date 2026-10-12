@@ -139,9 +139,9 @@ orders the steer with other queued input, and native admission is not proof the
 model acted on it. Authoritative detail lives in
 `src/meridian/pi_runtime/.context/delivery-contract.md`.
 
-At an idle transition the watcher publishes only while Pi's native context is idle. It formats spawn
-results with `spawn wait --no-observe`: reading details must not consume the
-same result whose notice is being prepared. Immediately before sending, it
+At an idle transition the watcher publishes only while Pi's native context is idle. It reads spawn
+report details directly rather than through the consuming `spawn wait` CLI: preparing a
+notice must not consume the result it announces. Immediately before sending, it
 rechecks explicit consumption and live wait leases and rebuilds a partially
 consumed batch. Thus an explicit terminal wait during an active tool turn can
 consume its result before any follow-up is queued; an unattended eligible result
