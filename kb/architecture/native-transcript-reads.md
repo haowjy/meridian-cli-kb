@@ -55,9 +55,11 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
 | Ref | Chat read | View label |
 |---|---|---|
 | `cN` | `cN` | none |
-| `pN`, running | `row.continue_chat_id`, which is the entry chat while running | `pN → cN (entry chat; run in progress)` |
-| `pN`, terminal, boundary `verified` | `row.continue_chat_id` (the exit chat) | names the selected chat and verified exit when it differs |
-| `pN`, terminal, boundary `unresolved` | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; exit-session identity unverified)` |
+| `pN`, running, no observed switch | `row.continue_chat_id`, the entry chat | `pN → cN (entry chat; run in progress)` |
+| `pN`, running, `current_chat_id` set (Claude) | `row.continue_chat_id` (the last observed chat) | `pN → cM (last observed chat; run in progress)` |
+| `pN`, terminal, `current_chat_id` set (Claude) | `row.continue_chat_id` (the last observed chat) | `pN → cM (last observed chat)`; the entry chat is not the target |
+| `pN`, terminal, boundary `verified` (Pi) | `row.continue_chat_id` (the exit chat) | names the selected chat and verified exit when it differs |
+| `pN`, terminal, boundary `unresolved`, no observed switch | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; exit-session identity unverified)` |
 | `pN`, terminal, boundary `mismatch` | `row.continue_chat_id` (the entry chat) | `pN → cN (entry chat; session identity mismatch)` |
 | `pN` with no `run_boundary` (row predates PR 1) | the entry chat | names the entry chat and predates-exit-tracking status |
 | `pN` with no chat | none | `unbound`, naming the spawn |
@@ -68,15 +70,22 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
 | `--file PATH` | none | `file`; rejects retired runner history and non-native inputs; SQLite is rejected with an OpenCode chat hint |
 
 `ops/run_boundary.spawn_view_label(row)` computes the `pN` label.
-`SpawnRecord.continue_chat_id` is the one post-run rule: a terminal run's verified exit
+`SpawnRecord.continue_chat_id` is the one rule: a `mismatch` run's entry chat,
+otherwise the observed `current_chat_id`, otherwise a terminal run's verified exit
 chat, otherwise the entry chat. When the chat is known but unbound, the error names the
 chat (`unbound: … for c4904`), not the spawn. Old installs named the spawn.
 
-For Claude, `verified` means the launch-correlated classic-hook receipt identified a
-final session, matched the actual child and immutable entry, and the exact native
-transcript header passed validation before the exit chat was allocated. Missing,
-stale, corrupt or hard-killed boundary evidence remains `unresolved`; the reader
-never discovers a final transcript by scanning or timestamp.
+For Pi, `verified` still means its boundary record named a final session and the exact
+native header passed validation before the exit chat was allocated. Claude no longer
+produces `verified`: it has no final-exit proof, and its `pN` view follows the last
+observed chat the run published
+([current-chat tracking](claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat),
+not yet released). An observed chat is not a readable one. The pointer can name a
+session whose transcript was never written (a `/clear` with no turn), and the read
+then fails `native_transcript_missing` for that chat. The resolver does not fall back
+to the entry chat or to a directory scan, timestamp or trampoline guess. Missing,
+stale, corrupt or hard-killed evidence just leaves the pointer at the last fact the
+launcher accepted.
 
 **Capture resolves differently.** `purpose="capture"` (archive capture) accepts only an
 identified terminal local `pN`. It reads the key of the run's *exact session
