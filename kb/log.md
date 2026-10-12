@@ -3,6 +3,16 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-12 — Probe-safety and branch-forcing lessons recorded (`work:runtime-efficiency`)
+
+- Added two lessons to [Verification and Review Discipline](lessons/verification-and-review-discipline.md):
+  force the branch under test (a near-budget fixture whose optional detail still fit
+  proved nothing) and assert the non-admitted branch stays owed; audit inherited
+  probe cleanup, including a legacy native driver that signalled saved PID/PGID
+  despite earlier claims. Production behavior and architecture pages unchanged; no
+  other touched node contained a conflicting claim.
+
+---
 ## 2026-10-12 — Build-provenance lesson recorded (`work:runtime-efficiency`)
 
 - Added to [Verification and Review Discipline](lessons/verification-and-review-discipline.md)

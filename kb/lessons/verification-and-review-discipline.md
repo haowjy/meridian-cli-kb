@@ -211,6 +211,29 @@ was already enqueued; observe the enqueue itself. Fixture teardown must also res
 fixtures cooperatively through their own handles, never by signalling a saved
 numeric PID or process group.
 
+### Force the branch you claim to test, and assert what is left owed
+
+A near-budget notice test with a short optional diagnostic still fit the whole frame
+in the space reserved for the truncation notice, so nothing was truncated. Its red
+run proved only that a newly added marker was missing, and some controls reported
+PASS while the failure text was plainly visible. Size the optional body above the
+reservation so the truncation branch is forced, inspect what actually survives
+(identity, outcome, error marker, diagnostic prefix), and for the non-admitted
+branch assert the item is still tracked, terminal and unconsumed. Absence of a new
+string and a PASS label are not evidence of the loss under test.
+
+### Audit inherited probe cleanup itself
+
+A legacy native-probe driver read PIDs from records and, even after the processes
+had disappeared, unconditionally sent SIGKILL to the saved PID and process group,
+with errors swallowed, while earlier reports said no saved-ID cleanup remained. A
+fix in a different ping driver had not made this path safe. Do not reason about what
+the swallowed signals did; do not reuse the driver or count its runs as
+safety-qualified. Keep the original script and observations, correct the historical
+claim, replace the cleanup with captured live child handles and cooperative release
+flags (persisted PIDs are diagnostics only), and rerun. Read every driver on a
+verification path, not just the one most recently fixed.
+
 ## Measurement Discipline
 
 Measurements need a recoverable provenance note: command or method, dataset,
