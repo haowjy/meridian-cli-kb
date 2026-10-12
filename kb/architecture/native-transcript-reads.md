@@ -92,7 +92,9 @@ identified terminal local `pN`. It reads the key of the run's *exact session
 generation* (`session_identity.session_records_for_spawns`), never the chat's current
 binding or a sidecar candidate. Explicit `session archive --apply` materializes this
 native snapshot before final selection; dry-run reports when apply can capture it but
-does not publish one. A missing key raises `unbound`.
+does not publish one. A missing key raises `unbound`. Capture also refuses a chat that
+a live run still observes (`live_observer_for_chat`), because observed chats hold no
+lease of their own.
 
 **The reader.** `ops/session_transcript.read_native_source(source, budget=)` is the one
 byte or snapshot read. It returns a lazy `NativeRead`:

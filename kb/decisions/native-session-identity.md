@@ -1,7 +1,9 @@
 # Decision: Pin each chat to one native session; wrap native transcripts
 
 **Status: settled 2026-09-24; extended through probe-fix on 2026-09-26; shipped in
-v0.7.0; extended for Claude exit verification on 2026-10-11.** The combined implementation is PR #534 (`feat/native-session-identity`),
+v0.7.0. A Claude final-exit verification extension (2026-10-11) was implemented and then
+replaced the same day by last-observed current-chat tracking, which is committed locally
+and unreleased (see [Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).** The combined implementation is PR #534 (`feat/native-session-identity`),
 merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
@@ -51,9 +53,12 @@ has open now."
   and a changed-store assignment raised `ValueError`, so the same contradiction
   surfaced as three different failures.
 - **Exit may land elsewhere; the source is never repointed.** Inside a harness TUI the
-  user can `/resume` or `/new`. If a run enters on c5/X and exits on Y, Y maps to its
-  own existing or new chat; c5 stays X. An exit Meridian cannot observe is
-  `unresolved`, and the run's view stays on its entry chat.
+  user can `/resume` or `/new`. If a run enters on c5/X and ends on Y, Y maps to its
+  own existing or new chat; c5 stays X. Where the harness has an owned final-exit
+  record (Pi), that is the verified `run_boundary` exit. Where it has live owned
+  observations instead (Claude), the spawn row's `current_chat_id` records the last
+  observed chat. Anything Meridian cannot observe is not guessed, and the run's view
+  stays on the last accepted chat or, with none, its entry chat.
 - **Meridian is a wrapper over harness-native transcripts.** The native journal is the
   conversation. Meridian's own `spawns/<id>/history.jsonl` runner stream is a second
   copy, and it creates a second candidate authority. Reads stopped using it in PR 2 and
@@ -206,33 +211,27 @@ entry key. Meridian does not re-arm the check for another launch attempt.
 
 ## Exit identity is observed or unresolved
 
-The entry key never moves. What the user ended on is a separate fact:
+The entry key never moves. What the user ended on is a separate fact. Pi keeps the
+verified run-boundary exit below. Claude's path was replaced; see the
+[Claude section](#current-chat-replaces-final-exit-proof-for-claude) that follows the
+run-record table.
 
 - **Pi** reports it through Meridian's session-boundary extension. Only a final
   `session_shutdown` with reason `quit` that carries a readable identity verifies
   exit. Shutdown for a switch, a missing record, a restart after quit, or an
   unreadable identity leaves exit `unresolved`. The record is read only after the
   child has exited and its teardown has been joined.
-- **Claude** can report a verified exit through its separate
-  `meridian-session-boundary` classic-hook plugin. The launcher passes a fresh
-  nonce, spawn-owned receipt path and Python interpreter to primary and spawned
-  Claude. The receipt retains the initial exact identity while recording the
-  current one; `clear` and `resume` are switches, not final exits. Only final
-  `SessionEnd` reasons (`prompt_input_exit`, `logout`, `other`) qualify. The
-  receipt must match the launch nonce and actual Claude child PID, and its initial
-  key must match the immutable planned entry. The shared finalizer then invokes
-  the adapter's exact resolver/header check through
-  `session_store.get_or_create_exit_chat` under the history/session locks before
-  reusing an existing alias or creating an exit chat; the same persistence gate
-  serves Claude and Pi. The TUI trampoline successor remains
-  a diagnostic and never rebinds the entry or names an exit chat. On a native
-  fork, the hook's `SessionStart.source` is `fork` (not `startup` or `resume`),
-  followed by `source=clear` after `/clear`; the first fork ID is the entry and
-  the later current ID can be the verified exit. This hook-source vocabulary is
-  distinct from Meridian's `BindSource=observed`.
-- Pi and Claude owned boundaries are inputs to the one finalizer and one allocator. A
-  verified exit key maps to the chat that already owns that exact key (stopped chats
-  included), else a new chat. The lookup and creation run under the sessions lock.
+- **Claude** no longer reports a verified exit. The `SessionEnd` receipt design
+  (`meridian-session-boundary` classic hook, nonce- and PID-checked, initial key equal
+  to the planned entry, exact final transcript validated before allocating an exit
+  chat) was implemented in `3aa18aae`…`a2713624` and then superseded; the plugin now
+  journals `SessionStart` only. The trampoline successor remains a diagnostic that
+  never rebinds the entry or names a chat.
+- Pi's owned boundary is the input to the one finalizer and one allocator
+  (`get_or_create_exit_chat`, which the persistence gate `a2713624` keeps behind the
+  adapter's exact native-exists check). A verified exit key maps to the chat that
+  already owns that exact key (stopped chats included), else a new chat. The lookup and
+  creation run under the sessions lock.
 - If the boundary's initial identity contradicts the immutable entry key, the run
   fails with the same typed `entry_mismatch` as a startup contradiction. No exit chat
   is created, and an attempt that already failed with a typed identity error skips
@@ -247,14 +246,85 @@ immutable. It records one `run_boundary` outcome:
 | Status | Meaning | `exit_chat_id` |
 |---|---|---|
 | `verified` | An owned exit key was observed, and its native file exists | set (the owning or new chat) |
-| `unresolved` | No valid owned final-exit evidence, including missing/corrupt/stale receipts, hook failure, hard kill, or a harness without an exit boundary | none |
+| `unresolved` | No valid owned final-exit evidence: Pi without a valid quit record, hard kill, or a harness without an exit boundary (Claude always, since it has none) | none |
 | `mismatch` | The run failed `entry_mismatch` | none |
 
-"Continue after this run" has one rule, `continue_chat_id`: a terminal run's
-verified exit chat, otherwise the entry chat. The primary exit hint,
-`--continue pN`, `--fork pN` and `session log pN` all use it. An exit chat is created
-only when the exact native resolver finds the file. A never-saved `/new` in Pi
-therefore gets no dead chat.
+"Continue after this run" has one rule, `continue_chat_id`: a `mismatch` run keeps its
+entry chat; otherwise the observed `current_chat_id` if set (Claude); otherwise a
+terminal run's verified exit chat (Pi); otherwise the entry chat. The primary exit
+hint, `--continue pN`, `--fork pN` and `session log pN` all use it. A Pi exit chat is
+created only when the exact native resolver finds the file, so a never-saved `/new`
+in Pi gets no dead chat.
+
+## Current chat replaces final-exit proof for Claude
+
+**Status: implemented locally (`19c8ba3e`, `679ab27f`, `cea151fa`), unreleased,
+unmerged in PR #559. The full gate and a frozen-source native probe were pending when
+this was written, so nothing here is claimed as shipped or final-qualified.**
+
+*What we moved from.* The first Claude design tried to prove the user's final
+conversation at exit. Claude's `SessionEnd` reasons, a launch-owned receipt and an
+exact-transcript gate gave a `verified` exit chat, and every other case, including a
+hard kill, a disabled hook or a conversation with no turn, was `unresolved`. It worked
+in the exercised paths, but it made correct behavior depend on one terminal event that
+a killed launcher never delivers, and it left a conversation with no turn unresolved.
+
+*What the user asked for instead.* Continue the last session Meridian observed. When a
+new session starts, reuse its recorded chat or create one, keeping the applicable run
+settings and work; track it during the run, with no final callback; keep entry
+bindings immutable and still validate the exact transcript before an actual read or
+resume. An observed session may have no transcript yet and is not called verified or
+resumable. `/new` means a fresh conversation in the current work, not a copy of
+history, IDs, lineage or leases. The common quit-then-fresh-launch workflow stays
+fresh: only explicit continuation follows the previous run's last observation.
+
+*What we kept.* The immutable entry key, launch-nonce and PID correlation, exact
+native resolution, the refusal to take trampoline or directory-scan guesses, and the
+final-exit `run_boundary` path for Pi (and its shared allocator gate) are unchanged.
+Other harnesses are not given an observer; only a genuine existing event seam would
+justify one.
+
+*The shape.* A stdlib-only, bounded `SessionStart` journal; launcher admission by
+PID and nonce; one drainer per run; an immutable journal entry; a durable
+`current_chat_id` selecting the last accepted observed `NativeKey`. Chat
+materialization and pointer publication are one atomic step, and each fact is
+acknowledged separately so a retry never rewinds the pointer. Mechanics, inheritance,
+overlap handling and evidence:
+[Claude native sessions](../architecture/claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat),
+[native session binding](../architecture/native-session-binding.md#live-observations-claude).
+
+*Decisions inside it.*
+- A fresh chat gets complete settings and current work with fresh history and
+  generation, and no copied lease, spawn ownership or fork lineage. Reusing an
+  existing alias keeps that chat's own settings and work. The policy snapshot is
+  independent of which run observed the switch.
+- Ambient context resolves the current chat, an explicit `cOld` stays old, and the
+  environment chat ID is a launch-time snapshot. `--continue pN` selects the current
+  chat and validates the exact transcript at the actual read or resume, with no
+  fallback to the old chat.
+- A missing startup record followed by a later `/resume` does not establish the entry
+  unless its source agrees with the planned operation and ID. This was a review
+  finding against `19c8ba3e` and is addressed in the later commits.
+- A native `/resume` into a chat another run holds cannot be prevented. It is
+  recorded and warned about, not denied; Meridian's own resume and capture paths do
+  guard on the live owner.
+
+*Costs and traps.*
+- The journal cap, a hard-killed launcher or a disabled hook can leave later switches
+  unobserved. There is no reaper catch-up and no timestamp inference.
+- Each observed chat stores a full launch-policy snapshot inline in `sessions.jsonl`,
+  which grows without bound under frequent `/clear`. This is a deliberate, scoped
+  follow-up in the source repo's `.context/FUTURE`, not solved here.
+- The new `current_chat_id` field is rejected by a strict 0.9.3 reader (observed on a
+  copy), so this is a minor release. Operators should stop active old runs and back
+  up the runtime first; the metadata projection moves to schema 7 in a new
+  namespace; rollback needs the pre-upgrade state and a metadata-only index rebuild.
+  No restore rehearsal beyond that copy probe is claimed, and no native transcript is
+  rewritten.
+- Evidence kinds differ. Fake and process-seam tests cover the logic; one isolated
+  real-Claude 2.1.296 Haiku turn is the only current live proof (single run, tree
+  changing underneath it, no fork, `/compact`, repeated switches or concurrent
+  writers). The built-wheel final-exit probes belong to the superseded design.
 
 **Why the Claude successor is not an exit.** For one merge it was: when no adapter
 boundary existed, the runners passed the successor to the finalizer as an exit key.
@@ -330,16 +400,16 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   and continuing it fails `missing`.
 - A Pi run whose stdin closes while a session replacement is still settling can end
   with no readable quit identity. Its exit is `unresolved`, not guessed.
-- **Claude verification is conditional and fail-closed.** A launch can be
-  `verified` only when the boundary plugin writes a nonce/PID-matching receipt,
-  the initial identity matches the planned entry, and the final exact native
-  transcript/header validates. Missing or disabled hooks, stale/corrupt/overlarge
-  receipts, hook timeouts, hard kills, and missing final transcripts remain
-  `unresolved`; an initial identity contradiction is `mismatch`. There are no
-  scans, timestamps, or guesses, and old runs are not retroactively marked.
-  The original entry binding stays unchanged; `continue_chat_id` uses the exit
-  chat only for `verified`, otherwise the entry chat.
-- Built-wheel evidence now covers a real primary `/clear` → `/exit` with a
+- **Claude last-observed tracking is best-effort and has no exit proof.** Observation
+  depends on the hook, the 1 MiB journal cap and the launcher staying alive to drain.
+  A hard kill, a full journal or a disabled hook leaves later switches unobserved,
+  with no scans, timestamps or guesses and no retroactive marking of old runs. The
+  entry binding stays unchanged and `continue_chat_id` uses the observed chat when
+  there is one. See [the section above](#current-chat-replaces-final-exit-proof-for-claude).
+- *Historical (superseded first Claude design):* the verification was conditional and
+  fail-closed: `verified` only with a nonce/PID-matching `SessionEnd` receipt, an
+  initial identity equal to the planned entry, and a validated final transcript. Its
+  built-wheel evidence covers a real primary `/clear` → `/exit` with a
   verified new exit chat and exact continuation, a real cheap Haiku spawn whose
   receipt PID, worker PID and exact transcript agree, and the 0.9.3 native fork
   `c12` → `/clear` → `/exit` path. That fork kept the entry chat on its first new
@@ -353,16 +423,17 @@ obey this page's immutable binding rule, and runner-history bytes never become p
   `session_store.get_or_create_exit_chat` invoke that callback under the existing
   history/session locks before every reuse/create; the shared native-run callback
   applies each adapter's exact resolver/header validation, so Claude and Pi use
-  one persistence gate. Claude's duplicated prevalidation was removed. The broad
-  full gate was still running at capture; do not infer its result or universal
-  hard-kill, crash, logout, or empty-input coverage.
+  one persistence gate (Pi still uses it). Claude's duplicated prevalidation was
+  removed. That broad full gate was still running at capture; do not infer its result,
+  and none of this evidence is for the current design.
 - **Superseded accepted limit (reporting-only PR #559, 2026-09-26):** the
   earlier capture said that only Pi reported an exit identity, that Claude runs
   always remained `unresolved`, and that `/clear` stayed untracked (#533). That
   was accurate for the reporting-only implementation: the presentation change
   suppressed absence-only output but did not add proof. It is superseded by the
-  launch-correlated Claude boundary implementation captured here; the rationale
-  for refusing trampoline/history guesses remains current.
+  launch-correlated Claude boundary implementation, which was itself replaced by
+  last-observed tracking. The rationale for refusing trampoline/history guesses
+  remains current.
 - Model/provider selection on reopen is a separate concern and never changes identity.
 
 ## Phases
@@ -373,6 +444,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | Native-only history | Native reads, native-keyed rebuildable search, run facts off the stream; stop runner-history writes and once-only dogfood-row migration | Combined PR #534; probe fixes include exact OpenCode 1.x report fallback, chat-named `pN` views, text search coverage, strict `--file` admission, and explicit archive capture |
 | Browse and late legacy binding | Per-row browse degradation; late exact binding only for rows missed by the one-time import | Combined PR #534; repairs run in `meridian doctor` and primary-launch background repairs, never on each command |
 | Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
+| Claude current chat | Last-observed `SessionStart` journal, atomic chat + `current_chat_id` publication, replaces the final-exit receipt for Claude | Local commits `19c8ba3e`, `679ab27f`, `cea151fa` in unmerged PR #559; full gate and frozen-source native probe pending; one live Haiku turn so far |
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
 
 Verification included isolated installed-build probes of supported workflows across
@@ -385,7 +457,8 @@ copied runtime. Do not describe every formerly failing live scenario as rerun gr
 The first probe failures also included wrong expectations: Claude `output.jsonl` is
 process-runner-only, and TUI probing requires a separate Enter after staging text in
 tmux. At that phase's capture Claude `/clear` remained untracked and only Pi had a
-launch-owned exit identity; the later Claude boundary work supersedes that limit.
+launch-owned exit identity; the later current-chat work (unreleased) supersedes that
+limit for Claude.
 
 Out of scope here: duplicate Pi completion-notification turns (GitHub #517).
 
@@ -414,10 +487,18 @@ reviews `spawn:p7083`–`spawn:p7085`; phases `spawn:p7100`, `spawn:p7102`,
 (`evidence/pr1-p5-fixes-report.md`); install readiness
 `evidence/pr1-install-readiness-report.md`; conversation `chat:c6945`.
 
-Claude exit-verification extension: `work:exit-identity-reporting`, settled intent
+Claude exit-verification extension (first design, superseded for Claude): `work:exit-identity-reporting`, settled intent
 in `DIVERGENCE/01-verify-claude-exit.md`, implementation commits `3aa18aae`,
 `3630a1f0b`, `b74dc0b3`, and shared persistence gate `a2713624`, review
 `spawn:p7571` with structural review `spawn:p7590`, classic runtime evidence in
 `claude-boundary-live-probe.md`, and final built-wheel evidence in
 `claude-final-live-probe.md` and `claude-fork-clear-final-proof.md`. The broad
-full gate was still in progress at this capture.
+full gate was still in progress at that capture.
+
+Current-chat replacement: same work item. The user's replacement intent is
+`DIVERGENCE/02-last-observed-session.md`; design and implementation record
+`current-chat-primary-refinements.md` (rejected synchronous hook→CLI prototype
+`spawn:p7620`, architecture report `spawn:p7621`, journal/drainer implementation
+`spawn:p7624`); strict read-only review `spawn:p7628` in
+`current-chat-final-review-result.md`; isolated live probe `spawn:p7629` in
+`current-chat-live-probe-result.md`. Commits `19c8ba3e`, `679ab27f`, `cea151fa`.
