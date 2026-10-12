@@ -141,8 +141,9 @@ performs model work that hits budget limits and is not deterministic.
 
 **State:** committed in unmerged [PR #559](https://github.com/haowjy/meridian-cli/pull/559),
 base commits `679ab27f`, `cea151fa`, plus thermo structural fixes `7ba1ebb7`…`22eab4ad`
-and validation/rendering fix `c6c017f0`. Full automated gate (2443 Python + 108
-runtime tests, Ruff, Pyright) passed at `22eab4ad`. Frozen-source native probe at
+and validation/rendering fix `c6c017f0`. Final full gate (2447 Python tests, one
+skipped; 108 runtime tests; Ruff, Pyright and builds) passed at `c6c017f0`.
+Frozen-source native probe at
 `22eab4ad` passed all required scenarios (see Evidence below). Nothing is released
 or installed; downgrade/mixed-version incompatibility remains.
 
@@ -237,8 +238,8 @@ is what protects them.
 - *Code and fake tests:* focused state, runtime and process-seam tests in the
   worktree, including an injected atomic-write failure after chat materialization
   that checks the accepted transition sequence, torn-tail recovery and oversized-input
-  refusal. Independent re-review approved the fixes. Full preflight passed 2,441
-  Python tests (one skipped), 77 Pi runtime tests, Ruff, Pyright (zero errors,
+  refusal. Independent closure review approved `c6c017f0`. Final preflight passed
+  2,447 Python tests (one skipped), 108 runtime tests, Ruff, Pyright (zero errors,
   75 existing warnings), and both package builds.
 - *Frozen native probe (canonical):* real Claude 2.1.296, one Haiku turn, clean
   frozen source `22eab4ad` unchanged before/after. Five scenarios passed: startup →
@@ -248,12 +249,13 @@ is what protects them.
   to new chat, source transcript hash unchanged, normal `/exit`); and SIGTERM of the
   scratch-owned native child (pointer durable at last observed chat, status `failed`).
   All five ended without leaked leases or credentials. The c1 start event has a
-  `launch_policy_snapshot` but with `model=null`; the update event carries the real
-  final policy (`claude-haiku-4-5`), confirming the entry generation owns its policy
+  null `launch_policy_snapshot`; the update event carries the real final policy
+  (`claude-haiku-4-5`), confirming the entry generation owns its policy
   before any native turn or clear. Observed c2 carries `active_work_id` directly;
   `spawn_id` is null (no spawn lineage). Fork entry c4 has session lineage in its
-  start row (`forked_from_history_id`); the spawn-view DTO correctly shows null fork
-  pointer. Successor c5 has neither field, as required.
+  start row (`forked_from_chat_id=c2` and a non-null `forked_from_history_id`).
+  An absent field on the spawn-view DTO does not establish absent session lineage.
+  Successor c5 has neither lineage field nor spawn ownership, as required.
 - This does not qualify `/compact`, repeated switches, A→B→A or concurrent writers live.
 - *Historical, superseded:* the built-wheel `/clear` → `/exit` and 0.9.3 fork probes
   recorded under the previous `SessionEnd` design (`claude-final-live-probe.md`,
@@ -273,8 +275,12 @@ upgrading. Rollback needs the pre-upgrade state plus a metadata-only index rebui
 A schema-only rehearsal seeded 0.9.3 state, backed it up, wrote new state, confirmed
 old-reader rejection on a copy, then restored the backup. The released reader
 accepted it and its metadata-only rebuild exited successfully (reporting one
-pending source). This did not exercise native content restoration. Native
-transcripts are never rewritten.
+pending source). A separate final rehearsal used an actual isolated 0.9.4 writer:
+its verified c1→c2 state read as current c2 with c2's settings/work, reads left
+bytes unchanged, and the next write used the new shape. Released 0.9.4 rejected
+that upgraded copy; restoring its backup preserved c2 continuation. Both rehearsals
+are schema/reference checks, not native-content restoration. Native transcripts are
+never rewritten.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
 `harness/claude_sessions.py`, `harness/claude_preflight.py`,

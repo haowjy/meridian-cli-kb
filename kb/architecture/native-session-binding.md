@@ -10,9 +10,9 @@ How reads use the key: [native transcript reads](native-transcript-reads.md).
 #534, merge `3dae2434`); #520, #526 and #531 are closed as superseded. Claude
 current-chat tracking (the NativeRun observation seam below) is committed in unmerged
 PR #559 (`679ab27f`, `cea151fa`, and four thermo-fix commits `7ba1ebb7`…`22eab4ad`,
-plus validation/rendering fix `c6c017f0`): full automated gate (2443 Python + 108
-runtime tests, Ruff, Pyright) and frozen-source native probe (`22eab4ad`) both
-passed. Cursor was not live-probed because the user does not use it; it has no native
+plus validation/rendering fix `c6c017f0`): final full gate at `c6c017f0`
+passed 2447 Python tests (one skipped), 108 runtime tests, Ruff, Pyright and builds.
+Frozen-source native qualification separately passed at `22eab4ad`. Cursor was not live-probed because the user does not use it; it has no native
 identity binding in this implementation.
 
 The design goal of the restructure: one value type, one pure binding rule, one
@@ -199,7 +199,7 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
 
 ### Live observations (Claude)
 
-A second, in-run input runs beside the signals above. After exec, each driver wraps
+A second, in-run input runs beside the signals above. Each driver wraps native
 execution in `with native_run.observing(adapter, child_env=…) as observe_child:`.
 When the adapter returns a `native_observation_reader` (Claude only), a private
 `_ObservationPump` is created and started inside the context; every other harness
@@ -212,11 +212,12 @@ normal or exceptional, sets stop, final-drains and joins the pump — all before
   operation (and the assigned ID, if any) completes the entry. A later fact, or an
   unknown-entry run's first non-establishing fact, goes to
   `session_store.get_or_create_observed_chat`.
-- **Atomic chat + pointer.** That call finds or materializes the chat for the exact
+- **Serialized materialization and publication.** That call finds or materializes the chat for the exact
   `NativeKey` and publishes the spawn row's `current_chat_id` in one lock epoch. A
   missing spawn creates nothing. In-memory dedup state and the journal cursor
   advance only after it returns, per observation, so a retry never rewinds the
-  pointer.
+  pointer. Session events and spawn state are separate file writes; a crash can
+  leave an unused alias. The shared lock epoch is not a multi-file transaction.
 - **Fresh chat, not a copy.** A new observed chat gets the source chat's settings and
   work, a captured launch-policy snapshot, fresh history and generation, and no lease,
   spawn ownership or fork lineage. A reused chat keeps its own.
@@ -228,6 +229,20 @@ This is last-observed state, not an exit: `run_boundary` for Claude stays
 `unresolved` and `continue_chat_id` prefers `current_chat_id`
 ([row rule](#spawn-row)). Details and limits:
 [Claude native sessions](claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat).
+
+### Conversation-owned settings
+
+Final binding persists policy on the captured entry generation before native
+execution. The primary's final snapshot is not available when its session scope
+first opens: recording preview policy there, or waiting until post-run
+`record_started`, would give live observations the wrong settings. Observed aliases
+inherit the selected conversation's policy and work. Older generations without a
+snapshot read only their recorded spawn link; there is no newest-owner fallback.
+
+A `pN` continuation or fork resolves the selected chat's current generation, just
+like `cN`, including settings, work and source history. It does not combine that
+chat's native identity with the original run's policy. Exact entry-generation
+lookup remains a separate requirement for capture and provenance.
 
 **Why teardown comes first.** Exit evidence (Pi's boundary record) is written by the child as it shuts down.
 Real Pi showed the failure mode: the streaming runner read the boundary record about
@@ -259,15 +274,16 @@ In `lib/state/spawn/model.py`:
 
 - **`chat_id`** is the entry chat, and it is immutable. There is no separate
   `entry_chat_id`.
-- **`current_chat_id`:** the last observed chat of a run that has live observations
-  (Claude). Absent on rows that never observed a switch and on every other harness.
-  It is not in the 0.9.3 schema: a strict 0.9.3 reader rejected it on a copied
-  runtime, which is why this ships as a minor release (metadata projection schema 7,
-  new namespace).
+- **`current_chat_id`:** the last accepted owned native conversation: from Claude
+  live observations or Pi's existing verified post-exit evidence. It can equal entry
+  when no switch occurred; it is absent if no fact was published. Released 0.9.3
+  and 0.9.4 reject this field. The human chose `release:patch` for PR #559 as an
+  explicit policy exception, not a compatibility fix. Stop old readers/runners and
+  retain a pre-upgrade backup. Projection schema 7 uses a new namespace.
 - **`run_boundary: RunBoundaryOutcome | None`:**
   - `status ∈ {verified, unresolved, mismatch}` — diagnostic only; `verified` means Pi reported a clean quit;
   - `trampoline_successor_id` is a Claude diagnostic that never binds.
-  - There is no `exit_chat_id` on the current model. Pi verified exits write to `current_chat_id` through the shared `get_or_create_observed_chat` path. Legacy 0.9.4 rows with `run_boundary.exit_chat_id` are normalized to `current_chat_id` on read; the next write drops the old key.
+  - There is no `exit_chat_id` on the current model. Pi verified exits write to `current_chat_id` through the shared `get_or_create_observed_chat` path. Legacy 0.9.4 rows with `run_boundary.exit_chat_id` validate against their old boundary/identity contract before normalization to `current_chat_id`. Reads do not rewrite; the next write drops the old key. Invalid retired evidence rejects even when a newer current pointer would take precedence.
 - **`SpawnRecord.continue_chat_id`** is the one continue rule: historical rows → `None`; a `mismatch` run → its entry chat; otherwise `current_chat_id or chat_id`. The primary exit hint, `--continue pN`/`--fork pN` and `session log pN` all use it.
 - **Dogfood rows.** Rows written by the pre-restructure PR 1 dogfood build carry flat
   `entry_chat_id`, `exit_chat_id`, `exit_identity` and top-level
@@ -330,8 +346,9 @@ native probe pinned to `22eab4ad` (Claude 2.1.296, one Haiku turn): startup, `/c
 while running (pointer advanced), `--continue pN` (exact new native ID resumed),
 separate fresh launch (did not resume), zero-turn fork (`/clear` → normal `/exit`),
 and SIGTERM (pointer durable, status `failed`). Source unchanged before/after. The
-full automated gate (2443 Python + 108 runtime tests, Ruff, Pyright) also passed at
-`22eab4ad`. Coverage limits remain: no `/compact`, repeated switches, A→B→A or
+final automated gate (2447 Python tests, one skipped; 108 runtime tests; Ruff,
+Pyright and package builds) passed at `c6c017f0`, whose follow-up only changes
+legacy validation and historical rendering. Coverage limits remain: no `/compact`, repeated switches, A→B→A or
 concurrent writers live.
 ([lesson](../lessons/native-session-identity.md#green-suites-did-not-find-the-seam-defects)).
 

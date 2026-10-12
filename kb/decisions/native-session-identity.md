@@ -266,8 +266,10 @@ in Pi gets no dead chat.
 
 **Status: committed in unmerged PR #559 (`679ab27f`, `cea151fa`) with thermo structural
 fixes `7ba1ebb7`…`22eab4ad` and validation/rendering fix `c6c017f0`. Full automated
-gate (2443 Python + 108 runtime, Ruff, Pyright) and frozen-source native probe both
-passed at `22eab4ad`. Not yet released or installed.**
+gate at `c6c017f0` passed 2447 Python tests (one skipped), 108 runtime tests,
+Ruff, Pyright and builds. Frozen-source native qualification separately passed at
+`22eab4ad`; later changes affect legacy validation and historical rendering only.
+Not yet released or installed.**
 
 *What we moved from.* The first Claude design tried to prove the user's final
 conversation at exit. Claude's `SessionEnd` reasons, a launch-owned receipt and an
@@ -287,15 +289,17 @@ fresh: only explicit continuation follows the previous run's last observation.
 
 *What we kept.* The immutable entry key, launch-nonce and PID correlation, exact
 native resolution, the refusal to take trampoline or directory-scan guesses, and the
-final-exit `run_boundary` path for Pi (and its shared allocator gate) are unchanged.
-Other harnesses are not given an observer; only a genuine existing event seam would
-justify one.
+owned post-exit proof for Pi are retained. Pi's proven key now publishes through
+the same current-chat seam; boundary status remains evidence, not another routing
+pointer. Other harnesses are not given a live observer; only a genuine existing
+event seam would justify one.
 
 *The shape.* A stdlib-only, bounded `SessionStart` journal; launcher admission by
 PID and nonce; one drainer per run; an immutable journal entry; a durable
 `current_chat_id` selecting the last accepted observed `NativeKey`. Chat
-materialization and pointer publication are one atomic step, and each fact is
-acknowledged separately so a retry never rewinds the pointer. Mechanics, inheritance,
+materialization and pointer publication share one lock epoch, and each fact is
+acknowledged separately so a retry never rewinds the pointer. These remain separate
+file writes, not a multi-file crash-atomic transaction. Mechanics, inheritance,
 overlap handling and evidence:
 [Claude native sessions](../architecture/claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat),
 [native session binding](../architecture/native-session-binding.md#live-observations-claude).
@@ -304,7 +308,12 @@ overlap handling and evidence:
 - A fresh chat gets complete settings and current work with fresh history and
   generation, and no copied lease, spawn ownership or fork lineage. Reusing an
   existing alias keeps that chat's own settings and work. The policy snapshot is
-  independent of which run observed the switch.
+  independent of which run observed the switch. Ordinary entry generations also
+  own their final policy, persisted at final binding before native execution.
+  Older generations use only an exact recorded run link, never a newest-owner guess.
+- A `pN` reference resolves the selected chat's current generation like `cN`,
+  including policy, work and fork source history. Captured entry-generation identity
+  remains authoritative for capture; it is not a fallback settings source.
 - Ambient context resolves the current chat, an explicit `cOld` stays old, and the
   environment chat ID is a launch-time snapshot. `--continue pN` selects the current
   chat and validates the exact transcript at the actual read or resume, with no
@@ -319,8 +328,8 @@ overlap handling and evidence:
 *Costs and traps.*
 - The journal cap, a hard-killed launcher or a disabled hook can leave later switches
   unobserved. There is no reaper catch-up and no timestamp inference.
-- Each observed chat stores a full launch-policy snapshot inline in `sessions.jsonl`,
-  which grows without bound under frequent `/clear`. This is a deliberate, scoped
+- Each entry generation and newly observed chat stores a full launch-policy snapshot
+  inline in `sessions.jsonl`, which grows with launches and frequent `/clear`. This is a deliberate, scoped
   follow-up in the source repo's `.context/FUTURE`, not solved here.
 - Released 0.9.3 and 0.9.4 reject `current_chat_id` (verified on disposable copies).
   The human chose patch classification for PR #559 as an explicit exception to the
@@ -450,7 +459,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | Native-only history | Native reads, native-keyed rebuildable search, run facts off the stream; stop runner-history writes and once-only dogfood-row migration | Combined PR #534; probe fixes include exact OpenCode 1.x report fallback, chat-named `pN` views, text search coverage, strict `--file` admission, and explicit archive capture |
 | Browse and late legacy binding | Per-row browse degradation; late exact binding only for rows missed by the one-time import | Combined PR #534; repairs run in `meridian doctor` and primary-launch background repairs, never on each command |
 | Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
-| Claude current chat | Last-observed `SessionStart` journal, atomic chat + `current_chat_id` publication, replaces the final-exit receipt for Claude; thermo fixes: single-pointer routing (Pi verified exits also publish to `current_chat_id`), unified publication, entry-policy ownership at `bind_entry`, lexical pump lifetime, legacy 0.9.4 `exit_chat_id` normalization | Commits `19c8ba3e`, `679ab27f`, `cea151fa`, `7ba1ebb7`…`22eab4ad`, `c6c017f0` in unmerged PR #559; full gate (2443+108 tests) and frozen-source native probe (Claude 2.1.296, one Haiku turn, all scenarios PASS) at `22eab4ad` |
+| Claude current chat | Last-observed `SessionStart` journal, locked chat + `current_chat_id` publication; single-pointer routing also covers Pi's proven exits, entry-owned policy at final binding, lexical pump lifetime, validated old-state normalization | Unmerged PR #559: native qualification at `22eab4ad` (Claude 2.1.296, one Haiku turn, clear/continue/fresh/fork/SIGTERM); final gate at `c6c017f0` (2447 Python, one skipped; 108 runtime tests), independent closure approved |
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
 
 Verification included isolated installed-build probes of supported workflows across
