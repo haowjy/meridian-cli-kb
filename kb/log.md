@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-12 — Pi result delivery reconciled after v0.9.4 (`work:runtime-efficiency`)
+
+- PR #560 merged (`0af8f259`) and shipped in v0.9.4 (`4281e21e`). Folded the
+  pending tool-boundary and bounded-aggregate sections into the settled decision in
+  `decisions/pi-runtime.md`, removed unmerged/unreleased wording in
+  `architecture/pi-runtime/coordination.md`, `architecture/pi-lifecycle.md`,
+  `lessons/harness-integration.md` and `open-questions/future-work.md`. 0.9.3 stays
+  named only as the idle-only predecessor. Resource, authority and queue-loss limits
+  are kept; broader storage, polling, logging and startup cost is issue #561.
+
+---
 ## 2026-10-11 — Pi tool-boundary result delivery noted as pending (`work:pi-result-delivery`)
 
 - Marked idle-only watcher publication as the installed (0.9.3) contract in

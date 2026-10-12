@@ -68,34 +68,31 @@ observation still owed for a terminal result. Delivery blockers suppress the
 done nudge and hold the done decision. An active parent reply, non-idle parent,
 or unknown evidence also prevents done from completing the spawn.
 
-> **Pending source (PR #560, branch `fix/pi-result-delivery`; unmerged and
-> unreleased — installed 0.9.3 is idle-only).** Settled intent for that change: a
-> successful tool-bearing `turn_end` awaits fresh canonical child discovery and
-> queues eligible results through Pi's native steer before the next inference;
-> late results keep the idle follow-up on purpose. One finite, serialized collector
-> serves both paths. Active runs do no polling I/O; idle polling reads only a
-> disposable candidate set of canonical own rows plus parent-local evidence, with
-> boundary, root-event and 30-second full discovery covering new or missed rows
-> (about 30.5 s plus collector and filesystem time, an accepted tradeoff and not a
-> hard deadline). Notices read
-> `report.md` directly (explicit truncated/missing/unreadable outcomes) instead of
-> `spawn wait`, sequentially, and one automatic message is bounded in members and
-> total bytes with fairly shared optional text; the rest of a larger backlog stays
-> owed for later opportunities
-> (see the decision for the bounds and rationale). Receipts, consumption and wait leases are
-> unchanged; Pi orders the steer with other queued input, and native admission is
-> not proof the model acted on it. Authoritative detail lives in
-> `src/meridian/pi_runtime/.context/delivery-contract.md` on that branch. Until it
-> ships, read the next paragraphs as the whole installed contract.
+Since v0.9.4 (PR #560), delivery has two paths served by one finite, serialized
+collector. A successful tool-bearing `turn_end` awaits fresh canonical child
+discovery and queues eligible results through Pi's native steer before the next
+inference; late results keep the idle follow-up on purpose. Active runs do no
+polling I/O; idle polling reads only a disposable candidate set of canonical own
+rows plus parent-local evidence, with boundary, root-event and 30-second full
+discovery covering new or missed rows (about 30.5 s plus collector and filesystem
+time, an accepted tradeoff and not a hard deadline). Notices read `report.md`
+directly (explicit truncated/missing/unreadable outcomes) instead of `spawn wait`,
+sequentially, and one automatic message is bounded in members and total bytes
+with fairly shared optional text; the rest of a larger backlog stays owed for
+later opportunities (see the [decision](../../decisions/pi-runtime.md) for the
+bounds and rationale). Receipts, consumption and wait leases are unchanged; Pi
+orders the steer with other queued input, and native admission is not proof the
+model acted on it. Authoritative detail lives in
+`src/meridian/pi_runtime/.context/delivery-contract.md`.
 
-The installed watcher publishes only while Pi's native context is idle. It formats spawn
+At an idle transition the watcher publishes only while Pi's native context is idle. It formats spawn
 results with `spawn wait --no-observe`: reading details must not consume the
 same result whose notice is being prepared. Immediately before sending, it
 rechecks explicit consumption and live wait leases and rebuilds a partially
 consumed batch. Thus an explicit terminal wait during an active tool turn can
 consume its result before any follow-up is queued; an unattended eligible result
 is delivered once through the normal idle path (late results still trigger an idle
-follow-up on purpose, even with the pending boundary path).
+follow-up on purpose, even with the boundary path).
 
 The watcher reserves a batch through formatting and native send so parallel
 flushes cannot publish the same IDs. IDs that arrive after reservation wait for

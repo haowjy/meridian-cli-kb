@@ -411,8 +411,8 @@ These items were identified in the mars-capability-packaging final gate (alignme
 
 ## Pi Result Delivery Limits {#pi-result-delivery-limits}
 
-Known limits of the tool-boundary delivery change (PR #560, pending). Aggregate
-message size and report-read concurrency are bounded in the PR itself (32 members,
+Known limits of the tool-boundary delivery change (PR #560, shipped in v0.9.4). Aggregate
+message size and report-read concurrency are bounded by the change itself (32 members,
 64 KiB, sequential reads) and are not deferred. None of the items below is a
 reproduced defect or a must-do:
 
@@ -435,7 +435,7 @@ reproduced defect or a must-do:
   mixed-version authority constraints. No production cleanup is authorized.
 - **Large backlogs.** A backlog beyond one packet takes several genuine native
   opportunities, one message each; fair allocation fixed the avoidable per-result
-  amplification in the PR, so only the unbounded-backlog case remains, with no
+  amplification, so only the unbounded-backlog case remains, with no
   constant-total-inference promise.
 
 Provenance: `work:pi-result-delivery`. Source details:

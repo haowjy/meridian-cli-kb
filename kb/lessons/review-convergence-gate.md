@@ -94,7 +94,7 @@ Apply the gate across cycles, not just within one:
 When review keeps finding races between a slow path and its cancellation or
 preemption, ask whether the slow work should run at all. The Pi result watcher
 accumulated a budget, preemption and replay flags around always-on scanning;
-removing the scanning (idle-only, finite, direct reads) removed the race class.
+removing the scanning (finite collector, no polling during active runs, direct reads) removed the race class.
 Positive hints such as a candidate cache may narrow work but must not authorize
 a conclusion of absence. (Provenance: `work:pi-result-delivery`; see
 [Pi runtime decisions](../decisions/pi-runtime.md).)

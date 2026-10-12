@@ -48,16 +48,16 @@ window into a false success or an atomic exactly-once claim. The retired
 `last-notification.json` timestamp is ignored because it proves neither
 membership nor admission.
 
-**Publication policy (installed 0.9.3, idle-only):** The watcher checks Pi's native idle state immediately
+**Publication policy:** Through 0.9.3 publication was idle-only. The watcher checks Pi's native idle state immediately
 before queueing and rechecks explicit waits after asynchronous formatting. The
 formatter uses a non-consuming spawn wait. This yields no follow-up when the
 terminal Bash wait already returned, while leaving an unattended result eligible
 for its normal idle delivery. Wait reservations suppress only while the caller's
 PID, process-birth identity, and expiry lease remain valid.
 
-**Pending: tool-boundary delivery (PR #560, not merged or released).**
-Idle-only publication leaves a parent that keeps calling tools unaware of finished
-children until it stops. The settled direction adds native steer at an awaited
+**Tool-boundary delivery (PR #560, shipped in v0.9.4).**
+Idle-only publication left a parent that kept calling tools unaware of finished
+children until it stopped. The decision adds native steer at an awaited
 successful tool-bearing `turn_end`, keeps the idle follow-up for genuinely late
 work, and leaves receipts, public-event fence and on-disk state unchanged. A
 consuming wait finishes before the boundary, so it still suppresses the notice.
@@ -65,13 +65,13 @@ Rejected: steering as soon as a poll notices completion (races an explicit wait)
 and deferring all late results to the next turn (changes policy and can strand
 spawned RPC work).
 
-The first candidate bolted a boundary drain with formatter cancellation, preemption
+The first candidate (never released) bolted a boundary drain with formatter cancellation, preemption
 and a 30-second budget onto always-on 500 ms scanning and the general `spawn wait`
 CLI. Measurement on a frozen 2,360-directory corpus showed that machinery was the
 cost (about 65 % of a core while busy with no owned children), so the user approved
-replacing it in the same PR. The calibration: keep native boundary steer and exact
+replacing it before release. The calibration: keep native boundary steer and exact
 receipt semantics; delete the cancellation layer rather than tune it. Do not
-describe the budget or preemption as current behavior.
+describe the budget or preemption as shipped behavior.
 
 Settled shape: one finite serialized collector; no timer scans while Pi is active;
 idle generation invalidated on agent start, rebind and stop, with final
@@ -88,7 +88,7 @@ context; reload keeps the owner and queued claims and restarts at fresh
 (plus collector and filesystem time, not a hard deadline) of idle latency for a
 child row whose publication was missed; that is not a bug.
 
-**Bounded aggregate delivery (implemented in the pending PR source).** The first
+**Bounded aggregate delivery (shipped with the same change).** The first
 replacement capped each report at 64 KiB but opened every owed report at once and
 joined them into one message; a 512-child probe at a 256 file-descriptor limit then
 failed with `EMFILE` and delivered nothing, so a per-item cap had become an
@@ -118,8 +118,7 @@ not reopen it; no timeout-based repair is designed), and full discovery at each
 boundary still scans all history, a known performance opportunity. See
 [future work](../open-questions/future-work.md#pi-result-delivery-limits). Broader
 speed, storage and resource follow-up from the PR's efficiency audit is tracked in
-[issue #561](https://github.com/haowjy/meridian-cli/issues/561), not here. Fold this
-section into the decision above once the PR merges and releases.
+[issue #561](https://github.com/haowjy/meridian-cli/issues/561), not here.
 
 Completion keeps that causal delivery obligation separate from running execution:
 an explicit done may still override known running work, but it cannot bypass a

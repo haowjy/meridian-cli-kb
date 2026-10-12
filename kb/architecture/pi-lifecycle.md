@@ -57,8 +57,8 @@ Watches spawn records on disk and manages agent notification for completed spawn
 
 No tool registration.
 
-Owns: canonical direct-child discovery, `/spawn*` UI, idle-only implicit-wait
-publication, exact native-admission receipts, and delivery fault reporting.
+Owns: canonical direct-child discovery, `/spawn*` UI, implicit-wait
+publication (idle follow-up and tool-boundary steer), exact native-admission receipts, and delivery fault reporting.
 Advisory Bash pings belong to `managed-bash`; a failed ping never fails the shell.
 
 Slash commands: `/spawn` (spawn record list, filtered to this session's spawns), `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear` (hide finished rows for this session). **Renamed from `/mspawn` — no compatibility alias.**
