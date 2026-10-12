@@ -123,7 +123,7 @@ speed, storage and resource follow-up from the PR's efficiency audit is tracked 
 ### Unreleased managed-Bash publication candidate (#561 / #562)
 
 The source candidate (commits `006237c3`, `f36c1b13`, `95e85d78`, `fe2dfb3e`,
-and `a6dcc2ca`) is approved for its PR but is **not** v0.9.4, installed, merged,
+`a6dcc2ca`, and `878d0323`) is approved for its PR but is **not** v0.9.4, installed, merged,
 or deployed. It narrows managed-Bash records writes without changing the
 shipped delivery authority:
 
@@ -146,6 +146,13 @@ shipped delivery authority:
 
 Cold recovery of a durable `running` row adds `ownership_lost` to any existing
 `execution_error` once; it never replaces earlier fault evidence.
+
+A failed lifecycle write must claim its record at the await that observes it. A
+ping-claim failure used to claim one promise hop late, so a terminal write queued
+behind it could stage clean success first; `firePing` now handles claim/release
+rejection at the direct await. No scheduler was added. The candidate sits on the
+v0.9.5 base with no schema change, so v0.9.5 stop/backup/no-old-reader guidance
+still applies when upgrading from 0.9.4; the installed CLI is unchanged.
 
 The terminal transition linearizes when it stages. A failure that has claimed the
 record first prevents a clean `exited` snapshot; a failure ordered after staging

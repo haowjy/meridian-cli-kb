@@ -166,6 +166,17 @@ behavior check that only the new code can satisfy (for example, a marker the
 old bundle lacks). Keep invalidated evidence, labeled invalid, rather than
 overwriting it. (Provenance: `work:pi-result-delivery`.)
 
+### A filler in an ordering test can hide the schedule
+
+A test that held a filler queue slot ahead of the failing write proved failure-
+before-stage and missed a real race: with a ping-claim write failing, the
+supervising `catch` ran one promise hop after the queue advanced, so a terminal
+slot queued behind it staged clean success first. The fix was a failure handler
+on the direct await, not a new scheduler. Write ordering tests with no filler slot
+and no sleeps, gate the real filesystem operation, and assert the first attempted
+payload; audit every caller's handler position, not just the one that failed.
+(Provenance: `work:runtime-efficiency`, #561.)
+
 ## Measurement Discipline
 
 Measurements need a recoverable provenance note: command or method, dataset,

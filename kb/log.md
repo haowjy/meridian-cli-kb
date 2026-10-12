@@ -11,6 +11,9 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   linearization limits in [Pi Runtime](decisions/pi-runtime.md).
 - Synced to `a6dcc2ca`: cold recovery appends `ownership_lost` to an existing durable
   `execution_error` instead of replacing it.
+- Synced to `878d0323`/`2491983d` (v0.9.5 base merged, no schema change): ping-claim failure
+  ordering fix recorded in Pi Runtime, with an ordering-test lesson in
+  [Verification and Review Discipline](lessons/verification-and-review-discipline.md).
 - Kept the shipped v0.9.4 delivery decision and the separate polling, CLI-startup,
   and log-follow follow-ups unchanged. The candidate is approved for its PR only;
   no merge, install, deploy, or production cleanup is claimed.
