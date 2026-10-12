@@ -255,9 +255,12 @@ is what protects them.
   fork.
 
 **Upgrade and rollback.** The spawn row gains `current_chat_id` and the metadata
-projection moves to schema 7 in a new namespace. A strict 0.9.3 reader rejected the
-new field on a *copy* of a source-created runtime (`extra_forbidden`), so this is a
-minor release, not a patch. Stop active old runs and back up the runtime before
+projection moves to schema 7 in a new namespace. Released 0.9.3 and 0.9.4 readers
+rejected the new field on disposable copies (`extra_forbidden`). The human chose
+`release:patch` for PR #559 because normal upgrades remain compatible, explicitly
+excepting this PR from the release policy's older-reader rule. This classification
+does not make downgrade or mixed-version use compatible. Stop active old runs and
+back up the runtime before
 upgrading. Rollback needs the pre-upgrade state plus a metadata-only index rebuild.
 A schema-only rehearsal seeded 0.9.3 state, backed it up, wrote new state, confirmed
 old-reader rejection on a copy, then restored the backup. The released reader

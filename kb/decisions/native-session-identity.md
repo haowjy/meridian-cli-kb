@@ -315,16 +315,15 @@ overlap handling and evidence:
 - Each observed chat stores a full launch-policy snapshot inline in `sessions.jsonl`,
   which grows without bound under frequent `/clear`. This is a deliberate, scoped
   follow-up in the source repo's `.context/FUTURE`, not solved here.
-- The new `current_chat_id` field is rejected by a strict 0.9.3 reader (observed on a
-  copy), so this is a minor release. Operators should stop active old runs and back
-  up the runtime first; the metadata projection moves to schema 7 in a new
-  namespace; rollback needs the pre-upgrade state and a metadata-only index rebuild.
-  No restore rehearsal beyond that copy probe is claimed, and no native transcript is
-  rewritten.
-- Evidence kinds differ. Fake and process-seam tests cover the logic; one isolated
-  real-Claude 2.1.296 Haiku turn is the only current live proof (single run, tree
-  changing underneath it, no fork, `/compact`, repeated switches or concurrent
-  writers). The built-wheel final-exit probes belong to the superseded design.
+- Released 0.9.3 and 0.9.4 reject `current_chat_id` (verified on disposable copies).
+  The human chose patch classification for PR #559 as an explicit exception to the
+  older-reader release rule: normal upgrades work, but downgrades/mixed versions
+  remain incompatible. Stop old runs and back up runtime before upgrading.
+  Projection schema 7 uses a new namespace; rollback needs pre-upgrade state and a
+  metadata-only rebuild. No native transcript is rewritten.
+- Keep automated tests, pinned native qualification and schema-only restore
+  rehearsal distinct; see [Claude evidence](../architecture/claude-native-sessions.md).
+  Historical final-exit probes belong to the superseded design.
 
 **Why the Claude successor is not an exit.** For one merge it was: when no adapter
 boundary existed, the runners passed the successor to the finalizer as an exit key.
