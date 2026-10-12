@@ -8,10 +8,12 @@ How reads use the key: [native transcript reads](native-transcript-reads.md).
 
 **State:** entry identity shipped for Pi, Claude, Codex and OpenCode in v0.7.0 (PR
 #534, merge `3dae2434`); #520, #526 and #531 are closed as superseded. Claude
-current-chat tracking (the NativeRun observation seam below) is implemented locally
-(`679ab27f`, `cea151fa`) in unmerged PR #559: not released, full verification and a
-frozen-source native probe pending. Cursor was not live-probed because the user does not use it; it
-has no native identity binding in this implementation.
+current-chat tracking (the NativeRun observation seam below) is committed in unmerged
+PR #559 (`679ab27f`, `cea151fa`, and four thermo-fix commits `7ba1ebb7`…`22eab4ad`,
+plus validation/rendering fix `c6c017f0`): full automated gate (2443 Python + 108
+runtime tests, Ruff, Pyright) and frozen-source native probe (`22eab4ad`) both
+passed. Cursor was not live-probed because the user does not use it; it has no native
+identity binding in this implementation.
 
 The design goal of the restructure: one value type, one pure binding rule, one
 adapter template, one post-exit hook, and one runner pipeline.
@@ -184,24 +186,27 @@ identity. Managed primary attach feeds live IDs into `NativeRun.observe`.
    3. **Adapter:** `observe_after_exit`. An adapter-reported entry that differs from
       the run's entry is `NativeEntryMismatch`. Pi's session-boundary record supplies
       its owned exit identity; Claude supplies none here.
-   4. **Exit:** with no error and an exit key, `session_store.get_or_create_exit_chat`
+   4. **Exit:** with no error and a verified exit key (Pi only), `session_store.get_or_create_observed_chat(..., native_exists=…)`
       invokes the adapter's `native_exists` callback (exact resolver/header check)
-      under the history/session locks before every reuse or create. Of the harnesses
-      with an adapter boundary, only Pi reaches this step now. A harness without
-      one, including Claude, leaves `run_boundary` `unresolved`.
-   5. **One row write:** `run_boundary = RunBoundaryOutcome(status, exit_chat_id,
-      trampoline_successor_id)`.
+      under the project-lifetime/mutation/sessions/spawn lock chain before every
+      reuse or create. The verified exit is published to `current_chat_id`; `run_boundary`
+      records status and trampoline only. Claude has no post-exit owned evidence and
+      stays `unresolved`.
+   5. **One row write:** `run_boundary = RunBoundaryOutcome(status, trampoline_successor_id)`.
    6. **On error:** `record_identity_failure(...)`, the one lifecycle writer for
       identity refusals.
    7. **Otherwise:** `record_started`, with the accepted entry ID.
 
 ### Live observations (Claude)
 
-A second, in-run input runs beside the signals above. After exec, `start_observing`
-asks the adapter for a `native_observation_reader`; Claude returns one over its
-launch-owned journal, every other harness returns `None` and no thread starts. A
-per-run drainer feeds `NativeRun.apply_observation` in journal order and is stopped
-and joined on every runner exit path, before `conclude_native_run`.
+A second, in-run input runs beside the signals above. After exec, each driver wraps
+execution in `with native_run.observing(adapter, child_env=…) as observe_child:`.
+When the adapter returns a `native_observation_reader` (Claude only), a private
+`_ObservationPump` is created and started inside the context; every other harness
+returns `None` and no thread starts. `on_running` calls `observe_child(pid)`. A
+per-run drainer feeds `NativeRun.apply_observation` in journal order. Block exit,
+normal or exceptional, sets stop, final-drains and joins the pump — all before
+`conclude_native_run`. No `start_observing`/`stop_observing` stash or cleanup callback exists.
 
 - **Entry stays immutable.** Only the first fact whose source agrees with the planned
   operation (and the assigned ID, if any) completes the entry. A later fact, or an
@@ -260,13 +265,10 @@ In `lib/state/spawn/model.py`:
   runtime, which is why this ships as a minor release (metadata projection schema 7,
   new namespace).
 - **`run_boundary: RunBoundaryOutcome | None`:**
-  - `status ∈ {verified, unresolved, mismatch}`;
-  - `exit_chat_id` is set exactly when `verified`; a validator enforces this;
+  - `status ∈ {verified, unresolved, mismatch}` — diagnostic only; `verified` means Pi reported a clean quit;
   - `trampoline_successor_id` is a Claude diagnostic that never binds.
-- **`SpawnRecord.continue_chat_id`** is the one continue rule: a `mismatch` run keeps
-  its entry chat; otherwise `current_chat_id` when set; otherwise a terminal run's
-  verified exit chat (Pi); otherwise the entry chat. The primary exit hint,
-  `--continue pN`/`--fork pN` and `session log pN` all use it.
+  - There is no `exit_chat_id` on the current model. Pi verified exits write to `current_chat_id` through the shared `get_or_create_observed_chat` path. Legacy 0.9.4 rows with `run_boundary.exit_chat_id` are normalized to `current_chat_id` on read; the next write drops the old key.
+- **`SpawnRecord.continue_chat_id`** is the one continue rule: historical rows → `None`; a `mismatch` run → its entry chat; otherwise `current_chat_id or chat_id`. The primary exit hint, `--continue pN`/`--fork pN` and `session log pN` all use it.
 - **Dogfood rows.** Rows written by the pre-restructure PR 1 dogfood build carry flat
   `entry_chat_id`, `exit_chat_id`, `exit_identity` and top-level
   `trampoline_successor_id` fields (`repository.DOGFOOD_BOUNDARY_FIELDS`). The strict
@@ -323,12 +325,14 @@ chats.
 probes in v0.7.0. For Claude, the earlier built-wheel `/clear` → `/exit`, Haiku-spawn
 and 0.9.3 fork probes qualified the superseded final-exit receipt and are historical
 only. They also showed that Claude 2.1.296 emits `SessionStart.source=fork`. The
-current Claude design has focused fake and process-seam tests plus one isolated
-real-Claude 2.1.296 Haiku turn (a `/clear` moved the pointer during the run, `--continue`
-followed it, a SIGTERM left the pointer at the last observed chat). That run did not
-cover fork, `/compact`, repeated switches or concurrent writers, and its source tree
-was changing underneath it. The full gate and a frozen-source native probe were
-pending, so this is not final qualification
+current Claude design has focused fake and process-seam tests plus a frozen-source
+native probe pinned to `22eab4ad` (Claude 2.1.296, one Haiku turn): startup, `/clear`
+while running (pointer advanced), `--continue pN` (exact new native ID resumed),
+separate fresh launch (did not resume), zero-turn fork (`/clear` → normal `/exit`),
+and SIGTERM (pointer durable, status `failed`). Source unchanged before/after. The
+full automated gate (2443 Python + 108 runtime tests, Ruff, Pyright) also passed at
+`22eab4ad`. Coverage limits remain: no `/compact`, repeated switches, A→B→A or
+concurrent writers live.
 ([lesson](../lessons/native-session-identity.md#green-suites-did-not-find-the-seam-defects)).
 
 ## Related
@@ -360,4 +364,11 @@ pending, so this is not final qualification
 - Current-chat tracking: same work item, `DIVERGENCE/02-last-observed-session.md`,
   `current-chat-primary-refinements.md`, `current-chat-final-review-result.md`,
   `current-chat-live-probe-result.md`; commits `19c8ba3e`, `679ab27f`, `cea151fa`
-  (unmerged PR #559).
+  (unmerged PR #559). Thermo structural fixes (single-pointer routing, unified
+  publication, entry-policy ownership, lexical pump lifetime, legacy validation):
+  `current-thermo-implementation-result.md`, commits `7ba1ebb7`, `a279bea4`,
+  `3fad5cc5`, `22eab4ad`; review `current-thermo-fix-review-result.md`; validation
+  and rendering fix `c6c017f0` (review `primary-thermo-closure-review-result.md`);
+  native probe `current-thermo-live-result.md` and corrections
+  `primary-thermo-native-notes.md`; upgrade evidence
+  `primary-thermo-released-upgrade-attempt2.log`.

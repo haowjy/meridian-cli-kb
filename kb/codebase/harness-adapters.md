@@ -246,7 +246,7 @@ journal, admitted against the launcher's captured child PID and nonce. A live
 `NativeRun` drainer publishes the last observed chat separately from the immutable
 entry. No SessionEnd or saved-transcript proof is required to record an observation;
 actual read and resume still validate the exact native transcript. This replaces
-the earlier final-exit receipt design in unmerged PR #559. See
+the earlier final-exit receipt design (PR #559, thermo-fix commits through `c6c017f0`). See
 [Claude session observations](../architecture/claude-native-sessions.md) for
 admission, inheritance, ordering and failure limits.
 

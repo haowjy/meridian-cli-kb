@@ -139,12 +139,12 @@ performs model work that hits budget limits and is not deterministic.
 
 ## Launch-owned SessionStart journal and current chat
 
-**State:** implemented and committed locally in the `exit-identity-reporting`
-worktree (`679ab27f`, with follow-up `cea151fa`), carried by unmerged
-[PR #559](https://github.com/haowjy/meridian-cli/pull/559). Nothing is released or
-installed. The full verification gate and a frozen-source native probe were still
-pending at this capture, so read this section as the implemented design, not as
-shipped or final-qualified behavior.
+**State:** committed in unmerged [PR #559](https://github.com/haowjy/meridian-cli/pull/559),
+base commits `679ab27f`, `cea151fa`, plus thermo structural fixes `7ba1ebb7`…`22eab4ad`
+and validation/rendering fix `c6c017f0`. Full automated gate (2443 Python + 108
+runtime tests, Ruff, Pyright) passed at `22eab4ad`. Frozen-source native probe at
+`22eab4ad` passed all required scenarios (see Evidence below). Nothing is released
+or installed; downgrade/mixed-version incompatibility remains.
 
 The earlier design (commits `3aa18aae`…`a2713624`) tried to *prove the final session
 at exit*: a `SessionEnd` receipt, verified only if the exact final transcript existed.
@@ -174,15 +174,19 @@ parent PID, source, session ID and exact transcript path. Records are bounded
 `O_APPEND` write to a mode-0600 file, and a leading newline isolates a torn tail.
 Once the journal is full the hook writes nothing more.
 
-**Admission and drain.** The launcher knows the actual Claude PID only after exec,
-so it starts one drainer per run at that point (`NativeRun.start_observing`; the
-adapter returns a reader from `native_observation_reader`, and the other harnesses
-return `None`, so no thread starts for them). The adapter drops records whose nonce
-or parent PID is foreign, so a nested Claude inheriting the environment cannot
-publish. The reader consumes only complete lines, and the cursor advances per
-observation, after that observation's durable publication. Without that, a failure on
-a later record would replay earlier ones and transiently rewind the pointer. The
-drainer is stopped and joined on every runner exit path.
+**Admission and drain.** The launcher knows the actual Claude PID only after exec.
+Each driver wraps execution in `with native_run.observing(adapter, child_env=…) as observe_child:`;
+`on_running` calls `observe_child(pid)`. When the adapter returns a
+`native_observation_reader` (Claude only), a private `_ObservationPump` is created and
+started inside the context; every other harness returns `None` and no thread starts.
+The adapter drops records whose nonce or parent PID is foreign, so a nested Claude
+inheriting the environment cannot publish. The reader consumes only complete lines,
+and the cursor advances per observation, after that observation's durable publication.
+Without that ordering, a failure on a later record would replay earlier ones and
+transiently rewind the pointer. Block exit, normal or exceptional, sets stop,
+final-drains and joins the pump before `conclude_native_run`. Each fact is
+acknowledged only after its publication; a later publication failure retains the
+accepted prefix cursor.
 
 **Entry is immutable; the pointer is not.** Observations never rebind the entry.
 Only the first *eligible* establishing fact can complete it: `source` must agree with
@@ -236,17 +240,21 @@ is what protects them.
   refusal. Independent re-review approved the fixes. Full preflight passed 2,441
   Python tests (one skipped), 77 Pi runtime tests, Ruff, Pyright (zero errors,
   75 existing warnings), and both package builds.
-- *Pinned live proof:* real Claude 2.1.296, one Haiku turn, clean source `cea151fa`
-  unchanged before/after. `/clear` advanced the pointer while running and left the
-  entry unchanged. Work/settings were inherited without a lease or lineage copy.
-  Actual `--continue pN` resumed the new native ID; a separate fresh launch differed.
-  A zero-turn fork then emitted `source=fork`, bound its entry without a duplicate
-  alias, and advanced to another chat on `/clear`; its source transcript hash stayed
-  unchanged. All ended with normal `/exit`. This does not qualify `/compact`,
-  repeated switches, A → B → A or concurrent writers live.
-- *Intermediate live proof:* a previous one-turn run also retained the pointer
-  after SIGTERM of the native child. Its source was changing during the probe;
-  interruption was not repeated on the frozen tree.
+- *Frozen native probe (canonical):* real Claude 2.1.296, one Haiku turn, clean
+  frozen source `22eab4ad` unchanged before/after. Five scenarios passed: startup →
+  `/clear` (pointer advanced while running; entry unchanged; entry policy snapshot
+  present before clear); `--continue pN` resumed exact new native ID; separate fresh
+  launch did not resume; zero-turn fork (`source=fork`, bound entry, `/clear` advanced
+  to new chat, source transcript hash unchanged, normal `/exit`); and SIGTERM of the
+  scratch-owned native child (pointer durable at last observed chat, status `failed`).
+  All five ended without leaked leases or credentials. The c1 start event has a
+  `launch_policy_snapshot` but with `model=null`; the update event carries the real
+  final policy (`claude-haiku-4-5`), confirming the entry generation owns its policy
+  before any native turn or clear. Observed c2 carries `active_work_id` directly;
+  `spawn_id` is null (no spawn lineage). Fork entry c4 has session lineage in its
+  start row (`forked_from_history_id`); the spawn-view DTO correctly shows null fork
+  pointer. Successor c5 has neither field, as required.
+- This does not qualify `/compact`, repeated switches, A→B→A or concurrent writers live.
 - *Historical, superseded:* the built-wheel `/clear` → `/exit` and 0.9.3 fork probes
   recorded under the previous `SessionEnd` design (`claude-final-live-probe.md`,
   `claude-fork-clear-final-proof.md`). They qualified the old verified-exit outcome,
@@ -301,4 +309,11 @@ fix `3630a1f0b`, shared persistence gate `a2713624` (still used by Pi), fork sou
 `current-chat-live-probe-result.md`, `current-chat-frozen-probe-result.md` (spawn:p7642),
 `current-chat-rereview-result.md` (spawn:p7641), `current-chat-restore-probe.log` and
 `current-chat-final-preflight.log`; commits `19c8ba3e`, `679ab27f`, `cea151fa`
-(unmerged, PR #559). No release or installed-CLI change is claimed.
+(unmerged, PR #559). Thermo structural fixes (single-pointer routing, unified
+publication, entry-policy ownership, lexical pump lifetime, legacy validation):
+`current-thermo-implementation-result.md`, commits `7ba1ebb7`, `a279bea4`,
+`3fad5cc5`, `22eab4ad`; review `current-thermo-fix-review-result.md`; validation and
+rendering fix `c6c017f0` (review `primary-thermo-closure-review-result.md`); frozen
+native probe `current-thermo-live-result.md` with corrections
+`primary-thermo-native-notes.md`; upgrade evidence
+`primary-thermo-released-upgrade-attempt2.log`. No release or installed-CLI change is claimed.

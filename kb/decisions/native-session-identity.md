@@ -2,8 +2,9 @@
 
 **Status: settled 2026-09-24; extended through probe-fix on 2026-09-26; shipped in
 v0.7.0. A Claude final-exit verification extension (2026-10-11) was implemented and then
-replaced the same day by last-observed current-chat tracking, which is committed locally
-and unreleased (see [Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).** The combined implementation is PR #534 (`feat/native-session-identity`),
+replaced the same day by last-observed current-chat tracking, committed in unmerged PR #559
+with thermo structural fixes through `c6c017f0` (full gate and frozen native probe passed;
+see [Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).** The combined implementation is PR #534 (`feat/native-session-identity`),
 merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
@@ -227,11 +228,13 @@ run-record table.
   chat) was implemented in `3aa18aae`…`a2713624` and then superseded; the plugin now
   journals `SessionStart` only. The trampoline successor remains a diagnostic that
   never rebinds the entry or names a chat.
-- Pi's owned boundary is the input to the one finalizer and one allocator
-  (`get_or_create_exit_chat`, which the persistence gate `a2713624` keeps behind the
-  adapter's exact native-exists check). A verified exit key maps to the chat that
-  already owns that exact key (stopped chats included), else a new chat. The lookup and
-  creation run under the sessions lock.
+- Pi's owned boundary is the input to the unified publication path:
+  `get_or_create_observed_chat(..., native_exists=…)` invokes the adapter's exact
+  native-exists check under the project-lifetime/mutation/sessions/spawn lock chain.
+  A verified exit key maps to the chat that already owns that exact key (stopped chats
+  included), else a new chat — and the result is published to `current_chat_id`, not
+  a separate `exit_chat_id`. The persistence gate `a2713624` supplies the native-exists
+  callback; the lookup and creation run under the sessions lock.
 - If the boundary's initial identity contradicts the immutable entry key, the run
   fails with the same typed `entry_mismatch` as a startup contradiction. No exit chat
   is created, and an attempt that already failed with a typed identity error skips
@@ -243,24 +246,28 @@ what `--continue cN` means for the entry chat.
 **The run's record.** The spawn row keeps its entry chat as `chat_id`, which is
 immutable. It records one `run_boundary` outcome:
 
-| Status | Meaning | `exit_chat_id` |
+| Status | Meaning | Notes |
 |---|---|---|
-| `verified` | An owned exit key was observed, and its native file exists | set (the owning or new chat) |
-| `unresolved` | No valid owned final-exit evidence: Pi without a valid quit record, hard kill, or a harness without an exit boundary (Claude always, since it has none) | none |
+| `verified` | Pi reported a clean `session_shutdown` quit; exact native file exists | Pi's verified exit is published to `current_chat_id`, not a separate `exit_chat_id` |
+| `unresolved` | No valid owned final-exit evidence: Pi without a valid quit record, hard kill, or a harness without an exit boundary (Claude always) | `current_chat_id` still records the last observed chat (Claude) |
 | `mismatch` | The run failed `entry_mismatch` | none |
 
-"Continue after this run" has one rule, `continue_chat_id`: a `mismatch` run keeps its
-entry chat; otherwise the observed `current_chat_id` if set (Claude); otherwise a
-terminal run's verified exit chat (Pi); otherwise the entry chat. The primary exit
-hint, `--continue pN`, `--fork pN` and `session log pN` all use it. A Pi exit chat is
-created only when the exact native resolver finds the file, so a never-saved `/new`
+`run_boundary.exit_chat_id` existed in the 0.9.4 schema. Rows with it are normalized
+on read: a valid verified exit pointer moves to `current_chat_id`; a malformed
+or mismatched pointer is rejected. The next write drops the old key.
+
+"Continue after this run" has one rule, `continue_chat_id`: historical rows → `None`; a
+`mismatch` run → its entry chat; otherwise `current_chat_id or chat_id`. The primary
+exit hint, `--continue pN`, `--fork pN` and `session log pN` all use it. A Pi exit chat
+is created only when the exact native resolver finds the file, so a never-saved `/new`
 in Pi gets no dead chat.
 
 ## Current chat replaces final-exit proof for Claude
 
-**Status: implemented locally (`19c8ba3e`, `679ab27f`, `cea151fa`), unreleased,
-unmerged in PR #559. The full gate and a frozen-source native probe were pending when
-this was written, so nothing here is claimed as shipped or final-qualified.**
+**Status: committed in unmerged PR #559 (`679ab27f`, `cea151fa`) with thermo structural
+fixes `7ba1ebb7`…`22eab4ad` and validation/rendering fix `c6c017f0`. Full automated
+gate (2443 Python + 108 runtime, Ruff, Pyright) and frozen-source native probe both
+passed at `22eab4ad`. Not yet released or installed.**
 
 *What we moved from.* The first Claude design tried to prove the user's final
 conversation at exit. Claude's `SessionEnd` reasons, a launch-owned receipt and an
@@ -443,7 +450,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | Native-only history | Native reads, native-keyed rebuildable search, run facts off the stream; stop runner-history writes and once-only dogfood-row migration | Combined PR #534; probe fixes include exact OpenCode 1.x report fallback, chat-named `pN` views, text search coverage, strict `--file` admission, and explicit archive capture |
 | Browse and late legacy binding | Per-row browse degradation; late exact binding only for rows missed by the one-time import | Combined PR #534; repairs run in `meridian doctor` and primary-launch background repairs, never on each command |
 | Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
-| Claude current chat | Last-observed `SessionStart` journal, atomic chat + `current_chat_id` publication, replaces the final-exit receipt for Claude | Local commits `19c8ba3e`, `679ab27f`, `cea151fa` in unmerged PR #559; full gate and frozen-source native probe pending; one live Haiku turn so far |
+| Claude current chat | Last-observed `SessionStart` journal, atomic chat + `current_chat_id` publication, replaces the final-exit receipt for Claude; thermo fixes: single-pointer routing (Pi verified exits also publish to `current_chat_id`), unified publication, entry-policy ownership at `bind_entry`, lexical pump lifetime, legacy 0.9.4 `exit_chat_id` normalization | Commits `19c8ba3e`, `679ab27f`, `cea151fa`, `7ba1ebb7`…`22eab4ad`, `c6c017f0` in unmerged PR #559; full gate (2443+108 tests) and frozen-source native probe (Claude 2.1.296, one Haiku turn, all scenarios PASS) at `22eab4ad` |
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
 
 Verification included isolated installed-build probes of supported workflows across
@@ -501,3 +508,13 @@ Current-chat replacement: same work item. The user's replacement intent is
 `spawn:p7624`); strict read-only review `spawn:p7628` in
 `current-chat-final-review-result.md`; isolated live probe `spawn:p7629` in
 `current-chat-live-probe-result.md`. Commits `19c8ba3e`, `679ab27f`, `cea151fa`.
+Thermo structural fixes (single-pointer routing, unified publication via
+`get_or_create_observed_chat`, entry-policy ownership at `bind_entry`, lexical
+`_ObservationPump` lifetime, legacy 0.9.4 `exit_chat_id` normalization, historical
+display using `current_chat_id or chat_id`): `current-thermo-implementation-result.md`,
+commits `7ba1ebb7`, `a279bea4`, `3fad5cc5`, `22eab4ad`; independent review
+`current-thermo-fix-review-result.md`; validation and rendering fix `c6c017f0`,
+review `primary-thermo-closure-review-result.md`; frozen native probe
+`current-thermo-live-result.md` with corrections `primary-thermo-native-notes.md`
+(native pin `22eab4ad`, Claude 2.1.296, one Haiku turn, all scenarios PASS); upgrade
+evidence `primary-thermo-released-upgrade-attempt2.log`.
