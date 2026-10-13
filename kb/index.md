@@ -36,7 +36,8 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
 - [decisions/pi-runtime.md](decisions/pi-runtime.md) — Why Pi keeps live shell authority with its owner and uses exact admission plus public-event evidence for completion delivery
-- [decisions/idle-notifications.md](decisions/idle-notifications.md) — Primary idle notifications and compaction: core policy, adapter safety contracts, TTL detection from the launch-recorded store (never a cwd) and the Pi provider table, cache estimates, session labels, and remaining limitations.
+- [decisions/idle-notifications.md](decisions/idle-notifications.md) — Primary idle notifications and compaction: core policy, adapter hosting and safety contracts, session labels, config, notification channels, and remaining limitations.
+- [decisions/idle-ttl-detection.md](decisions/idle-ttl-detection.md) — Idle TTL detection: launch-recorded native-store resolution and Pi provider TTL mapping, including estimated and unknown lifetimes.
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP retained-history authority, disposable indexes named by schema (never migrated in place), retention and restore, archive digests over stored record JSON, and post-stop native capture; which parts native-only history superseded
 - [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; refusals before row creation; one binding and drift rule; run-boundary outcomes (Pi exit); Claude last-observed current-chat tracking replacing final-exit proof (unreleased) and its limits

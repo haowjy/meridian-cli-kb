@@ -3,10 +3,16 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-13 — Idle TTL decision split (`work:idle-ttl-detection`)
+
+- Split the self-contained [D-idle-ttl-detection](decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd) record from the aggregate idle-notifications page into its own decision page.
+- Updated the decision catalog, KB index, research cross-reference, and this log; the adapter contracts remain with adapter hosting because they describe the same boundary.
+
+---
 ## 2026-10-13 — Idle TTL detection fix recorded (`work:idle-ttl-detection`)
 
 - Synced to branch `fix/idle-ttl-detection` (`556a35795`, not yet merged). Added
-  [D-idle-ttl-detection](decisions/idle-notifications.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd):
+  [D-idle-ttl-detection](decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd):
   Claude TTL detection reads the chat's launch-recorded `native_store` through
   `MERIDIAN_CHAT_ID`, never a cwd; `--cwd` was removed from `meridian idle arm`.
   It also adds the Pi provider table (`openai-codex` 1800 s, estimated;

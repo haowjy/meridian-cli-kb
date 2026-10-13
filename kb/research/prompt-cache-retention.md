@@ -91,7 +91,7 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   retention 1800, estimated, because the `24h` label is not a lifetime;
   `openai-codex` 1800, estimated, to match the Codex harness on the same
   backend. `xai` and `deepseek` stay unknown, so they get push only. See
-  [D-idle-ttl-detection](../decisions/idle-notifications.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd).
+  [D-idle-ttl-detection](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd).
 - **Pi primaries get long retention.** Meridian sets `PI_CACHE_RETENTION=long`
   for interactive Pi primaries unless the user set it; spawns keep Pi's
   5-minute default. That buys a one-hour Anthropic cache at the higher write
