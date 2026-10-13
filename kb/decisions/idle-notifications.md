@@ -33,7 +33,7 @@ TTL is in [Prompt-Cache Retention by Harness](../research/prompt-cache-retention
 | Concern | Code |
 |---|---|
 | Notify delivery and CLI | `src/meridian/lib/notify/`, `src/meridian/cli/notify_cmd.py` |
-| Idle policy, sidecar, CLI, and state | `src/meridian/lib/idle/`, `src/meridian/cli/idle_cmd.py`, `src/meridian/lib/state/idle_store.py` |
+| Idle policy, sidecar, CLI, and state | `src/meridian/lib/idle/`, `src/meridian/cli/idle_cmd.py`, `src/meridian/lib/state/idle_store.py`; TTL detection reads the chat's `native_store` through `src/meridian/lib/state/session_store.py` |
 | Harness ports and Python adapters | `src/meridian/lib/harness/idle_types.py`, `bundle.py`, `claude_idle.py`, `pi_idle.py`, `codex_idle.py`, `opencode_idle.py` |
 | In-harness adapters | `src/meridian/claude_runtime/meridian-idle/`, `src/meridian/pi_runtime/extensions/meridian-idle/` |
 | Launch hosting | `src/meridian/lib/launch/process/primary_attach.py` |
@@ -157,8 +157,9 @@ renderer uses `<1 min until cold` below a minute and `cache cold` after the
 deadline. Compaction-result notices omit the old countdown because compaction
 may refresh the cache. `ttl_estimated` is persisted with the idle state, with
 old records defaulting conservatively to estimated. Claude's observed transcript
-TTL and Pi's Anthropic retention are known; Pi's OpenAI heuristic and explicit,
-configured, or default TTLs are estimated. This changes notice context only;
+TTL and Pi's Anthropic retention are known. Pi's `openai` and `openai-codex`
+heuristics are estimated, and so are explicit, configured and default TTLs
+([D-idle-ttl-detection](#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)). This changes notice context only;
 the schedule and compaction guards are unchanged.
 
 **Why:** A reason-first title tells the user why a notice arrived, while the
@@ -264,7 +265,7 @@ before it arms.
 | Harness | Adapter host | How it gets there | Compacts with | Default |
 |---|---|---|---|---|
 | Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` | push, warn, compact |
-| Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push, warn, compact on `anthropic` and `openai`, because Meridian launches primaries with long retention ([D-pi-cache-retention](#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)); push only with `PI_CACHE_RETENTION=short` or any other provider |
+| Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push, warn, compact on `anthropic` and `openai` under long retention, which Meridian sets for primaries ([D-pi-cache-retention](#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)), and on `openai-codex` in either mode (estimated). Push only on `xai`, `deepseek`, any other provider, and `anthropic`/`openai` with `PI_CACHE_RETENTION=short` ([D-idle-ttl-detection](#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)) |
 | OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor` | `POST /session/{id}/summarize` with the session's current model | push only (`ttl_seconds` 300) |
 | Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, verify, press Enter, wait for an appended `compacted` rollout record | push, warn, compact (`ttl_seconds` 1800) |
 
@@ -409,10 +410,91 @@ env name per harness. The loader limits behind this are in
 [Config Precedence](../concepts/config-precedence.md#declaring-config-keys).
 
 **TTL defaults for harnesses that don't expose one (U4):** Codex
-`ttl_seconds = 1800`, OpenCode `300`. Claude reads the transcript TTL. Pi
-uses the provider and `PI_CACHE_RETENTION`: Anthropic gets 300 or 3600 seconds;
-OpenAI long retention uses an estimated 1800 seconds, not the request's `24h`
-label. Other Pi providers have no detected TTL.
+`ttl_seconds = 1800`, OpenCode `300`. Claude reads the transcript TTL, and Pi
+maps its provider and `PI_CACHE_RETENTION` to a TTL. Both detectors are covered
+in [D-idle-ttl-detection](#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd).
+
+## D-idle-ttl-detection — Detection reads launch records, never a cwd
+
+**Problem it fixed:** idle compaction shipped in PR #550, then fired once in two
+days. An unknown TTL makes `timeline.schedule` drop warn and compact, and
+detection returned unknown on almost every real session:
+
+- **Claude.** The mod sent `--cwd $.session.cwd()`, and `claude_idle` built
+  `~/.claude/projects/<slug(cwd)>/<id>.jsonl` from it. `$.session.cwd()`
+  follows every Bash `cd`. Claude files the transcript under the slug of the
+  *launch* directory. Any session whose agent changed directory missed its own
+  transcript, even though every assistant row recorded `ephemeral_1h` tokens.
+- **Pi.** The detector knew only `anthropic` and `openai`. Real primaries use
+  `openai-codex`, `xai` and `deepseek`. All ten sampled Pi idle state files had
+  `ttl=None`.
+
+**Decision (D1–D2, `chat:c7500`):** core resolves the chat's launch-recorded
+`native_store`. `IdleService.arm` reads `MERIDIAN_CHAT_ID` from the session env.
+It looks up that chat's record in the project runtime's `sessions.jsonl`, under
+`MERIDIAN_PROJECT_DIR`. It then passes the record's absolute `native_store` to
+the harness's `detect_ttl`. The `DetectIdleTtl` port carries `native_store`, not
+a cwd. Claude resolves `<native_store>/<live session id>.jsonl` exactly, through
+the same header-checked `resolve_claude_native_session_file` that resume uses
+([Native Session Binding](../architecture/native-session-binding.md)). `--cwd` is
+gone from `meridian idle arm`, the service, the port and both mods.
+
+**Rule:** never pass, derive or fall back to a cwd for transcript lookup. An
+agent can `cd`, but the transcript stays where the launch filed it. The rule is
+the same as for resume: native resolution uses the recorded store. A miss
+returns unknown, not a guess:
+
+- no `MERIDIAN_CHAT_ID`;
+- no record, a record for another harness, or an empty or relative store;
+- a missing file, a header mismatch, or a bad ID.
+
+A wrong TTL cannot happen, because the exact ID must exist in that store.
+
+**Consequences:**
+
+- After `/clear`, the live session ID is joined to the entry chat's store. This
+  works because Claude files the successor under the same project-store parent.
+  The regression test arms a successor ID against the entry record. If Claude
+  ever files successors elsewhere, detection degrades to unknown, not to a wrong
+  TTL.
+- A Claude session started outside Meridian that opts into the mod through
+  `CLAUDE_CODE_PLUGIN_DIRS` has no `MERIDIAN_CHAT_ID`. It now gets push only,
+  unless `ttl_seconds` is configured.
+- Every arm without a configured TTL parses `sessions.jsonl`: 0.09 s on 13 MB,
+  0.19 s on 30 MB. That is accepted because arm runs off the TUI path. Revisit
+  if session logs grow tenfold, or move the read onto the SQLite projection.
+
+**Pi provider table (D3–D5).** `pi_idle._PROVIDER_TTLS` maps the provider and
+the retention mode to a TTL. No match means unknown.
+
+| Provider | Short retention | Long retention | Why |
+|---|---|---|---|
+| `anthropic` | 300, known | 3600, known | Pi sends `cache_control.ttl`. |
+| `openai` | unknown | 1800, estimated | Pi asks for `24h`, which usually lasts about 30 min. |
+| `openai-codex` | 1800, estimated | 1800, estimated | Mirrors the Codex harness default (U4). Pi's Codex adapter ignores `PI_CACHE_RETENTION`. |
+| `xai` | unknown | unknown | Best-effort cache that "can be evicted at any time"; no TTL to schedule against. |
+| `deepseek` | unknown | unknown | Disk cache that lasts "a few hours to a few days"; there is no pre-expiry point. Compact for context pressure, not cache expiry. |
+
+The `openai-codex` row is a tech-lead call (D5), flagged to the user and not yet
+confirmed. Research (`spawn:p7724`) found no published TTL for the ChatGPT
+backend. It also refuted mapping the public API's GPT-5.6 30-minute TTL onto that
+backend ([research](../research/prompt-cache-retention.md#chatgpt-backend-codex-and-pis-openai-codex)).
+The Codex harness already runs on the same backend with the 1800 estimate. So
+Pi should match it rather than diverge, and `estimated=true` puts `est.` on its
+notices. **Risk:** if the backend cache lives under 25 minutes, the compaction
+lands on a cold cache. Revisit if observed cache-hit data disagrees.
+
+**Rejected:**
+
+- **The session's current cwd** (the shipped behaviour): it follows the agent's
+  `cd`, so the lookup misses once the session moves. The user chose "where it
+  spawned from".
+- **Treating Pi `xai` or `deepseek` as known or estimated:** neither provider
+  publishes an idle TTL. A guessed TTL would make an estimate look like a
+  provider fact.
+- **Leaving Pi `openai-codex` unknown**, which the research recommended: it
+  would make Pi on the ChatGPT backend the one route where warn and compact
+  never fire, while the Codex harness on the same backend schedules both.
 
 ## D-pi-cache-retention — Meridian launches Pi primaries with long cache retention
 
@@ -445,13 +527,17 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
 
 **Not covered, by evidence:**
 
-- **Pi `openai-codex`** stays push-only. Pi 1.1.0's
+- **Pi `openai-codex`** is not changed by the retention default. Pi 1.1.0's
   `openai-codex-responses.js` sends only `prompt_cache_key` and never applies
-  `PI_CACHE_RETENTION`, so warning and compaction would target a cache that
-  isn't there. An earlier follow-up to normalise `openai-*` provider IDs to
-  `openai` rested on the false premise that Pi extends retention there; it was
-  withdrawn. `src/meridian/lib/harness/.context/TODO` holds the revisit
-  trigger.
+  `PI_CACHE_RETENTION`. Idle on that provider still schedules warn and compact,
+  from an estimated 1800 s
+  ([D-idle-ttl-detection](#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)).
+  *Superseded (2026-10-13):* this page used to keep `openai-codex` push-only,
+  reasoning that warning and compaction "would target a cache that isn't
+  there". That conflated "no retention knob" with "no cache". The ChatGPT
+  backend caches automatically by `prompt_cache_key`, the same way it does for
+  the Codex harness. Normalising `openai-*` IDs to `openai` stays withdrawn,
+  because Pi does not extend retention there.
 - **OpenCode** stays push-only by default. Its 5-minute Anthropic cache is
   hard-coded, with no external switch.
 
@@ -506,7 +592,6 @@ compaction run only in primaries.
 | `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
 | Claude-only `claude_runtime` touches six projections; three tmux helpers | `src/meridian/lib/harness/.context/FUTURE` |
 | Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
-| Pi `openai-codex` stays push-only until Pi applies `PI_CACHE_RETENTION` in that adapter | `src/meridian/lib/harness/.context/TODO` |
 
 ## Deferred adjacent issues
 
@@ -562,6 +647,11 @@ To close the gap, the user sets up an app password and sends one test notice:
   writes, or Codex/OpenCode add a retention setting.
 - Pi applies `PI_CACHE_RETENTION` in its `openai-codex` adapter, or renames or
   drops the variable.
+- OpenAI publishes a ChatGPT-backend cache TTL, or observed cache hits after
+  idle contradict the 1800 s Codex and Pi `openai-codex` estimate.
+- Claude files a `/clear` successor outside the launch store, or Meridian stops
+  recording `native_store` on the chat; Claude TTL detection would then return
+  unknown.
 - A harness gains a native idle or compaction hook that would replace a
   launcher task or the tmux actuator.
 - The `arm` contract changes next, or a fifth adapter is about to be written.
@@ -575,6 +665,10 @@ To close the gap, the user sets up an app password and sends one test notice:
 - `work:idle-cache-notify`: `design/`, `DIVERGENCE/`, `reviews/`, and `evidence/`
   hold implementation history, rejected mechanisms, and verification records.
 - `chat:c7280`: user decisions U1–U6; `chat:c7347`: Pi retention decision U9.
+- `work:idle-ttl-detection` (`chat:c7500`, branch `fix/idle-ttl-detection`):
+  before-state evidence and D1–D5 in `decisions.md`, Pi provider research
+  `research/pi-provider-cache-ttl.md` (`spawn:p7724`), review
+  `reviews/review-1.md`, probe `evidence/probe-ttl-detection.md`.
 - Process lessons: [parallel test lanes](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames),
   [adapter-suite coverage](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
   and [dependency injection](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).

@@ -3,6 +3,24 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-13 — Idle TTL detection fix recorded (`work:idle-ttl-detection`)
+
+- Synced to branch `fix/idle-ttl-detection` (`556a35795`, not yet merged). Added
+  [D-idle-ttl-detection](decisions/idle-notifications.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd):
+  Claude TTL detection reads the chat's launch-recorded `native_store` through
+  `MERIDIAN_CHAT_ID`, never a cwd; `--cwd` was removed from `meridian idle arm`.
+  It also adds the Pi provider table (`openai-codex` 1800 s, estimated;
+  `xai`/`deepseek` unknown).
+- Superseded the D-pi-cache-retention claim that `openai-codex` stays push-only,
+  and dropped its structural-debt row.
+- [Prompt-Cache Retention](research/prompt-cache-retention.md): added the Pi
+  provider findings and a ChatGPT-backend section. That section corrects the
+  claim that GPT-5.6's public-API 30 min applies to ChatGPT-auth Codex. Qualified
+  the same claim in [Spawn Wait Barrier](concepts/spawn-wait-barrier.md) and
+  [Launch Session Initiation](decisions/launch-session-initiation.md); noted the
+  recorded-store input on [Harness Adapters](codebase/harness-adapters.md#idle-bundle-ports).
+
+---
 ## 2026-10-12 — Probe-safety and branch-forcing lessons recorded (`work:runtime-efficiency`)
 
 - Added two lessons to [Verification and Review Discipline](lessons/verification-and-review-discipline.md):

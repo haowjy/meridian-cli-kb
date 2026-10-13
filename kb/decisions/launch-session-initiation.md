@@ -47,7 +47,8 @@ See [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md).
 
 > [!FLAG] **Needs human review: premise contradicted (2026-10-08).** The "Why"
 > above assumes every harness caches for roughly an hour. Codex sets no
-> retention parameter, and OpenAI GPT-5.6+ caches for 30 minutes. OpenCode
+> retention parameter, and OpenAI GPT-5.6+ caches for 30 minutes on the public
+> API; the ChatGPT backend publishes no TTL. OpenCode
 > sends Anthropic `ephemeral` without a `ttl`, which gives 5 minutes. Pi
 > defaults to 5 minutes; Meridian sets `PI_CACHE_RETENTION=long` for
 > interactive Pi primaries (1 h on Anthropic), but Pi spawns keep 5 minutes. See
