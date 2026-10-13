@@ -87,3 +87,20 @@ lands on a cold cache. Revisit if observed cache-hit data disagrees.
   would make Pi on the ChatGPT backend the one route where warn and compact
   never fire, while the Codex harness on the same backend schedules both.
 
+
+## Related
+
+- [Idle Notifications](idle-notifications.md): the schedule, guards and adapter
+  contracts that consume the detected TTL.
+- [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md):
+  the provider facts behind the Pi table.
+- [Native Session Binding](../architecture/native-session-binding.md): the
+  recorded-store resolution rule this decision reuses.
+
+## Sources
+
+- `work:idle-ttl-detection` (`chat:c7500`, branch `fix/idle-ttl-detection`):
+  before-state evidence and D1–D5 in `decisions.md`; Pi provider research in
+  `research/pi-provider-cache-ttl.md` (`spawn:p7724`); review in
+  `reviews/review-1.md` (`spawn:p7725`); probe in
+  `evidence/probe-ttl-detection.md` (`spawn:p7726`).
