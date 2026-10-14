@@ -12,6 +12,7 @@ For mechanism, see:
 - [concepts/skill-schema.md](../concepts/skill-schema.md) — frontmatter, lowering, variants
 - [architecture/mars-targeting.md](../architecture/mars-targeting.md) — targeting architecture detail
 - [architecture/mars-compiler.md](../architecture/mars-compiler.md) — compiler internals
+- [architecture/mars-user-scope.md](../architecture/mars-user-scope.md) — user Mars root, root resolution and content layering
 
 ---
 
@@ -590,6 +591,108 @@ user-authorized write), and broad force adoption across unselected paths.
 
 ---
 
+## User Scope
+
+### D97: User-scope packages live in an ordinary Mars root (2026-10)
+
+**Status:** decided by the user on 2026-10-14 as part of
+[D-two-tier-identity](state.md#d-two-tier-identity) (D41, D43, D44 in
+`work:pyright-strict`; `work:two-tier-identity`). Meridian side implemented on
+`feat/two-tier-identity`, draft PR #575, unmerged. The Mars side,
+`--fallback-root`, is mars-agents PR #173 (`release:minor`), open; until a Mars
+release carries it, Meridian takes the unsupported path described below.
+
+**Decision.** User scope for packages is an ordinary Mars project at
+`~/.meridian/mars/` (`get_user_home()/mars`, so a scratch `MERIDIAN_HOME`
+isolates it). Meridian, not Mars, decides which root a command runs against:
+
+- **`resolve_mars_roots(project_root)`** returns `primary`, `scope` and `user`.
+  `primary` is the nearest directory at or above the project root holding
+  `mars.toml` (Mars's own walk-up), scope `project`; otherwise the user root,
+  scope `user`. `user` is the user root, or none when `primary` already is it.
+- **Every Mars subprocess gets `--root <primary>`**, so Mars's own walk is a
+  no-op. The one exception is `meridian mars init` / `init --link`, which
+  targets the literal project root so a nested Mars project can still be
+  created in a repository subdirectory.
+- **`ensure_user_mars_root()`** runs `mars init --root ~/.meridian/mars` under
+  a Meridian lock before any Mars call against the user root, and writes only
+  there. With no `targets` and no `managed_root`, the user root routes
+  unrestricted, so every installed harness is eligible: the user's "all
+  harnesses possible".
+- **Configuration comes from `primary` alone**: targets, aliases, models cache,
+  bootstrap docs and Mars defaults. A project's target restriction is never
+  bypassed by user content. Meridian's own `[primary]` precedence still wins
+  over Mars's defaults.
+- **Content layers**: project `.mars/` → user `.mars/` → built-in (a launch
+  with no profile, plus Mars's fallback-only aliases). Project packages win.
+- **Populating user scope:** `meridian mars --user add <source>`, then
+  `--user sync`. `--user` injects `--root ~/.meridian/mars`.
+- **Mutation gate.** `add`, `remove`, `link`, `unlink`, `sync`, `upgrade`,
+  `rename`, `override`, `adopt`, `version`, `repair`, `resolve` and
+  `models alias` with scope `user` and no `--user` fail with
+  `no project Mars root here; run 'meridian init --link', or use 'meridian mars --user …'`.
+  The gate keys on Mars scope, not identity tier, so a repository subdirectory
+  still mutates the repository's `mars.toml`. It runs before root injection, so
+  Mars's auto-init on `add` / `link` never writes `mars.toml` into a bare
+  directory. `version`, `repair`, `resolve` and `models alias` joined the
+  original nine after review (`spawn:p7868`): with `--root primary` always
+  injected, they would otherwise have reached the user root from a bare
+  directory, and `mars version` commits and tags.
+
+**The `--fallback-root` contract (mars-agents).** Mars read agents and skills
+from one root, so a user agent was invisible inside a project with its own
+`mars.toml`. The smallest change that keeps the project the only configuration
+authority is a lookup-only second root:
+
+- `mars build launch-bundle`, `mars agents [list|show]` and
+  `mars skills [list|show]` accept `--fallback-root <DIR>`.
+- Missing agents and skills come from that root's canonical `.mars/` store.
+  Primary content shadows fallback content. Harness skill variants resolve
+  beside whichever skill was selected.
+- Config, aliases, caches, targets, MCP refs and native manifests come only from
+  the primary root, so an alias in a user agent's `model:` resolves against the
+  project.
+- A nonexistent or manifest-less fallback is ignored, because callers may pass
+  the user root before it is initialized. A corrupt or unreadable fallback lock
+  warns and skips the fallback; a primary lock error stays fatal.
+- The bundle reports `agent_source_path` and each skill's `source_path`, and
+  list/show entries carry `scope` (`root` or `fallback`) and `source_path`.
+  Meridian treats these paths as authoritative, so skill paths, snapshot replay
+  and sandbox projection point at the user root's files. The bundle schema
+  version stays 4.
+
+**The capability probe.** Meridian passes `--fallback-root <user root>` only
+when the installed `mars` supports it. It runs
+`mars build launch-bundle --help` once per executable per process (cached, 10 s
+timeout) and checks for `--fallback-root`. Any failure means unsupported. The
+release version is set by the PR's label, so a version comparison would have to
+guess. Help text is the contract. On an unsupported Mars, a user agent inside a
+project with its own `mars.toml` fails with
+`found in user packages; add it here: meridian mars add <source>`. A bare
+directory never needs the flag, because there `primary` already is the user
+root. `context` and `config show` report `mars_fallback: supported|unsupported`.
+
+**Rejected alternatives:**
+
+| Alternative | Why rejected |
+|---|---|
+| `~/.mars` as the user root | Mars has no such notion, and a scratch `MERIDIAN_HOME` would not isolate it |
+| Per-agent `--root` switching (run a user agent against the user root) | Uses user targets and aliases, bypassing the project's target restriction |
+| Rootless `mars models` | Unneeded: the user root is always ensured before Mars runs against it |
+| Root selection only, no layering | Leaves user agents unreachable inside every project with its own `mars.toml`; recommended against as OQ1 and the user took the default "ship the fallback, project packages win" |
+| Detecting the capability by version number | The shipped version is set by the release label; `--help` is reliable (lane C report) |
+| `--global` as the flag name | `--global` already means "across all projects" in `doctor --global` |
+
+**Accepted risks.** User packages are global mutable state: `--user upgrade`
+changes every ad-hoc place at once, while a project `mars.toml` pins its own.
+Mars's content walk-up can find an unrelated ancestor `mars.toml` (for example
+`~/mars.toml`); that was already Mars behaviour, and `context` now shows the
+resolved roots.
+
+Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution
@@ -598,6 +701,7 @@ user-authorized write), and broad force adoption across unselected paths.
 - [concepts/package-management/sync-model.md](../concepts/package-management/sync-model.md) — sync pipeline mechanics
 - [concepts/package-management/self-source-selection.md](../concepts/package-management/self-source-selection.md) — declared-package source-selection mechanism
 - [architecture/mars-compiler.md](../architecture/mars-compiler.md) — compiler internals
+- [architecture/mars-user-scope.md](../architecture/mars-user-scope.md) — user Mars root, root resolution and content layering
 - [architecture/mars-targeting.md](../architecture/mars-targeting.md) — targeting architecture
 - [architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — launch-bundle system
 - [concepts/skill-schema.md](../concepts/skill-schema.md) — skill schema and variant lowering

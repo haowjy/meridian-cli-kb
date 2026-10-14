@@ -1,35 +1,46 @@
 # State Model
 
-Meridian separates committed identity from uncommitted runtime state. A project
-is identified by `[project].id` in `meridian.toml`; that ID selects a user-local
-runtime directory. Work items use the configured context work root because they
-are shared task artifacts, not repo state.
+Meridian separates identity from runtime state. Identity comes in two tiers,
+decided only by what the literal project root contains
+([D-two-tier-identity](../decisions/state.md#d-two-tier-identity)):
+
+- A **committed project** holds `meridian.toml` or `mars.toml`. Its identity is
+  `[project].id` in `meridian.toml`, a generated three-word id minted on the
+  first write.
+- An **ad-hoc place** holds neither. Its identity is `adhoc.<slug>.<hash12>`,
+  derived from the canonical path, and nothing is ever written into the
+  directory.
+
+Either id selects a user-local runtime directory. Work items use the configured
+context work root because they are shared task artifacts, not repo state.
 
 ## Three Roots, Three Responsibilities
 
 ```mermaid
 graph LR
     P["meridian.toml\n[project].id"] --> R["~/.meridian/projects/<id>/\nruntime state"]
+    A["marker-less directory\npath hash"] --> R
     P --> W["configured context work root\nwork items and artifacts"]
-    M["legacy .meridian/id"] -. "read fallback / migrate on write" .-> P
+    A --> W
 ```
 
 - **Project config:** `meridian.toml` is committed and is the authoritative home
-  of project identity. A new identity is a generated three-word ID.
+  of committed identity. Committing it is how clones and worktrees share state.
 - **Runtime root:** `~/.meridian/projects/<id>/` is never committed. It contains
-  spawn state and artifacts, session events, locks, and runtime caches.
+  spawn state and artifacts, session events, locks, and runtime caches. An
+  ad-hoc root also holds `origin.json` naming its path, and
+  `meridian doctor --global --prune` reclaims it after 30 idle days.
 - **Work root:** `[context.work]` resolves the mutable work-item store. A work
   item can therefore be shared or archived independently of the repository.
 
 No active state, lock, cache, generated `.gitignore`, or fallback context
-folder belongs under repo-local `.meridian/`. Existing `.meridian/id` values
-remain a compatibility input: reads may fall back to them, and the first write
-atomically migrates the value to `meridian.toml` before using it.
+folder belongs under repo-local `.meridian/`, and `.meridian/id` is not read.
 
-This indirection lets a repository move without losing its runtime history.
+Committed identity lets a repository move without losing its runtime history;
+ad-hoc identity does not survive a move, and retention reclaims the orphan.
 Cloned repositories share an identity only when their committed
-`meridian.toml` does; operators who need distinct state must assign a distinct
-project ID.
+`meridian.toml` does. Ad-hoc state never merges into a committed project:
+`meridian init` starts the project with empty history.
 
 ## Storage Patterns
 
@@ -86,13 +97,18 @@ The user root is resolved by `get_user_home()` and may be overridden by
 `MERIDIAN_HOME`. The normal runtime root is `<user-root>/projects/<project-id>`;
 `MERIDIAN_RUNTIME_DIR` can override it for isolated execution and tests.
 
-A literal working directory is considered established when it contains
-`meridian.toml` or `mars.toml`. There is no ancestor walk and `.mars/`, `.git`,
-or `.agents/` alone do not establish a project. Commands that are explicitly
-allowed to initialize a project may create configuration before continuing.
+The project root is the explicit `-C` directory, then `MERIDIAN_PROJECT_DIR`,
+then the literal CWD. There is no ancestor walk, and `.mars/`, `.git`, or
+`.agents/` alone do not make a directory committed. Package content does walk
+up to the nearest `mars.toml`, so a repository subdirectory uses the
+repository's agents while keeping its own ad-hoc state
+([Mars user scope](../architecture/mars-user-scope.md)). Reads never mint an
+id or materialize an ad-hoc root; the mechanism is in
+[project identity](../architecture/state-system/project-identity.md).
 
 ## Related Pages
 
+- [Project identity](../architecture/state-system/project-identity.md) — tiers, ad-hoc keys, retention
 - [Architecture: State System](../architecture/state-system/overview.md) — current paths,
   stores, locks, reconciliation, and migrations
 - [State Decisions](../decisions/state.md) — identity, store, and concurrency

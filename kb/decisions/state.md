@@ -45,41 +45,91 @@ See [principles/design-principles.md](../principles/design-principles.md) for fu
 
 ### Project identity in `meridian.toml`; no repo-local state (Decision 3, 2026-07)
 
-**Decision:** The committed, machine-managed `[project] id` in `meridian.toml` is the precedence-exempt project identity. A directory is a project when it has `meridian.toml` or `mars.toml`; zero-TOML directories remain runnable. Read-only commands create nothing, while the first durable write creates identity atomically.
+**Decision:** The committed, machine-managed `[project] id` in `meridian.toml` is the precedence-exempt project identity. A directory is a project when it has `meridian.toml` or `mars.toml`; zero-TOML directories remain runnable. Read-only commands create nothing.
 
 The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<id>/` for default context. No state, lock, cache, generated `.gitignore`, or fallback context directory lives under repo-local `.meridian/`. Clones and worktrees retain shared history because identity remains committed and immutable.
 
 **Alternatives rejected:** repo-local identity/state created a second root; local-only identity split clones and worktrees; path or VCS-derived identity broke moves or the no-VCS contract; precedence overrides could silently split one project across state roots.
 
-**Status:** still how the code behaves. The "first durable write creates identity" clause, which writes `meridian.toml` into any directory, was reopened in 2026-10; see the next record.
+**Status:** current for committed projects. **Superseded in part (2026-10)** by [D-two-tier-identity](#d-two-tier-identity): the clause "the first durable write creates identity", which wrote `meridian.toml` with a fresh id into any directory that received a write, no longer holds. A marker-less directory now gets path-derived state under `~/.meridian/` and no file. The rest of this record stands.
 
 ---
 
-### Project identity reopened: two-tier design in progress (2026-10)
+### D-two-tier-identity: two-tier project identity and zero-config launch (2026-10) {#d-two-tier-identity}
 
-**Status:** direction chosen, design under revision, **nothing implemented.** Until it ships, Decision 3 above describes the code: the first durable write in a marker-less directory writes `meridian.toml` with a fresh `[project] id`, and `.meridian/id` is still read as a legacy fallback.
+**Status:** decided by the user on 2026-10-14 (`work:two-tier-identity`, design revision 2; D32, D38, D40, D44 in `work:pyright-strict`). Implemented on `feat/two-tier-identity`, draft PR #575 stacked on `chore/cleanup-p2`, unmerged. Layering user agents into a project that has its own `mars.toml` also needs mars-agents PR #173 (`--fallback-root`), which is open; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
-**The recorded rationale for create-on-first-write** (recovered from the April and July records): the id is minted lazily on first write so a project survives being moved, and committed so clones and worktrees share history. #341 (2026-07) moved the marker into `meridian.toml` and ratified "runs anywhere with zero TOML; TOMLs anchor where state lives and never gate whether the CLI works; create-on-write only", with the marker at the literal CWD and no ancestor walk (an ancestor walk had silently joined the wrong project, #335). Rejected then: explicit-init-only, ancestor or VCS walk, path-hash identity, user-local identity, identity overrides.
+**Decision.** The tier of a directory depends only on what its literal project root contains:
 
-**What reopened it.** The July record never priced the files it leaves behind. A census on 2026-10-14 found 326 `meridian.toml` markers under `/tmp` (260 distinct ids, only 3 with state in the real `~/.meridian/projects/`; the rest came from smoke tests with scratch homes) and 97 under `~/gitrepos`. `~/.meridian/projects/` held 163 roots, of which 6 match a marker in a real repository and 158 (65 MB) are UUID roots nothing can attribute to a path. The cost is the marker written into the user's directory and the unattributable root, not lost state.
+- **Committed project:** the root holds `meridian.toml` or `mars.toml`. Identity and state behave as in Decision 3: `[project] id`, minted on the first write.
+- **Ad-hoc place:** the root holds neither, or is the user Mars root `~/.meridian/mars/` itself. Its id is `adhoc.<slug>.<hash12>`, derived from the canonical path, and its state lives in `~/.meridian/projects/<id>/` and `~/.meridian/context/<id>/`. Meridian never writes a file into the directory.
 
-**The requirement, in the user's words:** "I just want to be able to do `meridian opencode` and run something". A bare-directory launch should work with defaults and every installed harness. A probe showed bare launches already start; what fails is agent and skill discovery, which is project-local (`catalog/agent.py`, `catalog/skill.py`) and never searches user scope, and `mars models list`, which needs a project `mars.toml`.
+Where no project Mars root exists, agents, skills, model aliases and launch targets come from **user scope**: `~/.meridian/config.toml` plus the user Mars root ([D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)). A project layers over user scope.
 
-**Direction (user, 2026-10-14):** a directory holding `meridian.toml` or `mars.toml` is a committed project and behaves exactly as today. A marker-less directory is an ad-hoc place: its state lives under `~/.meridian/` and nothing is written into the directory. Settled within that direction:
+**The requirement, in the user's words:** "I just want to be able to do `meridian opencode` and run something … if we don't have meridian.toml, use default values + have all harnesses possible available." A probe (`spawn:p7814`) showed bare launches already started. What blocked `meridian opencode -a reviewer` was package discovery: agents and skills were read only from the project's `.mars/`, and `~/.mars` was never searched. The litter the July rule left behind was a symptom of the same gap.
+
+**Invariants**, each owned by one place in the code:
+
+1. **Tier predicate.** The tier depends only on the resolved project root: no ancestor walk, no VCS lookup, no task dir.
+2. **No litter.** Meridian writes into a directory only if it already holds a marker, or through `init`, `config init` or `meridian mars init`.
+3. **Runs anywhere.** Everything runs in a bare directory except project authoring: `config set/reset`, `workspace init` and `meridian mars` mutations without `--user` error and point to `meridian init`.
+4. **Read purity.** Reads, `doctor` and `--dry-run` included, never mint an id, write a marker or materialize an ad-hoc root.
+5. **Two deciders.** `resolve_project_identity` / `ensure_project_identity` decide where state lives; `resolve_mars_roots` decides where package content comes from for every Mars subprocess.
+6. **Sharing needs commitment.** Clones and worktrees share state only through a committed `[project] id`.
+7. **Disjoint namespaces.** Ad-hoc ids carry the reserved `adhoc.` prefix (a committed id may not use it), and each retention rule owns exactly one namespace.
+8. **No carry-over.** Ad-hoc and committed roots never merge or move. After `init` the old ad-hoc root is unreachable and ages out.
+
+#### Why the July model had to give
+
+July's model rested on three premises: committed identity, a marker at the literal CWD, and zero-TOML operation. Together they turned every directory that received a write into a committed project. The record never priced that. A census on 2026-10-14 found 326 `meridian.toml` markers under `/tmp` (260 distinct ids, 3 with state in the real `~/.meridian/projects/`; the rest came from smoke tests with scratch homes) and 97 under `~/gitrepos`. `~/.meridian/projects/` held 163 roots: 6 matched a marker in a real repository, and 158 (65 MB) were UUID roots nothing could attribute to a path.
+
+The revision keeps all three premises and narrows the first: committed identity is how state is *shared*, not the only way to *have* it. The user asked whether ad-hoc roots just move the litter into `~/.meridian/`. They do keep the root count. What they add is attribution (`origin.json` names the path) and a retention rule that can reclaim them.
+
+**What July's rationale still governs.** The id is committed so clones and worktrees share history, and it is lazy so a project survives a move. Both remain true for committed projects. Identity still never walks up (#335: an ancestor walk silently joined the wrong project).
+
+#### Settled specifics
 
 | Question | Decision |
 |---|---|
 | Does `mars.toml` alone mark a project? | Yes, as ratified in July |
-| Legacy `.meridian/id` fallback and `meridian migrate` | Delete both |
-| Does ad-hoc state carry into a project at `meridian init`? | No. The simplified shape is the long-term shape: `init` starts the project clean, as git, cargo and uv do, and pre-`init` state ages out of its ad-hoc root |
-| `config set` / `config reset` / `workspace init` in a bare directory | Error and point to `meridian init` (prior art is nearly unanimous; `uv run` works anywhere while `uv add` needs a project) |
-| Ad-hoc root lifetime | A conservative retention default, so `doctor --global --prune` can reclaim quiescent roots |
-| Packages in an ad-hoc place | Agents, skills, model catalog and launch targets resolve from user scope with defaults; a committed project layers project over user scope |
-| Ancestor walk | Still none (#335) |
+| Ad-hoc key | `adhoc.<slug>.<hash12>`: `hash12` is the first 12 hex digits of sha256 over the canonical path; the slug is the lowercased basename reduced to `[a-z0-9-]`, at most 24 characters. A recreated path gets the same id and inherits any unpruned state. A move orphans state and retention reclaims it |
+| Ad-hoc metadata | `origin.json` `{path, created_at}`, written once; its mtime records activity and is touched at most hourly. No registry, no id-keyed lock |
+| Legacy `.meridian/id` fallback and `meridian migrate` | Deleted. A directory with only `.meridian/id` is ad-hoc |
+| Does ad-hoc state carry into a project at `meridian init`? | No. `init` writes its scaffold and a minted id in one atomic write and starts the project clean, as git, cargo and uv do. If an ad-hoc root existed it prints `note: earlier ad-hoc state at <root> is not carried over` |
+| `config set` / `config reset` / `workspace init` in a bare directory | Error `no project config here; run 'meridian init'`. Prior art is nearly unanimous: `uv run` works anywhere while `uv add` needs a project |
+| Ad-hoc retention | `state.adhoc_retention_days`, default 30 days quiescent; roots whose path is gone or now holds a marker age at `min(N, 7)` days; a one-hour floor applies to every ad-hoc prune. Read from user config or `MERIDIAN_STATE_ADHOC_RETENTION_DAYS` only. Rationale below |
+| Creation notice | Human-mode launches print a one-time notice on materialization naming the nearest marked ancestor; agent mode and MCP get `identity_created` instead |
+| Ancestor walk | None for identity. Package content keeps Mars's own walk-up, so a repo subdirectory gets the repo's agents but its own ad-hoc state |
 
-**Open:** the revised design (`design/two-tier-identity.md` revision 2 in `work:pyright-strict`) and its specifics: ad-hoc id format, the user Mars root, the retention period and last-activity signal. None of these is decided until the design is approved.
+**Retention, and why these numbers.** `meridian doctor --global --prune` stays the only reclaimer; nothing prunes automatically.
 
-**Rejected in this round:** absorbing an ad-hoc root into the committed project on the first write after `init` (with its pending state, superseded roots and id-keyed locks). It was about a third of the design's blast radius, and the user chose to give up carry-over instead.
+- **30 days idle** matches committed-root retention and was the user's choice. Last activity is the newest of `origin.json`'s mtime and the spawn and session `started_at` / `finished_at` timestamps, so a primary that ran for 40 days and ended yesterday is kept.
+- **`min(N, 7)` for gone or shadowed roots.** Nothing can reach a root whose path now holds a marker (`adhoc-shadowed`: pre-`init` state), and a recreated path would inherit a gone one (`adhoc-path-gone`). Those roots should age *faster* than idle ones, never slower. A flat 7 would have kept them longer than idle roots when N < 7, which the G2 probe caught.
+- **One-hour floor.** `work start` and `spawn done` hold no lease after `ensure`, and `ensure` touches `origin.json` at most hourly. Without a floor, `adhoc_retention_days = 0` let a prune delete a work item a second after it was created (G2 blocker, `spawn:p7868`). Retention 0 therefore means "as soon as quiescent, after one hour".
+- **User config only.** The key is never read from the cwd project, so running `doctor` from inside some project cannot change how every ad-hoc root ages.
+- **Prune deletes `projects/<id>/` and `context/<id>/` together.** Nothing pruned `context/` before. A recreated path would otherwise inherit an old work tree.
+
+**The cost we accepted** (CHANGELOG wording): running `meridian init` later starts that project with empty history. Spawns, sessions and work items from before `init` remain as files under the old root until pruned. Anyone who relied on automatic creation to share state across worktrees runs `meridian init` once and commits `meridian.toml`.
+
+#### Rejected alternatives
+
+| Alternative | Why rejected |
+|---|---|
+| **Keep create-on-first-write** | Leaves a marker in every directory that receives a write and makes the root unattributable |
+| **Explicit `init` only** | Breaks "runs anywhere" and revives the dead establishment gate across CLI, agent mode and MCP (`spawn:p7782`) |
+| **Writes fail in a bare directory** | Same breakage as explicit `init` only, for launches |
+| **Ancestor walk for identity** | #335: silently joins the wrong project |
+| **Path-keyed identity for everything** | Breaks moves and splits clones and worktrees (`0b6f7e6f3`). The path key is used only where nothing is shared |
+| **A path→id registry** | A second store to keep consistent; the path hash plus `origin.json` gives attribution without one |
+| **Absorption on promotion** (design revision 1) | See below |
+| **Adopting the ad-hoc id on `init`** | Commits a path-derived, reserved-prefix id into a shared file |
+| **VCS detection or auto-`init`** | Violates the no-VCS principle; a notice tells the human instead |
+
+**What revision 2 deleted from revision 1, and why.** Revision 1 moved a path's ad-hoc root into its committed root on the first write after a marker appeared ("absorption"). To do that safely it needed a `pending` state while live sessions held leases, `doctor --fix` to resume a pending absorption, `superseded` roots when another clone had already written under the committed id, an id-keyed lock `locks/project-id/<N>.lock`, and tests for each. It was about a third of the design's blast radius, and it broke continuations that pointed at the old root. All of it served to carry scratch history across `init`, which no prior art carries. The user gave up carry-over and called the simplified shape the long-term shape, not a stepping stone.
+
+**Revisit when:** users report losing pre-`init` history they needed; ad-hoc root counts grow without retention catching up; or a harness needs worktrees of an uninitialized repository to share state.
+
+Current mechanism: [project identity architecture](../architecture/state-system/project-identity.md).
 
 ---
 

@@ -45,17 +45,22 @@ the bundle boundary.
 Meridian and Mars own different files:
 
 - **`meridian.toml`** is committed project configuration. `[project].id` is the
-  authoritative project identity.
+  authoritative identity of a committed project. A directory with neither
+  `meridian.toml` nor `mars.toml` is an ad-hoc place: its identity is derived
+  from its path and Meridian writes nothing into it
+  ([project identity](architecture/state-system/project-identity.md)).
 - **`~/.meridian/projects/<project-id>/`** is Meridian's uncommitted runtime
   root for spawn rows, session events, locks, caches, and artifacts.
 - **The configured context work root** holds mutable work-item state and work
   artifacts; it is not repo-local Meridian state.
 - **`.mars/`** is Mars's canonical compiled catalog consumed by Meridian.
+- **`~/.meridian/mars/`** is the user Mars root: packages installed with
+  `meridian mars --user add`, used wherever no project `mars.toml` exists and
+  layered under a project's own packages ([Mars user scope](architecture/mars-user-scope.md)).
 - **Harness-native directories** such as `.claude/`, `.codex/`, `.cursor/`,
   `.opencode/`, and `.pi/` are Mars target projections consumed by harnesses.
 
-Repo-local `.meridian/id` is a legacy identity input only: reads may recognize
-it, and the first identity write migrates its value into `meridian.toml`.
+Repo-local `.meridian/` holds no state and `.meridian/id` is not read.
 `.agents/` is not a Meridian catalog fallback. The exact layouts and migration
 rules belong to [the state architecture](architecture/state-system/overview.md) and
 [the Mars targeting architecture](architecture/mars-targeting.md).
