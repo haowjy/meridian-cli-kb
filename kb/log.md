@@ -3,6 +3,16 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Idle TTL detection shipped; running-session upgrade lesson (`work:idle-ttl-detection`)
+
+- [Idle TTL Detection](decisions/idle-ttl-detection.md): added a v0.9.8 status
+  line with the installed-build verification, the D5 cache-hit evidence (flag
+  kept), and the consequence that sessions running across the upgrade lose idle.
+- New lesson [Bundled mods outlive the CLI they call](lessons/harness-integration.md#bundled-mods-outlive-the-cli-they-call);
+  linked from [D-idle-adapter-hosting](decisions/idle-notifications.md#d-idle-adapter-hosting--where-each-adapter-runs).
+- Decision index row now says shipped in v0.9.8 instead of "not yet merged".
+
+---
 ## 2026-10-13 — Idle TTL decision split (`work:idle-ttl-detection`)
 
 - Split the self-contained [D-idle-ttl-detection](decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd) record from the aggregate idle-notifications page into its own decision page.

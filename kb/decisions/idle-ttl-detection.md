@@ -2,6 +2,13 @@
 
 This decision covers transcript-store resolution and provider TTL mapping for idle notifications.
 
+**Status:** shipped in v0.9.8 (PR #568, merge `ad4f98e6e`, release
+`da1250a0f`). Verified on the installed 0.9.8 with scratch state: a Claude
+session that had moved directories now detects `ttl=3600` exactly and gets
+push, warn and compact; on 0.9.7 the same session gave `ttl=None`, push only.
+Pi `openai-codex` gets 1800 s estimated and all stages; Pi `xai` gets push only.
+D5 is still awaiting human confirmation (flag below).
+
 ## D-idle-ttl-detection — Detection reads launch records, never a cwd
 
 **Problem it fixed:** idle compaction shipped in PR #550, then fired once in two
@@ -51,6 +58,16 @@ A wrong TTL cannot happen, because the exact ID must exist in that store.
 - Every arm without a configured TTL parses `sessions.jsonl`: 0.09 s on 13 MB,
   0.19 s on 30 MB. That is accepted because arm runs off the TUI path. Revisit
   if session logs grow tenfold, or move the read onto the SQLite projection.
+- **Sessions running across the upgrade lose idle until restarted.** Removing
+  `--cwd` broke the mod-to-CLI call shape, and a running session keeps the mod
+  it loaded at start. A 0.9.7 mod calling the 0.9.8 CLI gets
+  `{"error":"Unknown option: --cwd."}`, exit 1, and no state is written. The
+  Claude mod logs `arm failed` only to its own store, so push, warn and compact
+  all stop without any visible error. The 0.9.7 Pi extension also sent `--cwd`
+  unconditionally; it was not live-checked. This was accepted under "no
+  backwards compatibility" and given to the user as an upgrade note. The general
+  mechanism is in
+  [Bundled mods outlive the CLI they call](../lessons/harness-integration.md#bundled-mods-outlive-the-cli-they-call).
 
 **Pi provider table (D3–D5).** `pi_idle._PROVIDER_TTLS` maps the provider and
 the retention mode to a TTL. No match means unknown.
@@ -73,7 +90,9 @@ backend ([research](../research/prompt-cache-retention.md#chatgpt-backend-codex-
 The Codex harness already runs on the same backend with the 1800 estimate. So
 Pi should match it rather than diverge, and `estimated=true` puts `est.` on its
 notices. **Risk:** if the backend cache lives under 25 minutes, the compaction
-lands on a cold cache. Revisit if observed cache-hit data disagrees.
+lands on a cold cache. Local Pi session logs support the estimate so far: after
+a 20–30 min idle gap, 28 of 31 `openai-codex` turns still read the cache (90%),
+and 78 of 84 after 10–20 min. Revisit if later cache-hit data disagrees.
 
 **Rejected:**
 
@@ -103,4 +122,9 @@ lands on a cold cache. Revisit if observed cache-hit data disagrees.
   before-state evidence and D1–D5 in `decisions.md`; Pi provider research in
   `research/pi-provider-cache-ttl.md` (`spawn:p7724`); review in
   `reviews/review-1.md` (`spawn:p7725`); probe in
-  `evidence/probe-ttl-detection.md` (`spawn:p7726`).
+  `evidence/probe-ttl-detection.md` (`spawn:p7726`); D5 cache-hit analysis in
+  `evidence/openai-codex-observed-cache.md`.
+- Post-merge (`chat:c7524`): `decisions.md` "2026-10-14 post-merge" and
+  "Outcome"; installed-build replays in
+  `evidence/post-upgrade-20261013-215646-meridian-0.9.7/` and
+  `evidence/post-upgrade-20261013-215801-meridian-0.9.8/`.

@@ -338,6 +338,39 @@ rollout discovery/parsing), `src/meridian/lib/harness/codex.py`
 
 ---
 
+## Bundled Mods Outlive the CLI They Call
+
+**The mechanism:** Meridian ships in-harness code inside the meridian-cli
+package: the Claude mods under `claude_runtime/` (passed with `--plugin-dir`,
+resolved from the installed package by `claude_runtime_resolver.py` at launch)
+and the Pi extensions (passed with `-e`). The harness loads that code once, at
+session start. Upgrading meridian-cli replaces the CLI on PATH at once, but every
+interactive session that is already running keeps the mod it loaded. Until the
+session restarts, that old mod calls the new CLI.
+
+**What happened (v0.9.8, 2026-10-14):** PR #568 removed `--cwd` from
+`meridian idle arm`
+([D-idle-ttl-detection](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)).
+In a session started on 0.9.7, the mod still sent `--cwd` and got
+`{"error":"Unknown option: --cwd."}` with exit 1. The Claude mod's `note()`
+writes failures only to the mod's own store log (`arm failed: …`), so nothing
+showed in the TUI. Idle push, warn and compact all stopped for that session.
+The change was accepted under "no backwards compatibility", and restarting
+running primaries went to the user as an upgrade note.
+
+**The lesson:** a change to a CLI flag or reply shape that a bundled mod relies
+on is a contract break for every running session, not only for new launches.
+The idle mods report failures quietly by design, so the break shows up as idle
+features that stop firing, with no error message. When such a change ships,
+its upgrade note needs to tell users to restart running interactive sessions.
+
+**Where this lives:** `src/meridian/claude_runtime/meridian-idle/hooks/register.ts`
+(`note()`, the `arm` call), `src/meridian/pi_runtime/extensions/meridian-idle/`,
+`src/meridian/lib/harness/claude_runtime_resolver.py`. Provenance:
+`work:idle-ttl-detection` `decisions.md` "2026-10-14 post-merge" and "Outcome".
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism

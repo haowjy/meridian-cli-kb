@@ -304,6 +304,13 @@ content. Injecting it with `--plugin-dir` only on interactive launches makes
 the flag. Claude sessions started outside meridian can opt in through
 `CLAUDE_CODE_PLUGIN_DIRS`. (User decision U5.)
 
+**Upgrading under running sessions:** the version coupling applies per session.
+A session loads the mod (or Pi extension) at start and keeps it after
+meridian-cli is upgraded. If the upgrade changes the `meridian idle` flags or
+reply shape, that session's idle silently stops until it restarts. v0.9.8 did
+this when it removed `--cwd`; see
+[Bundled mods outlive the CLI they call](../lessons/harness-integration.md#bundled-mods-outlive-the-cli-they-call).
+
 ### Adapter contracts
 
 Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
@@ -574,7 +581,8 @@ To close the gap, the user sets up an app password and sends one test notice:
   unknown.
 - A harness gains a native idle or compaction hook that would replace a
   launcher task or the tmux actuator.
-- The `arm` contract changes next, or a fifth adapter is about to be written.
+- The `arm` contract changes next (this also breaks idle in sessions already
+  running when the upgrade lands), or a fifth adapter is about to be written.
   Do #549 first (pending stages from `arm` and `status`), plus the Codex
   identity-pin op from `lib/idle/.context/FUTURE`, so the new adapter
   doesn't become a fifth copy of the protocol.
