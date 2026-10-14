@@ -40,7 +40,7 @@ flowchart TD
     F --> G{--global flag?}
     G -- yes --> G2{is_root_side_effect_process?}
     G2 -- no --> G3[raise RuntimeError\nglobal requires root process]
-    G2 -- yes --> H[scan orphan project dirs under ~/.meridian/projects]
+    G2 -- yes --> H[scan committed orphan roots\nand ad-hoc roots under ~/.meridian/projects]
     G -- no --> I[skip cross-project scan]
     H --> J[scan stale spawn artifact dirs\ncurrent project]
     I --> J
@@ -52,6 +52,23 @@ flowchart TD
 ```
 
 **Why re-read after reconcile?** Before this pattern was established, step F used a *pre-reconcile* snapshot. Orphaned rows that were just repaired to terminal would still appear in `active_spawn_ids` — their artifact dirs were excluded from pruning and they could appear in live-session warnings, falsely implying cleanup had failed.
+
+### No State, No Repair
+
+`doctor` is a read: it never mints an id, writes a marker, or creates a runtime
+root or the user Mars root. The per-project steps above (bindings, Pi recovery,
+reconciliation, telemetry, artifact prune) run only when the current project's
+runtime root already exists; otherwise doctor reports
+`project_state: no state here` and skips them. `--global` always runs, and its
+root deletions run last so local helpers cannot recreate a root just pruned.
+
+`--global` runs two scans, one per namespace. Committed roots keep the
+quiescent tree-mtime rule under `state.retention_days`. Ad-hoc roots
+(`adhoc.*`) use `state.adhoc_retention_days` from user config or env only,
+with reasons `adhoc-idle`, `adhoc-shadowed` and `adhoc-path-gone`, and are
+deleted together with their `context/<id>/`. Text output lists each root past
+retention as `adhoc_project: <path> [<reason>] state=<root>`. The rules and their locking are
+in [project identity](../architecture/state-system/project-identity.md#retention).
 
 ### Root-Process Gating
 
@@ -167,7 +184,8 @@ doctor warnings as structured categories:
 
 - `stale_spawn_artifacts` — prunable with `meridian doctor --prune`
 - `stale_telemetry_segments` — prunable with `meridian doctor --prune`
-- `stale_orphan_project_dirs` — prunable with `meridian doctor --prune --global`
+- `stale_orphan_project_dirs` — committed roots, prunable with `meridian doctor --prune --global`
+- `stale_adhoc_project_dirs` — ad-hoc roots past retention (payload carries ids, paths, reasons), prunable with `meridian doctor --prune --global`
 - `live_active_spawns_remain` — informational; active rows remained live after reconcile
 
 `--prune` only helps for stale-state categories. If the only warning is

@@ -38,23 +38,23 @@ bootstrap plan. That is how `spawn done` and `spawn rearm` ran as `spawn`
 gave them exact descriptors. Every real subcommand needs one, and nothing tests
 for drift.
 
-## Root Resolution and Establishment
+## Root Resolution and Identity
 
 `resolve_cli_project_root()` honors an explicit directory, then
 `MERIDIAN_PROJECT_DIR`, then the literal execution CWD.
 `resolve_project_root_resolution()` returns the root together with its source
-and execution CWD.
+and execution CWD. There is no "established project" gate: every root is
+usable. The root's contents pick its identity tier
+([project identity](state-system/project-identity.md)). A write command
+mints a committed id where `meridian.toml` or `mars.toml` exists, and otherwise
+materializes a path-keyed ad-hoc root under `~/.meridian/projects/` without
+writing into the directory. Bootstrap preparation returns the one-time
+human-mode creation notice as text and the CLI prints it.
 
-Establishment is a no-op. Since #388, `resolve_cli_project_root()` reports
-`established=True` for every root, so any CWD is treated as a project and write
-commands create the project identity through `prepare_for_runtime_write()`
-wherever they run (create-on-first-write,
-[state Decision 3](../decisions/state.md)). `cwd_has_project_id()` (literal
-`meridian.toml` / `mars.toml`, no ancestor walk) has no production caller. The
-inert `bootstrap_plan.auto_init_cwd` descriptor flag was deleted in cleanup
-phase 2. A two-tier identity design that would stop marker-less directories
-from receiving a `meridian.toml` is in progress, not built
-([project identity reopened](../decisions/state.md#project-identity-reopened-two-tier-design-in-progress-2026-10)).
+Project authoring is the exception: `config set/reset` and `workspace init`
+refuse a bare directory with `no project config here; run 'meridian init'`, and
+`meridian mars` mutations refuse it unless `--user` is given
+([Mars user scope](mars-user-scope.md#meridian-mars-passthrough)).
 
 Bootstrap plans distinguish reads from writes: read-only commands do not
 silently create identity or runtime state. `SystemExit` remains outside `except Exception`, so

@@ -90,8 +90,9 @@ legacy runtime state to the user project root, but `migrations/registry.toml` st
 marks v001 as `stub` and production startup does not discover or run this registry.
 
 **Impact:** Legacy repo-local spawn/session files do not appear on current read paths
-until copied into the user runtime root. The remaining `.meridian/id` compatibility
-path migrates project identity only; it does not make repo-local runtime files active.
+until copied into the user runtime root. Nothing reads `.meridian/id` any more, so a
+directory holding only a legacy `.meridian/id` is an ad-hoc place
+([D-two-tier-identity](../decisions/state.md#d-two-tier-identity)).
 
 **What's needed:** Decide whether to validate and expose v001 as a supported manual
 migration or remove the dormant registry path. If retained, align the helper with the

@@ -95,7 +95,7 @@ every identity outcome.
 established-project check, the user answered "we shouldn't be creating
 meridian.toml everywhere... right?". The flag was never the issue; the July
 create-on-first-write model was. That question is recorded with its evidence in
-[project identity reopened](state.md#project-identity-reopened-two-tier-design-in-progress-2026-10).
+[D-two-tier-identity](state.md#d-two-tier-identity), which replaced create-on-first-write.
 
 ## D-state1-accepted: accept the first config collapse at −88 lines
 
@@ -184,9 +184,8 @@ the newline became the commit marker, is recorded with the state decisions:
 
 - #546 merges: B7 is closed; drop it from the program's open list.
 - A phase-3/4 behavior change is signed off: record it here before its phase starts.
-- The two-tier identity design is approved or implemented: update
-  [state decisions](state.md#project-identity-reopened-two-tier-design-in-progress-2026-10)
-  and drop the identity item from the program page.
+- PR #575 (two-tier identity, [D-two-tier-identity](state.md#d-two-tier-identity))
+  merges: drop the identity item from the program page.
 - Someone needs spawn archiving again: design it fresh against current listings
   rather than restoring the deleted overlay.
 

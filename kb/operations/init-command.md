@@ -8,14 +8,14 @@ How `meridian init --add` works: the sequence of operations, auto-link behavior,
 
 `meridian init --add <package> [<project_dir>]` runs a fixed sequence:
 
-1. **Bootstrap `meridian.toml`** — creates the file if absent, idempotent if present
+1. **Bootstrap `meridian.toml`** — if absent, writes the scaffold and a minted `[project] id` in one atomic write; idempotent if present. Earlier ad-hoc state for the path is not carried over ([project identity](../architecture/state-system/project-identity.md#who-writes-where))
 2. **`mars init`** — initializes `mars.toml` if absent, skipped if it exists
 3. **`mars add <sources>`** — installs packages into `.mars/`
 4. **Determine link targets** — explicit `--link` overrides; otherwise uses package-declared targets
 5. **`mars link <target>`** for each resolved target — materializes content into harness directories
 6. **Set `primary.agent`** — conditionally updates `meridian.toml` based on package declaration
 
-Bare `meridian init` (no `--add`) runs only step 1 and exits. It creates `meridian.toml` without touching `mars.toml` or installing anything.
+Bare `meridian init` (no `--add`) runs only step 1 and exits. It creates `meridian.toml` without touching `mars.toml` or installing anything. When the directory was used before `init`, it prints `note: earlier ad-hoc state at <root> is not carried over`; the old root stays under `~/.meridian/projects/adhoc.*` until `doctor --global --prune` reclaims it. Mars calls in this sequence get `--root <project root>`, so `init` can create a nested Mars project inside a repository subdirectory.
 
 ---
 

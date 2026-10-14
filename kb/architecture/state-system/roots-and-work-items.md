@@ -7,10 +7,11 @@ Archiving moves the entire directory to the archive root. Directory location is 
 
 ## ID Generation
 
-**Project IDs:** `get_or_create_project_id()` reads `[project].id`, migrates a
-legacy `.meridian/id`, or generates a three-word ID. It atomically edits
-`meridian.toml`; concurrent writers converge by re-reading under the config
-lock.
+**Project IDs** come from the identity seam ([project identity](project-identity.md)).
+A committed project's three-word id is minted by `ensure_project_identity()`,
+which atomically edits `meridian.toml` under the project-config transaction;
+concurrent writers converge by re-reading under that lock. An ad-hoc id is a
+path hash and is never written into the directory.
 
 **Spawn IDs** and **session IDs** come from monotonic counters under their
 store locks and render as `p1`, `p2`, … and `c1`, `c2`, … respectively.
@@ -19,31 +20,20 @@ store locks and render as `p1`, `p2`, … and `c1`, `c2`, … respectively.
 
 Read paths call `resolve_project_runtime_root_or_none()` when zero state is a
 valid result, or `resolve_project_runtime_root()` when identity is required.
-Neither creates identity. Write paths call
-`resolve_project_runtime_root_for_write()`, which resolves write authority and
-creates or migrates identity when needed.
+Neither creates identity: both go through the read authority, which uses
+`resolve_project_identity()`. Write paths call
+`resolve_project_runtime_root_for_write()`, which goes through
+`ensure_project_identity()`.
 
 | Resolver | Mutates identity? | Result |
 |---|---|---|
-| `resolve_project_runtime_root_or_none()` | No | Runtime root or `None` |
+| `resolve_project_runtime_root_or_none()` | No | Runtime root, or `None` (unminted committed id or unmaterialized ad-hoc place) |
 | `resolve_project_runtime_root()` | No | Runtime root or error |
-| `resolve_project_runtime_root_for_write()` | Yes, when absent/legacy | Runtime root |
-
-## Identity Compatibility Migration
-
-The active migration is implemented in `lib/ops/migration.py`, not a stub in a
-repo-side migrations registry. `get_project_id()` reads committed
-`meridian.toml` first and falls back to `.meridian/id`. On the first write,
-`get_or_create_project_id()` runs `migrate_legacy_project_identity()` under the
-project-config transaction, atomically writes the legacy value into
-`meridian.toml`, and then resolves the same user runtime root. Without a legacy
-value it generates a collision-checked three-word ID.
-
-The legacy file is compatibility input, not a second current identity store.
-
+| `resolve_project_runtime_root_for_write()` | Yes: mints a committed id or materializes the ad-hoc root | Runtime root |
 
 ## Related Pages
 
 - [State system overview](overview.md) — the complete state-root layout
+- [Project identity](project-identity.md) — tiers, ad-hoc keys and retention
 - [State model](../../concepts/state-model.md) — why committed identity is separate from runtime state
 - [Workspace architecture](../workspace/overview.md) — context resolution that selects the work root

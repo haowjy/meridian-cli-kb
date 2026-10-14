@@ -26,6 +26,12 @@ mars writes to it.
 mars.lock                             ← project-root ownership registry
 ```
 
+**Which `.mars/`.** Meridian reads the nearest project `mars.toml`'s `.mars/`,
+falling back to the user root `~/.meridian/mars/.mars/` (populated with
+`meridian mars --user add`). A project's own packages win, and its
+configuration is never replaced by user scope
+([Mars user scope](../../architecture/mars-user-scope.md)).
+
 **`.mars/` is generated output.** Editing files in `.mars/` directly is
 overwritten on the next `mars sync`. See the [targeting page](targeting.md) for
 how `.mars/` relates to per-harness directories.

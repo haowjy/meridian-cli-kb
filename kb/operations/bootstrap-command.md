@@ -8,7 +8,7 @@ How `meridian bootstrap --add` works: first-run project setup followed by a guid
 
 `meridian bootstrap --add <package> [<project_dir>]` runs the same init sequence as `meridian init --add`, then launches a guided session with the package's primary agent:
 
-1. **Bootstrap `meridian.toml`** — creates the file if absent, idempotent if present
+1. **Bootstrap `meridian.toml`** — if absent, writes the scaffold and a minted `[project] id` in one atomic write; idempotent if present. Earlier ad-hoc state for the path is not carried over ([project identity](../architecture/state-system/project-identity.md#who-writes-where))
 2. **`mars init`** — initializes `mars.toml` if absent, skipped if it exists
 3. **`mars add <package>`** — installs the package into `.mars/`
 4. **`mars link <targets>`** — materializes content into harness directories

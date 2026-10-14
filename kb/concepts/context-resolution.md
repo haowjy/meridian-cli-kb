@@ -60,13 +60,13 @@ path = "."
 
 `resolve_context_paths()` in `src/meridian/lib/context/resolver.py` applies these rules per entry:
 
-1. **`{project}` substitution** — if the path string contains `{project}`, it is replaced with the project UUID (a stable identifier stored in `.meridian/`). If no UUID exists yet, read paths fall back to default `.meridian` locations; write paths can force UUID creation.
+1. **`{project}` substitution** — if the path string contains `{project}`, it is replaced with the project id: `[project].id` for a committed project, `adhoc.<slug>.<hash12>` for a marker-less directory ([project identity](../architecture/state-system/project-identity.md)). With no persisted state yet (an unminted committed id or an unmaterialized ad-hoc place) the path stays unresolved; write paths create the identity first.
 
 2. **Git-backed paths** — if `source = "git"` and `remote` is non-empty, the path resolves relative to the auto-cloned repository location (via `resolve_clone_path(remote)`). Cloning itself is handled lazily by git-autosync hooks, not by the resolver.
 
 3. **Absolute paths** — returned as-is.
 
-4. **Relative paths** — resolved relative to the project root.
+4. **Relative paths** — resolved relative to the project root in a committed project. In an ad-hoc place they stay unresolved, so bootstrap never creates a directory inside it.
 
 ```mermaid
 graph TD

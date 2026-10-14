@@ -185,9 +185,10 @@ imports of `cli.main` (a 30-module import cycle).
 - `sessions.jsonl` grows without bound (15 MB in one real project); `history.jsonl`
   legacy-archive recognition has no writer or reader left.
 - Project identity: the review of `auto_init_cwd` showed that every write command
-  creates `meridian.toml` wherever it runs. That reopened the July
-  create-on-first-write model; a two-tier design is in progress and nothing is
-  implemented ([decision](../decisions/state.md#project-identity-reopened-two-tier-design-in-progress-2026-10)).
+  created `meridian.toml` wherever it ran. That reopened the July
+  create-on-first-write model; the two-tier replacement is decided and
+  implemented as its own stacked PR #575 on `feat/two-tier-identity`, outside
+  this program ([decision](../decisions/state.md#d-two-tier-identity)).
 
 ## Sources
 

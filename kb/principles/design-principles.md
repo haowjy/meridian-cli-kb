@@ -144,7 +144,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **Why it matters:** CI environments, temporary work directories, and non-git version control systems are all real use cases.
 
-**In Meridian:** Project identity is `[project].id` in `meridian.toml`, not the git remote or checkout path. Literal-CWD establishment checks only for `meridian.toml` or `mars.toml`; it does not walk ancestors or infer a project from `.mars/`, `.agents/`, or `.git`. Workspace init may use git integration when available, but core project resolution has no VCS dependency.
+**In Meridian:** A committed project's identity is `[project].id` in `meridian.toml`, not the git remote or checkout path. A directory without `meridian.toml` or `mars.toml` gets an ad-hoc identity hashed from its canonical path, with state under `~/.meridian/`. The tier check looks only at the literal project root; it does not walk ancestors or infer a project from `.mars/`, `.agents/`, or `.git`, so an uninitialized git repository's worktrees keep separate state until `meridian init` commits an id. Meridian prints a notice rather than detecting the repository ([D-two-tier-identity](../decisions/state.md#d-two-tier-identity)). Workspace init may use git integration when available, but core project resolution has no VCS dependency.
 
 ---
 

@@ -54,10 +54,11 @@ until `session archive --prune-runner-history` removes them
 `pi-lifecycle.json` holds the last Pi phase and cleanup status for the current turn
 ([attempt facts and delivery](../attempt-facts-and-delivery.md#pi-lifecycle-sidecar)).
 
-`[project].id` selects the runtime directory. `user_paths.py` still reads a
-legacy `.meridian/id` when config has no ID; the first write migrates that value
-(or generates a three-word ID) into `meridian.toml` by atomic replacement.
-Repo-local `.meridian/` is not an active state root.
+The project id selects the runtime directory: `[project].id` for a committed
+project, `adhoc.<slug>.<hash12>` for a marker-less directory, whose root also
+holds `origin.json`. `lib/state/project_identity.py` is the only resolver
+([project identity](project-identity.md)). Repo-local `.meridian/` is not a
+state root and `.meridian/id` is not read.
 
 Control sockets live outside spawn directories in the per-user POSIX temp
 root. Work items live under `[context.work]` and archive beside that work root.
@@ -72,6 +73,7 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 - [Portable history](portable-history.md) — transcript identity, dirty-source projection, verified ZIP retention, and inert restore
 - [Durability and locking](durability-and-locking.md) — atomic publication, lock semantics, and lock order
 - [Reconciliation](reconciliation.md) — read-time projections, explicit repair, and liveness checks
+- [Project identity](project-identity.md) — committed and ad-hoc tiers, `origin.json`, ad-hoc retention
 - [State roots and work items](roots-and-work-items.md) — work-item store and project/runtime root resolution
 
 ## Related Pages

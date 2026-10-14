@@ -16,16 +16,23 @@ committed. The first implementation put a UUID in `.meridian/id` and keyed
 identity gitignored and left repo-local `.meridian/` carrying ambiguous roles.
 
 The current design keeps the split but changed its binding: `[project].id` in
-`meridian.toml` is authoritative and the user runtime remains
-`~/.meridian/projects/<id>/`. A legacy `.meridian/id` is read only for
-compatibility and migrated on the first write. Work items moved to the
+`meridian.toml` is authoritative for a committed project and the user runtime
+remains `~/.meridian/projects/<id>/`. The legacy `.meridian/id` reader and its
+`meridian migrate` command were deleted in 2026-10. Work items moved to the
 configured context work root rather than either identity or runtime location.
 
-**What remains true:** identity is not the absolute checkout path; high-churn
-runtime state stays user-local; migration must land with the new write path
-rather than leaving two active stores indefinitely.
+The July 2026 rule that the first write creates identity added its own lesson:
+**price the files a lazy default leaves behind.** Minting `meridian.toml` in
+any directory that received a write kept every directory runnable, but a census
+found 326 stray markers under `/tmp` and 158 runtime roots nothing could
+attribute. The fix kept "runs anywhere" and moved scratch state out of the
+directory: marker-less directories get a path-derived id, `origin.json`, and a
+retention rule ([D-two-tier-identity](../decisions/state.md#d-two-tier-identity)).
 
----
+**What remains true:** committed identity is not the absolute checkout path
+(only unshared, ad-hoc state is path-keyed); high-churn runtime state stays
+user-local; migration must land with the new write path rather than leaving two
+active stores indefinitely.
 
 ## Why JSONL Over SQLite
 

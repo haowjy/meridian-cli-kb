@@ -8,9 +8,13 @@ merge.
 
 ## Loading
 
-`scan_agent_profiles()` walks `.mars/agents/*.md` at project root:
+`scan_agent_profiles()` walks `.mars/agents/*.md` in each content root: the
+primary Mars root (the nearest `mars.toml` at or above the project root, else
+the user root `~/.meridian/mars/`), then the user root when the installed Mars
+supports `--fallback-root` ([Mars user scope](../../architecture/mars-user-scope.md)):
 
-1. Reads all `.md` files in `.mars/agents/`
+1. Reads all `.md` files in each root's `.mars/agents/`; the primary root's
+   profile shadows a user profile of the same name
 2. Parses YAML frontmatter + body for each file
 3. Duplicate names: identical-content duplicates are silently deduped; conflicting
    duplicates log a warning and first-seen wins
