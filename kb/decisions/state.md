@@ -138,7 +138,7 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### D-spawn-run-identity: a spawn id names the conversation; each launch is a run (2026-10) {#d-spawn-run-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, nothing merged or shipped. Phases 1–2 (PR-A: run identity in storage, surfaces that resolve spawns to runs) are draft PR #587 (`feat/primary-keeps-spawn-id`, `096119fa5`). Phases 3–4 (PR-B: reopen, telemetry, hooks, vocabulary docs) are on the local branch `feat/continue-keeps-spawn-id` (`05c059d02`), stacked on PR-A and not pushed. On `main`, **every primary and child launch, `--continue` included, still mints a new bare `pN`**. Architecture, vocabulary and native-session-binding pages describe `main`, so they still show one spawn per launch and move when PR-B merges.
+**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, nothing merged or shipped. Phases 1–2 (PR-A: run identity in storage, surfaces that resolve spawns to runs) are draft PR #587 (`feat/primary-keeps-spawn-id`, `096119fa5`). Phases 3–4 (PR-B: reopen, telemetry, hooks, vocabulary docs) are on the branch `feat/continue-keeps-spawn-id` (`c625a0918`), stacked on PR-A and pushed; no PR opened yet. On `main`, **every primary and child launch, `--continue` included, still mints a new bare `pN`**. Architecture, vocabulary and native-session-binding pages describe `main`, so they still show one spawn per launch and move when PR-B merges.
 
 **Decision.** `--continue` reopens the spawn; `--fork` and `--from` create a new one. The rule is the same for primaries and children.
 
