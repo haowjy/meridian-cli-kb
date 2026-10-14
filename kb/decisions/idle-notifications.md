@@ -616,7 +616,12 @@ were observed on 0.9.8.
 - Pi applies `PI_CACHE_RETENTION` in its `openai-codex` adapter, or renames or
   drops the variable.
 - OpenAI publishes a ChatGPT-backend cache TTL, or observed cache hits after
-  idle contradict the 1800 s Codex and Pi `openai-codex` estimate.
+  idle contradict the 1800 s estimate for Codex, Pi `openai-codex` and OpenCode
+  `openai`. The baseline is the 2026-10-14 probe
+  ([measured idle window](../research/prompt-cache-retention.md#measured-idle-window-2026-10-14)):
+  Pi hits at 25 and 35 min, OpenCode confounded. A value counts as confirmed
+  only from a re-measurement with a distinct prefix per gap (or serial runs),
+  so no resend refreshes another gap's cache entry.
 - Claude files a `/clear` successor outside the launch store, or Meridian stops
   recording `native_store` on the chat; Claude TTL detection would then return
   unknown.

@@ -4,8 +4,9 @@ How long each harness's provider keeps the prompt cache warm while a session
 sits idle. Checked 2026-10-08 against Codex CLI `rust-v0.161.0`, OpenCode
 `v1.18.34`, Pi 1.1.0 and the OpenAI and Anthropic prompt-caching docs. Pi's
 `openai-codex`, `xai` and `deepseek` providers, and the ChatGPT backend, were
-checked 2026-10-13. Provenance: `work:idle-cache-notify` (`spawn:p7423`) and
-`work:idle-ttl-detection` (`spawn:p7724`).
+checked 2026-10-13; the backend's idle window was probed 2026-10-14.
+Provenance: `work:idle-cache-notify` (`spawn:p7423`) and
+`work:idle-ttl-detection` (`spawn:p7724`, `spawn:p7824`).
 
 **The common assumption that every harness keeps about an hour is wrong.**
 By default only Claude Code sessions can be assumed to get 1 h, and even there
@@ -34,8 +35,10 @@ Source: [OpenAI prompt-caching guide, cache lifetime](https://developers.openai.
 ### ChatGPT backend (Codex and Pi's `openai-codex`)
 
 ChatGPT-auth Codex sessions and Pi's `openai-codex` provider call
-`https://chatgpt.com/backend-api`, not the public API. **The 30-minute GPT-5.6
-TTL above is not established for this endpoint.**
+`https://chatgpt.com/backend-api`, not the public API. OpenCode's `openai`
+provider reaches the same backend when it authenticates with a ChatGPT account
+(OAuth), as it does on this machine. **The 30-minute GPT-5.6 TTL above is not
+established for this endpoint.**
 
 - The backend caches automatically. Cache affinity comes from the Responses
   `session-id` header and `prompt_cache_key` (OpenAI Codex `codex-rs/core/src/client.rs`).
@@ -52,7 +55,47 @@ TTL above is not established for this endpoint.**
 An earlier version of this page left "ChatGPT-auth versus API-key retention"
 open, and the idle design treated GPT-5.6's 30 minutes as the Codex fact.
 The endpoint split above refutes that mapping. Meridian's 1800 s for this
-backend is an estimate, not a provider guarantee.
+backend is an estimate, not a provider guarantee. The user confirmed it on
+2026-10-14 for the GPT-5.6+ models in use here, and it stays marked estimated.
+
+#### Measured idle window (2026-10-14)
+
+`spawn:p7824` primed parallel sessions on both ChatGPT-backend routes, one
+session per idle gap, all with the same 21.6 KB first prompt. After the gap it
+sent one short resend per session and read the cached-token count on that
+resend. A hit means about 1,000 or more cached tokens. Gaps: 5, 15, 25, 35, 45
+and 60 min. The 5-min pair was first resent at about 2 min by mistake; those
+results are excluded and the replacement pair ran at about 6 min.
+
+| Gap | Pi `openai-codex` (`gpt-6-astra`), cached / total | OpenCode `openai` (`gpt-6-luna`), cached / total |
+|---:|---|---|
+| ~6 min | 5,504 / 5,679, hit | 10,752 / 11,624, hit |
+| 15 min | 0 / 5,692, **miss** | 1,536 / 11,624, partial hit |
+| 25 min | 5,504 / 5,685, hit | 10,752 / 11,624, hit |
+| 35 min | 5,504 / 5,683, hit | 10,752 / 11,624, hit |
+| 45 min | 0 / 5,683, **miss** | 10,752 / 11,624, hit |
+| 60 min | 0 / 5,700, **miss** | 10,752 / 11,624, hit |
+
+- **Pi `openai-codex`:** every prime read 0 cached tokens, so the sessions did
+  not visibly share a cache entry. Hits at 6, 25 and 35 min, misses at 15, 45
+  and 60. This fits the 1800 s estimate, and compaction at about 25 min would
+  have landed warm in this run. It is not a boundary: the 15-min miss is
+  unexplained (eviction or routing are guesses, not findings).
+- **OpenCode `openai`:** confounded, so it bounds nothing. The primes
+  themselves read 1,536–10,752 cached tokens: all six sessions hit one
+  prefix-keyed cache entry, and each resend refreshed it for the next. The
+  hits through 60 min measure time since the last touch by any session, which
+  was 15 min or less. They are not a 60-minute window.
+- **Outcome:** nothing contradicts 1800 s, and nothing confirms it as a
+  provider value. Both routes keep `estimated=true`.
+
+A clean re-measurement needs a *distinct* prefix for each gap's session, or
+serial runs, so that no resend can refresh another gap's entry.
+
+Evidence: `work:idle-ttl-detection` `evidence/probe-openai-cache-ttl.md`, raw
+session exports and launch logs in `evidence/openai-cache-ttl/`. Earlier
+observational data from real Pi sessions (90% hits after 20–30 min idle) is in
+`evidence/openai-codex-observed-cache.md`.
 
 ## Anthropic retention, which OpenCode and Pi inherit
 

@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — OpenAI idle TTL confirmed and measured (`work:idle-ttl-detection`)
+
+- [Idle TTL Detection](decisions/idle-ttl-detection.md): cleared the D5/D7
+  review flags (user confirmed 1800 s; still `estimated`) and added the
+  provider-not-model TTL limitation.
+- [Prompt-Cache Retention](research/prompt-cache-retention.md#measured-idle-window-2026-10-14):
+  recorded the `spawn:p7824` ChatGPT-backend probe (Pi window observed,
+  OpenCode confounded). Pointed the 1800 s "Revisit when" in
+  [Idle Notifications](decisions/idle-notifications.md#revisit-when) at it and
+  listed the limitation under [Idle Adapters](architecture/idle-adapters.md#known-fragility).
+
+---
 ## 2026-10-14 — Renamed harness connection-seam decisions
 
 - Renamed [connection-seams.md](decisions/connection-seams.md) from the

@@ -166,7 +166,9 @@ account"), so it reaches the ChatGPT backend that the Codex harness and Pi's
 `openai-codex` use, where no TTL is published. On the public API, GPT-5.6+
 publishes 30 minutes. Either way 1800 s, marked `est.`, keeps all three
 harnesses on that backend scheduling the same stages. If D5 is overturned, D7
-goes with it.
+goes with it. The `spawn:p7824` probe bounds nothing on this route: its
+sessions shared one cache entry
+([measurement](../research/prompt-cache-retention.md#measured-idle-window-2026-10-14)).
 
 **Not mapped:** OpenCode `anthropic` sessions have a known 5-minute cache, but
 only the push fits in 5 minutes, so mapping them changes nothing but the
@@ -214,3 +216,7 @@ published TTL, no guess.
   `evidence/coder-opencode-ttl-live.md` and
   `evidence/probe-opencode-idle-gate.md` (`spawn:p7788`); review
   `reviews/review-3.md` (`spawn:p7787`).
+- D5/D7 confirmation and cache measurement: `decisions.md` "2026-10-14 D5/D7
+  evidence check" and "2026-10-14 p7824 result"; probe report
+  `evidence/probe-openai-cache-ttl.md` (`spawn:p7824`), raw records in
+  `evidence/openai-cache-ttl/`.

@@ -121,6 +121,11 @@ These cases fail open or fail silently:
   0.9.8 ([lesson](../lessons/harness-integration.md#a-dialect-switch-must-move-every-consumer-of-the-stream)).
 - The Codex tmux actuator narrows the race with a returning user but can't
   close it.
+- **TTL keyed by provider, not model** (Pi `openai-codex`, OpenCode `openai`).
+  The 1800 s estimate assumes GPT-5.6 or later; an older model on those routes
+  inherits it, so warn and compaction can land on a cold cache. This fails
+  silently; a configured `ttl_seconds` overrides it
+  ([limitation](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)).
 
 ## Related
 
