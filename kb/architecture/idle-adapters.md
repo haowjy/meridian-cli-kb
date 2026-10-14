@@ -98,23 +98,27 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   independently of POST response ordering, and failed or cancelled requests
   clear it in `finally`. Messages tied to the compaction part stay classified
   as synthetic.
+
 ## Close and reopen
 
-PR #578 (unreleased) ties a stretch to the launch that armed it: core compares
-the caller's `MERIDIAN_SPAWN_ID` with the stored `owner`
-([D-idle-stretch-owner](../decisions/idle-notifications.md#d-idle-stretch-owner--a-stretch-belongs-to-the-launch-that-armed-it)).
-No adapter changed. Closing never mutates the store; the reopened launch's
-first `fire` or `arm` ends the old stretch.
+PR #578 (unreleased): before exec, the primary launcher closes the resumed
+session's open stretch with the `idle return` transform
+([D-idle-reopen-return](../decisions/idle-notifications.md#d-idle-reopen-return--a-meridian-reopen-is-a-user-return)).
+The call is `close_on_launch` in `lib/idle/service.py`, made from
+`run_harness_process` in `lib/launch/process/runner.py` after
+`prepare_prelaunch` and before the native observer and exec. Every interactive
+primary passes it, for all four harnesses; managed-attach dispatch comes
+later. No adapter changed. Closing a primary still never touches the store.
 
-| Harness | On close | On reopen | With #578 |
+| Harness | On close | On start (reload or reopen) | After a Meridian reopen |
 |---|---|---|---|
-| Claude | `session.end` cancels in-memory timers only | `session.start` → `recover()` rebuilds timers from open rows in `idle status`, minus stages in `done`. Reload and resume take the same path; the mod can't tell them apart. | First rebuilt timer fires → `owner-gone`, stretch closed. Reload keeps the owner, so its timers act. |
+| Claude | `session.end` cancels in-memory timers only | `session.start` → `recover()` rebuilds timers from open rows in `idle status`, minus stages in `done`. Reload and resume take the same path; the mod can't tell them apart. | The row is already closed, so `recover()` re-adopts nothing. A reload runs no launcher, so its open row is rebuilt as before. |
 | Pi | `session_shutdown` → `stop()` cancels timers only | `session_start` → `start()` → `idle status` → `restore()`, same as Claude | Same as Claude |
-| Codex | launcher sidecar cancelled; timers die | the new sidecar's identity-pin `arm` (`lib/idle/sidecar.py` `run`); the sidecar ignores that pin's schedule until an external event moves the anchor | The pin is a cross-owner arm, so it opens the new launch's stretch at launch start. Its deadlines show in `idle status` but fire only after a real turn re-anchors. |
-| OpenCode | launcher sidecar cancelled; timers die | nothing adopted: the sidecar polls the store only for external-event sensors | The first turn end is a cross-owner arm and opens a fresh stretch |
+| Codex | launcher sidecar cancelled; timers die | never re-adopted: the new sidecar's identity-pin `arm` (`lib/idle/sidecar.py` `run`) re-anchors the row with a schedule from now, and the sidecar ignores that schedule until an external event moves the anchor | The launcher closes the old row first, so the pin opens a fresh stretch (`stretch + 1`, empty `done`). Its deadlines show in `idle status` but fire only after a real turn re-anchors. |
+| OpenCode | launcher sidecar cancelled; timers die | never re-adopted: the sidecar polls the store only for external-event sensors | The old row is closed; the first turn end opens a fresh stretch |
 
-An external Claude TUI has no `MERIDIAN_SPAWN_ID`, so its owner is `None` on
-both sides and a reopen still rebuilds the old stretch.
+No launcher runs for a Claude TUI started outside Meridian or for an in-TUI
+`/resume`, so those starts can still rebuild an old open stretch.
 
 ## Known fragility
 
@@ -135,13 +139,14 @@ These cases fail open or fail silently:
   The #550 review filed this as "fails closed"; for idle, closed and silent are
   the same thing. OpenCode 2.x did exactly this for every release from 0.9.3 to
   0.9.8 ([lesson](../lessons/harness-integration.md#a-dialect-switch-must-move-every-consumer-of-the-stream)).
-- **Owner propagation** (PR #578). Arm and fire must see the same
-  `MERIDIAN_SPAWN_ID`. Today they do: the Claude mod's `$.process.run` and Pi's
-  `spawn(..., {env: process.env})` inherit the TUI env, Codex's `notify` and
-  its sidecar share the launch env, and OpenCode is one in-process service. An
-  adapter or upstream change that scrubs the env on one side makes every fire
-  `owner-gone`: no push, warning or compaction, and no error. This fails
-  silently.
+- **Reopen close placement** (PR #578). The `close_on_launch` call must stay
+  before exec in `run_harness_process`. Moved after the harness starts, Claude
+  `recover()` and Pi `restore()` can re-adopt the old stretch first. The call
+  also keys the row by `str(harness_adapter.id)` and reads the store under
+  `child_env`'s user home; both must match what the harness's own
+  `meridian idle` calls use (`claude`, `pi`, `codex`, `opencode`). A mismatch
+  closes nothing: a reopened Claude or Pi primary re-adopts the old stretch and
+  can compact on its schedule, with no error. This fails silently.
 - The Codex tmux actuator narrows the race with a returning user but can't
   close it.
 - **TTL keyed by provider, not model** (Pi `openai-codex`, OpenCode `openai`).

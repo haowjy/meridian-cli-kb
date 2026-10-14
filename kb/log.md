@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Idle reopen is a user return; D1 replaced (`work:idle-close-no-compact`, PR #578, unreleased)
+
+- [Idle notifications](decisions/idle-notifications.md#d-idle-reopen-return--a-meridian-reopen-is-a-user-return):
+  **D-idle-stretch-owner rewritten as D-idle-reopen-return** (D6). The
+  launcher closes the resumed session's open stretch before exec; D1
+  (`owner = MERIDIAN_SPAWN_ID`, `owner-gone`) is now a rejected alternative.
+  Removed D1-only claims: guard 4 `owner-gone`, the persisted owner field,
+  two-launch mutual cancel, plain-shell arm/fire kill, upgrade losing a
+  stretch. Absolute-time invariant, Revisit-when and Sources updated.
+- [Idle adapters](architecture/idle-adapters.md#close-and-reopen): close/reopen
+  table rewritten (Claude/Pi re-adopt on start but find the row closed;
+  Codex/OpenCode never re-adopt); owner-propagation fragility replaced by
+  reopen-close placement and harness-key match.
+- Ledger row and index description renamed. Break-even research unchanged.
+
 ## 2026-10-14 — Launch-owned idle stretches (`work:idle-close-no-compact`, PR #578, unreleased)
 
 - [Idle notifications](decisions/idle-notifications.md#d-idle-stretch-owner--a-stretch-belongs-to-the-launch-that-armed-it):

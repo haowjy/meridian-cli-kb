@@ -46,9 +46,10 @@ each harness actually schedules today is in
 - **The timeline is absolute-time.** `timeline.schedule` is pure and returns
   wall-clock deadlines. That is why an adapter can rebuild its timers from the
   state file after a reload. Relative timers would make reload recovery
-  impossible. Recovery holds only within one launch: a reopened primary never
-  inherits the previous launch's stretch
-  ([D-idle-stretch-owner](#d-idle-stretch-owner--a-stretch-belongs-to-the-launch-that-armed-it)).
+  impossible. Recovery serves reloads only: a Meridian reopen closes the
+  session's open stretch before the harness starts, so an adapter finds
+  nothing to rebuild
+  ([D-idle-reopen-return](#d-idle-reopen-return--a-meridian-reopen-is-a-user-return)).
 - **Harness isolation.** `launch/` and `lib/idle` contain no `HarnessId`
   branches. Harness modules depend only on `lib/harness/idle_types.py`, never
   on `lib/idle` ([D-idle-leaf-packages](#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services)).
@@ -191,8 +192,7 @@ last:
 1. not a primary
 2. idle disabled for this harness
 3. stage already done in this stretch
-4. stretch closed, stretch owned by another launch (`owner-gone`, PR #578,
-   unreleased), or the timer is stale
+4. stretch closed, or the timer is stale
 5. timer fired early
 6. timer fired late (machine slept)
 
@@ -218,7 +218,6 @@ Compaction only, after those:
 `~/.meridian/idle/<harness>-<native_session_id>.json`, written atomically and
 read truncation-tolerantly, with lazy deletion after 7 days. Timers live in
 memory wherever the adapter runs and are re-derived from the file after a reload.
-The file also records the launch that owns the open stretch (PR #578).
 
 **Why:** A Claude mod hot reload and a Pi `/reload` both wipe in-memory state;
 without a durable marker a reload re-sends the push and can compact twice.
@@ -232,7 +231,7 @@ size at all. A floor on growth since start or since the last compaction, set
 per provider, is proposed but not decided; the cost model is in
 [Idle Compaction Break-Even](../research/idle-compaction-break-even.md).
 
-## D-idle-stretch-owner — A stretch belongs to the launch that armed it
+## D-idle-reopen-return — A Meridian reopen is a user return
 
 **Status:** PR #578 (branch `fix/idle-close-no-compact`), unreleased.
 
@@ -244,56 +243,74 @@ autocompaction" / "closing it and reopening it - we shouldn't autocompact it".
 closed the stretch. On reopen, Claude's `recover()` and Pi's `restore()`
 rebuilt the stored open stretch, the same path that serves reload. The old
 compaction then ran if the cache was still warm and the fire was not late.
+Codex and OpenCode never re-adopt a stored stretch, so they were not affected.
 
-**Decision (D1):** `arm` records `owner = MERIDIAN_SPAWN_ID` on the stretch.
-Every primary launch, resume included, gets a new spawn id, and every
-`meridian idle` call the harness makes inherits it. Core enforces one rule for
-all four harnesses, with no adapter changes:
+**Decision (D6):** Meridian owns resume for every harness: each adapter
+refuses the native resume flags, and the launcher knows the harness session
+id before exec. So a reopen is treated as what it is, a user return. In
+`run_harness_process`, after `prepare_prelaunch` and before the harness
+starts, the launcher calls `close_on_launch(harness, session, env)`
+(`lib/idle/service.py`). If that session has an open stretch, it applies the
+same close transform as `meridian idle return` (`_close_open_stretch`:
+`stretch_open = false`, `returned_at_ms = now`, compaction window and
+expected-compaction flag cleared). Claude and Pi then find nothing open to
+re-adopt, and the first finished turn opens a fresh stretch.
 
-- `fire` from a different owner → skip `owner-gone`, and the stretch is
-  persisted closed, so `idle status` stops listing it and nothing re-arms it.
-- `arm` from a different owner over an open stretch → opens a new stretch with
-  fresh `done`. The same-launch shortcuts (compaction window, expected
-  compaction turn, already compacted) do not carry across launches.
-
-The rule applies when the reopened launch first touches the stretch, not at
-close. Until then the closed launch's stretch still shows in `idle status`
-with its deadlines, though no timer exists to fire them (D4). Reload keeps
-the process env, so it keeps the owner and recovery is unchanged.
+- No new state, guard, or arm/fire branch. The store schema is unchanged.
+- It never creates a row. A fresh launch also has a session id before exec
+  (Claude mints one), and finds no row, so the call does nothing. An
+  already-closed row is left untouched.
+- It never fails the launch: errors are logged at debug and swallowed.
+- It does not depend on how spawn ids are assigned on resume.
 
 **Scope (D2):** the whole stretch ends, not only compaction. A push or warning
-from a launch the user already left is meaningless too.
+for a stretch the user has already come back to is meaningless too.
 
-**Consequences:**
+**Reload recovery holds** because a reload (Claude mod hot reload, Pi
+`/reload`) runs no launcher. Rebuilding timers from absolute deadlines stays
+the reload path.
 
-- Two launches attached to one session at once cancel each other's stretches;
-  neither compacts. Accepted: there is no right TUI to compact.
-- A `meridian idle arm|fire` from a plain shell (owner `None`) against a live
-  session kills its stretch. Debug-only.
-- Upgrading under a running primary costs that primary one stretch: old files
-  read as `owner: null`, so its next fire is `owner-gone`.
-- **Gap (D3):** an external Claude TUI opted in through
-  `CLAUDE_CODE_PLUGIN_DIRS` has no `MERIDIAN_SPAWN_ID`. `None == None`, so a
-  reopened external TUI still rebuilds the old stretch. Documented, not fixed.
+**Accepted gaps:**
 
-**Why reopen-side, in core:** a killed terminal, `tmux kill-session` or
-SIGHUP runs no exit hook, so any close-time mechanism misses the common case.
-Crash-only: recovery is startup.
+- Switching sessions inside a running Claude TUI with `/resume` runs no
+  launcher. `recover()` can adopt that session's still-open stretch until its
+  deadlines lapse or the next prompt closes it. If this ever matters, the fix
+  belongs in the Claude mod (compare against the launch's recorded session),
+  not in core.
+- A Claude TUI started outside Meridian (opted in through
+  `CLAUDE_CODE_PLUGIN_DIRS`) has no launcher, so a reopen still rebuilds the
+  old stretch.
+- A killed primary that is never reopened keeps its row in `idle status` until
+  a reopen or the 7-day lazy deletion. No timer exists to fire it.
 
 **Rejected:**
 
+- **Launch-owned stretches (D1, an earlier revision of PR #578).** `arm`
+  recorded `owner = MERIDIAN_SPAWN_ID`; a fire from a different owner skipped
+  `owner-gone` and closed the stretch, and an arm from a different owner
+  opened a new one. It worked only because every primary launch, resume
+  included, mints a new spawn id. The user does not want that as a contract
+  ("I don't think every launch should get a new spawn id"); if a resumed
+  primary keeps its spawn id, the reopen matches the old owner and the bug
+  returns silently. It also added about five concepts (owner identity, a
+  spawn-id dependency, an `owner-gone` reason that mutates state, cross-owner
+  arm branches, a lazy close) to every harness for a bug that lives in two
+  adapters.
 - **Exit-side close** in launcher teardown, Claude `session.end` or Pi
-  `session_shutdown`: misses kills, and `session.end` may also fire on reload.
-- **Per-adapter "fresh start closes" logic:** three places, and it needs
-  reload-versus-resume detection that the Claude engine does not expose to the
-  mod.
+  `session_shutdown`: a killed terminal, `tmux kill-session` or SIGHUP runs no
+  exit hook, and `session.end` may also fire on reload.
+- **Per-adapter "fresh start closes" logic** in `recover()`/`restore()`: the
+  engines cannot tell a reload from a resume, and reload recovery must keep
+  working.
 
-**Verified:** live Claude probe (Haiku 4.5, TTL forced to 600 s): left open,
-compaction ran; killed and resumed with nothing typed,
-`done.push = skipped:owner-gone` and no compaction past the old deadline; a new
-turn opened stretch 2 owned by the new launch. Other harnesses by code trace
-(review-1): each passes the same `MERIDIAN_SPAWN_ID` on arm and fire.
-Per-adapter close/reopen paths are in
+**Verified:** live probe on `ae3636a22` (Claude `claude-haiku-4-5`, Pi
+`deepseek/deepseek-flash`, TTL forced to 600 s). Claude left open: compaction
+ran. Claude killed and reopened with nothing typed: the row closed about 1.4 s
+after the reopen started, `done` stayed `{}` past the old compact deadline, no
+compaction marker. A new turn opened stretch 2 on a fresh schedule. Pi killed
+and reopened: closed about 1.7 s after reopen, no compaction. A fresh Claude
+launch created no row. Codex and OpenCode pass the same launcher call but had
+nothing to reproduce. Per-adapter close/reopen paths are in
 [Idle Adapter Architecture](../architecture/idle-adapters.md#close-and-reopen).
 
 ## D-session-role — One `MERIDIAN_SESSION_ROLE` at the bind seam
@@ -712,9 +729,10 @@ were observed on 0.9.8.
   identity-pin op from `lib/idle/.context/FUTURE`, so the new adapter
   doesn't become a fifth copy of the protocol.
 - A new idle capability needs a bundle port. Group the ports first (#554).
-- External Claude TUIs become a supported workflow: they need a launch
-  identity, or a reopen still inherits the old stretch (D-idle-stretch-owner
-  gap D3).
+- External Claude TUIs or in-TUI `/resume` become workflows that matter: no
+  launcher runs there, so a reopen can still adopt the old stretch
+  ([D-idle-reopen-return](#d-idle-reopen-return--a-meridian-reopen-is-a-user-return)
+  gaps). The fix belongs in the Claude mod.
 - Someone measures the compaction summary size, or the
   [compaction floor](../research/idle-compaction-break-even.md) is decided.
 
@@ -736,9 +754,11 @@ were observed on 0.9.8.
   `reviews/review-2.md` … `review-4.md`; live fix checks
   `evidence/coder-fix-round-2-live.md`, `evidence/coder-fix-round-3-live.md`.
 - `work:idle-close-no-compact` (PR #578, branch `fix/idle-close-no-compact`):
-  `decisions.md` D1–D5, `explore-close-reopen.md` (`spawn:p7881`),
-  `reviews/review-1.md` (`spawn:p7883`), `evidence/probe-close-reopen.md`
-  (`spawn:p7884`), `pr-body-idle-close.md`. Break-even analysis from the
+  `decisions.md` D1–D6 (D6 is the shipped design), `explore-close-reopen.md`
+  (`spawn:p7881`), `reviews/review-2-thermo.md` (`spawn:p7889`, why D1 was
+  replaced), `evidence/probe-reopen-return.md` (`spawn:p7891`),
+  `pr-body-idle-close.md`. D1's review and probe (`reviews/review-1.md`,
+  `evidence/probe-close-reopen.md`) describe the replaced design. Break-even analysis from the
   tech-lead primary `spawn:p7743`.
 - Process lessons: [parallel test lanes](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames),
   [adapter-suite coverage](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
