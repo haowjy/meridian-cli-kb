@@ -2,13 +2,13 @@
 
 The launch system is the composition and execution layer between the policy layer (`ops/spawn/`) and the mechanism layer (harness adapters, state stores). It has one job: turn a caller's intent into a running subprocess, then record what happened.
 
-## Central Seam: `build_launch_context()`
+## Central Seam: Prepare/Bind
 
-All launch paths share one composition factory in `lib/launch/context.py`. No driving adapter composes launch state independently.
+All launch paths share one two-phase composition pipeline in `lib/launch/context.py`. No driving adapter composes launch state independently.
 
 ```
-SpawnRequest + LaunchRuntime  →  build_launch_context()  →  LaunchContext
-                                   (sole composition seam)
+SpawnRequest + LaunchRuntime  →  prepare_launch_surface()  →  bind_launch_context()  →  LaunchContext
+                                   (the composition seam, in two phases)
 ```
 
 **`SpawnRequest`** — frozen Pydantic DTO: caller intent (prompt, model, harness, skills, session, budget, …). JSON-safe field types only. No derived state.
@@ -21,7 +21,7 @@ SpawnRequest + LaunchRuntime  →  build_launch_context()  →  LaunchContext
 
 ### Prepare/Bind Split
 
-`build_launch_context()` is now a backward-compat wrapper over a two-phase internal pipeline:
+There is no one-call production wrapper. `build_launch_context()` exists only as a test facade in `tests/support/launch.py`, together with the `DIRECT` composition surface that production policy resolution rejects; do not reintroduce either in production ([cleanup program](../codebase/cleanup-program.md)). `run_harness_process()` requires a `PreparedLaunchSurface`.
 
 ```
 SpawnRequest + LaunchRuntime
@@ -266,10 +266,10 @@ graph TD
         SERVE["CLI streaming-serve path\ncli/streaming_serve.py"]
     end
 
-    FACTORY["build_launch_context()\nlib/launch/context.py"]
+    FACTORY["prepare_launch_surface()\nthen bind_launch_context()\nlib/launch/context.py"]
 
-    PRI -->|"dry_run=True (preview)\nthen real context"| FACTORY
-    SPAWN -->|"SPEC_ONLY intent"| FACTORY
+    PRI -->|"prepare once\nbind preview, bind real"| FACTORY
+    SPAWN -->|"compose_spawn_launch_surface()\nbind_spawn_launch_context()"| FACTORY
     SERVE -->|"SpawnApplicationService\n.prepare_spawn()"| FACTORY
 
     FACTORY --> LC["LaunchContext"]
@@ -284,15 +284,15 @@ graph TD
 `launch_primary()` in `launch/__init__.py`:
 
 1. Builds `SpawnRequest` (PRIMARY surface) + `LaunchRuntime`
-2. Calls factory with `dry_run=True` → preview context for display
-3. Calls `run_harness_process(preview_context, …)` which:
+2. Calls `prepare_launch_surface()` once, then `bind_launch_context(dry_run=True)` → preview context for display
+3. Calls `run_harness_process(preview_context, …, prepared=prepared)` which:
    - Allocates session via `session_scope`; creates spawn row
    - Materializes fork if needed (only after row exists — invariant I-10)
-   - **Rebuilds `LaunchContext`** with real paths (report path, actual state root, work_id)
+   - **Binds the same prepared surface again** with real paths (report path, actual state root, work_id)
    - Runs PTY or pipe subprocess
    - Finalizes inline; calls `conclude_native_run()` once per turn after teardown
 
-Two-phase context building is intentional: the preview context exists for `--dry-run` display; the runtime context drives actual execution with concrete paths.
+Two binds are intentional: the preview context exists for `--dry-run` display; the second bind drives actual execution with concrete paths. `prepared` is mandatory; there is no rebuild-from-request fallback.
 
 For an OpenCode primary, dry-run describes the actual managed sequence—serve,
 native inspection, HTTP bootstrap, and attach—rather than presenting a black-box
@@ -362,11 +362,13 @@ assert that the prompt is last.
 
 `ops/spawn/execute.py` drives foreground and background spawns:
 
-- **Foreground (`execute_spawn_blocking`):** creates spawn row → calls `launch_prepared_spawn()` via `asyncio.run()`
-- **Background (`execute_spawn_background`):** creates spawn row → persists `BackgroundWorkerLaunchRequest` to disk → detaches subprocess. Worker (`_background_worker_main`) calls `_execute_existing_spawn()` → `launch_prepared_spawn()`
+Before either path creates a row, `build_create_payload()` (`ops/spawn/prepare.py`) composes the request with `compose_spawn_launch_surface()`, so composition failures leave no row.
+
+- **Foreground (`execute_spawn_blocking`):** reserves the spawn row → calls `launch_prepared_spawn()` via `asyncio.run()`, passing the prepared surface
+- **Background (`execute_spawn_background`):** reserves the spawn row → persists `BackgroundWorkerLaunchRequest` to disk → detaches subprocess. Worker (`_background_worker_main`) calls `_execute_existing_spawn()` → `launch_prepared_spawn()`; the worker has no in-memory surface, so it recomposes after the row exists
 
 **`launch_prepared_spawn()` — shared pre-run helper:**  
-Both foreground and background paths converge here. The helper resolves session continuation, materializes any fork, builds the child env overrides, calls `build_launch_context()`, and then hands off to `execute_with_streaming()`. It owns `launch_failure` finalization for exceptions that occur before the runner starts — its broad `except` is safe because `complete_spawn()` is idempotent.
+Both foreground and background paths converge here. The helper resolves session continuation, materializes any fork, builds the child env overrides, reuses the prepared surface (recomposing when session/fork resolution changed the request or none was passed), binds it with `bind_spawn_launch_context()`, and then hands off to `execute_with_streaming()`. It owns `launch_failure` finalization for exceptions that occur before the runner starts — its broad `except` is safe because `complete_spawn()` is idempotent.
 
 ```
 execute_spawn_blocking / _execute_existing_spawn
@@ -385,8 +387,6 @@ The background worker trusts the `BackgroundWorkerLaunchRequest` written by `exe
 
 `execute_with_streaming()` in `streaming_runner.py` is the async executor: heartbeat every 30s, `mark_finalizing` CAS after harness exits, `enrich_finalize()` for usage/session/report extraction.
 
-**Known gap:** The subprocess path still creates the spawn row before calling `build_launch_context()`, unlike the streaming-serve path which uses resolve-before-persist. Row-creation order unification is tracked as follow-up.
-
 **Note:** `ops/spawn/prepare.py` uses `SPAWN_PREPARE` surface + `LaunchArgvIntent.REQUIRED` — it needs a real argv to populate `cli_command` for display. This is the exception; all execution paths use `SPEC_ONLY`.
 
 **Pi dual launch path.** Pi is the first harness with two completely different launch configurations per role. Primary uses the native Pi TUI (`pi [--model ...] [--session/--fork ...]`, no `--mode`; Meridian's managed extensions loaded with `-e`, passthrough `-e`/`--no-extensions` refused). Spawned uses Pi RPC (`pi --mode rpc ... --no-extensions -e <managed extensions>`, prompt written to stdin, JSONL drained from stdout). The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned. See [pi-lifecycle.md](pi-lifecycle.md) for the quiescence model.
@@ -398,7 +398,7 @@ Uses `SpawnApplicationService.prepare_spawn()` for resolve-before-persist, then 
 `SpawnApplicationService.prepare_spawn()` implements resolve-before-persist:
 
 ```
-build_launch_context()     ← pure resolution; may raise; NO row yet
+compose_spawn_launch_surface() + bind  ← resolution; may raise; NO row yet
 lifecycle_service.start()  ← only on success; row stores real resolved values
 PreparedSpawn handoff type
 ```
@@ -429,7 +429,7 @@ seam at the actual write point rather than checking before an `await`.
 Sits above `SpawnLifecycleService` (sole state writer) and below driving adapters. Surfaces call the service; the service calls the lifecycle service.
 
 ```
-Layer 3: build_launch_context()     ← composition may fail; external policy resolution has effects
+Layer 3: prepare/bind pipeline       ← composition may fail; external policy resolution has effects
 Layer 4: SpawnApplicationService    ← lifecycle policy
 Layer 5: SpawnLifecycleService      ← sole state writer (spawn_store)
 ```
@@ -438,7 +438,6 @@ Key methods:
 - `prepare_spawn()` — resolve-before-persist; the streaming-serve entry point
 - `cancel()` — surface-neutral cancel pipeline; handles managed-primary, signal cancellation, finalizing races
 - `complete_spawn()` — idempotent terminal seam; acquires per-spawn lock internally
-- `archive()` — validates terminal state, emits exactly one `spawn.archived`
 - `update_metadata()` — surface-level metadata changes; runner-internal updates bypass this
 
 ## Key Invariants (Summary)
@@ -447,7 +446,7 @@ The full 13 invariants live at `.meridian/invariants/launch-composition-invarian
 
 | Invariant | Rule |
 |-----------|------|
-| I-1 | All composition happens inside `build_launch_context()` |
+| I-1 | All composition goes through `prepare_launch_surface()` then `bind_launch_context()` |
 | I-2 | No driving adapter reconstructs argv, env, or permissions independently |
 | I-4 | `conclude_native_run()` once per turn after teardown joins: IDs → adapter → boundary → attribution |
 | I-5 | `SpawnRequest` / `LaunchRuntime` carry no derived state; `LaunchContext` complete at construction |
@@ -462,7 +461,7 @@ The full 13 invariants live at `.meridian/invariants/launch-composition-invarian
 
 ## Workspace Projection
 
-Two steps inside `build_launch_context()`:
+Two steps inside the prepare/bind pipeline:
 
 **Gate (pre-launch):** `resolve_workspace_snapshot_for_launch()` raises if workspace file is `"invalid"`. `"none"` and `"present"` pass through.
 
@@ -612,7 +611,7 @@ read-only projection for child-process env construction.
 ```
 launch/
   __init__.py           launch_primary() — public entry point
-  context.py            build_launch_context() — SOLE composition seam (I-1)
+  context.py            the composition seam (I-1); no one-call wrapper
                           prepare_launch_surface() — expensive phase (resolve/compose)
                           bind_launch_context() — cheap phase (env/cwd/spec/argv/perms)
                           PreparedLaunchSurface — public prepare/bind boundary dataclass
