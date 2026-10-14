@@ -120,9 +120,12 @@ owns OS behavior. Run the automated suite with `uv run pytest-llm`. See
 
 **Lint and type checks:**
 ```bash
-uv run ruff check .    # lint
-uv run pyright          # type check (must be 0 errors)
+uv run ruff check .                              # lint
+uv run --extra dev python -m pyright --warnings  # type check: 0 errors, 0 warnings
 ```
+
+Suppress with `# pyright: ignore[rule]  # reason` only; `# type: ignore` is
+disabled. See [static typing](../decisions/static-typing.md).
 
 ## Important Invariants
 

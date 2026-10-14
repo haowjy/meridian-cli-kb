@@ -24,6 +24,7 @@ Decision records explain why durable architectural choices were made — what al
 | [telemetry.md](telemetry.md) | Three-layer observability: envelope design, storage layout, readers vs. sinks, liveness, retention (D61–D70) |
 | [workspace.md](workspace.md) | Workspace config: `[workspace]` in `meridian.toml`, named entries, missing-path behavior, dedicated loader (D41–D46) |
 | [git-autosync-merge-strategy.md](git-autosync-merge-strategy.md) | Git autosync: merge over rebase, local-wins conflict handling, AGENTS.md notice exception, artifact ownership split (D-autosync-1 through D-autosync-4) |
+| [static-typing.md](static-typing.md) | Pyright strict gate with warnings fatal, per-rule suppressions only, boundary narrowing over casts, public cross-module names, explicit nested CLI handler registration |
 | [tui-framework.md](tui-framework.md) | Session-browse framework choice: prompt_toolkit full-screen Application (D-tui-prompt-toolkit) |
 
 ## Naming

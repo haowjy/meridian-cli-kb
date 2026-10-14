@@ -56,6 +56,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
 - [decisions/workspace.md](decisions/workspace.md) — Why named workspace entries, permission-grant vs context-surfacing split, missing-path behavior, migration strategy
 - [decisions/spawn-cwd-worktree-anchor.md](decisions/spawn-cwd-worktree-anchor.md) — Authority/task domain split: single reference anchor, kb: resolution from authority_root, stale task-dir graceful fallback (supersedes hard error), managed vs manual worktree ownership
+- [decisions/static-typing.md](decisions/static-typing.md) — Why pyright strict runs with warnings fatal and no demotions, the one allowed suppression form, where untyped data gets narrowed, and why nested CLI handlers are registered by call
 - [decisions/tui-framework.md](decisions/tui-framework.md) — prompt_toolkit full-screen Application for session browse; hand-rolled, textual, and fzf rejected on picker-specific evidence
 
 ---

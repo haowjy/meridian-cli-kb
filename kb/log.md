@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-13 — Static typing decisions recorded (`work:pyright-strict`)
+
+- New [Static typing](decisions/static-typing.md) decision page: strict pyright
+  with warnings fatal and why April's seven demotions were reversed, the
+  per-rule suppression policy, boundary narrowing over casts, public
+  cross-module names, explicit nested handler registration, rejected
+  alternatives. Flags the fast gate still running pyright without `--warnings`.
+- Corrected the type-check command in [codebase guide](codebase/guide.md).
+- Indexed in the decision catalog, decisions overview and KB index.
+
+---
 ## 2026-10-14 — Idle TTL detection shipped; running-session upgrade lesson (`work:idle-ttl-detection`)
 
 - [Idle TTL Detection](decisions/idle-ttl-detection.md): added a v0.9.8 status
