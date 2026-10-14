@@ -118,7 +118,7 @@ snapshot model. Continue still asks Mars with a routing-only bundle so current
 target restrictions apply. Forks do not inherit later recorded selections. See
 [D-continue-replays-recorded-launch-contract](../decisions/launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
 
-See [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split) for the rationale.
+See [decisions/launch.md](../decisions/launch.md#d-control-root-task-cwd-split-split-execution_cwd-into-control_root--task_cwd) for the rationale.
 
 ## Authority/Task Domain Split (PR #248)
 

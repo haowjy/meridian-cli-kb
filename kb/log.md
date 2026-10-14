@@ -3,6 +3,12 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Renamed harness connection-seam decisions
+
+- Renamed [connection-seams.md](decisions/connection-seams.md) from the
+  removed chat-backend name, repaired inbound links, and added the catalog
+  entry.
+
 ## 2026-10-14 — Cleanup phase 2 captured; chat-backend residue trimmed
 
 - [Cleanup program](codebase/cleanup-program.md): phase 2 marked done with its

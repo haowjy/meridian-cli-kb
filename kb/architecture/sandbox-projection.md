@@ -54,7 +54,7 @@ This principle drives the classification:
 
 Meridian projects context roots (work, work_archive, kb, and extra context dirs) into the harness sandbox as environment variables (`MERIDIAN_CONTEXT_WORK_DIR`, etc.) and as sandbox-visible filesystem paths. Before projection, `_collect_context_projection_roots()` filters out roots that don't exist on disk.
 
-**Why this is load-bearing:** Codex (bubblewrap) bind-mounts every projected root at exec time. If a source path is missing, `bwrap` aborts the **entire exec namespace** — every command in the worker fails, not just operations targeting the missing path. A not-yet-created context dir (commonly `work_archive` before the first archive) would silently break all command execution while the spawn still reported `succeeded` (see [terminal status semantics](../concepts/harness-abstraction.md#terminal-status-semantics)).
+**Why this is load-bearing:** Codex (bubblewrap) bind-mounts every projected root at exec time. If a source path is missing, `bwrap` aborts the **entire exec namespace** — every command in the worker fails, not just operations targeting the missing path. A not-yet-created context dir (commonly `work_archive` before the first archive) would silently break all command execution while the spawn still reported `succeeded` (see [terminal status semantics](../concepts/harness-abstraction.md#event-semantics-and-terminal-outcomes)).
 
 Critically, a sandbox-broken worker cannot run **any** Meridian command either — including `meridian spawn done` — so it cannot self-report the failure. Only the harness-written report survives (Codex `-o` flag), with the blocker described in prose.
 

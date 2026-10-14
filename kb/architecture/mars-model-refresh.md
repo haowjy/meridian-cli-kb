@@ -163,4 +163,4 @@ still use Mars's `--no-refresh-models` / `MARS_OFFLINE=1` controls directly.
 Stale Mars without probe support still produces bundles without `candidate_slugs`;
 current Mars (≥0.6.4) bakes Cursor effort into **`routing.harness_model`** at build
 time — Meridian should prefer that field. Legacy effort projection in meridian-cli is
-documented in [cursor-harness.md](cursor-harness.md#meridian-effort-projection-legacy).
+documented in [cursor-harness.md](cursor-harness.md).

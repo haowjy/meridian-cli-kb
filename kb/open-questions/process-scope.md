@@ -4,7 +4,7 @@ Process-scope cleanup gaps that remain after the durable process-scope ownership
 
 Related pages:
 - [architecture/process-scope.md](../architecture/process-scope.md) — ownership model, scope projection, platform adapters, and cleanup policy
-- [decisions/launch.md](../decisions/launch-process-ownership.md#d-process-scope-ownership) — decision rationale for durable process-scope ownership
+- [decisions/launch.md](../decisions/launch-process-ownership.md#d-process-scope-ownership-durable-process-scope-ownership-over-posix-only-or-psutil-only-cleanup) — decision rationale for durable process-scope ownership
 - [future-work.md](future-work.md#state--spawn) — broader state/spawn deferred-work index
 
 ---
@@ -38,7 +38,7 @@ double-reparent/new-PGID scenario requires harnesses that fork through disposabl
 intermediaries, which is uncommon in practice. Defer until there is a concrete observed
 leak of this type.
 
-**Decision context:** [decisions/launch.md](../decisions/launch-process-ownership.md#d-process-scope-ownership)
+**Decision context:** [decisions/launch.md](../decisions/launch-process-ownership.md#d-process-scope-ownership-durable-process-scope-ownership-over-posix-only-or-psutil-only-cleanup)
 and [architecture/process-scope.md](../architecture/process-scope.md)
 
 ---

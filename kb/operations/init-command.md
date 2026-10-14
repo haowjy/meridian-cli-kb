@@ -85,9 +85,9 @@ Returns an `InitResult` object:
 }
 ```
 
-**`packages_requested`** holds the user-supplied specifiers (what was passed to `--add`), not the full resolved dependency set. The resolved set — including transitive deps — is internal to mars. See [decisions/package-management.md](../decisions/package-management.md#d79).
+**`packages_requested`** holds the user-supplied specifiers (what was passed to `--add`), not the full resolved dependency set. The resolved set — including transitive deps — is internal to mars. See [decisions/package-management.md](../decisions/package-management.md#d79-honest-field-naming--packages_requested-not-packages_resolved).
 
-**`content`** is dynamically discovered from `.mars/` subdirectories, not a fixed schema. New content types added by future mars versions appear automatically. See [decisions/package-management.md](../decisions/package-management.md#d78).
+**`content`** is dynamically discovered from `.mars/` subdirectories, not a fixed schema. New content types added by future mars versions appear automatically. See [decisions/package-management.md](../decisions/package-management.md#d78-filesystem-scan-for-mars-content-discovery-not-json-model-coupling).
 
 ---
 

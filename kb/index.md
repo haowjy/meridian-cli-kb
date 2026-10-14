@@ -45,6 +45,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/native-only-history.md](decisions/native-only-history.md) — Conversation history is the harness's native transcript: one read path, old runner history dropped (option C), rebuildable search and live run facts, combined-PR archive/browse/read fixes, one-time migration and late-binding repair policy, and prune rationale
 - [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) — Superseded raw-argument admission design
 - [decisions/launch.md](decisions/launch.md) — Why prepare/bind is the single composition seam, how harness identity propagates, and spawn wait semantics
+- [decisions/connection-seams.md](decisions/connection-seams.md) — Harness connection seams that outlived the removed chat backend: single event-stream consumer, HITL handler protocol, managed-primary passthrough boundary, and spawn `max_depth` cap
 - [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) — Managed-primary and process-scope ownership decisions
 - [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) — Wait, goal, and session-mode decisions
 - [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) — Harness/platform compatibility history

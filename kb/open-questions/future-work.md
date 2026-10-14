@@ -53,7 +53,7 @@ JSON. Reads and a first restore are unaffected.
 
 **Status:** Deferred until scale pressure recurs. Individual spawn reads are
 O(1), while listing is O(spawns) file reads. The measured migration dataset and
-timings live only in [Architecture: State System](../architecture/state-system/spawn-state.md#spawn-state-per-spawn-statejson); this page does not duplicate them.
+timings live only in [Architecture: State System](../architecture/state-system/spawn-state.md); this page does not duplicate them.
 
 An index would require invalidation rules under concurrent writers, so the
 complexity is not justified without renewed evidence.

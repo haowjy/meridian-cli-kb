@@ -1,7 +1,7 @@
-# Decisions: Chat Backend
+# Decisions: Harness Connection Seams
 
-The browser chat backend (`lib/chat/`, `meridian chat`) has been removed. The
-decisions kept here are the ones whose seams outlived it: connection ownership,
+The decisions here are harness connection seams that outlived the removed chat
+backend: connection ownership,
 the HITL handler protocol, the managed-primary passthrough boundary, and the
 spawn depth cap. The protocol, pipeline, acquisition, command-layer and
 final-gate records went with the code. The harness-semantics decision this page

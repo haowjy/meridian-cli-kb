@@ -155,7 +155,7 @@ identity conclusion, and exception handling. The runner has no launch-retry loop
 **What drove the migration:** replaying the global spawn event log made every
 status read O(total history). Per-spawn `state.json` makes an individual read
 O(1). The canonical dataset and timing provenance are recorded in
-[Architecture: State System](../architecture/state-system/spawn-state.md#spawn-state-per-spawn-statejson).
+[Architecture: State System](../architecture/state-system/spawn-state.md).
 
 **Two-tier write model:**
 
@@ -172,7 +172,7 @@ O(1). The canonical dataset and timing provenance are recorded in
 - `decide_terminal_write()` is preserved as a pure function — application point shifted from read-time (v1 reducer) to write-time (v2 `write_state_locked()` mutator). The authority lattice and `CompleteSpawnOutcome` contract are unchanged.
 - Per-spawn locking in v2 eliminates the global `spawns.jsonl.flock` contention bottleneck.
 
-**Known remaining gap:** listing remains O(spawns) file reads. See the canonical measurement in [Architecture: State System](../architecture/state-system/spawn-state.md#spawn-state-per-spawn-statejson).
+**Known remaining gap:** listing remains O(spawns) file reads. See the canonical measurement in [Architecture: State System](../architecture/state-system/spawn-state.md).
 
 ---
 
@@ -199,7 +199,7 @@ On exit: restores the original values of both env vars.
 
 **Governing principle:** "If you can remove the value that would be misread, you don't need a flag saying 'ignore that value'." The signal var, its coalesce function, and all cleanup sites disappear. Generalizes: before adding a "skip/ignore" flag, ask whether the skippable value can simply be absent.
 
-See [../concepts/state-model.md](../concepts/state-model.md#meridian_runtime_dir-override) for the runtime-root derivation context and [../concepts/config-precedence.md](../concepts/config-precedence.md#the--c----directory-flag) for how `-C` works at the CLI boundary.
+See [../concepts/state-model.md](../concepts/state-model.md#root-resolution) for the runtime-root derivation context and [../concepts/config-precedence.md](../concepts/config-precedence.md#the--c----directory-flag) for how `-C` works at the CLI boundary.
 
 ---
 

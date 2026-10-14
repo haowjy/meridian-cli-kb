@@ -176,7 +176,7 @@ The detached background worker uses `Popen` with `start_new_session=True` (POSIX
 
 No new states, no reaper changes, no schema changes. The existing `missing_runner_pid` path covers the reserved-but-unclaimed row.
 
-See [decisions/launch.md](../decisions/launch.md#d-reserve-before-prep-reserve-spawn-row-before-preparation-for-crash-recovery-c2076-pr-328-2026-06).
+See [decisions/launch.md](../decisions/launch.md#d-reserve-before-prep-reserve-spawn-row-before-preparation-for-crash-recovery-pr-328-2026-06).
 
 ### Resident Turn Boundaries
 

@@ -175,4 +175,4 @@ These were identified during the final review gate and are documented for future
 - **Notebook writes not atomic (tmp+rename)** — the session mutation lock serializes access, but writes are not atomic at the file level. Low risk in single-agent use; a future improvement.
 - **`LineageService.replay()` carries execution mechanics** — it instantiates `ExecutionService` and calls a private helper. A `NotebookOutputSerializer` collaborator would clean this boundary.
 
-See also [../../open-questions/future-work.md](../../open-questions/future-work.md#jupyter-workbench-structural-follow-ups-from-final-gate) for deferred work tracking.
+See also [../../open-questions/future-work.md](../../open-questions/future-work.md#structural-follow-ups-from-final-gate) for deferred work tracking.

@@ -72,4 +72,4 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 | Workspace | Schema, path resolution, permission projection and migration | [decisions/workspace.md](decisions/workspace.md) |
 | Telemetry | Envelopes, sinks, segments, querying and retention | [decisions/telemetry.md](decisions/telemetry.md) |
 | Testing | Behavior-owned tiers and evidence gates | [decisions/testing.md](decisions/testing.md) |
-| Chat backend (removed) | Surviving seams: connection ownership, HITL handler protocol, passthrough boundary, spawn depth cap | [decisions/chat-backend.md](decisions/chat-backend.md) |
+| Harness connection seams | Surviving seams: connection ownership, HITL handler protocol, passthrough boundary, spawn depth cap | [decisions/connection-seams.md](decisions/connection-seams.md) |

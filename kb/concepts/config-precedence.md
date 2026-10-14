@@ -231,7 +231,7 @@ meridian -C ~/gitrepos/meridian-cli session log c8
 
 **How it works:** `main.py` sets `MERIDIAN_PROJECT_DIR` to the given path in `os.environ` before any subcommand runs. The resolution layer reads from `os.environ` — no parameter threading through intermediate callsites. The `-C` path IS `MERIDIAN_PROJECT_DIR` for the duration of the command.
 
-**Env cleanup:** When `-C` is active, `main.py` also unsets `MERIDIAN_RUNTIME_DIR` (if set). Because `-C` changes the project identity, a stale runtime-dir override from a different project would be silently wrong. Unsetting it forces the runtime root to be re-derived from the new project identity. See [state-model.md](state-model.md#user-root-resolution) for the full derivation chain and the decision rationale at [decisions/state.md](../decisions/state.md#directory-env-scope-eliminates-meridian_directory_explicit).
+**Env cleanup:** When `-C` is active, `main.py` also unsets `MERIDIAN_RUNTIME_DIR` (if set). Because `-C` changes the project identity, a stale runtime-dir override from a different project would be silently wrong. Unsetting it forces the runtime root to be re-derived from the new project identity. See [state-model.md](state-model.md#root-resolution) for the full derivation chain and the decision rationale at [decisions/state.md](../decisions/state.md#directory-env-scope-eliminates-meridian_directory_explicit).
 
 **Canonical use case:** Operating on a sibling repo from a different CWD — e.g., running spawn commands against `meridian-cli` while sitting in `mars-agents/`.
 
