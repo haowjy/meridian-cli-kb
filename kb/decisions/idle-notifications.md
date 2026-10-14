@@ -351,7 +351,7 @@ route was also gone: `POST /session/{id}/summarize` returns 405 on 2.x and
 
 - **A second sensor beside the frozen V1 one.** `OpenCodeV2IdleSensor` reads
   V2 execution and inbox events and compacts through `/api/session/{id}/compact`
-  (contract above). Both dialects share `_OpenCodeIdleSensorBase` for event
+  ([adapter contract](../architecture/idle-adapters.md#adapter-contracts)). Both dialects share `_OpenCodeIdleSensorBase` for event
   plumbing, pane capture and requests. Dialect-only state lives in each
   subclass. V1 code is unchanged.
 - **Dispatch on the version the connection resolved.** `primary_idle_sensor`
@@ -608,7 +608,7 @@ were observed on 0.9.8.
 ## Revisit when
 
 - A harness update invalidates one of the runtime-probed event or compaction
-  contracts above, especially a fail-open one. Re-run the turn-end probe on
+  contracts in [Idle Adapter Architecture](../architecture/idle-adapters.md#adapter-contracts), especially a fail-open one. Re-run the turn-end probe on
   every harness major version: a renamed turn-end event fails silently.
 - Meridian drops OpenCode 1.x: delete the V1 sensor and its dispatch branch.
 - A provider changes its default cache retention or the price of long cache
