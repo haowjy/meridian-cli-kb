@@ -226,7 +226,7 @@ observable.
 
 ### Agent Overlay Follow-Ups (2026-05-05, after agent-model-overrides shipped)
 
-**Where:** `src/meridian/lib/launch/compiler.py`, `src/meridian/lib/config/settings.py`, `src/meridian/cli/config_cmd.py`
+**Where:** `src/meridian/lib/launch/compiler.py`, `src/meridian/cli/config_cmd.py`; overlay config itself now lives in `mars.toml` (Meridian's loader rejects `[agents]`)
 
 These items were scoped out of v1 agent-model-overrides and are documented here so they aren't re-derived from first principles.
 

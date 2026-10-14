@@ -76,38 +76,126 @@ kind, because agents load the docs and reason from them (`spawn:p7763`).
 | Keep the moved module and its docs | Describes a visibility overlay that no command applies |
 | Keep it behind a flag until a caller returns | There is no consumer to gate; a future spawn-archive feature should be designed against today's listing and history index, and git history has the old code |
 
-## D-auto-init-inert: `auto_init_cwd` is a TODO, not a feature
+## D-auto-init-deleted: delete the inert flag; the real question is project identity
 
-**Decision (2026-10-14):** The descriptor flag `bootstrap_plan.auto_init_cwd` is documented as
-inert and tracked as a must-do in `cli/.context/TODO`, not presented as behavior.
-Phase 1's changelog line claiming B3 fixed auto-init for `spawn done` /
-`spawn rearm` was removed.
+**Decision (2026-10-14):** The descriptor flag `bootstrap_plan.auto_init_cwd` and its
+plumbing (`cli/bootstrap.py`, `cli/startup/policy.py`, `cli/startup/catalog.py`) were
+deleted in phase 2, and `docs/configuration/environment.md` now describes
+create-on-first-write. Phase 1 had removed a changelog line claiming B3 fixed
+auto-init for `spawn done` / `spawn rearm`.
 
 **Why:** Since #388 (July 2026), `resolve_cli_project_root()` reports
-`established=True` for every root, so the bootstrap branch that consumes the
-flag is unreachable. The phase-1 reviewer checked in a clean environment: in a
-fresh directory, `spawn done`, `spawn rearm`, `spawn cancel` and `work switch`
-each still write `meridian.toml`, because `prepare_for_runtime_write()` creates
-the project identity, not auto-init. B3's descriptor fix is still correct (the
-commands now classify exactly), but it changes nothing a user can observe, and a
-changelog entry claiming otherwise would mislead.
+`established=True` for every root, so the bootstrap branch that consumed the flag
+was unreachable. In a fresh directory `spawn done`, `spawn rearm`, `spawn cancel`
+and `work switch` each wrote `meridian.toml`, because `prepare_for_runtime_write()`
+creates the project identity, not auto-init. Deleting the flag is correct under
+every identity outcome.
 
-**Open:** Delete the flag, or restore a real established-project check (the
-unused `cwd_has_project_id()` is the literal-marker test such a check would use).
+**What it surfaced:** asked to choose between deleting the flag and restoring an
+established-project check, the user answered "we shouldn't be creating
+meridian.toml everywhere... right?". The flag was never the issue; the July
+create-on-first-write model was. That question is recorded with its evidence in
+[project identity reopened](state.md#project-identity-reopened-two-tier-design-in-progress-2026-10).
 
-> [!FLAG] **Needs human review.** Choosing between deleting `auto_init_cwd` and
-> restoring an established-project check decides whether write commands may
-> create a project in any directory. Today they do.
+## D-state1-accepted: accept the first config collapse at −88 lines
+
+**Decision (2026-10-14):** state#1, the first step of folding the TOML normalizers
+into the Pydantic models, was accepted on the reviewer's go even though it removed
+5 of 20 normalizers (−88 net lines) rather than the ~1,000 the finding estimated.
+The rest moved to state#2.
+
+**Why:** Six catalog-aliased sections were still pre-parsed and then validated
+again, so most normalizers could not go until the loader itself changed. The
+reviewer (`spawn:p7765`) found zero value, precedence or source differences across
+about 85 configs and two error-wording regressions; state#2 fixed both, adopted the
+reviewer's layout (`config/models.py`, `loader.py`, `dynamic_sections.py`, a plain
+`BaseModel` root, key policy as `ClassVar`s) and replaced the re-entrant
+`BaseSettings` load with an explicit low-to-high merge.
+
+**Context:** the config chain was split by risk on purpose: state#1 ran alone and
+was reviewed before state#2 and state#3 started.
+
+## D-g2-double-validation: the first config pass relocated the ladder
+
+**Decision (2026-10-14):** Phase 2 was not called done at the first integration
+gate. The thermo-nuclear review (`spawn:p7795`) found the state IO seams real, but
+on the config and hooks side "validation done twice" had been moved, not fixed:
+
+- `hooks/schema.py` hand-validated every field and then built `HookSpec` with
+  `model_construct`, so the model's own validators never ran in production
+  (a probe showed the two had already drifted: `repo` was type-checked, then
+  silently dropped).
+- `config/dynamic_sections.py` was the old `settings.py` ladder under a new name,
+  next to models that declared the same shapes; `[env]` was validated three times.
+- `hidden_env_specs` hand-listed per-harness env vars and missed Pi, while idle
+  solved the same problem with a model factory.
+- `loader._config_validation_error` kept an error-string compatibility table.
+
+**How the fix pass removed it:** hooks validate through
+`HookConfigSection.model_validate`, with field constraints on the models and hand
+checks only for multi-field rules; dynamic sections validate through descriptor
+models (`dynamic_sections.py` has no casts); one `harness_profile_model()`
+factory gives every harness its env names (Pi gained
+`MERIDIAN_HARNESS_WAIT_YIELD_SECONDS_PI`); one error format in `config/errors.py`;
+`MeridianConfig` is the single root and validates `[env]`; `settings.py` was
+deleted and 33 importers migrated. The re-verification (`spawn:p7810`) closed both
+blockers; a polish pass removed the residue (duplicate hook warnings, the
+two-branch model walker, the phantom builtin hook layer, the implicit newline
+contract). The correctness review (`spawn:p7794`) had found zero semantic
+differences across 600+ env-var cases beyond the intended wording.
+
+## D-telemetry-batch-durability: fsync once per batch, not per envelope
+
+**Decision (2026-10-14):** The telemetry sink appends each `write_batch` through
+`append_durable_jsonl_lines`: one tail repair, one write, one `fsync` per batch.
+
+**Why:** The first repair fix made the sink repair and `fsync` per envelope. That
+multiplied I/O on the hot path without improving the crash contract, which is at
+most one torn tail, repaired by the next append, either way.
+
+**Rejected:** per-envelope durability (the cost buys nothing the contract needs);
+keeping the old sink (it had no repair at all, so a torn tail swallowed the next
+record on `main`).
+
+## D-jsonl-inventory: delete inbound.jsonl, keep runner-lifecycle and debug
+
+**Decision (2026-10-14):** Asked "is there any JSONL we might not actually need?",
+an inventory (`spawn:p7789`) and a coder proof (`spawn:p7793`) settled each file on
+evidence:
+
+| File | Verdict | Evidence |
+|---|---|---|
+| `inbound.jsonl` | Deleted | A write-ahead copy of `control_actions.jsonl` with no production reader; `inbound_seq` now comes from `control_actions.jsonl`'s `submission_seq` |
+| `runner-lifecycle.jsonl` | Kept | Nine of its ten event types record facts nothing else holds at that moment: atexit before finalize, raw signals, exception type, identity-binding diagnostics |
+| `debug.jsonl` | Kept | Opt-in diagnostics, never a correctness mechanism |
+| `history.jsonl` legacy recognition, `sessions.jsonl` growth | Deferred to #569 | Removal needs an archive migration; growth needs a retention design |
+
+**Rejected:** deleting `runner-lifecycle.jsonl` on the assumption that
+`launch-boundary.jsonl`, `finalize-evidence.json` and `state.json` already hold its
+events; the proof showed they do not.
+
+## The torn-tail JSONL rule
+
+The one phase-2 behavior change, with the three options put to the user and why
+the newline became the commit marker, is recorded with the state decisions:
+[one JSONL commit rule](state.md#one-jsonl-commit-rule-a-row-exists-when-its-newline-does-cleanup-phase-2-2026-10).
 
 ## Revisit when
 
 - #546 merges: B7 is closed; drop it from the program's open list.
 - A phase-3/4 behavior change is signed off: record it here before its phase starts.
+- The two-tier identity design is approved or implemented: update
+  [state decisions](state.md#project-identity-reopened-two-tier-design-in-progress-2026-10)
+  and drop the identity item from the program page.
 - Someone needs spawn archiving again: design it fresh against current listings
   rather than restoring the deleted overlay.
 
 ## Sources
 
-`work:pyright-strict` (decisions D8, D10, D13, D16, D17), `spawn:p7749` (B7
-root cause), `spawn:p7763` (phase-1 integration review), `spawn:p7769`
-(review fixes), PR #546, issue #569.
+`work:pyright-strict` (decisions D8, D10, D13, D16–D18, D22, D24, D29–D41),
+`spawn:p7749` (B7 root cause), `spawn:p7763` (phase-1 integration review),
+`spawn:p7769` (review fixes), `spawn:p7765` (state#1 review), `spawn:p7771`
+(torn-tail probe), `spawn:p7789`, `spawn:p7793` (JSONL inventory),
+`spawn:p7794`, `spawn:p7795` (G2 reviews), `spawn:p7799`–`spawn:p7801`,
+`spawn:p7810` (fixes and re-verification), `spawn:p7813` (polish), PR #546,
+issue #569.

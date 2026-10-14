@@ -36,9 +36,10 @@ def read_events(
 ```
 
 Behavior:
-- Opens the file in read mode, iterates lines
-- Strips whitespace, skips blank lines
-- Silently skips lines that fail `json.loads()` — truncation-tolerant
+- Reads through `state/jsonl.iter_jsonl()`, the shared JSONL policy: only
+  newline-terminated lines count, so a torn final line is withheld until the
+  sink's next append repairs it
+- Skips blank lines; skips malformed complete lines with a debug diagnostic
 - Applies filters before yielding
 - Returns without raising on `OSError`
 

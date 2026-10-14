@@ -19,14 +19,14 @@ Each field in `RuntimeOverrides` resolves independently via `resolve(*layers)` i
 ```
 CLI flags / request
   → env vars (MERIDIAN_MODEL, MERIDIAN_APPROVAL, …)
-    → [agents.<name>] overlay (meridian.local.toml > meridian.toml > ~/.meridian/config.toml)
+    → [agents.<name>] overlay (mars.local.toml > mars.toml, delivered in the Mars bundle)
       → agent profile frontmatter
         → project/user config defaults
           → model alias defaults
             → hardcoded harness fallback
 ```
 
-**Agent overlay** (`[agents.<name>]` in any config file) sits between env vars and profile frontmatter. It lets project operators override per-agent runtime policy without editing generated `.mars/agents/` profiles. See [decisions/model-resolution.md](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface) for full rationale.
+**Agent overlay** (`[agents.<name>]` in `mars.toml` or `mars.local.toml`) sits between env vars and profile frontmatter. Meridian's own loader rejects an `[agents]` section in `meridian.toml` with an error pointing at `mars.toml`. It lets project operators override per-agent runtime policy without editing generated `.mars/agents/` profiles. See [decisions/model-resolution.md](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface) for full rationale.
 
 The fields in `RuntimeOverrides` are: `model`, `harness`, `agent`, `effort`, `sandbox`, `approval`, `autocompact`, `timeout`.
 
@@ -83,14 +83,14 @@ This means a `model-policies` rule can override a profile's generic `approval: a
 | Default model for primary (interactive) | `meridian.toml` or `meridian.local.toml` → `[primary].model` |
 | Model alias definitions | `mars.toml` → `[models]` (travel with the package) |
 | Per-agent model (in profile) | Agent profile frontmatter → `model:` |
-| Per-agent override (project experiment, committed) | `meridian.toml` → `[agents.<name>]` |
-| Per-agent override (local experiment, uncommitted) | `meridian.local.toml` → `[agents.<name>]` |
+| Per-agent override (project experiment, committed) | `mars.toml` → `[agents.<name>]` |
+| Per-agent override (local experiment, uncommitted) | `mars.local.toml` → `[agents.<name>]` |
 | One-off model override | CLI → `-m model_name` |
 | Environment-scoped override | `MERIDIAN_MODEL=...` env var |
 
 **Agent overlay example** (override `tech-lead` for a local experiment):
 ```toml
-# meridian.local.toml
+# mars.local.toml
 [agents.tech-lead]
 model = "gpt55"
 effort = "medium"
@@ -102,18 +102,33 @@ override = { effort = "medium", autocompact = 120000 }
 
 ## MeridianConfig: File Precedence
 
-`MeridianConfig` is a `pydantic_settings.BaseSettings` subclass. Its source order (highest to lowest) is defined in `settings_customise_sources()` at `src/meridian/lib/config/settings.py:1136-1201`:
+`MeridianConfig` is a plain Pydantic model (`src/meridian/lib/config/models.py`), not a
+`pydantic-settings` class. There are no implicit settings sources: `load_config_with_sources()`
+in `src/meridian/lib/config/loader.py` merges explicitly, low to high:
 
 ```
-init args
-  → env alias overrides
-    → meridian.local.toml
-      → meridian.toml
-        → ~/.meridian/config.toml (or MERIDIAN_CONFIG path)
-          → built-in defaults
+built-in defaults (model field defaults)
+  < ~/.meridian/config.toml (or MERIDIAN_CONFIG path)
+    < meridian.toml
+      < meridian.local.toml
+        < env vars (only names declared in the option catalog)
 ```
 
-In practice: `defaults < user config < project meridian.toml < local meridian.local.toml < env vars`.
+`layers.iter_config_layers()` discovers and reads the three files; the hook registry and
+config inspection use the same seam. Each file is validated against `MeridianConfig` on its
+own, so an error names the key and the file, then the validated layers deep-merge (tables
+overlay, lists replace), env values overlay last, and the result validates once more as the
+final `MeridianConfig`. `load_config_with_sources()` keeps one `ConfigValueSource` per set
+field, which is what `meridian config show` renders.
+
+**The models are the only validation path.** Constraints live on model fields and
+validators; unknown-key warning policy is `ClassVar`s on `ConfigModel`
+(`config_ignored_keys`, `config_silences_extras`); `[env]`, `[hooks]`, `[work]`,
+`[context]` and `[workspace]` validate through descriptor models in
+`config/dynamic_sections.py`; errors format through `config/errors.py`. The hand-written
+TOML normalizers and the re-entrant `BaseSettings` load were removed in cleanup phase 2
+([cleanup program](../codebase/cleanup-program.md)); do not reintroduce a second
+validator for a shape a model already declares.
 
 ### Key config sections
 
@@ -161,27 +176,27 @@ projects `autocompact_pct` (GitHub #548). Neither field has an "off" value.
 
 ### Declaring config keys
 
-Each key is declared on its model in `lib/config/settings.py` with
+Each key is declared on its model in `lib/config/models.py` (or `harness_models.py`,
+`history_models.py`) with
 `config_field(canonical_key, value_kind=, file_aliases=, env_vars=, ...)`.
 `build_option_catalog` walks the `MeridianConfig` model tree to build the option
-catalog behind `meridian config show/get`. Before adding keys, know these rules:
+catalog (`loader.OPTION_CATALOG`) behind `meridian config show/get/set` and the
+env-var overlay. Before adding keys, know these rules:
 
 - **Env names are explicit.** They are never derived from the TOML path. The
   loose convention is `MERIDIAN_<SECTION>_<KEY>` for plain sections and
   `MERIDIAN_HARNESS_<KEY>_<HARNESS>` for per-harness keys, so make the key and
   its env suffix match.
-- **Catalog-declared tables normalize generically.** After special dynamic and
-  legacy sections are handled, `_normalize_toml_payload()` asks the option
-  catalog whether a top-level table prefix exists and recursively normalizes
-  it. `_normalize_harness_table()` does the same for nested per-harness tables.
-  Unknown tables are still warned and discarded; adding an annotated key no
-  longer requires another hand-written normalizer branch.
+- **No metadata, no env var.** The loader reads env vars only from catalog
+  entries, so an unannotated field validates from TOML but has no env var and
+  no generic `config get/set` (several still do; `lib/config/.context/FUTURE`).
 - **One annotated model can't be shared by harnesses.** If one annotated
   sub-model hangs off each harness profile, the catalog walks it once per
-  harness and raises `Duplicate config canonical key`. Static field metadata
-  also can't carry a different env name per harness. The existing per-harness
-  `wait_yield_seconds` works around this: it is unannotated and read through
-  hand-written `hidden_env_specs`.
+  harness and raises `Duplicate config canonical key`. Per-harness fields are
+  therefore built by one profile factory, `harness_profile_model()` in
+  `harness_models.py`, which gives
+  each harness its own canonical key and env name (for example
+  `MERIDIAN_HARNESS_WAIT_YIELD_SECONDS_PI`).
 - **List values from env arrive as raw strings.** `parse_env_scalar` returns a
   `str_list` env value unsplit, and an empty env value is rejected, so an env
   var can't blank a file value.

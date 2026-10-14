@@ -48,7 +48,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **In Meridian:**
 - Writes use `atomic_write_text()` (tmp + `os.replace()`)
-- JSONL reads skip malformed lines silently; `state.json` writes use atomic replacement
+- JSONL rows commit at their newline: readers withhold a torn tail and skip malformed rows, the next append repairs the tail; `state.json` and sidecar writes use atomic replacement
 - The reaper runs on every read path — no separate GC process needed
 - Work item renames write an intent file first; leftover intent is replayed on startup
 

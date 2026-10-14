@@ -5,7 +5,7 @@ Codebase pages orient contributors to where implementation concerns live and whi
 ## Pages
 
 - [guide.md](guide.md) — Where to start for common change types and subsystem ownership.
-- [cleanup-program.md](cleanup-program.md) — Known structural debt, the phased cleanup plan, and phase-1 outcome.
+- [cleanup-program.md](cleanup-program.md) — Known structural debt, the phased cleanup plan, and the phase-1 and phase-2 outcomes.
 - [harness-adapters.md](harness-adapters.md) — Harness capability matrix, primary event scope, and cross-harness comparison.
 - [Telemetry architecture](../architecture/telemetry/overview.md) — durable diagnostic events and their boundary with state and transient logs.
 - [tools.md](tools.md) — KG analysis, Mermaid validation, and Markdown extraction.

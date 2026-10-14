@@ -38,7 +38,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/pi-runtime.md](decisions/pi-runtime.md) — Why Pi keeps live shell authority with its owner and uses exact admission plus public-event evidence for completion delivery
 - [decisions/idle-notifications.md](decisions/idle-notifications.md) — Primary idle notifications and compaction: decision rationale, adapter-hosting choice, safety contracts, session labels, config, notification channels, and remaining limitations; current mechanism is in [architecture/idle-adapters.md](architecture/idle-adapters.md).
 - [decisions/idle-ttl-detection.md](decisions/idle-ttl-detection.md) — Idle TTL detection: launch-recorded native-store resolution and Pi provider TTL mapping, including estimated and unknown lifetimes.
-- [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, and typed state contracts
+- [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, typed state contracts, the single JSONL commit rule, and why project identity was reopened
 - [decisions/history-storage.md](decisions/history-storage.md) — Why file/ZIP retained-history authority, disposable indexes named by schema (never migrated in place), retention and restore, archive digests over stored record JSON, and post-stop native capture; which parts native-only history superseded
 - [decisions/native-session-identity.md](decisions/native-session-identity.md) — Each chat binds one immutable native key; exact-target entry; refusals before row creation; one binding and drift rule; run-boundary outcomes (Pi exit); Claude last-observed current-chat tracking replacing final-exit proof (unreleased) and its limits
 - [decisions/legacy-native-import.md](decisions/legacy-native-import.md) — Why pre-key chats get one bounded exact-key import, its limits, and measured result; content-proven recovery of 0.6.7 Pi chats with no recorded ID (primaries manual via `session repair`); implementation details are in the architecture page
@@ -55,7 +55,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/telemetry.md](decisions/telemetry.md) — Three-layer telemetry design: local JSONL (v1), error reporting (v2), feature tracking (v3); retention, envelope schema, dead-zone taxonomy
 - [decisions/workspace.md](decisions/workspace.md) — Why named workspace entries, permission-grant vs context-surfacing split, missing-path behavior, migration strategy
 - [decisions/spawn-cwd-worktree-anchor.md](decisions/spawn-cwd-worktree-anchor.md) — Authority/task domain split: single reference anchor, kb: resolution from authority_root, stale task-dir graceful fallback (supersedes hard error), managed vs manual worktree ownership
-- [decisions/codebase-cleanup.md](decisions/codebase-cleanup.md) — Why the cleanup program runs phases 1–2 now and tracks 3–5 in #569, why B7 belongs to PR #546, why the spawn-archive overlay was deleted, and why `auto_init_cwd` is a TODO
+- [decisions/codebase-cleanup.md](decisions/codebase-cleanup.md) — Why the cleanup program runs phases 1–2 now and tracks 3–5 in #569, why B7 belongs to PR #546, why the spawn-archive overlay and `auto_init_cwd` were deleted, why state#1 was accepted short of its estimate, the G2 verdict on relocated config validation, batch telemetry durability, and the JSONL inventory
 - [decisions/static-typing.md](decisions/static-typing.md) — Why pyright strict runs with warnings fatal and no demotions, the one allowed suppression form, where untyped data gets narrowed, and why nested CLI handlers are registered by call
 - [decisions/tui-framework.md](decisions/tui-framework.md) — prompt_toolkit full-screen Application for session browse; hand-rolled, textual, and fzf rejected on picker-specific evidence
 
@@ -158,7 +158,7 @@ High-level orientation for making changes — where to start, what owns what, ho
 
 - [codebase/overview.md](codebase/overview.md) — Codebase domain overview and ownership map
 - [codebase/guide.md](codebase/guide.md) — How to navigate the codebase, where to start reading, how to add new subsystems
-- [codebase/cleanup-program.md](codebase/cleanup-program.md) — The six structural problems from the 2026-10 thermo-nuclear review, the five-phase cleanup plan, what phase 1 fixed and deleted, and what is tracked in #569
+- [codebase/cleanup-program.md](codebase/cleanup-program.md) — The six structural problems from the 2026-10 thermo-nuclear review, the five-phase cleanup plan, what phases 1 and 2 fixed, deleted and made explicit, and what is tracked in #569
 - [codebase/harness-adapters.md](codebase/harness-adapters.md) — `lib/harness/`: capability matrix, primary event scope, and cross-harness comparison
 - [codebase/tools.md](codebase/tools.md) — `lib/kg/`, `lib/mermaid/`, `lib/markdown/`: KG analysis, Mermaid validation, Markdown extraction exposed via `meridian kg` / `meridian mermaid`
 - [codebase/work-items.md](codebase/work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination

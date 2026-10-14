@@ -94,7 +94,7 @@ def _rotate(self) -> None:
 
 ### Write Behavior
 
-`write_batch()` writes each envelope as a compact JSON line (`separators=(",", ":")`). Lines that fail JSON serialization are silently skipped. `close()` flushes and closes the file handle; it is idempotent.
+`write_batch()` serializes each envelope as a compact JSON line (`separators=(",", ":")`) and appends the whole batch with one `state/jsonl.append_durable_jsonl_lines()` call: one torn-tail repair, one write, one `fsync`. The batch, not the envelope, is the durability unit; a crash leaves at most one torn tail, which the next append repairs ([decision](../../decisions/codebase-cleanup.md#d-telemetry-batch-durability-fsync-once-per-batch-not-per-envelope)). Lines that fail JSON serialization are silently skipped. `close()` flushes and closes the file handle; it is idempotent.
 
 ---
 

@@ -45,15 +45,16 @@ for drift.
 `resolve_project_root_resolution()` returns the root together with its source
 and execution CWD.
 
-> [!FLAG] **Needs human review.** Establishment is currently a no-op. Since
-> #388, `resolve_cli_project_root()` reports `established=True` for every root,
-> so any CWD is treated as a project, the descriptor flag
-> `bootstrap_plan.auto_init_cwd` is unreachable, and write commands create the
-> project identity through `prepare_for_runtime_write()` wherever they run.
-> `cwd_has_project_id()` (literal `meridian.toml` / `mars.toml`, no ancestor
-> walk) exists but nothing calls it. Whether to delete the flag or restore a
-> real check is open (`cli/.context/TODO`;
-> [decision](../decisions/codebase-cleanup.md#d-auto-init-inert-auto_init_cwd-is-a-todo-not-a-feature)).
+Establishment is a no-op. Since #388, `resolve_cli_project_root()` reports
+`established=True` for every root, so any CWD is treated as a project and write
+commands create the project identity through `prepare_for_runtime_write()`
+wherever they run (create-on-first-write,
+[state Decision 3](../decisions/state.md)). `cwd_has_project_id()` (literal
+`meridian.toml` / `mars.toml`, no ancestor walk) has no production caller. The
+inert `bootstrap_plan.auto_init_cwd` descriptor flag was deleted in cleanup
+phase 2. A two-tier identity design that would stop marker-less directories
+from receiving a `meridian.toml` is in progress, not built
+([project identity reopened](../decisions/state.md#project-identity-reopened-two-tier-design-in-progress-2026-10)).
 
 Bootstrap plans distinguish reads from writes: read-only commands do not
 silently create identity or runtime state. `SystemExit` remains outside `except Exception`, so
@@ -94,6 +95,15 @@ profiling justified them.
 This keeps help/version cheap without creating a second command inventory: the
 descriptor catalog and command-group registry have distinct jobs and derive
 routing/help views from their declared entries.
+
+## Invocation State
+
+`cli/invocation.py` owns per-invocation state: the typed global options, output
+routing, and the `invocation_scope()` that bounds their lifetime. `main.py` opens
+the scope; command modules read from `invocation.py` and never import `cli.main`,
+which would reintroduce an import cycle through every command. `get_global_options()` raises outside a scope rather than
+fabricating defaults, so an in-process caller must open one. Registrars receive
+the app and registries, not emitter callbacks. Detail: `cli/.context/CONTEXT.md`.
 
 ## Related
 

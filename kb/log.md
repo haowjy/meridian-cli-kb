@@ -3,6 +3,33 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Cleanup phase 2 captured; chat-backend residue trimmed
+
+- [Cleanup program](codebase/cleanup-program.md): phase 2 marked done with its
+  outcome, conventions table, removals and open items;
+  [cleanup decisions](decisions/codebase-cleanup.md): `auto_init_cwd` resolved
+  (deleted) and new records for state#1 acceptance, the G2 double-validation
+  verdict, telemetry batch durability and the JSONL inventory.
+- [State decisions](decisions/state.md): new "One JSONL commit rule" record
+  (options A/B/C, why A) and "Project identity reopened" (evidence, the user's
+  settled sub-decisions, nothing implemented); Decision 3 gains a status line;
+  the store-specific-seams record notes `json_doc`.
+- Current-truth fixes: [config precedence](concepts/config-precedence.md) no
+  longer describes `settings.py` / `BaseSettings` / `hidden_env_specs` and places
+  agent overlays in `mars.toml`; [durability and locking](architecture/state-system/durability-and-locking.md)
+  gains the JSON sidecar pattern and the JSONL rule; telemetry persistence and
+  reader pages, vocabulary, design principles and invariants describe the
+  newline commit rule; [startup pipeline](architecture/startup-pipeline.md) and
+  [startup decisions](decisions/startup-health-sandbox.md) drop the stale
+  `auto_init_cwd` flag and enforced-predicate claims.
+- Chat-backend trim (user: "delete them all"): removed the dead `lib/chat/*`
+  entries from [future work](open-questions/future-work.md) (section renamed
+  "Managed Primary", #498 kept); [chat backend decisions](decisions/chat-backend.md)
+  cut to D15, D16, D23, D32 (D20 was already superseded by the `EventSemantics`
+  descriptor in state decisions); removed the chat gap and superseded chat
+  decision from the sandbox pages.
+
+---
 ## 2026-10-14 — Idle adapter reference split
 
 - New [Idle Adapter Architecture](architecture/idle-adapters.md) page owns the

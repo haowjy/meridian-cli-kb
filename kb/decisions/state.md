@@ -51,6 +51,36 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 **Alternatives rejected:** repo-local identity/state created a second root; local-only identity split clones and worktrees; path or VCS-derived identity broke moves or the no-VCS contract; precedence overrides could silently split one project across state roots.
 
+**Status:** still how the code behaves. The "first durable write creates identity" clause, which writes `meridian.toml` into any directory, was reopened in 2026-10; see the next record.
+
+---
+
+### Project identity reopened: two-tier design in progress (2026-10)
+
+**Status:** direction chosen, design under revision, **nothing implemented.** Until it ships, Decision 3 above describes the code: the first durable write in a marker-less directory writes `meridian.toml` with a fresh `[project] id`, and `.meridian/id` is still read as a legacy fallback.
+
+**The recorded rationale for create-on-first-write** (recovered from the April and July records): the id is minted lazily on first write so a project survives being moved, and committed so clones and worktrees share history. #341 (2026-07) moved the marker into `meridian.toml` and ratified "runs anywhere with zero TOML; TOMLs anchor where state lives and never gate whether the CLI works; create-on-write only", with the marker at the literal CWD and no ancestor walk (an ancestor walk had silently joined the wrong project, #335). Rejected then: explicit-init-only, ancestor or VCS walk, path-hash identity, user-local identity, identity overrides.
+
+**What reopened it.** The July record never priced the files it leaves behind. A census on 2026-10-14 found 326 `meridian.toml` markers under `/tmp` (260 distinct ids, only 3 with state in the real `~/.meridian/projects/`; the rest came from smoke tests with scratch homes) and 97 under `~/gitrepos`. `~/.meridian/projects/` held 163 roots, of which 6 match a marker in a real repository and 158 (65 MB) are UUID roots nothing can attribute to a path. The cost is the marker written into the user's directory and the unattributable root, not lost state.
+
+**The requirement, in the user's words:** "I just want to be able to do `meridian opencode` and run something". A bare-directory launch should work with defaults and every installed harness. A probe showed bare launches already start; what fails is agent and skill discovery, which is project-local (`catalog/agent.py`, `catalog/skill.py`) and never searches user scope, and `mars models list`, which needs a project `mars.toml`.
+
+**Direction (user, 2026-10-14):** a directory holding `meridian.toml` or `mars.toml` is a committed project and behaves exactly as today. A marker-less directory is an ad-hoc place: its state lives under `~/.meridian/` and nothing is written into the directory. Settled within that direction:
+
+| Question | Decision |
+|---|---|
+| Does `mars.toml` alone mark a project? | Yes, as ratified in July |
+| Legacy `.meridian/id` fallback and `meridian migrate` | Delete both |
+| Does ad-hoc state carry into a project at `meridian init`? | No. The simplified shape is the long-term shape: `init` starts the project clean, as git, cargo and uv do, and pre-`init` state ages out of its ad-hoc root |
+| `config set` / `config reset` / `workspace init` in a bare directory | Error and point to `meridian init` (prior art is nearly unanimous; `uv run` works anywhere while `uv add` needs a project) |
+| Ad-hoc root lifetime | A conservative retention default, so `doctor --global --prune` can reclaim quiescent roots |
+| Packages in an ad-hoc place | Agents, skills, model catalog and launch targets resolve from user scope with defaults; a committed project layers project over user scope |
+| Ancestor walk | Still none (#335) |
+
+**Open:** the revised design (`design/two-tier-identity.md` revision 2 in `work:pyright-strict`) and its specifics: ad-hoc id format, the user Mars root, the retention period and last-activity signal. None of these is decided until the design is approved.
+
+**Rejected in this round:** absorbing an ad-hoc root into the committed project on the first write after `init` (with its pending state, superseded roots and id-keyed locks). It was about a third of the design's blast radius, and the user chose to give up carry-over instead.
+
 ---
 
 ### `mark_finalizing` CAS enables `orphan_finalization` distinction
@@ -261,7 +291,7 @@ Two call sites use this primitive:
 
 ### Torn-tail-proof JSONL appends via parse-before-discard and atomic inode replacement (PR #444, 2026-07)
 
-**Decision:** All durable JSONL consumers (session events, launch-boundary events, permission journals, control-action journals) use `append_durable_jsonl_line`, which repairs any torn tail before appending. A complete row missing only its trailing newline is preserved (readers already accepted it); a genuinely torn partial row is dropped. Repair writes the corrected content via atomic inode replacement (`atomic_replace` with `permissions="preserve"`), so unlocked buffered readers can never splice a fabricated hybrid event from a partial overwrite.
+**Decision:** All durable JSONL consumers (session events, launch-boundary events, permission journals, control-action journals) use `append_durable_jsonl_line`, which repairs any torn tail before appending. A complete row missing only its trailing newline is preserved and given its newline; a genuinely torn partial row is dropped. Repair writes the corrected content via atomic inode replacement (`atomic_replace` with `permissions="preserve"`), so unlocked buffered readers can never splice a fabricated hybrid event from a partial overwrite.
 
 **Why:** A SIGKILL mid-append leaves a partial last line. The next append previously concatenated its content onto the torn tail, making both the torn row and the new row unreadable. For session events, this made the session permanently unstopped after its lock was unlinked (the stop event was the new row). For permission/control journals, torn tails allowed `transition_seq` reuse.
 
@@ -269,9 +299,29 @@ Two call sites use this primitive:
 - *Parse-before-discard:* the tail is parsed as JSON before deciding whether to keep or drop it. A complete object row missing only `\n` is common (valid write, missing only the delimiter) and must not be discarded.
 - *Atomic inode replacement over in-place truncation:* `os.truncate` would mutate the file in place; an unlocked reader with a buffered file descriptor could read bytes from the old content followed by bytes from a new append, producing a fabricated hybrid event. Atomic replacement creates a new inode, so the reader sees either the old file (complete) or the new file (repaired), never a splice.
 - *O(1) fast path:* the clean-tail check reads only the last byte (`seek(-1, SEEK_END)`); no whole-file read per append when the tail is intact.
-- `history.jsonl` was deliberately excluded and its repair tracked under #376. PR 3
-  (native-only history) deleted the runner-history writer and its tail repair, so that
-  exclusion no longer applies to anything written.
+
+---
+
+### One JSONL commit rule: a row exists when its newline does (cleanup phase 2, 2026-10)
+
+**Decision (user, 2026-10-14):** Every JSONL file is read through `state/jsonl.iter_jsonl()` and appended through `append_durable_jsonl_line(s)` in the same module, under one rule. A row is committed when its newline is written; a final row without one is withheld until the next append repairs it. A malformed complete row is skipped (with a debug-level diagnostic), except where a reader must fail closed: archive receipts raise, because a missing receipt would change archive decisions. The single-row writer owns the newline and rejects embedded CR/LF, so one call can never commit two rows.
+
+**What it replaced.** Four readers, each with a hand-written loop and its own policy:
+
+| Reader | Torn last line | Malformed middle line | Empty line |
+|---|---|---|---|
+| Event store | shown if it parsed as JSON | silently skipped | skipped |
+| History index | ignored until complete | silently skipped | skipped |
+| Archive receipts | ignored | crash | crash |
+| Telemetry | shown if it parsed | silently skipped | skipped |
+
+**Options put to the user:**
+
+- **A. The newline is the commit marker** (chosen). Cost: after a rare crash that splits a write exactly before its newline, one valid record stays invisible until something appends again, which for a finished session may be never.
+- **B. One reader, but a valid JSON object on the last line counts without its newline**, as the event store and telemetry did. No record is ever withheld, but the reader needs an exception (do not advance its offset past that line), and it shows a record the writer never finished committing.
+- **C. Keep the four loops.** The archive catalog keeps crashing on an empty line, silent skips keep hiding corruption, and the next JSONL file gets a fifth loop.
+
+**Why A.** The writer already repairs the tail before every append, so nothing is ever concatenated or lost, only delayed. A runtime probe confirmed no authoritative reader depends on the tail: terminal status, liveness and `spawn wait` read `state.json`, and the history index already withheld torn tails on `main`. That made B's extra availability unnecessary, and A is the simpler invariant to state. The probe also found a pre-existing bug: the telemetry sink wrote JSON and newline separately with no repair, so a torn tail swallowed the next record. The sink now appends through the same durable primitive.
 
 ---
 
@@ -332,6 +382,8 @@ Provenance: `work:launch-boundary-resurrection`, issue #437.
 **Decision:** The six mutate-under-lock seams (spawn records, archived spawns, work items, hook intervals, scope projections, autosync — archived spawns since deleted) stay store-specific. A generic mutation framework (e.g. a `LockedStore[T]` base class or protocol) was evaluated in the thermo-nuclear consistency review and rejected.
 
 **Why:** The seams share a shape (lock, re-read, pure-mutate, atomic-write) but diverge in lock-path computation, read/write codecs, file layout, and error handling. A generic abstraction would need enough parameters to reconstruct each store's specifics, providing the cost of an abstraction without reducing the decision space. The shared mechanism is already `lock_file` + the atomic-write canon; the seam shape is a documented behavioral contract, not a code-level inheritance hierarchy.
+
+**Still holds after cleanup phase 2.** Phase 2 added `state/json_doc.py` (`read_model` / `write_model` / `mutate_model`) under eight small JSON sidecars. It is a set of functions over a Pydantic model and a caller-supplied lock, not a store base class: each store still computes its own lock and path. `mutate_model()` takes the lock as a required argument so an unlocked read-modify-write cannot be written.
 
 ---
 

@@ -40,7 +40,7 @@ This page is the canonical statement of the launch composition invariants (I-1 t
 
 ### Durable File State
 
-Session events are append-only JSONL: events are never deleted or rewritten in place, and truncated lines are skipped on read. Spawn state uses per-spawn `state.json` files: each replacement is atomic, and all mutations coordinate through a stable per-spawn lock at `locks/spawns/<id>.lock`. Both formats preserve the crash-only property, but only session state is currently replayed from JSONL.
+Session events are append-only JSONL: events are never deleted or rewritten in place, and a row counts only once its newline is written (a torn tail is withheld on read and repaired by the next append). Spawn state uses per-spawn `state.json` files: each replacement is atomic, and all mutations coordinate through a stable per-spawn lock at `locks/spawns/<id>.lock`. Both formats preserve the crash-only property, but only session state is currently replayed from JSONL.
 
 ### Mutate-Under-Lock Seam
 

@@ -128,12 +128,13 @@ that operation-layer setup was removed.
 
 3. **`exit_no_established_project()`** is the single CLI-edge `SystemExit(1)` — centralized so the exit message never diverges across call sites.
 
-**Established-project predicate:** `cwd_has_project_id(cwd)` checks whether
-the literal CWD contains `meridian.toml` or `mars.toml`—no ancestor walk. The
-function name predates the shipped identity migration; `.meridian/id`, `.mars/`,
-`.agents/`, and `.git` do not establish a project.
-
-**Not an established project:** CWD resolution where `cwd_has_project_id()` returns `False` — project-required commands still exit 1; rootless commands exit 0.
+**Established-project predicate (no longer enforced):** `cwd_has_project_id(cwd)`
+checks whether the literal CWD contains `meridian.toml` or `mars.toml`, with no
+ancestor walk. Since #388 (2026-07) the resolver reports every root as
+established, so `require_established_project_root()` exits only when no root
+resolves at all, and the predicate has no production caller. The canonical
+resolver and the single `exit_no_established_project()` exit remain. See
+[startup pipeline](../architecture/startup-pipeline.md) for current behavior.
 
 ---
 

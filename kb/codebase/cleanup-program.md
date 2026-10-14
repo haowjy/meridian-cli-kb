@@ -57,7 +57,7 @@ flowchart LR
 | Phase | What it does | Problems addressed | Status |
 |---|---|---|---|
 | 1 | Fix the confirmed bugs; delete machinery nothing runs | 6, plus bugs from 2–3 | Done on `chore/cleanup-p1`; PR stacked on #570 |
-| 2 | Config normalizers collapse into Pydantic, `settings.py` split, one `iter_config_layers`; typed JSON sidecar documents and one `iter_jsonl` with a single torn-tail rule; `cli/invocation.py` to break imports into `cli.main` | 4, 5 | In progress on `chore/cleanup-p2*` |
+| 2 | Config normalizers collapse into Pydantic, `settings.py` split, one `iter_config_layers`; typed JSON sidecar documents and one `iter_jsonl` with a single torn-tail rule; `cli/invocation.py` to break imports into `cli.main` | 4, 5 | Done on `chore/cleanup-p2`; PR stacked on #571 → #570 |
 | 3 | One prepared context per op; sync handler with derived async; one bootstrap owner; one `spawn_follow_up(continue \| fork)`; refs parsed once | 3 | Deferred, #569 |
 | 4 | All env composition inside bind; typed request-handler base and shared managed-backend runtime; OpenCode rebuilt as one serve connection with V1/V2 dialect strategies; a `launch/turn.py` turn host shared by all three drivers; drain as single terminal authority; per-harness dialects and bundle ports replacing harness-ID switches | 1, 2 | Deferred, #569 |
 | 5 | `CommandDescriptor` becomes the only command record; per-command quirks become descriptor fields; `main.py` split | 3 | Deferred, #569 |
@@ -71,7 +71,8 @@ actions from `spawn_manager.py`.
 #569): fork semantics unify (phase 3); `SpawnActionOutput` becomes a
 discriminated union, changing the wire format (phase 3); one bootstrap owner in
 agent mode (phase 3); the primary path honors `request.env` (phase 4). Phase 2's
-torn-tail JSONL rule was approved in principle and is confirmed at its gate.
+torn-tail JSONL rule was the one phase-2 behavior change; the user chose it after
+a runtime probe ([decision](../decisions/state.md#one-jsonl-commit-rule-a-row-exists-when-its-newline-does-cleanup-phase-2-2026-10)).
 
 ## Phase 1 Outcome
 
@@ -126,9 +127,6 @@ directories they bind:
 
 **Left open by phase 1:**
 
-- `bootstrap_plan.auto_init_cwd` is unreachable; delete it or restore a real
-  established-project check (`cli/.context/TODO`,
-  [decision](../decisions/codebase-cleanup.md#d-auto-init-inert-auto_init_cwd-is-a-todo-not-a-feature)).
 - Server-side Windows branches remain in `streaming/control_socket.py` (TCP
   port file) and `streaming/signal_canceller.py` (app-server HTTP cancel)
   (`lib/streaming/.context/FUTURE`).
@@ -139,9 +137,67 @@ directories they bind:
   invoke extensions through separate code (cli#9), and the control-socket
   client still lives in the CLI (cli#11) — all in #569.
 
+## Phase 2 Outcome
+
+Phase 2 built the shared seams that problems 4 and 5 lacked. Three lanes (config,
+state IO, CLI) each merged after its own gates and a corpus comparison against its
+base; the integration review (G2) then found the config lane had moved the double
+validation rather than removed it, and a fix pass plus a polish pass finished the job
+([decision](../decisions/codebase-cleanup.md#d-g2-double-validation-the-first-config-pass-relocated-the-ladder)).
+Under `src/` the phase is roughly line-neutral (+4.0k / −4.3k): the 2,180-line
+`settings.py` became eight focused config modules of about 2,000 lines in total.
+
+**Behavior preserved, verified by corpus:** config values, precedence, per-value
+provenance, unknown-key warnings, `config show` text and JSON, `config set`, hooks
+across three layers, and CLI output byte-identical in human and agent modes. Changes
+a user can see: config errors name the file; seven cases that printed a raw Pydantic
+dump print one line; `MERIDIAN_HARNESS_WAIT_YIELD_SECONDS_PI` is honored; a torn JSONL
+tail stays invisible until the next append; the telemetry sink repairs torn tails
+(it had no repair on `main`).
+
+**Conventions made explicit** (stated where they bind):
+
+| Convention | Where it is stated |
+|---|---|
+| Config has one validation path: the Pydantic models under `MeridianConfig` (`config/models.py`, `harness_models.py`, `history_models.py`, the dynamic-section descriptor models). Key-warning policy is `ClassVar`s on `ConfigModel`; env vars exist only through `config_field()` catalog metadata; the layer merge is explicit in `config/loader.py`. No hand normalizers, no `pydantic-settings` | `lib/config/AGENTS.md`; [config precedence](../concepts/config-precedence.md) |
+| Hook rows validate through `lib/hooks/schema.py` (`HookConfigSection.model_validate`, `HookSpec`); field constraints live on the models, hand checks only for multi-field rules; hook sources are user < project < local, with no builtin layer | `lib/hooks/AGENTS.md` |
+| JSON sidecars go through `lib/state/json_doc.py` (`read_model` / `write_model` / `mutate_model`, the last requiring a lock) | `lib/state/.context/CONTEXT.md`; [durability and locking](../architecture/state-system/durability-and-locking.md) |
+| JSONL is read and appended only through `lib/state/jsonl.py`: a row exists when its newline does; the appender repairs a delimiter-less valid tail; malformed complete rows skip (debug diagnostic); archive receipts raise; the single-row writer owns the newline | `lib/state/AGENTS.md`, `.context/CONTEXT.md`; [state decisions](../decisions/state.md#one-jsonl-commit-rule-a-row-exists-when-its-newline-does-cleanup-phase-2-2026-10) |
+| Telemetry's durability unit is the batch: one repair, one write, one `fsync` per `write_batch` | `telemetry/local_jsonl.py`; [local persistence](../architecture/telemetry/local-persistence.md) |
+| CLI modules read invocation state from `cli/invocation.py` inside an `invocation_scope`; `get_global_options()` raises outside one; nothing imports `cli.main` | `cli/AGENTS.md`, `cli/.context/CONTEXT.md`; [startup pipeline](../architecture/startup-pipeline.md) |
+
+**Removed:** `config/settings.py` (importers use `config.models`, `config.loader`,
+`config.dynamic_sections`); the `pydantic-settings` dependency and the re-entrant
+`BaseSettings` load with its `_SETTINGS_CONTEXT` workaround; the TOML normalizer
+ladders and the six-section catalog pre-parse; `hidden_env_specs` (replaced by one
+`harness_profile_model()` factory); the hooks hand ladder and its `model_construct`
+bypass; a phantom builtin hook-config layer; `inbound.jsonl`
+([decision](../decisions/codebase-cleanup.md#d-jsonl-inventory-delete-inboundjsonl-keep-runner-lifecycle-and-debug));
+four hand-written JSONL loops; the dead `auto_init_cwd` plumbing; function-local
+imports of `cli.main` (a 30-module import cycle).
+
+**Left open by phase 2** (all in #569 unless noted):
+
+- `config show` replaces the whole `[[hooks]]` array per layer while the hook runtime
+  layers rows by `(name, event)`; the two disagree (pre-existing).
+- Several config fields (17 at the 2026-10-13 audit) still lack catalog metadata, so they have no env var and no
+  generic `config get/set` (`lib/config/.context/FUTURE`).
+- `sessions.jsonl` grows without bound (15 MB in one real project); `history.jsonl`
+  legacy-archive recognition has no writer or reader left.
+- Project identity: the review of `auto_init_cwd` showed that every write command
+  creates `meridian.toml` wherever it runs. That reopened the July
+  create-on-first-write model; a two-tier design is in progress and nothing is
+  implemented ([decision](../decisions/state.md#project-identity-reopened-two-tier-design-in-progress-2026-10)).
+
 ## Sources
 
-`work:pyright-strict` (`cleanup-backlog.md`, `decisions.md` D8, D10–D17),
+`work:pyright-strict` (`cleanup-backlog.md`, `decisions.md` D8, D10–D41),
 `spawn:p7728`–`spawn:p7732` (lane reviews), `spawn:p7746`, `spawn:p7747`,
 `spawn:p7748` (phase-1 lanes), `spawn:p7749` (B7 investigation),
-`spawn:p7763` (phase-1 integration review), `spawn:p7769` (review fixes).
+`spawn:p7763` (phase-1 integration review), `spawn:p7769` (review fixes);
+phase 2: `spawn:p7750`, `spawn:p7770`, `spawn:p7780` (config), `spawn:p7751`,
+`spawn:p7775`, `spawn:p7781` (state IO), `spawn:p7764` (CLI), `spawn:p7765` (state#1
+review), `spawn:p7771` (torn-tail probe), `spawn:p7789`, `spawn:p7793` (JSONL
+inventory and deletion), `spawn:p7782`, `spawn:p7791` (project identity),
+`spawn:p7794`, `spawn:p7795` (G2 reviews), `spawn:p7799`–`spawn:p7801`, `spawn:p7809`
+(fix lanes), `spawn:p7810` (re-verification), `spawn:p7813` (polish).
