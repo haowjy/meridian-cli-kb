@@ -106,4 +106,6 @@ This design means:
 
 - [launch-system.md](launch-system.md) — composition factory, three driving adapters
 - [state-system/overview.md](state-system/overview.md) — per-spawn state, reaper, work items
+- [state-system/project-identity.md](state-system/project-identity.md) — committed and ad-hoc project identity and runtime-root selection
+- [mars-user-scope.md](mars-user-scope.md) — user/project Mars roots and content layering
 - [../codebase/guide.md](../codebase/guide.md) — how to navigate and change things

@@ -90,7 +90,7 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   `auto_init_cwd` flag and enforced-predicate claims.
 - Chat-backend trim (user: "delete them all"): removed the dead `lib/chat/*`
   entries from [future work](open-questions/future-work.md) (section renamed
-  "Managed Primary", #498 kept); [chat backend decisions](decisions/chat-backend.md)
+  "Managed Primary", #498 kept); [connection-seam decisions](decisions/connection-seams.md)
   cut to D15, D16, D23, D32 (D20 was already superseded by the `EventSemantics`
   descriptor in state decisions); removed the chat gap and superseded chat
   decision from the sandbox pages.
@@ -481,7 +481,7 @@ lanes E–G merged).
   Repaired the three inbound `#run-facts-and-delivery` anchors
   ([native-session-binding](architecture/native-session-binding.md),
   [launch-system](architecture/launch-system.md),
-  [decisions/chat-backend](decisions/chat-backend.md)) to point at the new page's
+  [connection-seam decisions](decisions/connection-seams.md)) to point at the new page's
   `#attempt-folds` or `#the-emit-path` anchors, and added the new page to
   [index.md](index.md), [state-system/overview.md](architecture/state-system/overview.md)
   and [lessons/native-session-identity.md](lessons/native-session-identity.md).
@@ -532,7 +532,7 @@ described it at `1124ef38` as partly "designed" now describe the landed code.
     [native-session-identity](decisions/native-session-identity.md),
     [native-session-binding](architecture/native-session-binding.md) and
     [session-operations](codebase/session-operations.md).
-  - [decisions/chat-backend.md](decisions/chat-backend.md): `EventObserverRegistry`
+  - [decisions/connection-seams.md](decisions/connection-seams.md): `EventObserverRegistry`
     was deleted (D15 partly superseded).
   - [decisions/history-storage.md](decisions/history-storage.md): PR #494 merged
     (2026-09-18, v0.5.0); it is no longer a draft.
