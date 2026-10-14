@@ -46,14 +46,11 @@ Meridian and Mars own different files:
 
 - **`meridian.toml`** is committed project configuration. `[project].id` is the
   authoritative identity of a committed project. A directory with neither
-  `meridian.toml` nor `mars.toml` is an ad-hoc place: its identity is derived
+  `meridian.toml` nor `mars.toml` (or the user Mars root `~/.meridian/mars/`,
+  which never counts as a project) is an ad-hoc place: its identity is derived
   from its path and Meridian writes nothing into it
   ([project identity](architecture/state-system/project-identity.md)).
 
-> [!FLAG] **Needs human review**: This summary uses the ordinary marker
-> predicate, while project identity treats the special user Mars root
-> `~/.meridian/mars/` as an ad-hoc place even though it contains `mars.toml`.
-> Flagged 2026-10-14.
 - **`~/.meridian/projects/<project-id>/`** is Meridian's uncommitted runtime
   root for spawn rows, session events, locks, caches, and artifacts.
 - **The configured context work root** holds mutable work-item state and work

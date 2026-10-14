@@ -7,7 +7,8 @@ decided only by what the literal project root contains
 - A **committed project** holds `meridian.toml` or `mars.toml`. Its identity is
   `[project].id` in `meridian.toml`, a generated three-word id minted on the
   first write.
-- An **ad-hoc place** holds neither. Its identity is `adhoc.<slug>.<hash12>`,
+- An **ad-hoc place** holds neither, or is the user Mars root
+  `~/.meridian/mars/` (whose `mars.toml` belongs to user packages). Its identity is `adhoc.<slug>.<hash12>`,
   derived from the canonical path, and nothing is ever written into the
   directory.
 
