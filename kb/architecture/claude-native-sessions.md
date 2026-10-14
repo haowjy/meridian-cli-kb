@@ -139,13 +139,13 @@ performs model work that hits budget limits and is not deterministic.
 
 ## Launch-owned SessionStart journal and current chat
 
-**State:** committed in unmerged [PR #559](https://github.com/haowjy/meridian-cli/pull/559),
-base commits `679ab27f`, `cea151fa`, plus thermo structural fixes `7ba1ebb7`…`22eab4ad`
+**State:** shipped in v0.9.5 ([PR #559](https://github.com/haowjy/meridian-cli/pull/559),
+merged 2026-10-12 as `1e5fc390`): base commits `679ab27f`, `cea151fa`, plus thermo structural fixes `7ba1ebb7`…`22eab4ad`
 and validation/rendering fix `c6c017f0`. Final full gate (2447 Python tests, one
 skipped; 108 runtime tests; Ruff, Pyright and builds) passed at `c6c017f0`.
 Frozen-source native probe at
-`22eab4ad` passed all required scenarios (see Evidence below). Nothing is released
-or installed; downgrade/mixed-version incompatibility remains.
+`22eab4ad` passed all required scenarios (see Evidence below). Downgrade and
+mixed-version use with 0.9.3/0.9.4 remain incompatible.
 
 The earlier design (commits `3aa18aae`…`a2713624`) tried to *prove the final session
 at exit*: a `SessionEnd` receipt, verified only if the exact final transcript existed.
@@ -315,11 +315,11 @@ fix `3630a1f0b`, shared persistence gate `a2713624` (still used by Pi), fork sou
 `current-chat-live-probe-result.md`, `current-chat-frozen-probe-result.md` (spawn:p7642),
 `current-chat-rereview-result.md` (spawn:p7641), `current-chat-restore-probe.log` and
 `current-chat-final-preflight.log`; commits `19c8ba3e`, `679ab27f`, `cea151fa`
-(unmerged, PR #559). Thermo structural fixes (single-pointer routing, unified
+(PR #559, released in v0.9.5). Thermo structural fixes (single-pointer routing, unified
 publication, entry-policy ownership, lexical pump lifetime, legacy validation):
 `current-thermo-implementation-result.md`, commits `7ba1ebb7`, `a279bea4`,
 `3fad5cc5`, `22eab4ad`; review `current-thermo-fix-review-result.md`; validation and
 rendering fix `c6c017f0` (review `primary-thermo-closure-review-result.md`); frozen
 native probe `current-thermo-live-result.md` with corrections
 `primary-thermo-native-notes.md`; upgrade evidence
-`primary-thermo-released-upgrade-attempt2.log`. No release or installed-CLI change is claimed.
+`primary-thermo-released-upgrade-attempt2.log`; release v0.9.5 (2026-10-12).

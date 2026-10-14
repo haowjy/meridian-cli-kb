@@ -85,13 +85,16 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
 ## What Meridian does with this
 
 - **Idle notifications.** These facts set the defaults: Codex
-  `ttl_seconds = 1800` (estimated), OpenCode `300`. Claude reads the TTL from
+  `ttl_seconds = 1800` (estimated). OpenCode 2.x maps the session's provider:
+  `openai` → 1800, estimated, everything else unknown (PR #573, unreleased;
+  released builds still default OpenCode to 300, push only). Claude reads the TTL from
   the transcript in the chat's recorded store. Pi maps provider and
   `PI_CACHE_RETENTION` to a TTL: Anthropic 300 or 3600 (known); OpenAI long
   retention 1800, estimated, because the `24h` label is not a lifetime;
   `openai-codex` 1800, estimated, to match the Codex harness on the same
   backend. `xai` and `deepseek` stay unknown, so they get push only. See
-  [D-idle-ttl-detection](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd).
+  [D-idle-ttl-detection](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)
+  and [OpenCode provider TTL](../decisions/idle-ttl-detection.md#opencode-provider-ttl).
 - **Pi primaries get long retention.** Meridian sets `PI_CACHE_RETENTION=long`
   for interactive Pi primaries unless the user set it; spawns keep Pi's
   5-minute default. That buys a one-hour Anthropic cache at the higher write

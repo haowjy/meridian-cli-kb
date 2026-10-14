@@ -371,6 +371,67 @@ its upgrade note needs to tell users to restart running interactive sessions.
 
 ---
 
+## A Dialect Switch Must Move Every Consumer of the Stream
+
+**The mechanism:** OpenCode 2.x renamed its turn-end event. Meridian's V2
+transport (v0.6.0, 2026-09-18) handled the rename where the spawn path reads
+it: `OPENCODE_SEMANTICS` gained `session.execution.{succeeded,failed,interrupted}`
+entries, and `connections/AGENTS.md` and the harness `.context/CONTEXT.md`
+recorded that V2 ends turns that way. Three weeks later the idle sensor (PR #550,
+v0.9.3) was built as a second consumer of the same live stream. It matched event
+names itself instead of reading the semantics table. It was designed and probed
+against OpenCode 1.18.32, a V1 backend, and its unit fixtures were V1 SSE
+captures only. It waited for `session.idle` and compacted through V1's
+`/session/{id}/summarize`. Meanwhile the general harness docs still said
+"OpenCode uses `session.idle`" (`lib/harness/AGENTS.md` and two lines of the
+harness `.context/CONTEXT.md`; corrected on the PR #573 branch).
+
+**What happened:** on OpenCode 2.0.28 the sensor waited for an event that
+never came. Nothing raised. No arm call meant no idle state file, and the
+sidecar's per-event fault containment had nothing to contain, so there was no
+`debug.jsonl` either. All 10 interactive OpenCode primaries on Oct 12–13 (one
+three hours long) got no push, no warning and no compaction, through every
+release from 0.9.3 to 0.9.8. The #550 review had listed "if `session.status` /
+`session.idle` change, there are no arms" as fails-closed. For idle, fails-closed
+is fails-silent. It surfaced only when the user re-opened idle work for the
+other harnesses and the before-state check found no OpenCode idle state at
+all. Fix:
+[D-opencode-idle-v2](../decisions/idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)
+(PR #573).
+
+**The lesson:**
+
+- When a harness changes dialect, list every consumer of its event stream, not
+  just the transport. A consumer that matches event names itself does not
+  inherit the transport's update.
+- Probe a new adapter against the harness version users actually run, and keep
+  fixtures for every dialect the dispatcher can select. A V1-only fixture set
+  passes forever against a V2 world.
+- A sensor whose failure mode is "never fires" needs a positive signal that it
+  has fired, such as a real session's `meridian idle status` row. Absence of
+  errors is not evidence.
+- When the dialect is chosen at runtime, the consumer must follow the
+  transport's resolved choice, not re-read the preference. The first V2 fix
+  dispatched on the env var, which carries `auto`, and sent 1.x users the V2
+  sensor (review-2 H1).
+
+**Sibling, not the same:**
+[Bundled mods outlive the CLI they call](#bundled-mods-outlive-the-cli-they-call)
+is also silent idle loss, but there the two sides of Meridian's own contract
+drift across an upgrade. Here Meridian never matched the harness version in
+the first place.
+
+**Where this lives:** `src/meridian/lib/harness/opencode_idle.py`
+(`primary_idle_sensor`, both sensors),
+`src/meridian/lib/harness/connections/opencode_connection.py`
+(`resolved_version`), `src/meridian/lib/harness/opencode.py`
+(`OPENCODE_SEMANTICS`). Provenance: `work:idle-ttl-detection` `decisions.md`
+"2026-10-14 phase 2", `evidence/probe-opencode-v2-events.md`,
+`reviews/review-2.md`; `work:idle-cache-notify` `probes/P0c.md` (1.18.32) and
+`reviews/G2-review.md`.
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism

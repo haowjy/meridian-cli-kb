@@ -2,9 +2,9 @@
 
 **Status: settled 2026-09-24; extended through probe-fix on 2026-09-26; shipped in
 v0.7.0. A Claude final-exit verification extension (2026-10-11) was implemented and then
-replaced the same day by last-observed current-chat tracking, committed in unmerged PR #559
-with thermo structural fixes through `c6c017f0` (full gate and frozen native probe passed;
-see [Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).** The combined implementation is PR #534 (`feat/native-session-identity`),
+replaced the same day by last-observed current-chat tracking, shipped in v0.9.5
+(PR #559, merged 2026-10-12 as `1e5fc390`; see
+[Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).** The combined implementation is PR #534 (`feat/native-session-identity`),
 merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
@@ -264,12 +264,12 @@ in Pi gets no dead chat.
 
 ## Current chat replaces final-exit proof for Claude
 
-**Status: committed in unmerged PR #559 (`679ab27f`, `cea151fa`) with thermo structural
-fixes `7ba1ebb7`…`22eab4ad` and validation/rendering fix `c6c017f0`. Full automated
-gate at `c6c017f0` passed 2447 Python tests (one skipped), 108 runtime tests,
-Ruff, Pyright and builds. Frozen-source native qualification separately passed at
-`22eab4ad`; later changes affect legacy validation and historical rendering only.
-Not yet released or installed.**
+**Status: shipped in v0.9.5 (PR #559, merged 2026-10-12 as `1e5fc390`): base
+commits `679ab27f`, `cea151fa`, thermo structural fixes `7ba1ebb7`…`22eab4ad` and
+validation/rendering fix `c6c017f0`. Full automated gate at `c6c017f0` passed 2447
+Python tests (one skipped), 108 runtime tests, Ruff, Pyright and builds.
+Frozen-source native qualification separately passed at `22eab4ad`; later changes
+affect legacy validation and historical rendering only.**
 
 *What we moved from.* The first Claude design tried to prove the user's final
 conversation at exit. Claude's `SessionEnd` reasons, a launch-owned receipt and an
@@ -459,7 +459,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | Native-only history | Native reads, native-keyed rebuildable search, run facts off the stream; stop runner-history writes and once-only dogfood-row migration | Combined PR #534; probe fixes include exact OpenCode 1.x report fallback, chat-named `pN` views, text search coverage, strict `--file` admission, and explicit archive capture |
 | Browse and late legacy binding | Per-row browse degradation; late exact binding only for rows missed by the one-time import | Combined PR #534; repairs run in `meridian doctor` and primary-launch background repairs, never on each command |
 | Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
-| Claude current chat | Last-observed `SessionStart` journal, locked chat + `current_chat_id` publication; single-pointer routing also covers Pi's proven exits, entry-owned policy at final binding, lexical pump lifetime, validated old-state normalization | Unmerged PR #559: native qualification at `22eab4ad` (Claude 2.1.296, one Haiku turn, clear/continue/fresh/fork/SIGTERM); final gate at `c6c017f0` (2447 Python, one skipped; 108 runtime tests), independent closure approved |
+| Claude current chat | Last-observed `SessionStart` journal, locked chat + `current_chat_id` publication; single-pointer routing also covers Pi's proven exits, entry-owned policy at final binding, lexical pump lifetime, validated old-state normalization | PR #559, released in v0.9.5: native qualification at `22eab4ad` (Claude 2.1.296, one Haiku turn, clear/continue/fresh/fork/SIGTERM); final gate at `c6c017f0` (2447 Python, one skipped; 108 runtime tests), independent closure approved |
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
 
 Verification included isolated installed-build probes of supported workflows across
@@ -472,7 +472,7 @@ copied runtime. Do not describe every formerly failing live scenario as rerun gr
 The first probe failures also included wrong expectations: Claude `output.jsonl` is
 process-runner-only, and TUI probing requires a separate Enter after staging text in
 tmux. At that phase's capture Claude `/clear` remained untracked and only Pi had a
-launch-owned exit identity; the later current-chat work (unreleased) supersedes that
+launch-owned exit identity; the later current-chat work (v0.9.5) supersedes that
 limit for Claude.
 
 Out of scope here: duplicate Pi completion-notification turns (GitHub #517).

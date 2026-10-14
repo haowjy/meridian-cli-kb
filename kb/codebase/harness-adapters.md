@@ -32,7 +32,9 @@ has four optional idle ports: `primary_idle_sensor`, `native_idle_hook`,
 `autocompact_off` (an env reader that returns whether the harness's own
 auto-compaction is off, registered by Claude and OpenCode), and `detect_ttl`.
 Core passes `detect_ttl` the chat's launch-recorded `native_store`, read through
-`MERIDIAN_CHAT_ID`, never a cwd.
+`MERIDIAN_CHAT_ID`, never a cwd, plus any `provider` the sensor attached to the
+turn-end `IdleEvent` (OpenCode 2.x, PR #573). OpenCode's `primary_idle_sensor`
+picks the V1 or V2 sensor from the connection's `resolved_version`.
 `native_idle_hook` groups native observation with downstream delegation; the
 idle service delegates in `finally`, even when observation rejects or fails.
 Native parsing, cache facts, draft/busy observation, and compaction actuators

@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Idle phase 2 captured (`work:idle-ttl-detection`, PR #573)
+
+- [Idle notifications](decisions/idle-notifications.md): new
+  D-opencode-idle-v2 section (V2 sensor, resolved-version dispatch, user return
+  on inbox enqueue/delivery, Codex no-change), a per-harness coverage table, V2
+  adapter contract; removed the stale OpenCode `summarize`/300 s claims and the
+  flat 60 s push.
+- [Idle TTL detection](decisions/idle-ttl-detection.md): new OpenCode provider
+  TTL section (D7, flagged with D5).
+- [Harness integration lessons](lessons/harness-integration.md): new "A dialect
+  switch must move every consumer of the stream".
+- Marked PR #559 as merged and released in v0.9.5 across the decision index,
+  native-session-identity, native-session-binding and claude-native-sessions.
+
+---
 ## 2026-10-14 — Archived chat app-server pages removed
 
 - Removed on the user's instruction; the chat app server and dev frontend

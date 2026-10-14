@@ -8,8 +8,8 @@ How reads use the key: [native transcript reads](native-transcript-reads.md).
 
 **State:** entry identity shipped for Pi, Claude, Codex and OpenCode in v0.7.0 (PR
 #534, merge `3dae2434`); #520, #526 and #531 are closed as superseded. Claude
-current-chat tracking (the NativeRun observation seam below) is committed in unmerged
-PR #559 (`679ab27f`, `cea151fa`, and four thermo-fix commits `7ba1ebb7`…`22eab4ad`,
+current-chat tracking (the NativeRun observation seam below) shipped in v0.9.5:
+PR #559, merged 2026-10-12 as `1e5fc390` (`679ab27f`, `cea151fa`, and four thermo-fix commits `7ba1ebb7`…`22eab4ad`,
 plus validation/rendering fix `c6c017f0`): final full gate at `c6c017f0`
 passed 2447 Python tests (one skipped), 108 runtime tests, Ruff, Pyright and builds.
 Frozen-source native qualification separately passed at `22eab4ad`. Cursor was not live-probed because the user does not use it; it has no native
@@ -381,7 +381,7 @@ concurrent writers live.
 - Current-chat tracking: same work item, `DIVERGENCE/02-last-observed-session.md`,
   `current-chat-primary-refinements.md`, `current-chat-final-review-result.md`,
   `current-chat-live-probe-result.md`; commits `19c8ba3e`, `679ab27f`, `cea151fa`
-  (unmerged PR #559). Thermo structural fixes (single-pointer routing, unified
+  (PR #559, released in v0.9.5). Thermo structural fixes (single-pointer routing, unified
   publication, entry-policy ownership, lexical pump lifetime, legacy validation):
   `current-thermo-implementation-result.md`, commits `7ba1ebb7`, `a279bea4`,
   `3fad5cc5`, `22eab4ad`; review `current-thermo-fix-review-result.md`; validation

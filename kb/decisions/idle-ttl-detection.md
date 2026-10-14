@@ -1,13 +1,19 @@
 # Decision: Idle TTL Detection
 
-This decision covers transcript-store resolution and provider TTL mapping for idle notifications.
+This decision covers transcript-store resolution and provider TTL mapping for
+idle notifications: Claude, Pi, and OpenCode 2.x.
 
-**Status:** shipped in v0.9.8 (PR #568, merge `ad4f98e6e`, release
-`da1250a0f`). Verified on the installed 0.9.8 with scratch state: a Claude
-session that had moved directories now detects `ttl=3600` exactly and gets
-push, warn and compact; on 0.9.7 the same session gave `ttl=None`, push only.
-Pi `openai-codex` gets 1800 s estimated and all stages; Pi `xai` gets push only.
-D5 is still awaiting human confirmation (flag below).
+**Status:**
+
+- Claude and Pi (D1–D5) shipped in v0.9.8 (PR #568, merge `ad4f98e6e`, release
+  `da1250a0f`). Verified on the installed 0.9.8 with scratch state: a Claude
+  session that had moved directories now detects `ttl=3600` exactly and gets
+  push, warn and compact; on 0.9.7 the same session gave `ttl=None`, push only.
+  Pi `openai-codex` gets 1800 s estimated and all stages; Pi `xai` gets push
+  only.
+- OpenCode provider TTL (D7) is implemented on `fix/opencode-idle-v2`, draft
+  PR #573, not merged. Released builds still carry the 300 s OpenCode default.
+- D5 and D7 both await human confirmation (flags below).
 
 ## D-idle-ttl-detection — Detection reads launch records, never a cwd
 
@@ -29,7 +35,8 @@ detection returned unknown on almost every real session:
 It looks up that chat's record in the project runtime's `sessions.jsonl`, under
 `MERIDIAN_PROJECT_DIR`. It then passes the record's absolute `native_store` to
 the harness's `detect_ttl`. The `DetectIdleTtl` port carries `native_store`, not
-a cwd. Claude resolves `<native_store>/<live session id>.jsonl` exactly, through
+a cwd (PR #573 adds the sensor-reported `provider`; see
+[OpenCode provider TTL](#opencode-provider-ttl)). Claude resolves `<native_store>/<live session id>.jsonl` exactly, through
 the same header-checked `resolve_claude_native_session_file` that resume uses
 ([Native Session Binding](../architecture/native-session-binding.md)). `--cwd` is
 gone from `meridian idle arm`, the service, the port and both mods.
@@ -106,11 +113,68 @@ and 78 of 84 after 10–20 min. Revisit if later cache-hit data disagrees.
   would make Pi on the ChatGPT backend the one route where warn and compact
   never fire, while the Codex harness on the same backend schedules both.
 
+## OpenCode provider TTL
+
+**Status:** draft PR #573, not merged (`work:idle-ttl-detection` D7, phase 2).
+
+**Problem:** fixing the OpenCode 2.x sensor
+([D-opencode-idle-v2](idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport))
+would have restored only the push. OpenCode had a configured default of
+`ttl_seconds = 300`. Warn sits at TTL − 15 min and compact at TTL − 5 min, so
+neither fits in 300 s. And because a configured TTL wins over detection in
+`IdleService.arm`, a default meant no detector would ever be asked. The 300 s
+reflected OpenCode's hard-coded 5-minute Anthropic cache, but the OpenCode
+primaries actually run here use an OpenAI model (`gpt-6-astra`).
+
+**Decision:**
+
+- The 2.x sensor reads the provider from `GET /api/session/{id}`
+  (`data.model.providerID`) at each turn end and sets `IdleEvent.provider`.
+  `IdleService.event` passes it through `arm` to the harness's `detect_ttl`.
+  Core never interprets the provider name.
+- `opencode_idle._PROVIDER_TTLS` maps `openai` → 1800 s, estimated. Every
+  other provider, a failed provider read, and every 1.x session (V1 never
+  reports a provider) resolve to unknown: push only.
+- The OpenCode `ttl_seconds` default is removed. A configured
+  `[harness.opencode.idle] ttl_seconds` still beats detection, and `meridian
+  config show` prints `null` when none is set.
+- The table stays in `opencode_idle.py`, not shared with Pi: Pi's is keyed by
+  retention mode as well as provider.
+
+> [!FLAG] **Needs human review**: The OpenCode `openai` 1800-second TTL is a
+> tech-lead estimate that inherits D5. Flagged 2026-10-14.
+
+**Why 1800:** the same reasoning as D5. On this machine OpenCode's `openai`
+provider authenticates with a ChatGPT account (the provider rejected
+`gpt-5.3-codex-spark` with "not supported when using Codex with a ChatGPT
+account"), so it reaches the ChatGPT backend that the Codex harness and Pi's
+`openai-codex` use, where no TTL is published. On the public API, GPT-5.6+
+publishes 30 minutes. Either way 1800 s, marked `est.`, keeps all three
+harnesses on that backend scheduling the same stages. If D5 is overturned, D7
+goes with it.
+
+**Not mapped:** OpenCode `anthropic` sessions have a known 5-minute cache, but
+only the push fits in 5 minutes, so mapping them changes nothing but the
+notice countdown. `deepseek`, `opencode-go` and other routes follow D4: no
+published TTL, no guess.
+
+**Verified live** on the branch with opencode 2.0.28 (2026-10-14):
+`openai/gpt-6-luna` → `ttl=1800 est.` with push, warn and compact scheduled;
+`opencode-go/deepseek-v4.1-flash` → push only.
+
+**Rejected:**
+
+- **Keeping the 300 s default:** it blocks detection and schedules nothing past
+  the push.
+- **Reading the provider from the session DB** (the plan, through
+  `opencode_snapshot`): the built version asks the server the sensor already
+  talks to, at the moment the turn ends.
+
 
 ## Related
 
-- [Idle Notifications](idle-notifications.md): the schedule, guards and adapter
-  contracts that consume the detected TTL.
+- [Idle Notifications](idle-notifications.md): the schedule, guards, adapter
+  contracts and per-harness coverage that consume the detected TTL.
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md):
   the provider facts behind the Pi table.
 - [Native Session Binding](../architecture/native-session-binding.md): the
@@ -128,3 +192,8 @@ and 78 of 84 after 10–20 min. Revisit if later cache-hit data disagrees.
   "Outcome"; installed-build replays in
   `evidence/post-upgrade-20261013-215646-meridian-0.9.7/` and
   `evidence/post-upgrade-20261013-215801-meridian-0.9.8/`.
+- Phase 2 (branch `fix/opencode-idle-v2`, PR #573): D7 in `decisions.md`
+  "2026-10-14 phase 2"; implementation `9f99c041e` (`spawn:p7772`); live checks
+  `evidence/coder-opencode-ttl-live.md` and
+  `evidence/probe-opencode-idle-gate.md` (`spawn:p7788`); review
+  `reviews/review-3.md` (`spawn:p7787`).
