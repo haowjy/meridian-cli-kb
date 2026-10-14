@@ -336,9 +336,10 @@ The current per-harness coverage, adapter contracts and known fragility are in
 
 ## D-opencode-idle-v2 — OpenCode 2.x gets its own sensor, chosen by the resolved transport
 
-**Status:** implemented on `fix/opencode-idle-v2`, draft PR #573
-(`release:patch`), not merged. Released builds up to 0.9.8 run only the V1
-sensor. (`work:idle-ttl-detection` D6, with the review-2 and review-3 fixes.)
+**Status:** merged in PR #573, released in v0.9.9 (merge `04127891c`). Builds
+up to 0.9.8 run only the V1 sensor; running OpenCode primaries keep the sensor
+they started with until restarted. (`work:idle-ttl-detection` D6, with the
+review-2 and review-3 fixes.)
 
 **Problem it fixed:** none of 10 interactive OpenCode primaries on Oct 12–13
 wrote any idle state, one of them three hours long. No sidecar error was
@@ -442,7 +443,7 @@ env name per harness. The loader limits behind this are in
 `ttl_seconds = 1800`. Claude reads the transcript TTL; Pi and OpenCode 2.x map
 the session's provider to a TTL. The detectors are covered in
 [D-idle-ttl-detection](idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd).
-*Superseded (PR #573, unreleased):* OpenCode had a `ttl_seconds = 300`
+*Superseded (PR #573, v0.9.9):* OpenCode had a `ttl_seconds = 300`
 default. A configured TTL beats detection, so the default hid the provider and
 scheduled nothing past the push
 ([OpenCode provider TTL](idle-ttl-detection.md#opencode-provider-ttl)).

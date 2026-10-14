@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — OpenCode 2.x idle shipped in v0.9.9 (`work:idle-ttl-detection`, PR #573)
+
+- Status flips only: [Idle notifications](decisions/idle-notifications.md),
+  [Idle TTL detection](decisions/idle-ttl-detection.md),
+  [Prompt-cache retention](research/prompt-cache-retention.md),
+  [Idle adapters](architecture/idle-adapters.md) and the
+  [decisions index](decisions.md) now say released in v0.9.9 (merge
+  `04127891c`) instead of draft or unreleased. Builds up to 0.9.8 keep the V1
+  sensor and the 300 s OpenCode default.
+
+---
 ## 2026-10-14 — OpenAI idle TTL confirmed and measured (`work:idle-ttl-detection`)
 
 - [Idle TTL Detection](decisions/idle-ttl-detection.md): cleared the D5/D7

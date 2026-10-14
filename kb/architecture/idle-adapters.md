@@ -63,7 +63,7 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   appended `compacted` rollout record is observed. The TUI remains the current
   submission and draft-observation surface; an empty composer appears as soon
   as any turn starts and is no evidence of completion (G2 K1).
-- **OpenCode 2.x** (PR #573, unreleased; probed on 2.0.28). Events reach the
+- **OpenCode 2.x** (PR #573, v0.9.9; probed on 2.0.28). Events reach the
   sensor through the V2 transport's normalizer, which flattens `data` and keeps
   the envelope `id` as the turn ID. Only events for the launched parent
   `sessionID` count; child task sessions are ignored.

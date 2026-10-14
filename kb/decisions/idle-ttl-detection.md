@@ -11,8 +11,8 @@ idle notifications: Claude, Pi, and OpenCode 2.x.
   push, warn and compact; on 0.9.7 the same session gave `ttl=None`, push only.
   Pi `openai-codex` gets 1800 s estimated and all stages; Pi `xai` gets push
   only.
-- OpenCode provider TTL (D7) is implemented on `fix/opencode-idle-v2`, draft
-  PR #573, not merged. Released builds still carry the 300 s OpenCode default.
+- OpenCode provider TTL (D7) shipped in v0.9.9 (PR #573). Builds up to 0.9.8
+  still carry the 300 s OpenCode default.
 - The user confirmed D5 and D7 (1800 s on the ChatGPT backend) on 2026-10-14.
 
 ## D-idle-ttl-detection — Detection reads launch records, never a cwd
@@ -127,7 +127,7 @@ user docs say the same (`docs/configuration.md` idle section).
 
 ## OpenCode provider TTL
 
-**Status:** draft PR #573, not merged (`work:idle-ttl-detection` D7, phase 2).
+**Status:** released in v0.9.9, PR #573 (`work:idle-ttl-detection` D7, phase 2).
 
 **Problem:** fixing the OpenCode 2.x sensor
 ([D-opencode-idle-v2](idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport))
