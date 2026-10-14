@@ -173,8 +173,10 @@ published TTL, no guess.
 
 ## Related
 
-- [Idle Notifications](idle-notifications.md): the schedule, guards, adapter
-  contracts and per-harness coverage that consume the detected TTL.
+- [Idle Notifications](idle-notifications.md): the schedule and guards that
+  consume the detected TTL.
+- [Idle Adapter Architecture](../architecture/idle-adapters.md): the current
+  adapter contracts and per-harness coverage.
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md):
   the provider facts behind the Pi table.
 - [Native Session Binding](../architecture/native-session-binding.md): the
