@@ -599,8 +599,8 @@ user-authorized write), and broad force adoption across unselected paths.
 [D-two-tier-identity](state.md#d-two-tier-identity) (D41, D43, D44 in
 `work:pyright-strict`; `work:two-tier-identity`). Shipped 2026-10-14: the Mars
 side, `--fallback-root`, in mars-agents 0.16.0 (PR #173); the Meridian side in
-meridian-cli PR #575 (merged to `main`, `release:minor`; the release that carries
-it, expected v0.10.0, is not cut yet), which pins `mars-agents==0.16.0`.
+meridian-cli PR #575 (merged to `main`, `release:minor`; released in v0.10.0
+after #579), which pins `mars-agents==0.16.0`.
 
 **Decision.** User scope for packages is an ordinary Mars project at
 `~/.meridian/mars/` (`get_user_home()/mars`, so a scratch `MERIDIAN_HOME`

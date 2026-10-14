@@ -57,7 +57,7 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### D-two-tier-identity: two-tier project identity and zero-config launch (2026-10) {#d-two-tier-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:two-tier-identity`, design revision 2; D32, D38, D40, D44 in `work:pyright-strict`). Merged to `main` in PR #575 on 2026-10-14 (`d160a07d9`, `release:minor`); the release that carries it, expected v0.10.0, is not cut yet because the first release-on-main preflight failed. Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
+**Status:** decided by the user on 2026-10-14 (`work:two-tier-identity`, design revision 2; D32, D38, D40, D44 in `work:pyright-strict`). Merged to `main` in PR #575 on 2026-10-14 (`d160a07d9`, `release:minor`); released in v0.10.0 (`b8da247f9`, 2026-10-14) after #579 fixed the app-lane socket path that failed the first release-on-main preflight. Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
 **Decision.** The tier of a directory depends only on what its literal project root contains:
 

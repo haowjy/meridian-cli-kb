@@ -7,8 +7,8 @@ and rejected alternatives are in
 [D-two-tier-identity](../../decisions/state.md#d-two-tier-identity).
 
 > **Status:** on `main` since PR #575 (merged 2026-10-14, `d160a07d9`,
-> `release:minor`). The release that carries it (expected v0.10.0) is not cut
-> yet: the first release-on-main preflight failed. Releases up to v0.9.12
+> `release:minor`). Released in v0.10.0 (`b8da247f9`) after #579 fixed the
+> app-lane socket path that failed the first release-on-main preflight. Releases up to v0.9.12
 > predate it.
 
 ```mermaid

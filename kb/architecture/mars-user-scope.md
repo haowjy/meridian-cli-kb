@@ -5,8 +5,8 @@ with no `mars.toml` still gets agents, skills, model aliases and launch targets.
 The rationale and rejected alternatives are in
 [D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
-> **Status:** Meridian side on `main` since PR #575 (merged 2026-10-14; the
-> release that carries it, expected v0.10.0, is not cut yet).
+> **Status:** Meridian side on `main` since PR #575 (merged 2026-10-14; released in
+> v0.10.0 on 2026-10-14 after #579).
 > `--fallback-root` shipped in mars-agents 0.16.0 (PR #173, released
 > 2026-10-14), and meridian-cli pins `mars-agents==0.16.0`.
 

@@ -10,8 +10,8 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   [project identity](architecture/state-system/project-identity.md), [Mars user scope](architecture/mars-user-scope.md),
   [cleanup program](codebase/cleanup-program.md), [cleanup decisions](decisions/codebase-cleanup.md),
   [static typing](decisions/static-typing.md). #570 → v0.9.10, #571 → v0.9.11, #574 → v0.9.12, mars-agents
-  #173 → 0.16.0 (pinned); #575 merged (`d160a07d9`) but its release (expected v0.10.0) is not cut: the
-  release-on-main preflight failed on 3 `test_signal_canceller` AF_UNIX path-length tests and 1 timeout.
+  #173 → 0.16.0 (pinned); #575 merged (`d160a07d9`); its first release-on-main preflight failed on 3 `test_signal_canceller`
+  AF_UNIX path-length tests and 1 timeout; #579 (bounded app-lane socket path) fixed it and v0.10.0 was cut (`b8da247f9`).
 - Folded I17 (`doctor --global` lists every ad-hoc root, `prunable: yes|no`), I14 (activity = newest of
   every signal), I15 (`mint_committed_identity`), I19 (`mars_fallback: active|unsupported|n/a`), I20 (Mars
   release and pin bump before #575; the probe is the safety net behind the pin), I21 (no automatic

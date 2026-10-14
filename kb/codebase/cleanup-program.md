@@ -203,7 +203,7 @@ What the landing surfaced:
   were caught only by reviewers' full-tree runs. #575's 3 `test_signal_canceller`
   failures (`AF_UNIX path too long`: `app.sock` under an ad-hoc test root) were
   logged in full-tree runs as environment noise ("3 AF_UNIX env"), passed PR CI,
-  and then failed the release-on-main preflight, so v0.10.0 was not cut. Run
+  and then failed the release-on-main preflight; #579 (bounded app-lane socket path) unblocked v0.10.0. Run
   the full tree before calling a stacked PR ready, and do not wave a failure
   through as environmental without showing it also fails on `main`.
 - **Pi streaming contract tests flake under load** (#577), on `main` and on
