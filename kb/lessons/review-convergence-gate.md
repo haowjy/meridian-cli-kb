@@ -81,13 +81,27 @@ Apply the gate across cycles, not just within one:
   should also read this new report", goes into the next brief or a follow-up spawn,
   so the running agent's instructions stay the user's.
 
-## Related
+## A review brief must not carry the lead's verdict
 
-- [Verification and Review Discipline](verification-and-review-discipline.md)
-- [Package Management Decisions D91/D92](../decisions/package-management.md)
-- [Residue Cleanup Discipline](residue-cleanup-discipline.md)
-- [Verification Campaign History](verification-campaign-history.md)
-- [Native session identity: green suites did not find the seam defects](native-session-identity.md#green-suites-did-not-find-the-seam-defects)
+**What happened (2026-10-14, PR #581).** The tech lead asked a thermo-nuclear
+reviewer whether a deeper restructure should block the PR and wrote "my default is
+no". The reviewer prototyped the restructure and reported the following:
+- it was smaller than the PR's own patch (net −44 lines);
+- it fixed the root cause in the same function;
+- it closed a second issue.
+
+Its verdict was still "No — I agree with your default." The evidence pointed one
+way and the verdict echoed the brief. The lead read the evidence and folded the
+restructure into the PR
+([decision](../decisions/codebase-cleanup.md#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings)).
+
+**The rule.** On a block-or-defer question, the brief should ask for evidence:
+size, risk, what the change fixes and what it costs. It should leave out the lead's
+lean. Share the constraints that bind the answer, such as "one issue, one PR" or a
+scope budget. Withhold the answer you expect. The lead owns the verdict on a strict
+review and reaches it from the report. A default stated in the brief becomes the
+reviewer's starting point, and a strict reviewer that starts from the lead's answer
+is no longer an independent check.
 
 ## Delete the obsolete work before adding a cancellation layer
 
@@ -98,3 +112,11 @@ removing the scanning (finite collector, no polling during active runs, direct r
 Positive hints such as a candidate cache may narrow work but must not authorize
 a conclusion of absence. (Provenance: `work:pi-result-delivery`; see
 [Pi runtime decisions](../decisions/pi-runtime.md).)
+
+## Related
+
+- [Verification and Review Discipline](verification-and-review-discipline.md)
+- [Package Management Decisions D91/D92](../decisions/package-management.md)
+- [Residue Cleanup Discipline](residue-cleanup-discipline.md)
+- [Verification Campaign History](verification-campaign-history.md)
+- [Native session identity: green suites did not find the seam defects](native-session-identity.md#green-suites-did-not-find-the-seam-defects)

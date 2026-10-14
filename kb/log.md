@@ -3,6 +3,20 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Unknown-key warnings from Pydantic's traversal (`work:v010-followups`, PR #581, v0.10.1)
+
+- Added [D-unknown-keys-from-pydantic](decisions/codebase-cleanup.md#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings)
+  and its [decision index](decisions.md) row: #580 cause, rejected alternatives, accepted costs.
+- Updated current truth: [config precedence](concepts/config-precedence.md) and the
+  [cleanup program](codebase/cleanup-program.md) conventions table no longer describe warning
+  policy as `ClassVar`s (`config_ignored_keys` deleted); "How the Stack Landed" records the v0.10.0
+  regression.
+- Lessons: [loads-silently oracle and the #580 audit method](lessons/verification-and-review-discipline.md#a-generalized-diagnostic-path-needs-a-loads-silently-oracle)
+  (real-config sweep from scratch copies; `uv run --isolated --with` old-build differential; 0.9.8
+  loader at `config.settings`); [keep the lead's verdict out of review briefs](lessons/review-convergence-gate.md#a-review-brief-must-not-carry-the-leads-verdict).
+  Moved the stray "Delete the obsolete work" section above Related on that page.
+
+---
 ## 2026-10-14 — Two-tier identity and the cleanup stack shipped (`work:two-tier-identity`, PRs #570/#571/#574/#575, mars-agents #173)
 
 - Status flips: [decision index](decisions.md), [D-two-tier-identity](decisions/state.md#d-two-tier-identity),
