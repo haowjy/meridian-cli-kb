@@ -204,7 +204,10 @@ Compaction only, after those:
 10. unsent draft
 11. agents running in the harness
 12. child spawns still active
-13. context under `min_compact_tokens`
+13. compaction not worth it: on `main`, a known total context under
+    `min_compact_tokens`; on the growth-floor branch, growth below the
+    per-harness break-even, or context or baseline unknown
+    ([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even))
 14. harness's own auto-compaction off
 
 **Unknown facts (D6, user-accepted):**
@@ -212,7 +215,7 @@ Compaction only, after those:
 | Fact | When unknown | Why |
 |---|---|---|
 | draft | fail closed: skip compaction | Compacting over someone typing is visible harm. A harness compacts only if it can see the draft. |
-| context tokens | fail open: compact | Compacting a small context costs little. |
+| context tokens | `main`: fail open, compact. Growth-floor branch: fail closed, `skipped:context-unknown` | The old rule assumed compacting a small context costs little. The measured costs showed that a compaction can cost more than it saves, so the branch makes unknown context skip. |
 
 **State:** one JSON file per harness session at
 `~/.meridian/idle/<harness>-<native_session_id>.json`, written atomically and
@@ -224,12 +227,12 @@ without a durable marker a reload re-sends the push and can compact twice.
 The file is the only record (files as authority); timers are disposable
 (crash-only).
 
-**Open question: compaction floor.** Guard 13 compares total context with
-`min_compact_tokens` (40,000). A Meridian Claude primary starts at about 39k
-tokens, so the floor blocks almost nothing, and Codex and OpenCode report no
-size at all. A floor on growth since start or since the last compaction, set
-per provider, is proposed but not decided; the cost model is in
-[Idle Compaction Break-Even](../research/idle-compaction-break-even.md).
+**Compaction floor: decided.** The 40k total-context floor blocked almost
+nothing for a Claude primary (about 39k at start) and never applied to Codex
+or OpenCode. The user chose a growth-based, per-harness break-even instead
+([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
+It is built on a local branch and unreleased, so `main` still uses the old
+floor.
 
 ## D-idle-reopen-return — A Meridian reopen is a user return
 
@@ -359,6 +362,12 @@ before it arms.
 | OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor`; the sensor dialect follows the connection's resolved backend version ([D-opencode-idle-v2](#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)) | 2.x: `POST /api/session/{id}/compact`, completion tied to the returned inbox ID. 1.x: `POST /session/{id}/summarize` with the session's current model | 2.x `openai` provider: push, warn, compact (1800 s, estimated). Other providers and 1.x: push only. No `ttl_seconds` default ([D-idle-ttl-detection](idle-ttl-detection.md#opencode-provider-ttl)) |
 | Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, verify, press Enter, wait for an appended `compacted` rollout record | push, warn, compact (`ttl_seconds` 1800) |
 | Cursor | none | no primary path | — | no idle |
+
+The Default column describes what gets scheduled. On the unreleased
+growth-floor branch, the compact stage on Pi and on OpenCode `openai` skips
+as `not-worth-it` unless `compact_min_growth_tokens` is set. Claude and Codex
+compact only after enough growth
+([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
 
 The launcher task is an asyncio task inside `PrimaryAttachLauncher.run`. It
 starts after the TUI is running and follows the TUI launch task's liveness, not
@@ -494,9 +503,11 @@ route was also gone: `POST /session/{id}/summarize` returns 405 on 2.x and
 (one terminal), so the two-execution queue shape exists only in tests. The fix
 covers both shapes.
 
-**Deferred** (`lib/harness/.context/FUTURE`): feed `context_tokens` from
-`session.usage.updated` or `GET /api/session/{id}/context` once a live
-compaction shows `min_compact_tokens` matters; split the V2 sensor into
+**Deferred** (`lib/harness/.context/FUTURE`): the V2 sensor reports no
+`context_tokens` on `main`. The growth-floor branch reads it from the
+turn-end message fetch and again at fire
+([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#context-facts-read-at-arm-and-again-at-fire)),
+which settles that item once it lands. Still deferred: split the V2 sensor into
 `opencode_idle_v2.py` when it grows again.
 
 **Codex needed no change** (`work:idle-ttl-detection` D8). No interactive Codex
