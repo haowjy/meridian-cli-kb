@@ -611,7 +611,8 @@ isolates it). Meridian, not Mars, decides which root a command runs against:
   `mars.toml` (Mars's own walk-up), scope `project`; otherwise the user root,
   scope `user`. `user` is the user root, or none when `primary` already is it.
 - **Every Mars subprocess gets `--root <primary>`**, so Mars's own walk is a
-  no-op. The one exception is `meridian mars init` / `init --link`, which
+  no-op (the root-less `--help` capability probe aside). The one exception is
+  `meridian mars init` / `init --link`, which
   targets the literal project root so a nested Mars project can still be
   created in a repository subdirectory.
 - **`ensure_user_mars_root()`** runs `mars init --root ~/.meridian/mars` under

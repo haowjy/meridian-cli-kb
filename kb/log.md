@@ -3,6 +3,43 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Two-tier project identity and user-scope packages (`work:two-tier-identity`, PR #575)
+
+- [State decisions](decisions/state.md#d-two-tier-identity): replaced the
+  "project identity reopened" record with the settled **D-two-tier-identity**:
+  invariants, why July's create-on-first-write had to give, settled specifics,
+  retention rationale (30 days, `min(N, 7)`, one-hour floor, user-config only),
+  rejected alternatives, and what design revision 2 deleted from revision 1
+  (absorption, `pending`, `superseded`, the id-keyed lock). Decision 3 keeps its
+  record with the create-on-first-write clause marked superseded.
+- [Package-management decisions](decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10):
+  new **D97**: user Mars root `~/.meridian/mars/`, `resolve_mars_roots`,
+  `meridian mars --user`, the mutation gate, and the mars-agents
+  `--fallback-root` contract and `--help` probe.
+- New mechanism pages: [project identity](architecture/state-system/project-identity.md)
+  and [Mars user scope](architecture/mars-user-scope.md).
+- Removed claims that the first write creates `meridian.toml`, that
+  `.meridian/id` is read, that `meridian migrate` exists, or that an
+  "established project" predicate exists: [state model](concepts/state-model.md),
+  [overview](overview.md), [state-system overview](architecture/state-system/overview.md),
+  [roots and work items](architecture/state-system/roots-and-work-items.md)
+  (its "Identity Compatibility Migration" section deleted),
+  [startup pipeline](architecture/startup-pipeline.md),
+  [startup/health decisions](decisions/startup-health-sandbox.md),
+  [design principle 13](principles/design-principles.md#13-no-vcs-dependency-for-core-functionality),
+  [state lessons](lessons/state-design-lessons.md),
+  [context resolution](concepts/context-resolution.md),
+  [future work](open-questions/future-work.md), the
+  [cleanup program](codebase/cleanup-program.md) and
+  [cleanup decisions](decisions/codebase-cleanup.md).
+- Doctor, init and catalog pages: [health checks](operations/health-checks.md)
+  (no-state gate, ad-hoc scan, `stale_adhoc_project_dirs`),
+  [init](operations/init-command.md) and [bootstrap](operations/bootstrap-command.md)
+  (atomic scaffold + id, no carry-over),
+  [agent profiles](concepts/model-resolution/agent-profiles.md) and
+  [package management](concepts/package-management/overview.md) (content roots).
+
+---
 ## 2026-10-14 — OpenCode 2.x idle shipped in v0.9.9 (`work:idle-ttl-detection`, PR #573)
 
 - Status flips only: [Idle notifications](decisions/idle-notifications.md),

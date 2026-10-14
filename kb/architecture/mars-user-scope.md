@@ -32,7 +32,8 @@ keeps its own ad-hoc state. Both canonicalize paths the same way.
 
 Every Mars subprocess (launch bundle, catalog, models, doctor, `mars agents`,
 the passthrough) receives `--root <primary>`. Only `meridian mars init` /
-`init --link` pass the literal project root. `ensure_resolved_mars_root()` runs
+`init --link` pass the literal project root, and the `--help` capability probe
+passes no root. `ensure_resolved_mars_root()` runs
 `ensure_user_mars_root()` whenever `scope == "user"`. That function runs
 `mars init --root ~/.meridian/mars` under `~/.meridian/locks/user-mars-root.flock`,
 re-checking for the `mars.toml` under the lock. Reads such as `doctor` never
