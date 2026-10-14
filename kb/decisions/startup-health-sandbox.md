@@ -180,24 +180,6 @@ Global doctor:
 
 ---
 
-### Chat is root-only in nested execution [SUPERSEDED]
-
-> Superseded 2026-05-07 by [chat backend D32](chat-backend.md#d32).
-> Nested `meridian chat` launch and management are now allowed below the
-> project `max_depth` cap so delegated smoke/browser testers can exercise live
-> chat flows. Chat state remains global; scoped nested runtime roots are tracked
-> as deferred work in [future-work](../open-questions/future-work.md#scoped-nested-chat-runtime-roots).
-
-**Decision:** All `meridian chat` subcommands fail fast with exit code 1 when `MERIDIAN_DEPTH > 0`. The rejection happens before any filesystem writes to `get_user_home()`. `server.py` module-level runtime state uses an unconfigured sentinel rather than a `get_user_home()` fallback, so the global dependency is explicit at command startup rather than hidden at import.
-
-**Why:** Chat is global service state backed by `~/.meridian/chats/<id>/` and `chat-server.json`. These paths are not projected into child sandboxes. Moving chat state under project runtime roots would break the current client discovery model and change chat from a global service to a per-project concept — the wrong design. A root-only gate is the correct minimal fix.
-
-**Alternatives rejected:**
-- Move chat state under project runtime roots — changes product semantics; breaks current client discovery
-- Project chat state paths into child sandboxes — too much projection expansion for state that delegated agents don't use
-
----
-
 ### Autosync lock failure skips gracefully (no new projection)
 
 **Decision:** When `file_lock()` raises `PermissionError` or `OSError` during autosync lock acquisition, `GitAutosync.execute()` returns `HookResult(outcome="skipped", skip_reason="lock_permission_error", success=True)`. No new workspace projection paths added for the lock directory.

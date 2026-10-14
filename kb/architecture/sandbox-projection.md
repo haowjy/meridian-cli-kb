@@ -78,20 +78,7 @@ The old `doctor-cache.json` existed only to support a startup nag from a backgro
 
 Users discover cross-project stale state by running `meridian doctor --global` explicitly.
 
-### Gap 2: Chat State (Bounded Nested Access)
-
-Chat is intentionally global service state. The original sandbox fix made chat root-only in nested execution; [chat backend D32](../decisions/chat-backend.md#d32) superseded that guard so delegated smoke/browser testers can launch real chat processes below the project `max_depth` cap.
-
-Current behavior:
-
-- Nested `meridian chat` launch and management subcommands are allowed while total spawn depth is below `max_depth`
-- Chat state still lives in global user state (`chat-server.json`, `~/.meridian/chats/<id>/...`)
-- `server.py` module-level `_runtime` uses an unconfigured sentinel that raises `RuntimeError` if any method is called before `configure()`
-- `ChatRuntime.recover_all()` and `list_chats()` are not yet scoped by spawn context, so concurrent nested chat instances can cross-discover sessions
-
-Deferred fix: derive a per-scope nested chat runtime root from `MERIDIAN_SPAWN_ID` or equivalent. See [future-work](../open-questions/future-work.md#scoped-nested-chat-runtime-roots).
-
-### Gap 3: Autosync Locks (Wrap — Skip on Failure)
+### Gap 2: Autosync Locks (Wrap — Skip on Failure)
 
 Autosync lock files live in `~/.meridian/locks`, not projected in nested sandboxes. Lock acquisition failure now returns a skipped hook result:
 
@@ -101,7 +88,7 @@ Autosync lock files live in `~/.meridian/locks`, not projected in nested sandbox
 
 **Why not project the lock dir?** Projecting `~/.meridian/locks` as shared writable creates cross-project interference — any nested child could create arbitrary lock files or hold them to force autosync skips. Also, lock identity is derived from clone paths that depend on user config which may not be visible in nested contexts — projecting the lock dir would not guarantee correct serialization anyway.
 
-### Gap 4: User Config Read (Wrap — Best-Effort + Warning)
+### Gap 3: User Config Read (Wrap — Best-Effort + Warning)
 
 `~/.meridian/config.toml` is read-only and optional. Nested processes may not have access:
 
@@ -109,7 +96,7 @@ Autosync lock files live in `~/.meridian/locks`, not projected in nested sandbox
 - If probe fails and `is_nested_meridian_process()` is true → emit a structured log warning including the inaccessible path (one-shot per process, to config module logger, not stderr)
 - If user explicitly supplied a config path (via argument or `MERIDIAN_CONFIG`) → preserve fail-fast behavior
 
-### Gap 5: Global Doctor Maintenance (Explicit Tier + Gate)
+### Gap 4: Global Doctor Maintenance (Explicit Tier + Gate)
 
 Cross-project doctor work intentionally traverses `get_user_home() / "projects"`:
 
@@ -123,8 +110,6 @@ Cross-project doctor work intentionally traverses `get_user_home() / "projects"`
 
 - `reconcile_spawns()` — reaper never runs in nested processes
 - `doctor_sync(global_=True)` — global maintenance rejected before user-home traversal
-
-`meridian chat` no longer gates on `is_root_side_effect_process()` for launch or management subcommands; recursion is bounded by spawn `max_depth` instead. See [chat backend D32](../decisions/chat-backend.md#d32).
 
 ## What Was Not Changed
 
