@@ -6,6 +6,7 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 
 - [system-overview.md](system-overview.md) — Subsystem map, entry points, and end-to-end data flow.
 - [launch-system.md](launch-system.md) — Launch factory, adapter composition, resolve-before-persist, and launch invariants.
+- [idle-adapters.md](idle-adapters.md) — Current idle adapter locations, per-harness coverage, runtime contracts, and known fragility.
 - [state-system/overview.md](state-system/overview.md) — JSONL event stores, atomic writes, locking, reaper reconciliation, and migrations.
 - [spawn-finalization.md](spawn-finalization.md) — Terminal write policy, authority lattice, and finalization races.
 - [drain-plans.md](drain-plans.md) — Streaming drain-plan composition and resident completion behavior.

@@ -3,6 +3,16 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Idle adapter reference split
+
+- New [Idle Adapter Architecture](architecture/idle-adapters.md) page owns the
+  current idle locations, per-harness coverage, adapter contracts and known
+  fragility, moved verbatim from [Idle Notifications](decisions/idle-notifications.md).
+- The decision page retains the rationale, rejected alternatives and decision
+  records; indexes, domain overviews and cross-references now point readers to
+  the appropriate layer.
+
+---
 ## 2026-10-14 — Idle phase 2 captured (`work:idle-ttl-detection`, PR #573)
 
 - [Idle notifications](decisions/idle-notifications.md): new

@@ -42,7 +42,8 @@ live in the harness's idle module; `lib/idle` owns the schedule, guards, state,
 and notification decisions. A native hook receives its state reader from the
 caller. No module under `lib/harness` imports `lib/idle`, even inside a function;
 `tests/unit/harness/test_layering.py` enforces that boundary. See
-[idle decisions](../decisions/idle-notifications.md) for contracts and remaining
+[Idle Adapter Architecture](../architecture/idle-adapters.md) for the current
+contracts and [idle decisions](../decisions/idle-notifications.md) for remaining
 capability/lifecycle work.
 
 Claude and Pi use in-process runtime adapters under
@@ -290,4 +291,5 @@ change for other harnesses. The recorder protocol is unchanged.
 - [../decisions/workspace.md](../decisions/workspace.md#d47) — D47: projected_roots first-class field; D48: OpenCode merge-not-suppress
 - [../decisions/model-resolution.md](../decisions/model-resolution.md#d76-harness-specific-model-ids-via-runnablepath) — D76: harness-specific model projection
 - [../architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model, extension architecture, disk-backed coordination
+- [../architecture/idle-adapters.md](../architecture/idle-adapters.md) — current idle adapter locations, coverage, contracts, and fragility
 - [../decisions/idle-notifications.md](../decisions/idle-notifications.md) — built per-harness idle adapter hosting and session-role contract
