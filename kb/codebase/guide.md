@@ -7,6 +7,8 @@ How to navigate the Meridian codebase, where to start reading, and how to add ne
 ```
 src/meridian/
   cli/            CLI entry point (cyclopts), command groups, agent_help.py, bootstrap.py
+                  startup/catalog.py — COMMAND_CATALOG: one CommandDescriptor per real
+                    command (startup class, bootstrap plan, telemetry, root source)
                   command_groups.py — authoritative registry (CommandGroupSpec), single source
                     for root help, curated agent help, app lookup, and command registration
                   mode.py — RenderMode (agent|human) resolution, replaces scattered detection
@@ -17,14 +19,15 @@ src/meridian/
     extensions/   Unified command system: ExtensionCommandSpec, registry, dispatcher
     ops/          Operation handler implementations + commands.py
     harness/      Harness bundles: Claude, Codex, Cursor, OpenCode, Pi + connections/
-    state/        JSONL event stores, work items, WorkScope (named vs ambient), path
-                  resolution, reaper, atomic writes
+    state/        Per-spawn state.json under mutate-under-lock seams, work items,
+                  WorkScope (named vs ambient), path resolution, reaper, atomic writes
     catalog/      Model resolution, agent/skill loading, default agent policy
     launch/       Spawn lifecycle: prepare/bind composition + three driving adapters
     config/       Settings model, precedence chain, TOML read/write, workspace config loader
     context/      Context path resolver: work/kb path resolution
     hooks/        Hook dispatch: lifecycle events → builtins or shell commands
     core/         Shared primitives: ID types, OutputSink, depth, ResolvedContext, lifecycle
+    bootstrap/    prepare_for_{project,runtime}_{read,write}(): state prep per startup class
     platform/     OS detection, file locking, process termination, deferred OS imports
                   (POSIX-first; legacy Windows branches untested, not to be expanded)
     streaming/    HarnessConnection abstractions + SpawnManager
@@ -33,19 +36,24 @@ src/meridian/
     kg/           Knowledge graph analysis: document graph, broken links
     mermaid/      Mermaid diagram validation
     markdown/     Markdown extraction (headings, links, fenced blocks)
-    utils/        Additional utilities beyond core/
+    idle/, notify/ Primary idle policy and notification delivery
+    telemetry/    Durable diagnostic events
+    artifact/     Static artifact serving over Tailscale
+    utils/        Additional utilities beyond core/ (json_shapes TypeIs helpers)
     ignores.py    Shared gitignore-style pattern loader (pathspec)
   plugin_api/     Stable plugin API v1: Hook/HookContext types, state/git/config/fs helpers
-  dev/            Token-efficient pytest wrapper
+  dev/            Token-efficient pytest wrapper, preflight gates
+  pi_runtime/     Meridian-owned TypeScript extensions loaded into Pi
+  claude_runtime/ Bundled Claude Code mods (idle, session boundary)
 ```
 
 ## What to Read First
 
-**Understanding a spawn:** start with `ops/spawn/api.py` (the handler), then `lib/launch/context.py` (the factory), then `lib/state/spawn_store.py` (how it lands).
+**Understanding a spawn:** start with `ops/spawn/api.py` (the handler), then `lib/launch/context.py` (`prepare_launch_surface()` / `bind_launch_context()`), then `lib/state/spawn_store.py` (how it lands).
 
 **Understanding command routing:** start with `ops/commands.py` (all operations declared), then `cli/ext_registration.py` (how CLI commands are generated), then `lib/extensions/registry.py` (the registry).
 
-**Understanding state:** start with `lib/state/paths.py` (path resolution), then `lib/state/spawn_store.py` (event store), then `lib/state/reaper.py` (reconciliation). For work scope: `lib/state/work_scope.py` — WorkScope model (named work_item vs ambient_spawn), `resolve_bound_work_scope()`, artifact counting.
+**Understanding state:** start with `lib/state/paths.py` (path resolution), then `lib/state/spawn_store.py` (spawn records), then `lib/state/reaper.py` (reconciliation). For work scope: `lib/state/work_scope.py` — WorkScope model (named work_item vs ambient_spawn), `resolve_bound_work_scope()`, artifact counting.
 
 **Understanding harness integration:** start with `lib/harness/adapter.py` (protocols, `SpawnUsageContractVariants`), then one adapter (e.g., `lib/harness/claude.py`), then `lib/harness/common.py` (shared command assembly). See [harness-adapters.md](harness-adapters.md) for the capability matrix and adapter-owned spawn contract.
 
@@ -72,6 +80,9 @@ src/meridian/
 2. Add an `ExtensionCommandSpec` entry in `ops/commands.py` via `ExtensionCommandSpec.from_op()`
 3. The CLI auto-generates the command via `cli/ext_registration.py` — no explicit registration needed
 4. Declare MCP exposure in the extension spec when the operation belongs on that surface
+5. Add an exact `CommandDescriptor` to `cli/startup/catalog.py`. Without one the
+   command classifies as its parent group (longest-prefix fallback) and inherits
+   the parent's bootstrap and telemetry class; nothing tests for the gap
 
 ### A new harness
 
@@ -90,7 +101,7 @@ See [Harness Abstraction](../concepts/harness-abstraction.md). No Direct or
 
 ### A new operation / extension command
 
-Same as adding a CLI command above — the operation handler + manifest entry is all that's needed. The extension system dispatches to it from all surfaces.
+Same as adding a CLI command above — the operation handler + `ops/commands.py` entry + descriptor. The extension system dispatches to it from all surfaces.
 
 ### A new lifecycle hook
 
@@ -133,7 +144,7 @@ disabled. See [static typing](../decisions/static-typing.md).
 - **Never delete untracked files** without asking — may be another agent's in-progress work
 - **Never revert changes** — assume it's someone else's work
 - **Commit after each verified step** — don't accumulate changes across multiple steps
-- **Launch composition invariants** — 13 invariants at `.meridian/invariants/launch-composition-invariant.md`; check on every PR touching `launch/`, `harness/`, `ops/spawn/`, `app/`, or `cli/streaming_serve.py`
+- **Launch composition invariants** — 13 invariants; see [invariants](../principles/invariants.md); check on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`
 
 ## Related Pages
 
@@ -141,3 +152,4 @@ disabled. See [static typing](../decisions/static-typing.md).
 - [../architecture/launch-system.md](../architecture/launch-system.md) — launch factory details
 - [../architecture/state-system/overview.md](../architecture/state-system/overview.md) — state internals
 - [harness-adapters.md](harness-adapters.md) — harness capability matrix
+- [cleanup-program.md](cleanup-program.md) — known structural debt and the phased plan to remove it

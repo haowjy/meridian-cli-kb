@@ -442,7 +442,7 @@ Key methods:
 
 ## Key Invariants (Summary)
 
-The full 13 invariants live at `.meridian/invariants/launch-composition-invariant.md`. Reviewers check these on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`.
+The full 13 invariants live at [principles/invariants.md](../principles/invariants.md#launch-composition-invariants-i-1-through-i-13). Reviewers check these on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`.
 
 | Invariant | Rule |
 |-----------|------|

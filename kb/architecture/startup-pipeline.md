@@ -12,8 +12,8 @@ operation paths that own a resolved runtime root; the previously documented
 graph TD
     A[argv] --> N[normalize global and optional-value flags]
     N --> C[CommandCatalog classify]
-    C --> H{help / redirect?}
-    H -->|yes| Q[render or redirect without heavy ops imports]
+    C --> H{help or version?}
+    H -->|yes| Q[render without heavy ops imports]
     H -->|no| B[BootstrapPlan]
     B --> R[resolve literal project root]
     R --> S[read or write bootstrap as declared]
@@ -23,26 +23,40 @@ graph TD
     O --> T[setup_telemetry when operation owns runtime context]
 ```
 
-`CommandDescriptor` records a command path, registration bucket, startup class,
-bootstrap plan, and output/help metadata. `classify_invocation()` chooses a
-descriptor from the import-cheap `COMMAND_CATALOG`; selective registration then
-loads only the relevant group.
+`CommandDescriptor` records a command path, summary, startup class, bootstrap
+plan, telemetry mode, default output mode, and root source. Registration buckets
+live separately in `command_groups.py` (`COMMAND_REGISTRATION`).
+`classify_invocation()` chooses a descriptor from the import-cheap
+`COMMAND_CATALOG` by longest-prefix match; selective registration then imports
+and registers only the relevant group, and Cyclopts parses and dispatches the
+registered tree directly. There is no lazy command wrapper.
+
+Because classification falls back to the longest matching prefix, a subcommand
+without its own descriptor silently inherits its parent's startup class and
+bootstrap plan. That is how `spawn done` and `spawn rearm` ran as `spawn`
+(`WRITE_RUNTIME`) until phase 1 of the [cleanup program](../codebase/cleanup-program.md)
+gave them exact descriptors. Every real subcommand needs one, and nothing tests
+for drift.
 
 ## Root Resolution and Establishment
 
-`resolve_cli_project_root()` honors an explicit directory, then the established
-project environment, then the literal execution CWD according to command
-policy. `resolve_project_root_resolution()` returns the root together with its
-source and execution CWD.
+`resolve_cli_project_root()` honors an explicit directory, then
+`MERIDIAN_PROJECT_DIR`, then the literal execution CWD.
+`resolve_project_root_resolution()` returns the root together with its source
+and execution CWD.
 
-`cwd_has_project_id(cwd)` is narrowly named legacy vocabulary: it returns true
-when the literal directory contains `meridian.toml` or `mars.toml`. It does not
-look for `.meridian/id`, `.mars/`, `.git`, or `.agents/`, and it never walks
-ancestors.
+> [!FLAG] **Needs human review.** Establishment is currently a no-op. Since
+> #388, `resolve_cli_project_root()` reports `established=True` for every root,
+> so any CWD is treated as a project, the descriptor flag
+> `bootstrap_plan.auto_init_cwd` is unreachable, and write commands create the
+> project identity through `prepare_for_runtime_write()` wherever they run.
+> `cwd_has_project_id()` (literal `meridian.toml` / `mars.toml`, no ancestor
+> walk) exists but nothing calls it. Whether to delete the flag or restore a
+> real check is open (`cli/.context/TODO`;
+> [decision](../decisions/codebase-cleanup.md#d-auto-init-inert-auto_init_cwd-is-a-todo-not-a-feature)).
 
-Bootstrap plans distinguish reads from writes. Commands allowed to initialize
-may create or update project config; read-only commands do not silently create
-identity or runtime state. `SystemExit` remains outside `except Exception`, so
+Bootstrap plans distinguish reads from writes: read-only commands do not
+silently create identity or runtime state. `SystemExit` remains outside `except Exception`, so
 intentional CLI exits are not rewritten as bootstrap failures.
 
 ## Bootstrap Service Split
@@ -70,10 +84,9 @@ can declare startup telemetry policy, but operation-owned call sites still
 perform installation. Changes must audit both CLI startup and background spawn
 entry paths until a real single process seam is implemented.
 
-## Help and Lazy Imports
+## Help and Selective Imports
 
-Root help and lightweight redirects use descriptor metadata without importing
-all operation modules. `app_tree.py` owns the Cyclopts groups;
+Root help uses descriptor metadata without importing all operation modules. `app_tree.py` owns the Cyclopts groups;
 `COMMAND_REGISTRATION` and selective registration attach only what the current
 invocation needs. Heavy library exports use explicit lazy imports where startup
 profiling justified them.

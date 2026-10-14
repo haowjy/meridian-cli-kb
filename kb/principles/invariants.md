@@ -4,7 +4,7 @@ Invariants are properties the system guarantees unconditionally. They're checked
 
 ## Launch Composition Invariants (I-1 through I-13)
 
-The full invariant specification lives at `.meridian/invariants/launch-composition-invariant.md`. Summarized here for orientation.
+This page is the canonical statement of the launch composition invariants (I-1 through I-13); colocated `lib/launch/AGENTS.md` and `.context/CONTEXT.md` restate the ones that bind code in that directory.
 
 ### Core Composition Guarantees
 
@@ -44,7 +44,7 @@ Session events are append-only JSONL: events are never deleted or rewritten in p
 
 ### Mutate-Under-Lock Seam
 
-Every mutation of authoritative state goes through a locked read-modify-write seam: acquire a stable lock, re-read current state, apply a pure mutator, write atomically. This shape applies to spawn records, archived spawns, work items, hook intervals, scope projections, and autosync transactions. The seam is a behavior-preserving contract that planned future store rewrites inherit.
+Every mutation of authoritative state goes through a locked read-modify-write seam: acquire a stable lock, re-read current state, apply a pure mutator, write atomically. This shape applies to spawn records, work items, hook intervals, scope projections, autosync transactions, and published-spawn deletion. The seam is a behavior-preserving contract that planned future store rewrites inherit.
 
 ### Spawn Artifact Lifetime
 

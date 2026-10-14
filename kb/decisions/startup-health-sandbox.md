@@ -95,10 +95,10 @@ that operation-layer setup was removed.
 
 ### Startup is import-lazy by design (2026-05)
 
-**Decision:** The CLI startup pipeline defers all heavy imports (ops, harness, Pydantic models, domain types) until the moment they're needed. Four mechanisms work together:
+**Decision:** The CLI startup pipeline defers all heavy imports (ops, harness, Pydantic models, domain types) until the moment they're needed. Three mechanisms work together:
 
 1. **Selective command registration** — `main.py` reads the first positional token and registers only that command group's module. `--help` is the only path that registers everything.
-2. **Lazy dispatch** — `lazy_dispatch.py` provides `make_lazy_command()` so command handler modules are imported only when actually invoked, not at registration time.
+2. ~~**Lazy dispatch**~~ — removed 2026-10 (cleanup phase 1, cli#5). `lazy_dispatch.py`/`make_lazy_command()` and the descriptor fields that fed it (`lazy_target`, `extension_ref`, redirects) were never wired into the live dispatch path; selective registration already delivered the import savings. See [Codebase cleanup](codebase-cleanup.md).
 3. **`__getattr__` on `meridian.lib`** — public exports (`Spawn`, `HarnessId`, etc.) are resolved lazily so `import meridian.lib` doesn't pull in `core.domain`/`core.types`.
 4. **App-tree inversion** — `app_tree.py` defines Cyclopts app instances; command modules import from it (not vice versa), breaking the circular import chain.
 

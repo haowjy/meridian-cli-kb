@@ -24,6 +24,7 @@ Decision records explain why durable architectural choices were made — what al
 | [telemetry.md](telemetry.md) | Three-layer observability: envelope design, storage layout, readers vs. sinks, liveness, retention (D61–D70) |
 | [workspace.md](workspace.md) | Workspace config: `[workspace]` in `meridian.toml`, named entries, missing-path behavior, dedicated loader (D41–D46) |
 | [git-autosync-merge-strategy.md](git-autosync-merge-strategy.md) | Git autosync: merge over rebase, local-wins conflict handling, AGENTS.md notice exception, artifact ownership split (D-autosync-1 through D-autosync-4) |
+| [codebase-cleanup.md](codebase-cleanup.md) | Cleanup program scope (phases 1–2 now, 3–5 in #569), B7 owned by PR #546, spawn-archive overlay deleted, `auto_init_cwd` inert |
 | [static-typing.md](static-typing.md) | Pyright strict gate with warnings fatal, per-rule suppressions only, boundary narrowing over casts, public cross-module names, explicit nested CLI handler registration |
 | [tui-framework.md](tui-framework.md) | Session-browse framework choice: prompt_toolkit full-screen Application (D-tui-prompt-toolkit) |
 

@@ -1,6 +1,6 @@
 # Codebase: Harness Adapters
 
-`lib/harness/` is the mechanism side of the policy/mechanism split. Adapters translate a typed `SpawnParams` struct into a runnable subprocess and extract results back. Adding a harness touches only the adapter file and registry — no shared code.
+`lib/harness/` is the mechanism side of the policy/mechanism split. Adapters translate a typed `SpawnParams` struct into a runnable subprocess and extract results back. Adding a harness is meant to be one adapter plus registration, but today it spans the bundle, extractor, connection, projection and semantics modules plus shared harness-id switches outside `harness/`; `HARNESS_EXTENSION_TOUCHPOINTS` in `lib/harness/__init__.py` lists them. Removing that leakage is phase 4 of the [cleanup program](cleanup-program.md).
 
 ## Connection-Level Resident and Scope Facts
 

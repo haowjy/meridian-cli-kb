@@ -16,7 +16,7 @@ graph TD
     CLI -->|"ext_registration.py\nauto-generates per-group cmds"| REGISTRY
     MCP -->|"extension_list_commands\nextension_invoke"| REGISTRY
 
-    REGISTRY --> OPS["ops/\noperation handlers\nmanifest.py declares all"]
+    REGISTRY --> OPS["ops/\noperation handlers\ncommands.py declares all"]
 
     OPS --> LAUNCH["lib/launch/\nprepare/bind composition\nexecution"]
     OPS --> STATE["lib/state/\nper-spawn state.json\nwork items"]
@@ -53,7 +53,7 @@ sequenceDiagram
     R->>O: dispatch to spawn_create_sync
     O->>L: prepare_launch_surface + bind_launch_context
     L->>L: resolve policies, permissions, prompt, argv, env
-    L->>St: start_spawn() — append queued event
+    L->>St: start_spawn() — publish state.json
     L->>H: subprocess / HarnessConnection
     H-->>L: stream events
     L->>St: mark_running → exited → finalize_spawn
@@ -77,7 +77,7 @@ graph LR
         PLATFORM["platform/\nfile locking · process kill\ndeferred OS imports"]
         STREAMING["streaming/\nHarnessConnection\nSpawnManager"]
         EXT["extensions/\nExtensionCommandRegistry\ndispatcher · context"]
-        OPS["ops/\nmanifest.py\nspawn · session · work · ..."]
+        OPS["ops/\ncommands.py\nspawn · session · work · ..."]
     end
 
     LAUNCH --> CORE
@@ -95,10 +95,10 @@ graph LR
 
 ## Extension System as Single Source of Truth
 
-`ops/manifest.py` declares every user-facing operation as an `ExtensionCommandSpec` via `ExtensionCommandSpec.from_op()`. The registry becomes the authority — no command can exist in the CLI but not the MCP server, or vice versa. Surface membership controls reachability per surface.
+`ops/commands.py` declares every user-facing operation as an `ExtensionCommandSpec` via `ExtensionCommandSpec.from_op()`. The registry becomes the authority: each command has one spec, and its surface set (`CLI`, `MCP`, or both) controls where it is reachable.
 
 This design means:
-- Adding a new command = define an `ExtensionCommandSpec` in `manifest.py`
+- Adding a new command = define an `ExtensionCommandSpec` in `ops/commands.py` (plus a CLI startup descriptor)
 - Removing legacy wiring = delete old CLI registration; registry takes over
 - Command documentation = queryable via `extension_list_commands`
 

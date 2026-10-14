@@ -193,7 +193,7 @@ See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-nam
 
 ### Concurrency by construction: mutate-under-lock seams over convention-enforced write tiers (PR #422, 2026-07)
 
-**Decision:** The prior two-tier write model (owner writes without lock / external writes with lock) was collapsed into a single locked mutation seam: every mutation of published state calls a `write_state_locked`-shaped function that acquires a stable lock, re-reads current state, applies a pure mutator, and writes atomically. The public unlocked `write_state()` was deleted. This applies across all stores: spawn records, archived spawns, work items, hook intervals, scope projections, and autosync transactions.
+**Decision:** The prior two-tier write model (owner writes without lock / external writes with lock) was collapsed into a single locked mutation seam: every mutation of published state calls a `write_state_locked`-shaped function that acquires a stable lock, re-reads current state, applies a pure mutator, and writes atomically. The public unlocked `write_state()` was deleted. This applies across all stores: spawn records, archived spawns, work items, hook intervals, scope projections, and autosync transactions. (The archived-spawns store was deleted in 2026-10 with the rest of the unreachable archive overlay; see [Codebase cleanup](codebase-cleanup.md#d-spawn-archive-deleted-delete-the-orphaned-overlay-do-not-keep-it).)
 
 **Why:** The two-tier split was the root cause of every lost-update bug the thermo-nuclear audit reproduced. The "convention" that owner-writes skip the lock was unenforceable: any process calling the public `write_state()` could race the runner's unlocked write path, and five stores instantiated the same absent abstraction independently. Collapsing to one locked seam makes the lost-update shape structurally unwritable.
 
@@ -329,7 +329,7 @@ Provenance: `work:launch-boundary-resurrection`, issue #437.
 
 ### Mutate-under-lock seams stay store-specific; generic mutation framework rejected (PR #444, 2026-07)
 
-**Decision:** The six mutate-under-lock seams (spawn records, archived spawns, work items, hook intervals, scope projections, autosync) stay store-specific. A generic mutation framework (e.g. a `LockedStore[T]` base class or protocol) was evaluated in the thermo-nuclear consistency review and rejected.
+**Decision:** The six mutate-under-lock seams (spawn records, archived spawns, work items, hook intervals, scope projections, autosync — archived spawns since deleted) stay store-specific. A generic mutation framework (e.g. a `LockedStore[T]` base class or protocol) was evaluated in the thermo-nuclear consistency review and rejected.
 
 **Why:** The seams share a shape (lock, re-read, pure-mutate, atomic-write) but diverge in lock-path computation, read/write codecs, file layout, and error handling. A generic abstraction would need enough parameters to reconstruct each store's specifics, providing the cost of an abstraction without reducing the decision space. The shared mechanism is already `lock_file` + the atomic-write canon; the seam shape is a documented behavioral contract, not a code-level inheritance hierarchy.
 

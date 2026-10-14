@@ -53,7 +53,6 @@ Every update to a published spawn calls `write_state_locked()`. It acquires the 
 
 The same mutate-under-lock shape applies across all stores:
 - **Spawn state**: `write_state_locked()` — `locks/spawns/<id>.lock`
-- **Archived spawns**: `mutate_archived_spawns()` — `locks/archived-spawns.lock`
 - **Work items**: `_mutate_item()` in `work_repository.py` — `work-store.flock`
 - **Hook intervals**: `run_if_due()` — `locks/hooks/<name>.lock`
 - **Scope projections**: `_mutate_scope_projection()` (private) — `locks/process-scopes/<id>.lock`

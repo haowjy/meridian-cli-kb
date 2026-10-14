@@ -46,10 +46,14 @@ Binding selects the bundle and produces its typed spec. The harness layer may
 translate resolved values into native flags and channels; it must not re-run
 policy precedence or model routing.
 
-Adapters expose a typed `HarnessContract` for bootstrap, transport, projection,
-and feature support. Spawn-field coverage is checked against the union of each
-adapter's `handled_fields`; there is no per-adapter `STRATEGIES` map or
-`FlagStrategy` table.
+Adapters expose a flat, typed `HarnessContract`: capabilities, transport IDs,
+launch-spec class, bootstrap mode, fork materialization, and the primary-launch
+policies (attach-failure fallback, stderr log, runtime request policy and event
+surface). Every field has a reader; unread declarations were deleted rather than
+kept as aspirational surface. Spawn-field coverage is checked per adapter: each
+adapter's `handled_fields` (`consumed_fields | explicitly_ignored_fields`) must
+equal the `SpawnParams` fields exactly, so one adapter handling a field never
+covers another's omission. There is no `STRATEGIES` map or `FlagStrategy` table.
 
 ## Projection and Connections
 

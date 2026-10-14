@@ -12,6 +12,11 @@ config exception is `reportMissingModuleSource = false`, which covers stub-only
 packages. User: "we are in strict mode for a reason"; "warnings are also
 warnings for a reason."
 
+Both gates enforce it: the fast gate in `src/meridian/dev/preflight.py` (pre-push
+hook and the PR CI job) and the full preflight run `pyright --warnings`. The fast
+gate originally ran plain `pyright`, which is how the warnings piled up unseen;
+`--warnings` was added before PR #570.
+
 **Why strict had been weakened.** On 2026-04-19, two commits (`13d596c13`,
 `6f8ae96bf`) demoted seven strict rules to `warning`, for two different reasons:
 
@@ -118,16 +123,6 @@ decorator. Pyright does not count decoration as use.
 | Several private `isinstance` helpers, or a `TypeAdapter` built on every call | Duplicated narrowing logic. Consolidated into `json_shapes` and module-level adapters. |
 | Reflection (`object.__getattribute__`) to reach Cyclopts internals | Hides the private access from the type checker without making it any safer |
 | Put `json_shapes` in `lib/core/` | `core` holds domain types; this helper has no domain meaning |
-
-## Current divergence
-
-> [!FLAG] **Needs human review.** At branch head `b30bcf465`, only the
-> full/extended preflight (`scripts/preflight.sh full`) runs `pyright --warnings`.
-> The fast gate in `src/meridian/dev/preflight.py` runs plain `pyright`. That gate
-> is what the pre-push hook and the PR CI job (`meridian-ci.yml`, "Run fast gate")
-> use, so a PR that adds warnings still passes CI. The full gate runs only on
-> manual dispatch, on schedule, and in release-on-merge. The fix is one line:
-> add `--warnings` to the fast gate's pyright command.
 
 ## Revisit when
 

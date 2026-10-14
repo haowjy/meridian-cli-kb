@@ -3,6 +3,29 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Cleanup program phase 1 captured (`work:pyright-strict`)
+
+- New [Cleanup program](codebase/cleanup-program.md) page: the six structural
+  problems, the five-phase plan with status, phase-1 bugs and deletions, the
+  conventions phase 1 made explicit, and what it left open (#569).
+- New [Codebase cleanup](decisions/codebase-cleanup.md) decision page:
+  D-cleanup-scope, D-b7-via-546, D-spawn-archive-deleted, D-auto-init-inert.
+- Launch pages now name the prepare/bind pipeline as the composition seam; the
+  production `build_launch_context()` facade is gone (launch-system, invariants
+  I-1/I-2/I-6/I-11, launch and model-resolution decisions, vocabularies,
+  system overview, composition pipeline, future-work). Closed the
+  "subprocess creates the row before composition" gap. Pointed the invariant
+  references at `principles/invariants.md` (the `.meridian/invariants/` file
+  does not exist).
+- Removed descriptions of deleted machinery: `requires_app_server`,
+  `ExtensionSurface.HTTP` and `project_uuid` (extension system), lazy dispatch
+  (startup pipeline and decision), archived-spawns store (state pages),
+  `HarnessContract` submodels (harness abstraction), `ops/manifest.py`.
+  Flagged the inert `auto_init_cwd` and the meridian-web backend question.
+- [Codebase guide](codebase/guide.md): package list, descriptor step for new
+  commands, state description. Static typing: resolved the fast-gate flag.
+
+---
 ## 2026-10-13 — Static typing decisions recorded (`work:pyright-strict`)
 
 - New [Static typing](decisions/static-typing.md) decision page: strict pyright

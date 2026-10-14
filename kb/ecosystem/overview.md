@@ -30,7 +30,7 @@ graph TD
 
     CLI -- "meridian mars sync" --> MARS
     MARS -- "resolves + writes .mars/" --> CLI
-    CLI -- "WebSocket / REST" --> WEB
+    CLI -. "WebSocket / REST (app server archived)" .-> WEB
 
     MB -- "compiled by" --> MARS
     MDW -- "compiled by" --> MARS
@@ -45,7 +45,7 @@ graph TD
 ## Infrastructure Repos
 
 ### meridian-cli
-**Role:** The core coordination layer. Provides the `meridian` CLI, spawn/session state management, harness adapters, launch composition, and the REST/WebSocket app server.
+**Role:** The core coordination layer. Provides the `meridian` CLI, spawn/session state management, harness adapters, launch composition, and a FastMCP stdio server (`meridian serve`). The REST/WebSocket app server is archived; CLI and MCP are the only command surfaces.
 
 **Language:** Python (`uv`, `src/meridian/`)
 
@@ -81,6 +81,8 @@ See [architecture/mars-compiler.md](../architecture/mars-compiler.md) and [archi
 ---
 
 **Role:** The web frontend. An extension-based shell that connects to meridian-cli's WebSocket/REST server and renders the chat UI and agent interaction surface.
+
+> [!FLAG] **Needs human review.** meridian-cli no longer ships that server: the app server is archived and its extension surface (`ExtensionSurface.HTTP`, `requires_app_server`) was removed in cleanup phase 1. Confirm whether meridian-web is dormant or targets a different backend.
 
 **Language:** TypeScript (React 19, Vite, Zustand, shadcn/ui)
 
