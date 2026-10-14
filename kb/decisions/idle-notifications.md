@@ -619,9 +619,12 @@ were observed on 0.9.8.
   idle contradict the 1800 s estimate for Codex, Pi `openai-codex` and OpenCode
   `openai`. The baseline is the 2026-10-14 probe
   ([measured idle window](../research/prompt-cache-retention.md#measured-idle-window-2026-10-14)):
-  Pi hits at 25 and 35 min, OpenCode confounded. A value counts as confirmed
-  only from a re-measurement with a distinct prefix per gap (or serial runs),
-  so no resend refreshes another gap's cache entry.
+  Pi hit at 25 and 35 min and missed at 15, 45 and 60; OpenCode was
+  confounded. The backend's window varies with routing and load, so a
+  measurement is an observation under that hour's conditions, not a value
+  to confirm; re-measure only to check that 1800 s is still inside the
+  window most of the time, with a distinct prefix per gap so no resend
+  refreshes another gap's entry.
 - Claude files a `/clear` successor outside the launch store, or Meridian stops
   recording `native_store` on the chat; Claude TTL detection would then return
   unknown.
