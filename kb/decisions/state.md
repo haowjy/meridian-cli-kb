@@ -138,7 +138,7 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### D-spawn-run-identity: a spawn id names the conversation; each launch is a run (2026-10) {#d-spawn-run-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Partly built, nothing shipped. Phases 1–2 (PR-A: run identity in storage, surfaces that resolve spawns to runs) are committed on the local branch `feat/primary-keeps-spawn-id` (`a59ea2e1`). They are not pushed, merged or released. Phases 3–4 (PR-B: reopen, telemetry, vocabulary docs) are not built. Until PR-B lands, **every primary and child launch, `--continue` included, still mints a new bare `pN`**, exactly as before. Architecture pages therefore still describe one spawn per launch.
+**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, nothing merged or shipped. Phases 1–2 (PR-A: run identity in storage, surfaces that resolve spawns to runs) are draft PR #587 (`feat/primary-keeps-spawn-id`, `096119fa5`). Phases 3–4 (PR-B: reopen, telemetry, hooks, vocabulary docs) are on the local branch `feat/continue-keeps-spawn-id` (`05c059d02`), stacked on PR-A and not pushed. On `main`, **every primary and child launch, `--continue` included, still mints a new bare `pN`**. Architecture, vocabulary and native-session-binding pages describe `main`, so they still show one spawn per launch and move when PR-B merges.
 
 **Decision.** `--continue` reopens the spawn; `--fork` and `--from` create a new one. The rule is the same for primaries and children.
 
@@ -160,9 +160,9 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 | Existing rows | No data migration: each is run 1 of its own spawn. The history index gets `spawn_id`/`run` columns through a schema bump, rebuilt rather than migrated in place |
 | Type guard (D-guard) | No mass `SpawnId`→`RunId` rename across ~84 files. The guard is narrow: row read/write entry points and path/lock helpers accept only `RunId`; only `parse_ref`, `latest_run` and `runs_of` produce one; one core env accessor replaces raw `MERIDIAN_SPAWN_ID` reads. A CI gate enforces this, and every exact row-key conversion in `ops/`/`cli/` is listed in a reviewed manifest |
 | Sibling-run rules | One shared module owns grouping, continuation-target selection and retention protection, so no surface derives "latest" by itself |
-| Retention | Each run ages on its own. A spawn's numeric latest run, its latest run that bound a session, and a distinct continuation source are kept until the whole spawn can retire. Run numbers are never re-minted; older runs of a long-lived spawn can still age out |
+| Retention | Each run ages on its own. A spawn's numeric latest run, its latest run that bound a session, and a distinct continuation source are kept until the whole spawn can retire. Run numbers are never re-minted; older runs of a long-lived spawn can still age out. Prune decides from the siblings it re-reads under the allocation lock, never from its scan: a reopen can publish a new run between scan and delete. If any sibling row is unreadable, that run is kept and the rest of the batch continues |
 | Spawn counter | Mints stable spawns only. A missing counter is recovered from the spawn prefix of every surviving row, dotted ones included, so retiring run 1 cannot cause `pN` to be re-minted (an explicit correction during PR-A) |
-| Run reference grammar | `pN` is a spawn, `pN.K` (K ≥ 2) a run, `pN.1` normalizes to `pN`. `--continue pN.K` is refused in favour of continuing `pN` or forking the run |
+| Run reference grammar | `pN` is a spawn, `pN.K` (K ≥ 2) a run, `pN.1` normalizes to `pN`. `--continue pN.K` is refused in favour of continuing `pN` or forking the run. A `pN` with no run is "not found"; it never falls back to an untracked reference. A spawn whose loose runs were all archived looks the same as one that never existed, so the refusal names both possibilities rather than guessing "archived" |
 
 **Rejected alternatives.**
 
@@ -178,18 +178,18 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 **The cost we accepted.** A spawn id stops being an immutable receipt. After someone continues p5, `spawn show p5`, `wait p5` and `report p5` show the newer run. The exact historical result is `p5.1`. Existing `spawn:pN` provenance citations, including the ones in this KB, will still resolve, but to the spawn. Whether KB provenance should start citing `pN.K` is still the user's call.
 
-**Remaining scope, PR-B (phases 3–4):**
+**The reopen contract (PR-B).** Primaries and children follow one path:
 
-- Primary and child `--continue` reserve a run. The order is pre-flight busy check, then `reserve_run`, then `session_scope` with a try-lock. A contended lock is `chat_busy` only when the lease owner is alive; otherwise a bounded retry.
-- After `session_scope`, the runner binds the session generation onto the run row for both primaries and children.
-- The chat's owner spawn is derived. A reopen that would create a cycle with an ancestor is refused, using the union of parents across all runs.
-- The predecessor's task-dir scope is replayed into the new run. A fully archived spawn refuses to reopen.
-- The quit hint shows `pN`, and the session browser shows the owner spawn.
-- Every `MERIDIAN_SPAWN_ID` consumer is audited as spawn or run.
-- Telemetry carries the stable `spawn_id` next to the run key.
-- KB vocabulary, native-session-binding, state-system pages and `docs/` are updated.
+1. **Busy check.** A read-only pre-flight refuses early with a useful message. The authority is the recheck inside `reserve_run`, under the spawn allocation lock: the pre-flight is advisory and the recheck is never skipped.
+2. **Reserve before the chat.** `reserve_run` publishes run K+1 as a queued row, stamped with the reserving process so the reaper can finalize it after a crash. It copies no session generation from the previous run. Reopening an ancestor of the caller is refused, using the union of parents across all runs.
+3. **Acquire the chat after releasing the allocation lock.** The chat lock is a try-lock. A live lease owner means `chat_busy`. Contention without a live owner is treated as transient and retried for about 10 s, then fails as `chat_lock_timeout`.
+4. **Bind the generation once.** Session scope writes the acquired generation onto the new run, once, for both kinds. Session start never assigns a generation on reopen, so a failed reopen can't steal the previous run's generation.
 
-**Revisit when:** the user reverses "continue keeps the id" before PR-B. Phases 1–2 change no behavior and still give a cleaner id boundary, so nothing would need reverting. Also revisit if provenance drift from reopened spawns causes real confusion.
+A reopen that fails before acquiring its session finalizes only the new run. That run stays unbound, keeping the target chat as its chat and the caller's chat as its owner chat. The continue target is the newest run that bound a generation, so an unbound failure can't redirect the next `--continue`. The predecessor's task-dir scope, including a cleared one, carries into the new run. Reservations translate into the stored row through one function shared with fresh launches, so the two paths can't drift.
+
+On every surface, `pN` labels the spawn and `pN.K` the run. `spawn show` heads with the spawn and names the exact run on its own line. The quit hint says `pN`. Telemetry and hook payloads carry the stable `spawn_id` and the exact `run_id`. `MERIDIAN_CHAT_ID` is the run's entry chat.
+
+**Revisit when:** the user reverses "continue keeps the id" before PR-B merges. Phases 1–2 change no behavior and still give a cleaner id boundary, so PR-A could ship alone. Also revisit if provenance drift from reopened spawns causes real confusion.
 
 ---
 
