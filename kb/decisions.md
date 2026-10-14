@@ -70,4 +70,3 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 | Telemetry | Envelopes, sinks, segments, querying and retention | [decisions/telemetry.md](decisions/telemetry.md) |
 | Testing | Behavior-owned tiers and evidence gates | [decisions/testing.md](decisions/testing.md) |
 | Chat backend | Protocol and command-layer history | [decisions/chat-backend.md](decisions/chat-backend.md) |
-| Dev frontend | Portless/Vite exposure and launcher policy | [decisions/dev-frontend.md](decisions/dev-frontend.md) |

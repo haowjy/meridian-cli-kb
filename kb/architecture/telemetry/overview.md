@@ -95,7 +95,6 @@ The telemetry stream carries only content the existing stores don't capture. See
 | WebSocket lifecycle | `chat.ws.connected`, `chat.ws.disconnected`, `chat.ws.rejected` |
 | Command dispatch | `chat.command.dispatched` |
 | Chat runtime shutdown | `chat.runtime.stopping`, `chat.runtime.stopped` |
-| Dev frontend subprocess | `dev_frontend.launched`, `dev_frontend.ready`, `dev_frontend.readiness_timeout`, `dev_frontend.exited` |
 | MCP local commands | `mcp.command.invoked` |
 | Work item transitions | `work.started`, `work.updated`, `work.done`, `work.deleted`, `work.reopened`, `work.renamed` |
 | Stream backpressure | `runtime.stream_event_dropped` |

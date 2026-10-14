@@ -3,6 +3,23 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Archived chat app-server pages removed
+
+- Removed on the user's instruction; the chat app server and dev frontend
+  (`ChatCommandHandler`, `FrontendLauncher`, `dev_frontend`, `meridian chat --dev`)
+  no longer exist in `src/`. Deleted `decisions/dev-frontend.md`,
+  `research/vite-portless-funnel.md`, `research/t3-code-reference.md`,
+  `lessons/chat-normalization-repair.md`, the `dev_frontend.*` telemetry rows
+  (event catalog and overview), and the WebSocket fanout teardown item in
+  future-work. Index, domain overviews and inbound links updated.
+- Kept `decisions/chat-backend.md`: it records live seams (`ServerRequestHandler`/
+  `InteractiveHandler`, `terminal_outcome`/`clears_signal`, spawn `max_depth`,
+  TUI passthrough). Only its link to the deleted T3 page was removed.
+- Moved the Tailscale Funnel prerequisites into
+  [tailscale-serve-semantics.md](research/tailscale-serve-semantics.md);
+  `meridian artifact serve --funnel` still depends on them.
+
+---
 ## 2026-10-14 — meridian-web removed
 
 - Removed meridian-web from the KB on the user's instruction (its REST/WebSocket backend is no longer shipped): ecosystem map section, repo-map diagram edge, index summary.

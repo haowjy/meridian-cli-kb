@@ -21,7 +21,7 @@ Decision records for the chat backend — why this architecture, what alternativ
 
 All three would require `CUSTOM` for the highest-value events. Building custom from the start gives a coherent protocol rather than a patchwork.
 
-**Evidence:** T3 Code (studied in depth) normalized 4 layers to their own custom event model, not AG-UI or ACP. See [../research/t3-code-reference.md](../research/t3-code-reference.md).
+**Evidence:** T3 Code (studied in depth) normalized 4 layers to their own custom event model, not AG-UI or ACP.
 
 ---
 

@@ -3,9 +3,7 @@
 Empirical facts about how `tailscale serve`/`funnel` route requests and how to
 tear handlers down safely — verified live on Tailscale 1.98. Anyone building a
 serve or reverse-proxy feature over Tailscale hits these walls; they are not in
-the CLI's `--help` and contradict naive expectations. Sibling page
-[vite-portless-funnel.md](vite-portless-funnel.md) covers Funnel *prerequisites*
-(beta, certs, MagicDNS); this page covers the *routing and teardown* behavior.
+the CLI's `--help` and contradict naive expectations.
 
 ## Set-path forwards the full path — it does not strip the prefix
 
@@ -55,6 +53,18 @@ Never use:
 Only ever remove paths you created. Track the slugs you own and tear those down
 individually; let TTL + lazy GC handle expiry.
 
+## Funnel prerequisites
+
+From Tailscale's Funnel docs (last validated Jan 2026; the CLI changed in
+v1.52):
+
+- **Beta and off by default.** The tailnet policy must grant the `funnel`
+  node attribute (`nodeAttrs`).
+- **Requires** MagicDNS, HTTPS certificates enabled, and Tailscale v1.38.3+.
+- **Fully public.** External visitors get no Tailscale auth; anyone with the
+  URL reaches the endpoint. Funnel exposure must always be an explicit opt-in.
+- **Bandwidth limits** apply and are not configurable.
+
 ## Funnel is restricted to ports 443, 8443, 10000
 
 `tailscale funnel` rejects arbitrary ports; only 443, 8443, and 10000 are
@@ -95,8 +105,3 @@ Live A/B verification on Tailscale 1.98, node `pop-os`, during the
 `artifact-serve-cmd` work item (2026-07): reversible tailscale experiments with
 state restored identical afterward. Full decision trail in the work item's
 `DECISIONS.md`.
-
-## Related Pages
-
-- [vite-portless-funnel.md](vite-portless-funnel.md) — Funnel prerequisites (beta,
-  HTTPS certs, MagicDNS, allowed ports) from the dev-frontend/portless angle

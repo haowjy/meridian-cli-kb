@@ -10,7 +10,6 @@ Decision records explain why durable architectural choices were made — what al
 | [idle-notifications.md](idle-notifications.md) | Idle push, cache-expiry warning and idle compaction for primaries: core-decides split, leaf packages, session role, adapter hosting per harness, config namespaces, SMTP password handling, Pi primaries on long cache retention, per-adapter contracts, invariants to keep, plan-vs-built divergences, the review gates and final review, structural-debt pointers, the Gmail verification gap (built 2026-10-08; PR #550 `release:patch`) |
 | [idle-ttl-detection.md](idle-ttl-detection.md) | Launch-recorded native-store resolution for Claude transcript TTL detection and provider/retention mapping for Pi idle TTLs |
 | [chat-backend.md](chat-backend.md) | Chat pipeline architecture: custom protocol, event model, acquisition, HITL, command layer, structural refactors (D1–D2, D8–D31) |
-| [dev-frontend.md](dev-frontend.md) | Unified dev setup for `meridian chat --dev`: portless, Vite, exposure model, env scrub, launcher strategy (DF-D1–DF-D7) |
 | [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, target-constrained model-policy fallback (D52–D57, D72–D74) |
 | [package-management.md](package-management.md) | Mars compiler, skill schema, `.agents/` elimination, targeting, sync, bootstrap docs, collision resolution, convention-based discovery, engine constraints, and declared-package self-sync (D35–D40, D50–D51, D58–D63, D71, D77, D87, D93–D94) |
 | [state.md](state.md) | State roots, JSONL event stores, dual-root layout, crash-only design, WorkScope model (named vs ambient), CR1 fix, state v2 migration (foundational undated decisions + D-WorkScope PR #328) |
@@ -30,7 +29,7 @@ Decision records explain why durable architectural choices were made — what al
 
 ## Naming
 
-Domain-specific decisions use a domain prefix (for example `DF-D1`) when the bare D-number would conflict with existing IDs. Bare D-numbers from the original decision record are preserved as heading anchors in domain pages so existing references remain addressable.
+Domain-specific decisions use a domain prefix (for example `D-autosync-1`) when the bare D-number would conflict with existing IDs. Bare D-numbers from the original decision record are preserved as heading anchors in domain pages so existing references remain addressable.
 
 When the same bare ID appears in two domains (D61, D62, D63 each appear in both telemetry and bootstrap/launch clusters), domain pages disambiguate with qualifiers in the heading anchor: `#d61-telemetry`, `#d61-bootstrap`.
 

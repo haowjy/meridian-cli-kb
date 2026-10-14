@@ -119,19 +119,17 @@ These notes were accepted as next-iteration cleanup after the Phase 7–11 refac
 
 ### Pre-existing Reliability Findings from Final Gate (D30)
 
-**Where:** `lib/chat/event_log.py`, `lib/chat/ws_fanout.py`, `lib/chat/checkpoint.py`, `lib/chat/event_index.py`, `lib/chat/session_service.py`
+**Where:** `lib/chat/event_log.py`, `lib/chat/checkpoint.py`, `lib/chat/event_index.py`, `lib/chat/session_service.py`
 
 Final gate review found concurrency/safety concerns that were not introduced by the Phase 7–11 refactor. They need their own design/planning cycle:
 
 1. **Event log truncation race.** Review append/read/truncation behavior around JSONL repair and concurrent readers.
 
-2. **Fanout teardown leak.** Ensure WebSocket fanout cleanup fully releases client references after close/error paths.
+2. **SQLite connection lifecycle.** Audit derived-index connection ownership and closure under failure paths.
 
-3. **SQLite connection lifecycle.** Audit derived-index connection ownership and closure under failure paths.
+3. **Checkpoint cross-process locking.** Checkpoint/revert safety should hold across processes, not just in-process guards.
 
-4. **Checkpoint cross-process locking.** Checkpoint/revert safety should hold across processes, not just in-process guards.
-
-5. **Stop/acquisition race.** Session stop and backend acquisition should have a clear synchronization contract.
+4. **Stop/acquisition race.** Session stop and backend acquisition should have a clear synchronization contract.
 
 **Decision context:** [decisions.md](../decisions.md) — D30
 

@@ -91,17 +91,11 @@ Dead-zone events for the chat transport layer. Previously silent.
 
 ### `server`
 
-Dev frontend subprocess and MCP command lifecycle.
+MCP command lifecycle.
 
 | Event | Concerns | `ids` keys |
 |---|---|---|
-| `dev_frontend.launched` | `operational`, `usage` | — |
-| `dev_frontend.ready` | `operational`, `usage` | — |
-| `dev_frontend.readiness_timeout` | `operational`, `error` | — |
-| `dev_frontend.exited` | `operational` | — |
 | `mcp.command.invoked` | `operational`, `usage` | `request_id`, `work_id`, `spawn_id` |
-
-Note: `dev_frontend.*` events use domain `server` despite the event names using the `dev_frontend.` prefix.
 
 ### `work`
 
