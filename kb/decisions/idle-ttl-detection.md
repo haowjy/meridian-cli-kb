@@ -13,7 +13,7 @@ idle notifications: Claude, Pi, and OpenCode 2.x.
   only.
 - OpenCode provider TTL (D7) is implemented on `fix/opencode-idle-v2`, draft
   PR #573, not merged. Released builds still carry the 300 s OpenCode default.
-- D5 and D7 both await human confirmation (flags below).
+- The user confirmed D5 and D7 (1800 s on the ChatGPT backend) on 2026-10-14.
 
 ## D-idle-ttl-detection — Detection reads launch records, never a cwd
 
@@ -87,19 +87,31 @@ the retention mode to a TTL. No match means unknown.
 | `xai` | unknown | unknown | Best-effort cache that "can be evicted at any time"; no TTL to schedule against. |
 | `deepseek` | unknown | unknown | Disk cache that lasts "a few hours to a few days"; there is no pre-expiry point. Compact for context pressure, not cache expiry. |
 
-> [!FLAG] **Needs human review**: The `openai-codex` 1800-second TTL is a
-> tech-lead estimate, not a provider-confirmed lifetime. Flagged 2026-10-13.
+**D5 resolved:** the user confirmed 1800 s on 2026-10-14 ("GPT-5.6+, which we
+usually use, is 30 minutes"). `estimated=true` stays because the ChatGPT backend
+publishes no cache contract.
 
-The `openai-codex` row is a tech-lead call (D5), not yet confirmed. Research
-(`spawn:p7724`) found no published TTL for the ChatGPT
-backend. It also refuted mapping the public API's GPT-5.6 30-minute TTL onto that
-backend ([research](../research/prompt-cache-retention.md#chatgpt-backend-codex-and-pis-openai-codex)).
-The Codex harness already runs on the same backend with the 1800 estimate. So
-Pi should match it rather than diverge, and `estimated=true` puts `est.` on its
+**Why 1800:** research (`spawn:p7724`) found no published TTL for the ChatGPT
+backend, and refuted mapping the public API's GPT-5.6 30-minute TTL onto it as
+a documented fact
+([research](../research/prompt-cache-retention.md#chatgpt-backend-codex-and-pis-openai-codex)).
+The Codex harness already runs on the same backend with the 1800 estimate, so
+Pi matches it rather than diverging, and `estimated=true` puts `est.` on its
 notices. **Risk:** if the backend cache lives under 25 minutes, the compaction
-lands on a cold cache. Local Pi session logs support the estimate so far: after
-a 20–30 min idle gap, 28 of 31 `openai-codex` turns still read the cache (90%),
-and 78 of 84 after 10–20 min. Revisit if later cache-hit data disagrees.
+lands on a cold cache. Local Pi session logs fit the estimate: after a 20–30 min
+idle gap, 28 of 31 `openai-codex` turns still read the cache (90%), and 78 of 84
+after 10–20 min. A controlled probe (`spawn:p7824`) saw Pi `openai-codex` hits
+at 25 and 35 min, so compaction at about 25 min landed warm, but it is not a
+clean boundary
+([measurement](../research/prompt-cache-retention.md#measured-idle-window-2026-10-14)).
+
+**Known limitation: TTL keyed by provider, not model.** Both tables, Pi's
+`pi_idle._PROVIDER_TTLS` and OpenCode's `opencode_idle._PROVIDER_TTLS` (read by
+`detect_ttl`), resolve the TTL from the provider ID alone. The OpenAI estimates
+(Pi `openai-codex`, OpenCode `openai`) assume GPT-5.6 or later. An older model
+on those routes inherits the 1800 s estimate although its cache may be shorter;
+set `ttl_seconds` for it, since a configured TTL always beats detection. The
+user docs say the same (`docs/configuration.md` idle section).
 
 **Rejected:**
 
@@ -141,8 +153,11 @@ primaries actually run here use an OpenAI model (`gpt-6-astra`).
 - The table stays in `opencode_idle.py`, not shared with Pi: Pi's is keyed by
   retention mode as well as provider.
 
-> [!FLAG] **Needs human review**: The OpenCode `openai` 1800-second TTL is a
-> tech-lead estimate that inherits D5. Flagged 2026-10-14.
+**D7 resolved:** the user confirmed 1800 s on 2026-10-14, with D5.
+`estimated=true` stays because the ChatGPT backend publishes no cache contract.
+The provider-not-model limitation under the
+[Pi provider table](#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)
+applies here too.
 
 **Why 1800:** the same reasoning as D5. On this machine OpenCode's `openai`
 provider authenticates with a ChatGPT account (the provider rejected
