@@ -159,7 +159,7 @@ tail stays invisible until the next append; the telemetry sink repairs torn tail
 
 | Convention | Where it is stated |
 |---|---|
-| Config has one validation path: the Pydantic models under `MeridianConfig` (`config/models.py`, `harness_models.py`, `history_models.py`, the dynamic-section descriptor models). Key-warning policy is `ClassVar`s on `ConfigModel`; env vars exist only through `config_field()` catalog metadata; the layer merge is explicit in `config/loader.py`. No hand normalizers, no `pydantic-settings` | `lib/config/AGENTS.md`; [config precedence](../concepts/config-precedence.md) |
+| Config has one validation path: the Pydantic models under `MeridianConfig` (`config/models.py`, `harness_models.py`, `history_models.py`, the dynamic-section descriptor models). Unknown-key warnings read `model_extra` from one `extra="allow"` validation pass, so Pydantic owns the traversal ([decision](../decisions/codebase-cleanup.md#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings)); env vars exist only through `config_field()` catalog metadata; the layer merge is explicit in `config/loader.py`. No hand normalizers, no `pydantic-settings` | `lib/config/AGENTS.md`; [config precedence](../concepts/config-precedence.md) |
 | Hook rows validate through `lib/hooks/schema.py` (`HookConfigSection.model_validate`, `HookSpec`); field constraints live on the models, hand checks only for multi-field rules; hook sources are user < project < local, with no builtin layer | `lib/hooks/AGENTS.md` |
 | JSON sidecars go through `lib/state/json_doc.py` (`read_model` / `write_model` / `mutate_model`, the last requiring a lock) | `lib/state/.context/CONTEXT.md`; [durability and locking](../architecture/state-system/durability-and-locking.md) |
 | JSONL is read and appended only through `lib/state/jsonl.py`: a row exists when its newline does; the appender repairs a delimiter-less valid tail; malformed complete rows skip (debug diagnostic); archive receipts raise; the single-row writer owns the newline | `lib/state/AGENTS.md`, `.context/CONTEXT.md`; [state decisions](../decisions/state.md#one-jsonl-commit-rule-a-row-exists-when-its-newline-does-cleanup-phase-2-2026-10) |
@@ -209,6 +209,14 @@ What the landing surfaced:
 - **Pi streaming contract tests flake under load** (#577), on `main` and on
   every branch alike. Compare against `main` before treating them as a
   regression.
+- **v0.10.0 shipped a false config warning** (#580). A late commit in the stack
+  generalized the unknown-key walker, and every project with `[context.*]` tables
+  then warned on each load. No test loaded a realistic valid config and asserted
+  that it loaded silently. v0.10.1 (PR #581) moved the traversal into Pydantic
+  ([decision](../decisions/codebase-cleanup.md#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings)).
+  An audit of the whole v0.9.8..v0.10.0 config refactor found no config that
+  stopped loading and no setting that was dropped. It did find smaller validation
+  drift, tracked in #582 ([audit method](../lessons/verification-and-review-discipline.md#a-generalized-diagnostic-path-needs-a-loads-silently-oracle)).
 - Merge and release mechanics (CHANGELOG re-homing, `merge-tree` exit codes,
   shipping Mars before the pin) are in
   [release sequencing](../lessons/release-sequencing.md#landing-a-stacked-chain-2026-10-14).

@@ -122,8 +122,13 @@ final `MeridianConfig`. `load_config_with_sources()` keeps one `ConfigValueSourc
 field, which is what `meridian config show` renders.
 
 **The models are the only validation path.** Constraints live on model fields and
-validators; unknown-key warning policy is `ClassVar`s on `ConfigModel`
-(`config_ignored_keys`, `config_silences_extras`); `[env]`, `[hooks]`, `[work]`,
+validators. Unknown-key warnings come from a second validation of each section with
+Pydantic's call-time `extra="allow"`, reading `model_extra` off the validated tree, so
+Pydantic owns the traversal; the only warning-policy `ClassVar` is
+`config_silences_extras`, and `extra="forbid"` models still hard-fail
+([decision](../decisions/codebase-cleanup.md#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings)).
+The alias-mapped `[defaults]`, `[spawn]` and `[timeouts]` keys are reported by the
+loader's catalog mapping instead. `[env]`, `[hooks]`, `[work]`,
 `[context]` and `[workspace]` validate through descriptor models in
 `config/dynamic_sections.py`; errors format through `config/errors.py`. The hand-written
 TOML normalizers and the re-entrant `BaseSettings` load were removed in cleanup phase 2

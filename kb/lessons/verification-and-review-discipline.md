@@ -234,6 +234,59 @@ claim, replace the cleanup with captured live child handles and cooperative rele
 flags (persisted PIDs are diagnostics only), and rerun. Read every driver on a
 verification path, not just the one most recently fixed.
 
+### A generalized diagnostic path needs a "loads silently" oracle
+
+The config cleanup refactors generalized the unknown-key walker to every dynamic
+section (`02124b70c`). Every test of that path asserted that a bad key warns. None
+loaded a realistic valid config and asserted that it produced no warnings. v0.10.0
+shipped with a false `Ignoring unknown Meridian config key 'context.<name>'` on
+every load in any project with `[context.*]` tables, including this repo (#580,
+[decision](../decisions/codebase-cleanup.md#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings)).
+Negative tests can't see a false positive. When a change widens a warning,
+deprecation or validation path, pair the "bad input warns" cases with a valid
+config that covers every section shape (list-rooted and dict-rooted dynamic
+sections included) and assert that it loads with zero warnings. PR #581's test
+loads one valid `[context.*]` table silently next to a bogus one. A whole-config
+silent-load test does not exist yet.
+
+The audit that checked the rest of the refactor for similar bugs used two
+methods, and both found things the suite had missed:
+
+1. **Load every real config on the machine, in process, from scratch copies.**
+   Find every `meridian.toml` (19 on the dev box). Copy each one into a scratch
+   directory, and use a copy of the user config as `HOME`. Call
+   `load_config_with_sources` in process and capture stdlib `WARNING` records. Do
+   this on `main` and on the fix. **Never run the CLI inside another project to do
+   this:** since v0.10, a command that writes state mints `[project] id` into an
+   unminted `meridian.toml`
+   ([project identity](../architecture/state-system/project-identity.md)), so a
+   "read-only" sweep can edit other repos. The sweep showed 8 configs hitting #580
+   on `main` and 18 of 19 clean on the fix. The last one was a real user error: a
+   commented-out `[[hooks]]` header that left hook keys under `[state]`.
+2. **Run a differential against the build before the refactor.** Run
+   `uv run --no-project --isolated --with meridian-cli==0.9.8 python -I probe.py`
+   and the same probe on the new build, over one fixture battery: every TOML block
+   in `docs/`, per-section key and type cases, a typo at each nesting level, a
+   user/project/local stack, env overrides, and the `config init` scaffold. Diff the
+   values, sources, warnings and errors. Two things to know:
+   - 0.9.8's loader is `meridian.lib.config.settings.load_config`, because
+     `meridian.lib.config.loader` didn't exist before cleanup phase 2. Check the
+     import path for the version you're comparing against.
+   - `--isolated` matters for the same reason as in
+     [upgrade probes](dogfooding-pr-builds.md#probing-the-upgrade-path-needs-a-genuinely-old-build-and-old-state).
+
+   Normalize the expected noise before counting differences: logger names, the
+   file path that errors now include, and intended default changes. Raw, 115 of the
+   118 fixtures differed; after normalizing, one substantive difference remained,
+   and it was an intended fix. A bisect over `git archive` snapshots then tied each
+   real difference to its commit. The results:
+   - `[notify]` strings are no longer trimmed or checked for emptiness;
+   - `[env]` keys are no longer stripped;
+   - one bad hook row now breaks `config show`;
+   - pre-existing invalid `autocompact` examples in the scaffold and the docs.
+
+   These are tracked in #582 (`spawn:p7912`, `spawn:p7913`).
+
 ## Measurement Discipline
 
 Measurements need a recoverable provenance note: command or method, dataset,

@@ -110,7 +110,9 @@ again, so most normalizers could not go until the loader itself changed. The
 reviewer (`spawn:p7765`) found zero value, precedence or source differences across
 about 85 configs and two error-wording regressions; state#2 fixed both, adopted the
 reviewer's layout (`config/models.py`, `loader.py`, `dynamic_sections.py`, a plain
-`BaseModel` root, key policy as `ClassVar`s) and replaced the re-entrant
+`BaseModel` root, key policy as `ClassVar`s, later reduced to one by
+[D-unknown-keys-from-pydantic](#d-unknown-keys-from-pydantic-pydantic-does-the-traversal-for-unknown-key-warnings))
+and replaced the re-entrant
 `BaseSettings` load with an explicit low-to-high merge.
 
 **Context:** the config chain was split by risk on purpose: state#1 ran alone and
@@ -144,6 +146,95 @@ blockers; a polish pass removed the residue (duplicate hook warnings, the
 two-branch model walker, the phantom builtin hook layer, the implicit newline
 contract). The correctness review (`spawn:p7794`) had found zero semantic
 differences across 600+ env-var cases beyond the intended wording.
+
+## D-unknown-keys-from-pydantic: Pydantic does the traversal for unknown-key warnings
+
+**Decision (2026-10-14, PR #581, released in v0.10.1):** Meridian finds unknown
+config keys by validating each section an extra time with Pydantic's call-time
+override, `model.model_validate(raw, extra="allow")`, and then reading
+`model_extra` off the validated instance tree. The walk goes over values, not
+types:
+- a `RootModel` descends into `.root`;
+- a model reports its extras, then recurses into each field;
+- a list or tuple appends `[i]`, and a dict appends `.key`.
+
+Models with `extra="forbid"`, and `ConfigModel`s that set `config_silences_extras`,
+report nothing. The code is `warn_unknown_model_keys` and `_warn_extras` in
+`lib/config/errors.py`. It relies on Pydantic ≥ 2.12, the project's floor. From
+that version on, the `extra=` override applies to every nested model, including
+models that set `extra="ignore"` or `"forbid"` themselves.
+
+**Why:** The walker this replaced read field annotations. Its `_nested_model_type`
+unwrapped `Model | None`, `tuple[Model, ...]` and `dict[str, Model]`, and it probed
+the raw TOML to guess which shape applied. That made it a second description of the
+model tree, kept next to Pydantic's, and the two drifted apart:
+
+- **#580 (v0.10.0).** `02124b70c` ("generalize dynamic model traversal", landed with
+  #575) ran the walker over every dynamic section. The walker handled list-rooted
+  `RootModel`s (`hooks`) but not dict-rooted ones. `DynamicContextConfig` is
+  `RootModel[dict[str, DynamicContextEntry]]`, so each context name was checked
+  against the model's only field, `root`. Every project with `[context.*]` tables
+  then printed `Ignoring unknown Meridian config key 'context.work'` (and one line
+  per context) on every config load, three times per primary launch. The keys were
+  honored all along, but the warning told users their context config was being
+  dropped.
+- **#582 item 3.** A mis-shaped root (`[hooks]` written as a table) fell through
+  to the plain-model branch, which warned `hooks.a` before the real
+  `expected array[table]` error.
+- **Latent gaps.** The walker never descended into `list[Model]` fields or into
+  `dict[str, Model]` fields other than a root. No current field has either shape
+  (`spawn:p7912`; `spawn:p7915` scanned all 24 reachable models), but the next one
+  would have let typos through without a warning.
+
+The first #581 commit added a dict-root branch. Review showed that each new shape
+needs another branch, and each missed shape produces a false or missing warning.
+Walking validated values removes that class of bug: the walk reaches whatever
+Pydantic validated, so it can't fall out of step with the models.
+
+**Rejected:**
+- **`extra="allow"` on `ConfigModel` itself.** Extras would be carried through
+  `model_dump(exclude_unset=True)` into the merged layer dicts and the recorded
+  sources, so `config show` would list `context.kb.bogus` as if it were set.
+  Every dump site would then have to strip extras. With the call-time override,
+  the allow-mode instance exists only inside the warning pass and is then thrown
+  away.
+- **A forbid pass that reads `extra_forbidden` error locations** (such as
+  `('rows', 0, 'z')`). It finds the keys, but a location doesn't say which model
+  owns a key. Honoring `config_silences_extras` would then need the annotation
+  walk back, or a location-driven walk of the instance. Either is more machinery
+  than the chosen design.
+- **Keeping the annotation walker with a dict-root branch** (the first #581
+  commit). That fixed #580, but it kept two traversals and left #582 item 3 and
+  the latent shapes open.
+
+**Accepted costs:**
+- **Double validation.** Each section is validated twice per load: once for
+  warnings and once for real. At config sizes this is negligible.
+- **No warnings for a section that has a hard error.** The warning pass returns
+  quietly on `ValidationError`, and the authoritative pass reports the error. The
+  warnings appear on the first run after the user fixes the error. This only works
+  because both callers (`loader._normalize_toml_payload_values` and
+  `dynamic_sections.normalize_dynamic_sections`) run the authoritative validation
+  immediately afterwards. A new caller that skipped that step would lose the error
+  silently.
+- **`config_ignored_keys` is gone.** `PrimaryConfig`'s before-validator already
+  discards the deprecated `model` and `harness` keys, so they never reach
+  `model_extra`. `config_silences_extras` is now the only warning-policy `ClassVar`.
+
+**Outside this mechanism:** the flattened catalog sections (`[defaults]`,
+`[spawn]`, `[timeouts]`) are alias-mapped before any model sees them, so
+`loader._map_catalog_table` warns for their keys itself. Each `load_config` call
+also repeats real warnings, three times per primary launch. That is noise, not a
+bug, and stays unless someone asks.
+
+**How it was decided:** the tech lead's brief to the strict reviewer said that its
+default was not to block #581. The reviewer prototyped the restructure, found it
+smaller than the PR's own patch (net −44 lines), and still answered "I agree with
+your default". The lead overrode that and folded the restructure into #581. It
+fixed the root cause in the same function and closed #582 item 3 as well
+([lesson](../lessons/review-convergence-gate.md#a-review-brief-must-not-carry-the-leads-verdict)).
+The audit that went with it is in
+[verification discipline](../lessons/verification-and-review-discipline.md#a-generalized-diagnostic-path-needs-a-loads-silently-oracle).
 
 ## D-telemetry-batch-durability: fsync once per batch, not per envelope
 
@@ -187,6 +278,9 @@ the newline became the commit marker, is recorded with the state decisions:
 - A phase-3/4 behavior change is signed off: record it here before its phase starts.
 - Someone needs spawn archiving again: design it fresh against current listings
   rather than restoring the deleted overlay.
+- Pydantic drops or changes the call-time `extra=` override, or a config section
+  stops passing through a Pydantic model: unknown-key detection for that section
+  needs its own reporter (D-unknown-keys-from-pydantic).
 
 ## Sources
 
@@ -196,4 +290,7 @@ the newline became the commit marker, is recorded with the state decisions:
 (torn-tail probe), `spawn:p7789`, `spawn:p7793` (JSONL inventory),
 `spawn:p7794`, `spawn:p7795` (G2 reviews), `spawn:p7799`–`spawn:p7801`,
 `spawn:p7810` (fixes and re-verification), `spawn:p7813` (polish), PR #546,
-issue #569.
+issue #569. D-unknown-keys-from-pydantic: `work:v010-followups` (D1, D4),
+`spawn:p7912` (static audit), `spawn:p7913` (runtime differential),
+`spawn:p7915` (review and prototype), `spawn:p7917` (implementation), PR #581,
+issues #580 and #582.
