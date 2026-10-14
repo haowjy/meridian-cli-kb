@@ -3,6 +3,11 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — meridian-web removed
+
+- Removed meridian-web from the KB on the user's instruction (its REST/WebSocket backend is no longer shipped): ecosystem map section, repo-map diagram edge, index summary.
+
+---
 ## 2026-10-14 — Cleanup program phase 1 captured (`work:pyright-strict`)
 
 - New [Cleanup program](codebase/cleanup-program.md) page: the six structural

@@ -1,6 +1,6 @@
 # Meridian KB — Index
 
-Knowledge base for the Meridian ecosystem. Covers the CLI, web frontend, prompt packages, and domain extensions — oriented toward agents and developers who need to understand, operate, or extend Meridian.
+Knowledge base for the Meridian ecosystem. Covers the CLI, the mars package compiler, prompt packages, and domain extensions — oriented toward agents and developers who need to understand, operate, or extend Meridian.
 
 **Where to start:** Read [overview.md](overview.md) for the system mental model, then navigate by what you need to answer:
 

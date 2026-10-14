@@ -30,7 +30,6 @@ graph TD
 
     CLI -- "meridian mars sync" --> MARS
     MARS -- "resolves + writes .mars/" --> CLI
-    CLI -. "WebSocket / REST (app server archived)" .-> WEB
 
     MB -- "compiled by" --> MARS
     MDW -- "compiled by" --> MARS
@@ -77,23 +76,6 @@ See [architecture/system-overview.md](../architecture/system-overview.md) for th
 **Canonical local path:** `../mars-agents/`
 
 See [architecture/mars-compiler.md](../architecture/mars-compiler.md) and [architecture/mars-targeting.md](../architecture/mars-targeting.md) for compiler and targeting details.
-
----
-
-**Role:** The web frontend. An extension-based shell that connects to meridian-cli's WebSocket/REST server and renders the chat UI and agent interaction surface.
-
-> [!FLAG] **Needs human review.** meridian-cli no longer ships that server: the app server is archived and its extension surface (`ExtensionSurface.HTTP`, `requires_app_server`) was removed in cleanup phase 1. Confirm whether meridian-web is dormant or targets a different backend.
-
-**Language:** TypeScript (React 19, Vite, Zustand, shadcn/ui)
-
-**Key responsibilities:**
-- Shell bootstrap: chat selection, service creation, extension loading
-- Extension registry: manifest-driven contributions (views, commands, rail items, keybindings)
-- WebSocket transport with reconnect, token batching (`content.delta` → `requestAnimationFrame`), and command queueing
-- Event log as source of truth: UI reconstructs state from replayed backend events
-- Chat extension: maps backend event stream to a timeline (messages, tools, approvals, spawns, checkpoints)
-
-
 
 ---
 
