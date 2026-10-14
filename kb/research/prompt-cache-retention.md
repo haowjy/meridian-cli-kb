@@ -150,9 +150,10 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   provider. See
   [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md#harness-aware-yield-defaults).
 - **When idle compaction pays.** The write premiums above set the cold
-  re-read cost in the compaction break-even; the analysis and the proposed
-  growth-based floor (undecided) are in
-  [Idle Compaction Break-Even](idle-compaction-break-even.md).
+  re-read cost in the compaction break-even. The analysis is in
+  [Idle Compaction Break-Even](idle-compaction-break-even.md); the decided
+  growth floor is
+  [D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md).
 
 Recheck this page when Codex, OpenCode or Pi releases a new version, when a
 provider changes its cache-lifetime docs, or when OpenAI documents the ChatGPT

@@ -1,16 +1,18 @@
 # Idle Compaction Break-Even
 
-**Status: analysis, not a decision.** Worked out 2026-10-14 in the
-tech-lead primary `spawn:p7743`, alongside PR #578. Nothing here is
-implemented and the user has not chosen a direction. It is recorded so it is
-not derived again. [Idle Notifications](../decisions/idle-notifications.md)
-links it as an open question under the stretch and guard decision.
+**Status: first-cut analysis, superseded by a decision.** Worked out
+2026-10-14 in the tech-lead primary `spawn:p7743`, alongside PR #578. The user
+then chose a growth-based, per-harness break-even:
+[D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even).
+That record owns the rule, the measured constants and the status. It is
+unreleased, on a local branch. This page keeps the first derivation and the
+evidence about the old floor.
 
 Question: when is an idle compaction cheaper than letting the cache go cold?
-Today the only size check is `idle.min_compact_tokens` (default 40,000), guard
-13 in the [ordered guards](../decisions/idle-notifications.md#d-idle-stretch-at-most-once--each-stage-fires-at-most-once-per-stretch).
+On `main` the only size check is `idle.min_compact_tokens` (default 40,000),
+guard 13 in the [ordered guards](../decisions/idle-notifications.md#d-idle-stretch-at-most-once--each-stage-fires-at-most-once-per-stretch).
 
-## What the current floor actually does
+## What the old floor does (still current on `main`)
 
 - It compares **total** context size, not growth.
 - Only Claude and Pi report context size. Codex and OpenCode send none, and an
@@ -70,13 +72,28 @@ break-even.
 - The formula prices tokens only. Compaction loses detail, and a cold return
   is slower; neither is counted.
 
-## Proposal on the table (undecided)
+## What the decision changed from this analysis
 
-1. Floor on **growth since session start or since the last compaction**, not
-   total size, so a primary's ~39k prefix doesn't count.
-2. Set the floor **per provider** from the formula instead of one 40k default.
-3. Make Codex and OpenCode report context size so any floor applies there.
-4. **Measure S live first**; every threshold above moves with it.
+Measuring before designing (`work:idle-compaction-floor`) refined the model
+in three ways:
+
+- **A flat uncached term `u`.** Claude's compaction request fits
+  `0.1·C + 20k`, not a plain multiplier, so the rule prices `c·C + u`.
+- **The baseline stands in for C_after.** After Meridian's own compaction, the
+  baseline already includes the residue. Any other baseline (session start, a
+  rewind, a native compaction) adds a measured residue R. This replaces the
+  P + S of the first cut.
+- **The warm-cache caveat came true on some routes.** Pi and OpenCode
+  compaction requests read cold (c = 1), so with w ≤ 2 they never pay at
+  r = 0.5. Codex measured c ≈ 0.114 and pays only after about 100k of growth.
+
+All four of this page's original proposals were adopted: floor on growth
+rather than total size, set the floor per provider from the formula, make
+Codex and OpenCode report context size, and measure S first. Context reporting
+became required, because an unknown context now skips compaction instead of
+allowing it. The final thresholds at r = 0.5 are higher than the
+table above: Claude 1 h needs about 63k of growth from start and about 50k
+after a Meridian compaction.
 
 ## Related
 

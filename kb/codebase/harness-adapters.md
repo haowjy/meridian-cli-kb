@@ -31,6 +31,9 @@ Idle policy does not add harness cases to shared launch code. `HarnessBundle`
 has four optional idle ports: `primary_idle_sensor`, `native_idle_hook`,
 `autocompact_off` (an env reader that returns whether the harness's own
 auto-compaction is off, registered by Claude and OpenCode), and `detect_ttl`.
+The unreleased growth-floor branch adds a fifth, `compact_costs`, registered
+only by Claude and Codex
+([D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
 Core passes `detect_ttl` the chat's launch-recorded `native_store`, read through
 `MERIDIAN_CHAT_ID`, never a cwd, plus any `provider` the sensor attached to the
 turn-end `IdleEvent` (OpenCode 2.x, PR #573). OpenCode's `primary_idle_sensor`

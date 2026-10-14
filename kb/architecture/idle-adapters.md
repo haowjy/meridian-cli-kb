@@ -88,9 +88,11 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
     `GET /api/session/{id}` (`data.model.providerID`) and
     `/api/session/{id}/message?limit=20&order=desc`. A failed provider read
     leaves the TTL unknown: push only.
-  - Context size is not read (`context_tokens` is `None`), so
-    `min_compact_tokens` never vetoes. Draft text comes from the attached TUI
-    pane.
+  - On `main`, context size is not read (`context_tokens` is `None`), so
+    `min_compact_tokens` never vetoes. The unreleased growth-floor branch
+    reads it from the same message fetch (see
+    [Compaction worth](#compaction-worth-unreleased-branch)). Draft text
+    comes from the attached TUI pane.
 - **OpenCode 1.x** (frozen). Summarize keeps the session model when the current
   provider and model are supplied. The session GET times out at 10 s and the
   summarize POST at 300 s. The sensor marks its own compaction before the POST;
@@ -98,6 +100,31 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   independently of POST response ordering, and failed or cancelled requests
   clear it in `finally`. Messages tied to the compaction part stay classified
   as synthetic.
+
+## Compaction worth (unreleased branch)
+
+On local branch `feat/idle-compaction-growth-floor`, guard 13 compares growth
+since a persisted baseline with a per-harness break-even instead of comparing
+total context with `min_compact_tokens`. Rationale, constants and the baseline
+lifecycle are in
+[D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even).
+What it changes for adapters:
+
+| Concern | Code (branch) |
+|---|---|
+| Formula, fixed r = 0.5, fire `detail` text | `lib/idle/worth.py` |
+| Baseline state: frozen `ContextBaseline` at `IdleState.context`, with `observe()` and `after_compaction()`; stretch-scoped `compact_eval` | `lib/state/idle_store.py`, transitions in `lib/idle/service.py` |
+| `CompactCosts`, `CompactEval`, `ResolveCompactCosts`, `IdleEvent.context_tokens`, `NativeIdleHook.observe(payload, reader, env)` | `lib/harness/idle_types.py` |
+| `compact_costs` bundle port: Claude (keyed by TTL) and Codex (assumes OpenAI); Pi and OpenCode leave it unset, so `basis: never` | `claude_idle.py`, `codex_idle.py`, registrations in `claude.py` and `codex.py` |
+| Context readers | Claude/Pi `--context-tokens` on arm and fire; Codex `codex_rollout.latest_context_tokens`; OpenCode V2 message parse in `opencode_idle.py` |
+
+Every reader must report main-thread context only. A spuriously small value
+lowers the baseline and makes Meridian over-compact. Each reader returns
+`None` at a compaction boundary instead of reading past it: Codex at a
+`compacted` record or `input_tokens == 0`, OpenCode at a compaction message
+(checked before its usage). Claude has no such check in its reader. Core
+covers it by skipping the first arm after a closed stretch whose compaction
+was claimed or succeeded.
 
 ## Close and reopen
 
