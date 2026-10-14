@@ -36,7 +36,6 @@ flowchart TD
 | Automatic global cache | `doctor-cache.json`, background global scan | **Delete** — expensive automatic global work is wrong |
 | Cheap per-project repairs | Stale session lock cleanup, orphan run reconciliation | **Keep** — daemon thread, current project root only |
 | Cross-project coordination | Lock files serializing shared resources | **Wrap** — skip gracefully on `PermissionError` |
-| Global service state | `chat-server.json`, `~/.meridian/chats/<id>/...` | **Bound** — nested chat is allowed below `max_depth`; scoped runtime roots deferred |
 | Optional user config | `~/.meridian/config.toml` | **Wrap** — best-effort implicit read + structured log warning |
 | Explicit global maintenance | `doctor --global`, prune/reaper-style scans | **Gate** — library-level guard before cross-project traversal |
 
@@ -113,7 +112,6 @@ Cross-project doctor work intentionally traverses `get_user_home() / "projects"`
 
 ## What Was Not Changed
 
-- **Chat state location** — stays user-global for root chat processes. Nested chat access is allowed for testability, but scoped nested runtime roots remain deferred so concurrent nested instances do not cross-discover sessions.
 - **Autosync lock location** — stays in `~/.meridian/locks`. Temp directories are subject to platform cleanup (Apple 3-day policy, Windows Storage Sense, systemd-tmpfiles) and are unsuitable for coordination locks.
 - **Config forwarding** — nested invocations remain fresh config readers; no parent-resolved config is forwarded via env var. `LaunchRuntime.config_snapshot` is an in-process prepare/execute boundary, not a cross-process transport.
 
