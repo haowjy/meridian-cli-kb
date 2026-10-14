@@ -597,10 +597,10 @@ user-authorized write), and broad force adoption across unselected paths.
 
 **Status:** decided by the user on 2026-10-14 as part of
 [D-two-tier-identity](state.md#d-two-tier-identity) (D41, D43, D44 in
-`work:pyright-strict`; `work:two-tier-identity`). Meridian side implemented on
-`feat/two-tier-identity`, draft PR #575, unmerged. The Mars side,
-`--fallback-root`, is mars-agents PR #173 (`release:minor`), open; until a Mars
-release carries it, Meridian takes the unsupported path described below.
+`work:pyright-strict`; `work:two-tier-identity`). Shipped 2026-10-14: the Mars
+side, `--fallback-root`, in mars-agents 0.16.0 (PR #173); the Meridian side in
+meridian-cli PR #575 (merged to `main`, `release:minor`; the release that carries
+it, expected v0.10.0, is not cut yet), which pins `mars-agents==0.16.0`.
 
 **Decision.** User scope for packages is an ordinary Mars project at
 `~/.meridian/mars/` (`get_user_home()/mars`, so a scratch `MERIDIAN_HOME`
@@ -662,16 +662,52 @@ authority is a lookup-only second root:
   and sandbox projection point at the user root's files. The bundle schema
   version stays 4.
 
-**The capability probe.** Meridian passes `--fallback-root <user root>` only
-when the installed `mars` supports it. It runs
-`mars build launch-bundle --help` once per executable per process (cached, 10 s
-timeout) and checks for `--fallback-root`. Any failure means unsupported. The
-release version is set by the PR's label, so a version comparison would have to
-guess. Help text is the contract. On an unsupported Mars, a user agent inside a
+**The pin, and the probe behind it.** The `mars-agents==0.16.0` pin is what
+delivers a capable Mars; see the shipping order below. The probe guards every
+other `mars` (an older install, a dev build): Meridian passes
+`--fallback-root <user root>` only when `mars build launch-bundle --help`
+lists it, checked once per executable per process (cached, 10 s timeout). Any
+failure means unsupported. The probe replaced a planned version check because
+the release version is set by the PR's label, so a comparison would have to
+guess; help text is the contract. On an unsupported Mars, a user agent inside a
 project with its own `mars.toml` fails with
 `found in user packages; add it here: meridian mars add <source>`. A bare
 directory never needs the flag, because there `primary` already is the user
-root. `context` and `config show` report `mars_fallback: supported|unsupported`.
+root.
+
+**`mars_fallback` reports activation, with three values** (`work:two-tier-identity`
+I19). `context` and `config show` print `active` (project scope, Mars supports the
+flag), `unsupported` (project scope, it does not) or `n/a` (user scope: the user
+root is already `primary`). The first label was two-valued and keyed on the probe
+alone, so in a bare directory it said the fallback was supported when nothing
+would ever pass it (G4 review).
+
+**Shipping order: Mars first, then the pin** (I20). Meridian installs `mars` from
+PyPI through its `mars-agents` pin, and #575 had not changed the pin
+(`0.15.0`). With the genuine 0.15.0 the probe is false, so user agents inside a
+project with its own `mars.toml` would have failed with the hint. "Merge order
+does not matter" was true of the safety net, not of the shipped behaviour. The
+order became: merge mars-agents #173 → publish 0.16.0 → bump the pin and
+`uv lock` on the Meridian branch → re-gate → merge #575. The earlier smokes had
+passed only because a dev build had been copied over `.venv/bin/mars`, which
+also rewrote uv's shared cache
+([lesson](../lessons/dogfooding-pr-builds.md#copying-over-venvbin-rewrites-uvs-cache)).
+
+**User agents resolve their model against the project** (I16, confirmed with
+mars 0.16.0). Because configuration comes from `primary` only, a user agent
+reached through the fallback takes its `model:` alias from the project. The gap
+is narrow: package aliases such as `luna` are defined in the package's own
+`mars.toml` (`meridian-base/mars.toml` `[models.luna]`), so they
+exist wherever that package is added. A user-only agent fails only when the
+project lacks the package that defines its alias, none of its `model-policies`
+fallbacks resolve there, and no `--model` is passed; otherwise Mars warns and
+falls back (`opus46` → `opus` on Claude). Meridian appends a hint naming the
+cause and the two fixes (add the package, or pass `--model`). Earlier smoke
+failures that looked like this gap were test error: Claude-model agents
+launched through `meridian opencode`, which can never match them.
+*Not adopted (left open):* layering aliases from the fallback root, with project
+aliases winning. It would mean a second config load in Mars, which the
+`--fallback-root` contract deliberately avoided.
 
 **Rejected alternatives:**
 
@@ -681,7 +717,8 @@ root. `context` and `config show` report `mars_fallback: supported|unsupported`.
 | Per-agent `--root` switching (run a user agent against the user root) | Uses user targets and aliases, bypassing the project's target restriction |
 | Rootless `mars models` | Unneeded: the user root is always ensured before Mars runs against it |
 | Root selection only, no layering | Leaves user agents unreachable inside every project with its own `mars.toml`; recommended against as OQ1 and the user took the default "ship the fallback, project packages win" |
-| Detecting the capability by version number | The shipped version is set by the release label; `--help` is reliable (lane C report) |
+| Detecting the capability by version number | The shipped version is set by the release label; `--help` is reliable (lane C report). The pin now fixes the version Meridian ships with; the probe covers every other binary |
+| Shipping #575 on the old pin and relying on the probe | Every project-scope launch of a user agent would have taken the unsupported path until a later pin bump |
 | `--global` as the flag name | `--global` already means "across all projects" in `doctor --global` |
 
 **Accepted risks.** User packages are global mutable state: `--user upgrade`

@@ -93,6 +93,31 @@ v3 in one run).
    correct repos. Only running the actual command against real project
    state catches it.
 
+## Landing a Stacked Chain (2026-10-14)
+
+Four meridian-cli PRs (#570 → #571 → #574 → #575) and one mars-agents PR
+(#173) landed in one day. Each release on `main` was followed by retargeting
+the next PR to `main` and merging `main` into it.
+
+- **A safety net is not the shipped state.** #575 consumed Mars's new
+  `--fallback-root` behind a `--help` probe, so "merge order does not matter"
+  sounded true. But Meridian installs `mars` through its `mars-agents` PyPI pin,
+  which #575 had left at 0.15.0: shipped as-is, every user agent inside a
+  project would have taken the unsupported path. The order became producer
+  merge → PyPI release → pin bump and `uv lock` on the consumer → re-gate →
+  consumer merge ([D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)).
+  Ask what binary the consumer actually installs, not only whether it degrades.
+- **Merging a `release: vX` commit into a stacked branch misfiles CHANGELOG
+  bullets.** Git's three-way merge can attach the branch's `Unreleased` bullets
+  to the new `## vX` header that `main` just added. After every such merge,
+  check the CHANGELOG and move the branch's bullets back under `Unreleased`.
+  When a parent PR ships, re-home its bullets under the version that actually
+  carried them (phase 1's bullets moved from 0.9.10 to 0.9.11).
+- **`git merge-tree --write-tree` prints a tree id even on conflict.** A
+  dry-run script that read only the first line reported a conflicting chain as
+  clean. Check the exit code (1 means conflicts), per
+  [record exit status](verification-and-review-discipline.md#record-exit-status-and-working-directory).
+
 ## Related
 
 - [../decisions/package-management.md](../decisions/package-management.md#d90-native-hook-passthrough-replaces-universal-event-vocabulary-mars-agents-pr-133-2026-07) -- D90 release sequencing statement

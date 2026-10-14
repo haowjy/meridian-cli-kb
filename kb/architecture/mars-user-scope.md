@@ -5,9 +5,10 @@ with no `mars.toml` still gets agents, skills, model aliases and launch targets.
 The rationale and rejected alternatives are in
 [D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
-> **Status:** Meridian side on `feat/two-tier-identity` (draft PR #575,
-> unmerged). `--fallback-root` is mars-agents PR #173, open; no released Mars
-> carries it yet.
+> **Status:** Meridian side on `main` since PR #575 (merged 2026-10-14; the
+> release that carries it, expected v0.10.0, is not cut yet).
+> `--fallback-root` shipped in mars-agents 0.16.0 (PR #173, released
+> 2026-10-14), and meridian-cli pins `mars-agents==0.16.0`.
 
 ## Roots
 
@@ -60,11 +61,19 @@ flowchart LR
   authoritative; Meridian rebuilds primary-root paths only for older bundle
   producers.
 
-**Capability probe.** `mars_supports_fallback_root(executable)`
-(`catalog/mars_capabilities.py`) runs `mars build launch-bundle --help` with a
-10 s timeout, cached per executable for the process, and looks for
-`--fallback-root`. Failure or absence means unsupported. `context` and
-`config show` print `mars_fallback: supported|unsupported`.
+**Capability probe.** The `mars-agents==0.16.0` pin is what puts a
+`--fallback-root`-capable Mars beside Meridian. The probe is the safety net for
+any other `mars` (an older install, a dev build):
+`mars_supports_fallback_root(executable)` (`catalog/mars_capabilities.py`) runs
+`mars build launch-bundle --help` with a 10 s timeout, cached per executable for
+the process, and looks for `--fallback-root`. Failure or absence means
+unsupported. `context` and `config show` print `mars_fallback`:
+
+| Value | When |
+|---|---|
+| `active` | Project scope, and the installed Mars supports `--fallback-root` |
+| `unsupported` | Project scope, and it does not |
+| `n/a` | User scope: the user root already is `primary` |
 
 **Not-found messages.** In user scope:
 `Agent '<name>' not found in user packages (<user root>). Run 'meridian mars --user add <source>'.`
@@ -73,9 +82,23 @@ packages: `found in user packages; add it here: meridian mars add <source>`. A
 dry run warns "models cache unavailable" until the first `--user sync` or real
 launch fills the user root's cache.
 
+**User agents inside a project resolve their model against the project.** A
+user agent found through the fallback still takes aliases from `primary`. It
+fails only when the project lacks the package that defines its `model:` alias,
+none of its `model-policies` fallbacks resolve there, and no `--model` is
+passed; otherwise Mars warns and falls back (seen: `opus46` → `opus`). Package
+aliases such as `luna` come from the package's own `mars.toml`, so they exist
+wherever that package is added. When the bundle build fails for an agent whose
+`agent_source_path` is under the user root, Meridian appends
+`note: '<agent>' comes from user packages (<root>); its model aliases must resolve in this project's Mars config. Add the package here (meridian mars add <source>) or pass --model.`
+(`launch/bundle_adapter.py`).
+
 **Executable choice.** `resolve_mars_executable()` prefers the `mars` beside
 the running Python (the install's own) over `PATH`. A probe that puts a dev
-build first on `PATH` still gets `.venv/bin/mars`.
+build first on `PATH` still gets `.venv/bin/mars`. Never copy a build over
+`.venv/bin/mars` to get around this: uv hard-links it into its cache, so the
+copy replaces the binary in every venv that shares the entry
+([lesson](../lessons/dogfooding-pr-builds.md#copying-over-venvbin-rewrites-uvs-cache)).
 
 ## `meridian mars` passthrough
 

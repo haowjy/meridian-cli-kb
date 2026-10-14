@@ -31,7 +31,8 @@ Pyright exits 0 when it reports only warnings, so the demoted rules stopped
 gating anything. By October, 85 diagnostics had piled up without failing preflight
 or CI; the user noticed them in pyright output.
 
-**What restoring it took.** Branch `fix/pyright-strict` (25 commits) fixed every
+**What restoring it took.** Branch `fix/pyright-strict` (25 commits; shipped in
+v0.9.10 through PR #570, merged 2026-10-14) fixed every
 diagnostic at its source. It also changed a few behaviors where a cast had been
 hiding malformed input. Legacy native-import rows with a non-string `chat_id` or a
 non-list `harness_session_ids` are now skipped; before, a string could be split

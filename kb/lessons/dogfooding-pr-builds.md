@@ -125,6 +125,24 @@ Narrow probe briefs with enumerated checks completed; broad ones stopped short.
 The upgrade failure mechanism and decision are recorded in
 [native session identity lessons](native-session-identity.md#an-in-place-projection-upgrade-breaks-the-build-still-running).
 
+## Copying over `.venv/bin/*` rewrites uv's cache
+
+**What happened (2026-10-14, `work:two-tier-identity` I20).** A prober brief said
+`cp target/debug/mars .venv/bin/mars` to test an unreleased Mars. uv hard-links
+venv binaries to its cache (`~/.cache/uv/archive-v0/`), so `cp` wrote through
+the shared inode. The cached "0.15.0" became a 116 MB `--fallback-root` debug
+build in all four stack worktrees. For hours every smoke ran with a flag no
+released Mars had, and "merge order doesn't matter" rested on that.
+
+**Repair:** `uv cache clean mars-agents`, then `uv sync --reinstall-package
+mars-agents` in each worktree. Check the binary afterwards: the genuine 0.15.0
+was 8.9 MB and lacked the flag.
+
+**The rule:** never copy or write over `.venv/bin/*`. To test a dev build, use a
+throwaway venv, or a resolution path that does not go through the shared venv.
+(`resolve_mars_executable()` prefers the venv's `mars` over `PATH`, so
+prepending `PATH` does not work either.)
+
 ## Pushing through a long pre-push gate
 
 **Masked exit codes.** One push "succeeded" only because `git push … | tail`

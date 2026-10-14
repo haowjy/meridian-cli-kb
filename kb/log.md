@@ -3,6 +3,29 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Two-tier identity and the cleanup stack shipped (`work:two-tier-identity`, PRs #570/#571/#574/#575, mars-agents #173)
+
+- Status flips: [decision index](decisions.md), [D-two-tier-identity](decisions/state.md#d-two-tier-identity),
+  [D97](decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10),
+  [project identity](architecture/state-system/project-identity.md), [Mars user scope](architecture/mars-user-scope.md),
+  [cleanup program](codebase/cleanup-program.md), [cleanup decisions](decisions/codebase-cleanup.md),
+  [static typing](decisions/static-typing.md). #570 → v0.9.10, #571 → v0.9.11, #574 → v0.9.12, mars-agents
+  #173 → 0.16.0 (pinned); #575 merged (`d160a07d9`) but its release (expected v0.10.0) is not cut: the
+  release-on-main preflight failed on 3 `test_signal_canceller` AF_UNIX path-length tests and 1 timeout.
+- Folded I17 (`doctor --global` lists every ad-hoc root, `prunable: yes|no`), I14 (activity = newest of
+  every signal), I15 (`mint_committed_identity`), I19 (`mars_fallback: active|unsupported|n/a`), I20 (Mars
+  release and pin bump before #575; the probe is the safety net behind the pin), I21 (no automatic
+  pruning; daily sweep declined) and the I16 addendum (alias gap is narrow; aliases from the fallback
+  root left open). [Health checks](operations/health-checks.md) updated for the listing.
+- Lessons: [`.venv/bin/*` hard-link rule](lessons/dogfooding-pr-builds.md#copying-over-venvbin-rewrites-uvs-cache);
+  [landing a stacked chain](lessons/release-sequencing.md#landing-a-stacked-chain-2026-10-14) (producer before
+  the pin, CHANGELOG re-homing, `merge-tree` exit code); [how the stack landed](codebase/cleanup-program.md#how-the-stack-landed)
+  (#576 fast-gate gap, #577 Pi flakes). Ad-hoc ids vs AF_UNIX `sun_path` noted on project identity.
+- Removed: `scaffold=` mode on `ensure_project_identity`, "edits under `context/<id>/` do not count",
+  `mars_fallback: supported|unsupported`, the stale `environment.md` create-on-first-write claim, the
+  "#575 merges" revisit trigger, "B7 fixed by #546" (#546 is still open).
+
+---
 ## 2026-10-14 — Idle reopen is a user return; D1 replaced (`work:idle-close-no-compact`, PR #578, unreleased)
 
 - [Idle notifications](decisions/idle-notifications.md#d-idle-reopen-return--a-meridian-reopen-is-a-user-return):

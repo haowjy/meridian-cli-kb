@@ -57,7 +57,7 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### D-two-tier-identity: two-tier project identity and zero-config launch (2026-10) {#d-two-tier-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:two-tier-identity`, design revision 2; D32, D38, D40, D44 in `work:pyright-strict`). Implemented on `feat/two-tier-identity`, draft PR #575 stacked on `chore/cleanup-p2`, unmerged. Layering user agents into a project that has its own `mars.toml` also needs mars-agents PR #173 (`--fallback-root`), which is open; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
+**Status:** decided by the user on 2026-10-14 (`work:two-tier-identity`, design revision 2; D32, D38, D40, D44 in `work:pyright-strict`). Merged to `main` in PR #575 on 2026-10-14 (`d160a07d9`, `release:minor`); the release that carries it, expected v0.10.0, is not cut yet because the first release-on-main preflight failed. Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
 **Decision.** The tier of a directory depends only on what its literal project root contains:
 
@@ -101,9 +101,11 @@ The revision keeps all three premises and narrows the first: committed identity 
 | Creation notice | Human-mode launches print a one-time notice on materialization naming the nearest marked ancestor; agent mode and MCP get `identity_created` instead |
 | Ancestor walk | None for identity. Package content keeps Mars's own walk-up, so a repo subdirectory gets the repo's agents but its own ad-hoc state |
 
-**Retention, and why these numbers.** `meridian doctor --global --prune` stays the only reclaimer; nothing prunes automatically.
+**Retention, and why these numbers.**
 
-- **30 days idle** matches committed-root retention and was the user's choice. Last activity is the newest of `origin.json`'s mtime and the spawn and session `started_at` / `finished_at` timestamps, so a primary that ran for 40 days and ended yesterday is kept.
+- **No automatic pruning** (user, 2026-10-14). `meridian doctor --global --prune` is the only reclaimer, for both tiers. An opportunistic daily sweep (ad-hoc roots only, run from a root primary launch under the existing locks) was offered and declined: "i think its fine to not automatically prune". `doctor --global` keeps surfacing what is prunable instead.
+- **`doctor --global` lists every ad-hoc root**, not only prunable ones: id, origin path, reason (`adhoc-idle` / `adhoc-path-gone` / `adhoc-shadowed`), last activity, size and `prunable: yes|no`; `--prune` acts only on the prunable ones. Pre-`init` state is findable the moment it is shadowed, which is what the `init` note promises. The first implementation listed only roots past retention, which contradicted the design smoke (G3 probe).
+- **30 days idle** matches committed-root retention and was the user's choice. Last activity is the newest of every signal: `origin.json`'s mtime, the runtime-root and `context/<id>/` tree mtimes, and the spawn and session start and end timestamps. A primary that ran for 40 days and ended yesterday is kept, and so is a root whose `origin.json` is old but whose spawn ran minutes ago. The hourly `origin.json` touch alone left a near-zero protection window at the hour boundary (G3 blocker, `spawn:p7873`).
 - **`min(N, 7)` for gone or shadowed roots.** Nothing can reach a root whose path now holds a marker (`adhoc-shadowed`: pre-`init` state), and a recreated path would inherit a gone one (`adhoc-path-gone`). Those roots should age *faster* than idle ones, never slower. A flat 7 would have kept them longer than idle roots when N < 7, which the G2 probe caught.
 - **One-hour floor.** `work start` and `spawn done` hold no lease after `ensure`, and `ensure` touches `origin.json` at most hourly. Without a floor, `adhoc_retention_days = 0` let a prune delete a work item a second after it was created (G2 blocker, `spawn:p7868`). Retention 0 therefore means "as soon as quiescent, after one hour".
 - **User config only.** The key is never read from the cwd project, so running `doctor` from inside some project cannot change how every ad-hoc root ages.
@@ -124,6 +126,7 @@ The revision keeps all three premises and narrows the first: committed identity 
 | **Absorption on promotion** (design revision 1) | See below |
 | **Adopting the ad-hoc id on `init`** | Commits a path-derived, reserved-prefix id into a shared file |
 | **VCS detection or auto-`init`** | Violates the no-VCS principle; a notice tells the human instead |
+| **A daily automatic ad-hoc sweep** | Declined by the user (2026-10-14); manual `doctor --global --prune` stays the rule |
 
 **What revision 2 deleted from revision 1, and why.** Revision 1 moved a path's ad-hoc root into its committed root on the first write after a marker appeared ("absorption"). To do that safely it needed a `pending` state while live sessions held leases, `doctor --fix` to resume a pending absorption, `superseded` roots when another clone had already written under the committed id, an id-keyed lock `locks/project-id/<N>.lock`, and tests for each. It was about a third of the design's blast radius, and it broke continuations that pointed at the old root. All of it served to carry scratch history across `init`, which no prior art carries. The user gave up carry-over and called the simplified shape the long-term shape, not a stepping stone.
 

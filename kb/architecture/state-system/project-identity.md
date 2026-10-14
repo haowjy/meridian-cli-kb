@@ -6,9 +6,10 @@ contents decide its tier, and the tier decides where state lives. The rationale
 and rejected alternatives are in
 [D-two-tier-identity](../../decisions/state.md#d-two-tier-identity).
 
-> **Status:** describes `feat/two-tier-identity` (draft PR #575, unmerged).
-> Builds without it still write `meridian.toml` on the first write in a
-> marker-less directory and read a legacy `.meridian/id`.
+> **Status:** on `main` since PR #575 (merged 2026-10-14, `d160a07d9`,
+> `release:minor`). The release that carries it (expected v0.10.0) is not cut
+> yet: the first release-on-main preflight failed. Releases up to v0.9.12
+> predate it.
 
 ```mermaid
 flowchart TD
@@ -29,7 +30,7 @@ bootstrap) goes through it.
 |---|---|---|
 | `resolve_project_identity(root)` | pure | Marker present → `Committed(id)` with the id from `[project] id`, or `None` if not yet minted. Otherwise → `AdHoc(id, materialized)`, where `materialized` means `projects/<id>/` is a directory |
 | `ensure_project_identity(root)` | write | `Committed(None)` → mint a three-word id into `meridian.toml` under `project_config_transaction`. `Committed(id)` → nothing. `AdHoc` → under the project lifetime flock (shared), create `projects/<id>/` and `origin.json` if absent, else touch `origin.json` if older than `ADHOC_TOUCH_INTERVAL_SECONDS` (1 h). Nothing is written in the root |
-| `ensure_project_identity(root, scaffold=…)` | write | `init` / `config init`: writes the scaffold and the minted id in one atomic write |
+| `mint_committed_identity(root, scaffold)` | write | `init` / `config init`: writes the scaffold and the minted id in one atomic write. `ensure` calls it with an empty scaffold for `Committed(None)`, so there is one minting path |
 | `state_id(identity)` | pure | The id whose state exists, or `None` for an unmaterialized ad-hoc place. Readers use it instead of re-checking `materialized` |
 | `nearest_ancestor_project_marker(root)` | pure | Only for the creation notice. It never changes identity |
 
@@ -45,6 +46,13 @@ runs of other characters collapsed to `-`, trimmed, at most 24 characters
 `ADHOC_PROJECT_ID_PREFIX` is defined only here, and `get_committed_project_id`
 rejects a committed id that starts with it. Case-insensitive macOS volumes can
 give one directory two keys.
+
+An ad-hoc id runs up to 43 characters, longer than a three-word committed id.
+Do not bind an AF_UNIX socket at a path under the runtime root: `sun_path`
+holds about 107 bytes (103 on macOS). `control_socket_path()` hashes into
+`$TMPDIR/meridian-<uid>/` for this reason. Three `test_signal_canceller` tests
+that put `app.sock` under an ad-hoc test root failed the first release-on-main
+preflight after PR #575 (run `38586754232`).
 
 **`origin.json`** is `{path, created_at}`, written once with
 `write_model_once` (staged file, linked into place). Its mtime is the
@@ -84,7 +92,9 @@ path and ages out.
 ## Retention
 
 `meridian doctor --global --prune` is the only reclaimer, in
-`lib/ops/pruning.py`. Two scans, each owning one namespace:
+`lib/ops/pruning.py`; nothing prunes automatically, by the user's choice
+([D-two-tier-identity](../../decisions/state.md#d-two-tier-identity)). Two
+scans, each owning one namespace:
 
 - **`scan_orphan_project_dirs`** (committed roots, unchanged): a quiescent root
   whose tree mtime is older than `state.retention_days` (default 30). It skips
@@ -96,16 +106,23 @@ path and ages out.
 
 For an ad-hoc root:
 
-- **Last activity** is the newest of `origin.json`'s mtime (tree mtime if it is
-  missing), spawn `started_at` / `finished_at`, and session `started_at` /
-  `stopped_at`. Scans read and touch nothing. Edits under `context/<id>/` do not
-  count.
+- **Last activity** is the newest of every signal: `origin.json`'s mtime, the
+  newest mtime anywhere in the runtime root's tree, the newest mtime in the
+  `context/<id>/` tree, spawn `started_at` / `finished_at`, and session
+  `started_at` / `stopped_at`. The hourly `origin.json` touch alone left a
+  near-zero protection window at the hour boundary, so it is only one signal
+  among several. A recent spawn therefore keeps a root whose `origin.json` is
+  old. Scans read and touch nothing.
 - **Reason.** `adhoc-idle` (path still bare), `adhoc-shadowed` (path now holds
   a marker), or `adhoc-path-gone` (path missing or unreadable, or no
   `origin.json`).
 - **Threshold.** `N` days for idle, `min(N, ADHOC_STALE_RETENTION_DAYS = 7)` for
   shadowed and gone. Every ad-hoc prune also needs activity older than the 1 h
   touch interval, the shared constant.
+- **Listing.** `doctor --global` reports every materialized ad-hoc root
+  (`AdHocProjectDir`: id, origin path, reason, last activity, size,
+  `prunable`), so pre-`init` state is findable as soon as it is shadowed. The
+  `stale_adhoc_project_dirs` warning counts only the prunable ones.
 - **Prune.** Under `try_lock_file(project_lifetime_flock, exclusive)` it
   re-scans the root (quiescence and activity), then deletes `projects/<id>/` and
   `context/<id>/` together. `ensure` holds the same flock shared, so the two

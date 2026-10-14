@@ -56,8 +56,8 @@ flowchart LR
 
 | Phase | What it does | Problems addressed | Status |
 |---|---|---|---|
-| 1 | Fix the confirmed bugs; delete machinery nothing runs | 6, plus bugs from 2–3 | Done on `chore/cleanup-p1`; PR stacked on #570 |
-| 2 | Config normalizers collapse into Pydantic, `settings.py` split, one `iter_config_layers`; typed JSON sidecar documents and one `iter_jsonl` with a single torn-tail rule; `cli/invocation.py` to break imports into `cli.main` | 4, 5 | Done on `chore/cleanup-p2`; PR stacked on #571 → #570 |
+| 1 | Fix the confirmed bugs; delete machinery nothing runs | 6, plus bugs from 2–3 | Shipped in v0.9.11 (PR #571, merged 2026-10-14) |
+| 2 | Config normalizers collapse into Pydantic, `settings.py` split, one `iter_config_layers`; typed JSON sidecar documents and one `iter_jsonl` with a single torn-tail rule; `cli/invocation.py` to break imports into `cli.main` | 4, 5 | Shipped in v0.9.12 (PR #574, merged 2026-10-14) |
 | 3 | One prepared context per op; sync handler with derived async; one bootstrap owner; one `spawn_follow_up(continue \| fork)`; refs parsed once | 3 | Deferred, #569 |
 | 4 | All env composition inside bind; typed request-handler base and shared managed-backend runtime; OpenCode rebuilt as one serve connection with V1/V2 dialect strategies; a `launch/turn.py` turn host shared by all three drivers; drain as single terminal authority; per-harness dialects and bundle ports replacing harness-ID switches | 1, 2 | Deferred, #569 |
 | 5 | `CommandDescriptor` becomes the only command record; per-command quirks become descriptor fields; `main.py` split | 3 | Deferred, #569 |
@@ -184,11 +184,34 @@ imports of `cli.main` (a 30-module import cycle).
   generic `config get/set` (`lib/config/.context/FUTURE`).
 - `sessions.jsonl` grows without bound (15 MB in one real project); `history.jsonl`
   legacy-archive recognition has no writer or reader left.
-- Project identity: the review of `auto_init_cwd` showed that every write command
-  created `meridian.toml` wherever it ran. That reopened the July
-  create-on-first-write model; the two-tier replacement is decided and
-  implemented as its own stacked PR #575 on `feat/two-tier-identity`, outside
-  this program ([decision](../decisions/state.md#d-two-tier-identity)).
+Project identity, which the phase-2 review of `auto_init_cwd` reopened, was
+settled outside the program: the two-tier model merged in PR #575
+([decision](../decisions/state.md#d-two-tier-identity)). #569 now tracks only
+phases 3–5, the standalone items and the deferred bugs.
+
+## How the Stack Landed
+
+On 2026-10-14 the user merged the chain one PR at a time: #570 (pyright strict,
+v0.9.10), #571 (phase 1, v0.9.11), #574 (phase 2, v0.9.12), then mars-agents
+#173 (0.16.0) and #575 (two-tier identity). Each child was retargeted to `main`
+only after its parent landed, and `main` was merged into it, not rebased.
+
+What the landing surfaced:
+
+- **The PR fast gate never runs most of `tests/integration/`** (#576). #574's
+  8 `test_streaming_serve` failures and #575's 7 `test_workspace_ops` failures
+  were caught only by reviewers' full-tree runs. #575's 3 `test_signal_canceller`
+  failures (`AF_UNIX path too long`: `app.sock` under an ad-hoc test root) were
+  logged in full-tree runs as environment noise ("3 AF_UNIX env"), passed PR CI,
+  and then failed the release-on-main preflight, so v0.10.0 was not cut. Run
+  the full tree before calling a stacked PR ready, and do not wave a failure
+  through as environmental without showing it also fails on `main`.
+- **Pi streaming contract tests flake under load** (#577), on `main` and on
+  every branch alike. Compare against `main` before treating them as a
+  regression.
+- Merge and release mechanics (CHANGELOG re-homing, `merge-tree` exit codes,
+  shipping Mars before the pin) are in
+  [release sequencing](../lessons/release-sequencing.md#landing-a-stacked-chain-2026-10-14).
 
 ## Sources
 

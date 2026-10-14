@@ -66,9 +66,14 @@ root deletions run last so local helpers cannot recreate a root just pruned.
 quiescent tree-mtime rule under `state.retention_days`. Ad-hoc roots
 (`adhoc.*`) use `state.adhoc_retention_days` from user config or env only,
 with reasons `adhoc-idle`, `adhoc-shadowed` and `adhoc-path-gone`, and are
-deleted together with their `context/<id>/`. Text output lists each root past
-retention as `adhoc_project: <path> [<reason>] state=<root>`. The rules and their locking are
-in [project identity](../architecture/state-system/project-identity.md#retention).
+deleted together with their `context/<id>/`. Text output lists **every**
+materialized ad-hoc root, not only those past retention, as an `adhoc_project:
+<id>` block with `origin_path`, `reason`, `last_activity`, `size_bytes`,
+`prunable: yes|no` and `state`; `--prune` deletes only the prunable ones. The
+rules and their locking are in
+[project identity](../architecture/state-system/project-identity.md#retention).
+Nothing prunes on its own; see
+[D-two-tier-identity](../decisions/state.md#d-two-tier-identity).
 
 ### Root-Process Gating
 
@@ -185,7 +190,7 @@ doctor warnings as structured categories:
 - `stale_spawn_artifacts` — prunable with `meridian doctor --prune`
 - `stale_telemetry_segments` — prunable with `meridian doctor --prune`
 - `stale_orphan_project_dirs` — committed roots, prunable with `meridian doctor --prune --global`
-- `stale_adhoc_project_dirs` — ad-hoc roots past retention (payload carries ids, paths, reasons), prunable with `meridian doctor --prune --global`
+- `stale_adhoc_project_dirs` — the prunable subset of the listed ad-hoc roots (payload carries ids, paths, reasons), reclaimed with `meridian doctor --prune --global`
 - `live_active_spawns_remain` — informational; active rows remained live after reconcile
 
 `--prune` only helps for stale-state categories. If the only warning is

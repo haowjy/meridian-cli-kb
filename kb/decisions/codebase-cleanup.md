@@ -12,6 +12,8 @@ and bugs B5 and B9 (whose fixes belong to those phases) to issue
 [#569](https://github.com/haowjy/meridian-cli/issues/569). The cleanup branches
 start from `fix/pyright-strict` (PR #570), not `main`, and ship as stacked PRs:
 `chore/cleanup-p1` → `chore/cleanup-p2`, each retargeted as its base merges.
+They landed that way on 2026-10-14: #570 (v0.9.10), #571 (phase 1, v0.9.11),
+#574 (phase 2, v0.9.12).
 
 **Why this cut** (the program's framing; the user chose "Phase 1 + 2" from the backlog's options): Phases 1 and 2 are low-risk and enabling. Phase 1 is bug fixes
 and deletions with proof of no readers. Phase 2 builds the shared config and IO
@@ -80,8 +82,7 @@ kind, because agents load the docs and reason from them (`spawn:p7763`).
 
 **Decision (2026-10-14):** The descriptor flag `bootstrap_plan.auto_init_cwd` and its
 plumbing (`cli/bootstrap.py`, `cli/startup/policy.py`, `cli/startup/catalog.py`) were
-deleted in phase 2, and `docs/configuration/environment.md` now describes
-create-on-first-write. Phase 1 had removed a changelog line claiming B3 fixed
+deleted in phase 2. Phase 1 had removed a changelog line claiming B3 fixed
 auto-init for `spawn done` / `spawn rearm`.
 
 **Why:** Since #388 (July 2026), `resolve_cli_project_root()` reports
@@ -184,8 +185,6 @@ the newline became the commit marker, is recorded with the state decisions:
 
 - #546 merges: B7 is closed; drop it from the program's open list.
 - A phase-3/4 behavior change is signed off: record it here before its phase starts.
-- PR #575 (two-tier identity, [D-two-tier-identity](state.md#d-two-tier-identity))
-  merges: drop the identity item from the program page.
 - Someone needs spawn archiving again: design it fresh against current listings
   rather than restoring the deleted overlay.
 
