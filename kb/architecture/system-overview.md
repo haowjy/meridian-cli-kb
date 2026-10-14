@@ -18,7 +18,7 @@ graph TD
 
     REGISTRY --> OPS["ops/\noperation handlers\nmanifest.py declares all"]
 
-    OPS --> LAUNCH["lib/launch/\nbuild_launch_context()\nexecution"]
+    OPS --> LAUNCH["lib/launch/\nprepare/bind composition\nexecution"]
     OPS --> STATE["lib/state/\nper-spawn state.json\nwork items"]
     OPS --> CATALOG["lib/catalog/\nmodel resolution\nagent/skill loading"]
     OPS --> CONFIG["lib/config/\nsettings precedence\nworkspace config"]
@@ -51,7 +51,7 @@ sequenceDiagram
     U->>S: meridian spawn -a coder -p "..."
     S->>R: lookup command
     R->>O: dispatch to spawn_create_sync
-    O->>L: build_launch_context(SpawnRequest, LaunchRuntime)
+    O->>L: prepare_launch_surface + bind_launch_context
     L->>L: resolve policies, permissions, prompt, argv, env
     L->>St: start_spawn() — append queued event
     L->>H: subprocess / HarnessConnection
@@ -66,7 +66,7 @@ sequenceDiagram
 graph LR
     subgraph lib
         CORE["core/\nID types · OutputSink · depth\nSpawnLifecycleService · Clock"]
-        LAUNCH["launch/\nbuild_launch_context()\nthree driving adapters"]
+        LAUNCH["launch/\nprepare/bind composition\nthree driving adapters"]
         STATE["state/\nper-spawn state.json · reaper\nwork items · paths"]
         HARNESS["harness/\nadapter protocol\nconnections subpackage"]
         CATALOG["catalog/\nmodel aliases · profile loading"]

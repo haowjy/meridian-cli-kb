@@ -236,7 +236,7 @@ changes display; it does not repair an unresolved alias or alter routing.
 
 **Symptom:** All launches fail with a workspace validation error.
 
-**Cause:** A `[workspace.<name>]` entry in `meridian.toml` or `meridian.local.toml` has a TOML syntax error or schema violation, such as an invalid entry name or missing/empty `path`. This blocks all launches — the workspace gate in `build_launch_context()` raises immediately. Legacy `workspace.local.toml` can still be read during migration when no `[workspace]` entries exist.
+**Cause:** A `[workspace.<name>]` entry in `meridian.toml` or `meridian.local.toml` has a TOML syntax error or schema violation, such as an invalid entry name or missing/empty `path`. This blocks all launches — the workspace gate in `bind_launch_context()` raises immediately. Legacy `workspace.local.toml` can still be read during migration when no `[workspace]` entries exist.
 
 **Diagnosis:**
 ```bash

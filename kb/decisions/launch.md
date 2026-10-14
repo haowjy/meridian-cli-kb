@@ -15,9 +15,9 @@ have separate records so independently changing concerns remain discoverable.
 
 ## Launch Pipeline
 
-### Single composition seam: all driving adapters call `build_launch_context()`
+### Single composition seam: all driving adapters compose through prepare/bind
 
-**Decision:** All three driving adapters (primary CLI, spawn subprocess, CLI streaming-serve) call `build_launch_context()` for all composition. No driving adapter re-derives policy, permissions, prompt, argv, or environment.
+**Decision:** All three driving adapters (primary CLI, spawn subprocess, CLI streaming-serve) compose through one seam in `launch/context.py`, now the prepare/bind pair below (originally the single `build_launch_context()` factory). No driving adapter re-derives policy, permissions, prompt, argv, or environment.
 
 **Why:** Separate composition paths drift over time. Security properties (permission resolution, environment sanitization) and behavioral properties (prompt assembly, workspace projection) need a single place to audit. The 13 composition invariants are checkable in one code location.
 
@@ -29,7 +29,9 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — archit
 
 ### Prepare/bind split: expensive resolution separated from cheap materialization
 
-**Decision (2026-05, launch-primary-context-dedupe):** `build_launch_context()` is decomposed into two public phases: `prepare_launch_surface()` (expensive: model/harness/skill resolution, composition, prompt assembly) and `bind_launch_context()` (cheap: env, cwd, spec, argv, permissions given a spawn ID and report path). The existing `build_launch_context()` entry point is preserved as a backward-compat wrapper.
+**Decision (2026-05, launch-primary-context-dedupe):** `build_launch_context()` is decomposed into two public phases: `prepare_launch_surface()` (expensive: model/harness/skill resolution, composition, prompt assembly) and `bind_launch_context()` (cheap: env, cwd, spec, argv, permissions given a spawn ID and report path). The existing `build_launch_context()` entry point was preserved as a backward-compat wrapper.
+
+**Amended (2026-10, cleanup phase 1, launch#9):** The wrapper and its production fallback were deleted. `PreparedLaunchSurface` is mandatory for `run_harness_process()`, and the `DIRECT` composition surface is test-only (`tests/support/launch.py`); production policy resolution rejects it. Keeping a second one-call path meant two composition routes to audit, and nothing in production needed it. See [Codebase cleanup](codebase-cleanup.md).
 
 **Why:** The primary CLI path previously called the full factory twice — once for `--dry-run` preview, once for real execution. The split makes the prepare-once/bind-N pattern explicit and enforced.
 
@@ -65,9 +67,9 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 ### Resolve-before-persist for the streaming-serve path
 
-**Decision:** The CLI streaming-serve path calls `build_launch_context()` before creating the spawn row. The spawn row is created only if resolution succeeds, preventing phantom active rows when resolution fails.
+**Decision:** The CLI streaming-serve path composes (`SpawnApplicationService.prepare_spawn()`) before creating the spawn row. The spawn row is created only if resolution succeeds, preventing phantom active rows when resolution fails.
 
-**Known gap:** The spawn subprocess path still creates the row before resolution. Unification remains a follow-up.
+**Now also true of the spawn subprocess path:** `build_create_payload()` composes before the row is reserved. The background worker recomposes after the row exists because it has no in-memory surface; a failure there finalizes the row as a launch failure rather than leaving a phantom.
 
 ---
 
@@ -230,7 +232,7 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 
 ### D32: `MERIDIAN_HARNESS` is a one-hop env var; does not cascade to grandchildren
 
-**Decision:** `build_launch_context()` writes `MERIDIAN_HARNESS = harness.id.value` into every spawned process's environment. NOT in `ALLOWED_CHILD_ENV_KEYS` — does not propagate to grandchildren. Each spawn level gets its own value from its own harness resolution.
+**Decision:** The composition seam (today `bind_launch_context()`) writes `MERIDIAN_HARNESS = harness.id.value` into every spawned process's environment. NOT in `ALLOWED_CHILD_ENV_KEYS` — does not propagate to grandchildren. Each spawn level gets its own value from its own harness resolution.
 
 **Why:** A grandchild may use a different harness. Inheriting the grandparent's value would silently override the grandchild's resolved harness.
 

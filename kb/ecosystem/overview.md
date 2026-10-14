@@ -53,7 +53,7 @@ graph TD
 - Spawn lifecycle: `queued → running → finalizing → succeeded | failed | cancelled`
 - Harness adapters for Claude, Codex, OpenCode, Direct
 - JSONL event stores (atomic writes, crash-tolerant reads)
-- Launch composition: resolves model, permissions, prompt, argv in one place (`build_launch_context`)
+- Launch composition: resolves model, permissions, prompt, argv in one place (the prepare/bind pipeline in `lib/launch/context.py`)
 - `meridian mars ...` commands that delegate to mars-agents
 
 **Canonical local path:** `../meridian-cli/`

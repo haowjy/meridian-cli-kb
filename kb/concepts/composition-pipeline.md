@@ -28,7 +28,7 @@ branches. Harness choices stay in adapters, where they belong.
 
 ```mermaid
 graph LR
-    CONTENT["Source content\n(skills, profile, prompt,\nreference files)"] --> COMPOSE["Composition stage\nbuild_launch_context()\n→ ComposedLaunchContent"]
+    CONTENT["Source content\n(skills, profile, prompt,\nreference files)"] --> COMPOSE["Composition stage\nprepare_launch_surface()\n→ ComposedLaunchContent"]
     COMPOSE --> PROJECT["Projection stage\nharness.project_content()\n→ ProjectedContent"]
     PROJECT --> ARGV["Launch argv\n+ env vars\n+ artifacts"]
 ```
@@ -201,8 +201,9 @@ The composition pipeline runs for two surfaces:
   `inventory_prompt` (agent catalog) and `passthrough_system_fragments`
   (explicit system prompt passthrough args)
 
-The **`DIRECT`** surface bypasses composition entirely — minimal path, no
-`ComposedLaunchContent`, no `project_content()` call.
+The **`DIRECT`** surface is test-only (`tests/support/launch.py`): it skips
+policy resolution and trusts a pre-resolved request. Production policy
+resolution rejects it.
 
 ---
 
@@ -266,6 +267,6 @@ for the field semantics.
 - [Harness Abstraction](harness-abstraction.md) — the `project_content()`
   contract and how each harness implements it
 - [session-initiation.md](session-initiation.md) — four-mode session initiation model; why `prior_output` (`--from`) goes in the user turn, not the system prompt; identity lock and bare-flag inference
-- `../architecture/launch-system.md` — where `build_launch_context()` fits in
+- `../architecture/launch-system.md` — where the prepare/bind seam fits in
   the full launch factory
 - `../codebase/harness-adapters.md` — per-harness projection notes

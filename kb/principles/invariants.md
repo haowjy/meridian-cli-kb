@@ -8,9 +8,9 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 ### Core Composition Guarantees
 
-**I-1 — Single composition seam.** `build_launch_context()` in `launch/context.py` is the sole place where `SpawnRequest + LaunchRuntime → LaunchContext`. No driving adapter constructs argv, env, permissions, or prompt assembly independently. If a driving adapter needs a launch context, it calls the factory.
+**I-1 — Single composition seam.** The prepare/bind pipeline in `launch/context.py` — `prepare_launch_surface()` then `bind_launch_context()` — is the sole place where `SpawnRequest + LaunchRuntime → LaunchContext`. No driving adapter constructs argv, env, permissions, or prompt assembly independently. There is no one-call production wrapper; `build_launch_context()` survives only as a test facade.
 
-**I-2 — No bypass.** Driving adapters (primary CLI path, spawn subprocess path, CLI streaming-serve path) call `build_launch_context()`. They may not call the composition pipeline stages (`resolve_policies`, `resolve_permission_pipeline`, `compose_run_prompt_text`, etc.) directly.
+**I-2 — No bypass.** Driving adapters (primary CLI path, spawn subprocess path, CLI streaming-serve path) enter through the prepare/bind seam or its spawn wrappers (`compose_spawn_launch_surface()`, `bind_spawn_launch_context()`, `SpawnApplicationService.prepare_spawn()`). They may not call the composition pipeline stages (`resolve_policies`, `resolve_permission_pipeline`, `compose_run_prompt_text`, etc.) directly.
 
 **I-3 — DTO discipline.** `SpawnRequest` and `LaunchRuntime` are frozen Pydantic with JSON-safe field types. `LaunchContext` is a frozen dataclass. No `arbitrary_types_allowed`, no `Path` on `SpawnRequest`, no pre-composed intermediate DTOs that cache derived state. DTOs carry inputs; the factory produces outputs.
 
@@ -18,7 +18,7 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 **I-5 — Complete at construction.** `LaunchContext` is complete and immutable when the factory returns. No fields populated after construction by the caller.
 
-**I-6 — Resolve before persist (REST and streaming-serve paths).** `build_launch_context()` is called before the spawn row is created. A resolution failure (bad model, missing profile) produces no spawn row — no phantom active spawns.
+**I-6 — Resolve before persist.** Composition runs before the spawn row is created: streaming-serve through `prepare_spawn()`, the spawn subprocess path through `build_create_payload()`. A resolution failure (bad model, missing profile) produces no spawn row — no phantom active spawns.
 
 **I-7 — Resolved values in the row.** The spawn row stores real resolved model/agent/harness, never placeholder strings like `"unknown"`. Empty string (`""`) is a valid resolved model value: it can come from a model-optional profile or from Mars clearing an incompatible model after a stronger harness override won. In both cases, the harness uses its own default. `"unknown"` is not a valid resolved value — it is a placeholder and an I-7 violation. See [model-resolution: model optional](../decisions/model-resolution.md#model-optional-empty-model) for the model-optionality decision.
 
@@ -28,7 +28,7 @@ The full invariant specification lives at `.meridian/invariants/launch-compositi
 
 **I-10 — Fork materializes after row exists.** `fork.py:materialize_fork()` is called only after the spawn row is created. Fork creates a new harness session from the parent — that side effect must be auditable.
 
-**I-11 — Strategy map completeness.** Every `SpawnParams` field must be in an adapter's `STRATEGIES` dict or in `_SKIP_FIELDS`. Missing entries raise `ValueError` at build time. This prevents adapter drift when `SpawnParams` gains new fields.
+**I-11 — Per-adapter `SpawnParams` accounting.** Every adapter lists every `SpawnParams` field in its own `consumed_fields` or `explicitly_ignored_fields`, and no stale names. Harness bootstrap raises `ImportError` on any adapter's drift. The check is per adapter: one adapter consuming a field does not cover the others. This prevents adapter drift when `SpawnParams` gains new fields.
 
 **I-12 — Heartbeat covers full active window.** The heartbeat file is touched every 30 seconds for the full active window: both `running` and `finalizing` states. The reaper uses heartbeat recency as the primary liveness signal for `finalizing` spawns (PID probes are not consulted for `finalizing`).
 

@@ -247,15 +247,15 @@ work; there is no transparent legacy runtime fallback.
 
 **Where:** `ops/spawn/execute.py`
 
-**The issue:** The REST app and streaming-serve paths use `SpawnApplicationService.prepare_spawn()`, which calls `build_launch_context()` before creating the spawn row (resolve-before-persist, SEAM-1/2/3). This eliminates phantom active rows from resolution failures.
+**The issue:** The streaming-serve path uses `SpawnApplicationService.prepare_spawn()`, which composes before creating the spawn row (resolve-before-persist, SEAM-1/2/3).
 
-The CLI subprocess path (`ops/spawn/execute.py`) predates this seam. It still calls `lifecycle_service.start()` directly after its own resolution phase. It passes resolved metadata (not `"unknown"` placeholders), so the phantom-spawn risk is lower, but it doesn't go through the shared policy seam.
+The CLI subprocess path (`ops/spawn/execute.py`) also composes before the row now (`build_create_payload()`), so it has no phantom-row risk, but it reserves the row with its own `lifecycle_service.start()` call instead of going through the shared policy seam. The background worker recomposes after the row exists.
 
 Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/service resolution, leaving this CLI subprocess path as the remaining spawn-pipeline unification target.
 
 **What's needed:** Unify the CLI subprocess path to use `SpawnApplicationService.prepare_spawn()`, removing the direct `lifecycle_service.start()` call.
 
-**Why deferred:** The current behavior is correct — resolved metadata is passed, no phantom-spawn risk in practice. Unification is architectural hygiene. Deprioritized relative to capability work.
+**Why deferred:** The current behavior is correct. Unification is architectural hygiene, and it is subsumed by the planned shared turn host (launch#1, phase 4 of the [cleanup program](../codebase/cleanup-program.md)).
 
 ---
 

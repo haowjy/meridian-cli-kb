@@ -165,7 +165,7 @@ Legacy `models:` still parsed but emits a deprecation warning when present witho
 
 ### D57: `MERIDIAN_HARNESS` is spawn-local, not a user-facing policy override
 
-**Decision:** `MERIDIAN_HARNESS` written to child process environments by `build_launch_context()` is an informational spawn-local value. It is NOT consumed as a user policy override by `resolve_policies()`.
+**Decision:** `MERIDIAN_HARNESS` written to child process environments by the composition seam (today `bind_launch_context()`) is an informational spawn-local value. It is NOT consumed as a user policy override by `resolve_policies()`.
 
 **Why:** `MERIDIAN_HARNESS` tells the child process "which harness you are running inside." If it were treated as a policy override, nested launches would inherit the parent's resolved harness, bypassing their own profile and config.
 
