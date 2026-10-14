@@ -46,7 +46,9 @@ each harness actually schedules today is in
 - **The timeline is absolute-time.** `timeline.schedule` is pure and returns
   wall-clock deadlines. That is why an adapter can rebuild its timers from the
   state file after a reload. Relative timers would make reload recovery
-  impossible.
+  impossible. Recovery holds only within one launch: a reopened primary never
+  inherits the previous launch's stretch
+  ([D-idle-stretch-owner](#d-idle-stretch-owner--a-stretch-belongs-to-the-launch-that-armed-it)).
 - **Harness isolation.** `launch/` and `lib/idle` contain no `HarnessId`
   branches. Harness modules depend only on `lib/harness/idle_types.py`, never
   on `lib/idle` ([D-idle-leaf-packages](#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services)).
@@ -189,7 +191,8 @@ last:
 1. not a primary
 2. idle disabled for this harness
 3. stage already done in this stretch
-4. stretch closed, or the timer is stale
+4. stretch closed, stretch owned by another launch (`owner-gone`, PR #578,
+   unreleased), or the timer is stale
 5. timer fired early
 6. timer fired late (machine slept)
 
@@ -215,11 +218,83 @@ Compaction only, after those:
 `~/.meridian/idle/<harness>-<native_session_id>.json`, written atomically and
 read truncation-tolerantly, with lazy deletion after 7 days. Timers live in
 memory wherever the adapter runs and are re-derived from the file after a reload.
+The file also records the launch that owns the open stretch (PR #578).
 
 **Why:** A Claude mod hot reload and a Pi `/reload` both wipe in-memory state;
 without a durable marker a reload re-sends the push and can compact twice.
 The file is the only record (files as authority); timers are disposable
 (crash-only).
+
+**Open question: compaction floor.** Guard 13 compares total context with
+`min_compact_tokens` (40,000). A Meridian Claude primary starts at about 39k
+tokens, so the floor blocks almost nothing, and Codex and OpenCode report no
+size at all. A floor on growth since start or since the last compaction, set
+per provider, is proposed but not decided; the cost model is in
+[Idle Compaction Break-Even](../research/idle-compaction-break-even.md).
+
+## D-idle-stretch-owner — A stretch belongs to the launch that armed it
+
+**Status:** PR #578 (branch `fix/idle-close-no-compact`), unreleased.
+
+**User rule (2026-10-14):** "if we close it, we should get rid of any
+autocompaction" / "closing it and reopening it - we shouldn't autocompact it".
+
+**Problem:** closing a primary only cancelled in-memory timers (Claude
+`session.end`, Pi `session_shutdown`, launcher sidecar teardown), and nothing
+closed the stretch. On reopen, Claude's `recover()` and Pi's `restore()`
+rebuilt the stored open stretch, the same path that serves reload. The old
+compaction then ran if the cache was still warm and the fire was not late.
+
+**Decision (D1):** `arm` records `owner = MERIDIAN_SPAWN_ID` on the stretch.
+Every primary launch, resume included, gets a new spawn id, and every
+`meridian idle` call the harness makes inherits it. Core enforces one rule for
+all four harnesses, with no adapter changes:
+
+- `fire` from a different owner → skip `owner-gone`, and the stretch is
+  persisted closed, so `idle status` stops listing it and nothing re-arms it.
+- `arm` from a different owner over an open stretch → opens a new stretch with
+  fresh `done`. The same-launch shortcuts (compaction window, expected
+  compaction turn, already compacted) do not carry across launches.
+
+The rule applies when the reopened launch first touches the stretch, not at
+close. Until then the closed launch's stretch still shows in `idle status`
+with its deadlines, though no timer exists to fire them (D4). Reload keeps
+the process env, so it keeps the owner and recovery is unchanged.
+
+**Scope (D2):** the whole stretch ends, not only compaction. A push or warning
+from a launch the user already left is meaningless too.
+
+**Consequences:**
+
+- Two launches attached to one session at once cancel each other's stretches;
+  neither compacts. Accepted: there is no right TUI to compact.
+- A `meridian idle arm|fire` from a plain shell (owner `None`) against a live
+  session kills its stretch. Debug-only.
+- Upgrading under a running primary costs that primary one stretch: old files
+  read as `owner: null`, so its next fire is `owner-gone`.
+- **Gap (D3):** an external Claude TUI opted in through
+  `CLAUDE_CODE_PLUGIN_DIRS` has no `MERIDIAN_SPAWN_ID`. `None == None`, so a
+  reopened external TUI still rebuilds the old stretch. Documented, not fixed.
+
+**Why reopen-side, in core:** a killed terminal, `tmux kill-session` or
+SIGHUP runs no exit hook, so any close-time mechanism misses the common case.
+Crash-only: recovery is startup.
+
+**Rejected:**
+
+- **Exit-side close** in launcher teardown, Claude `session.end` or Pi
+  `session_shutdown`: misses kills, and `session.end` may also fire on reload.
+- **Per-adapter "fresh start closes" logic:** three places, and it needs
+  reload-versus-resume detection that the Claude engine does not expose to the
+  mod.
+
+**Verified:** live Claude probe (Haiku 4.5, TTL forced to 600 s): left open,
+compaction ran; killed and resumed with nothing typed,
+`done.push = skipped:owner-gone` and no compaction past the old deadline; a new
+turn opened stretch 2 owned by the new launch. Other harnesses by code trace
+(review-1): each passes the same `MERIDIAN_SPAWN_ID` on arm and fire.
+Per-adapter close/reopen paths are in
+[Idle Adapter Architecture](../architecture/idle-adapters.md#close-and-reopen).
 
 ## D-session-role — One `MERIDIAN_SESSION_ROLE` at the bind seam
 
@@ -637,6 +712,11 @@ were observed on 0.9.8.
   identity-pin op from `lib/idle/.context/FUTURE`, so the new adapter
   doesn't become a fifth copy of the protocol.
 - A new idle capability needs a bundle port. Group the ports first (#554).
+- External Claude TUIs become a supported workflow: they need a launch
+  identity, or a reopen still inherits the old stretch (D-idle-stretch-owner
+  gap D3).
+- Someone measures the compaction summary size, or the
+  [compaction floor](../research/idle-compaction-break-even.md) is decided.
 
 ## Sources
 
@@ -655,6 +735,11 @@ were observed on 0.9.8.
   `evidence/probe-opencode-idle-gate.md` (`spawn:p7788`); reviews
   `reviews/review-2.md` … `review-4.md`; live fix checks
   `evidence/coder-fix-round-2-live.md`, `evidence/coder-fix-round-3-live.md`.
+- `work:idle-close-no-compact` (PR #578, branch `fix/idle-close-no-compact`):
+  `decisions.md` D1–D5, `explore-close-reopen.md` (`spawn:p7881`),
+  `reviews/review-1.md` (`spawn:p7883`), `evidence/probe-close-reopen.md`
+  (`spawn:p7884`), `pr-body-idle-close.md`. Break-even analysis from the
+  tech-lead primary `spawn:p7743`.
 - Process lessons: [parallel test lanes](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames),
   [adapter-suite coverage](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
   and [dependency injection](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).

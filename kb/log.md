@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-14 — Launch-owned idle stretches (`work:idle-close-no-compact`, PR #578, unreleased)
+
+- [Idle notifications](decisions/idle-notifications.md#d-idle-stretch-owner--a-stretch-belongs-to-the-launch-that-armed-it):
+  new **D-idle-stretch-owner** — a stretch belongs to the launch
+  (`MERIDIAN_SPAWN_ID`) that armed it; a reopened launch's fire is `owner-gone`
+  and closes it, its arm opens a fresh stretch. The absolute-time invariant now
+  says reload recovery holds within one launch only; guard 4 names
+  `owner-gone`; state paragraph notes `owner`.
+- [Idle adapters](architecture/idle-adapters.md#close-and-reopen): new
+  close/reopen table per harness; owner propagation added as a fail-silent
+  fragility.
+- New research page [Idle Compaction Break-Even](research/idle-compaction-break-even.md)
+  (analysis, not decided), linked from the idle decision as an open question
+  and from [prompt-cache retention](research/prompt-cache-retention.md).
+
 ## 2026-10-14 — Two-tier project identity and user-scope packages (`work:two-tier-identity`, PR #575)
 
 - [State decisions](decisions/state.md#d-two-tier-identity): replaced the
