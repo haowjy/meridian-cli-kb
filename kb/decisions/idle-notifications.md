@@ -68,7 +68,7 @@ each harness actually schedules today is in
 
 **Decision:** Each harness adapter only observes and acts. It reports
 facts to core (a turn finished, the user typed a prompt, a timer fired,
-whether there is a draft, how many tokens are in context). Core owns the
+whether the harness is busy, how many tokens are in context). Core owns the
 timeline, every guard, the state file, config resolution and notification
 delivery. For compaction, core replies `act` or `skip`. An adapter never reads
 meridian config, never writes idle state, never sends a notification itself,
