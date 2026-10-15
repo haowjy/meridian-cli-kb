@@ -150,10 +150,51 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   provider. See
   [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md#harness-aware-yield-defaults).
 - **When idle compaction pays.** The write premiums above set the cold
-  re-read cost in the compaction break-even. The analysis is in
-  [Idle Compaction Break-Even](idle-compaction-break-even.md); the decided
-  growth floor is
-  [D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md).
+  re-read cost w in the compaction break-even, and whether the compaction
+  request itself reads the cache sets c (below). See
+  [D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even).
+
+## Does the compaction request read the cache?
+
+A compaction is cheap only when its request shares the session's cached prefix.
+That depends on how the harness builds the request, not on the provider.
+
+| Harness | Compaction request | Measured cache read |
+|---|---|---|
+| Claude Code | normal request plus an appended instruction | warm: ≈ `0.1·C + 20k` uncached (Haiku probes; 19.3k uncached on a real primary) |
+| Codex | V2 remote compaction appends `CompactionTrigger` to the normal prefix | warm: c ≈ 0.114 (n = 160 local rollouts) |
+| OpenCode 2.x | session system prompt, tool snapshot and older native messages (all but the newest 15,000 tokens), then the summary instruction | warm: 93–99.8% of input cached (11 rows with usage, `openai` and `opencode-go`) |
+| OpenCode 1.x | compaction agent, empty system prompt, no tools, history flattened into one user message | cold: about 0% on every provider (109 rows, 2026-02 → 2026-10) |
+| Pi (1.2.0) | own `SUMMARIZATION_SYSTEM_PROMPT`, no tools, conversation in one user message, `cacheRetention: "none"`, fresh routing id | cold: c = 1 on `openai-codex` |
+
+OpenCode 1.x and 2.x store compactions in different tables (`message` versus
+`session_message`). Mixing them is how the 1.x cold sample was once read as
+2.x. Pi's fix is upstream: earendil-works/pi#10577 adds an opt-in in-context
+compaction for verified models (tracked in haowjy/meridian-cli#593). Source:
+`work:harness-compaction-cache` (`evidence/opencode-cache-by-provider.md`,
+`research/opencode.md`, `research/pi.md`).
+
+## Pi cache warming
+
+Pi 0.86.0 added cost-aware prompt-cache warming (`cacheWarming`: `off`,
+`streaming` (the default), or `idle`). A refresh replays the last request with
+`maxTokens: 1`. It does not conflict with Meridian's idle timeline today:
+
+- With the default `streaming`, warming stops when the agent run settles.
+- Pi warms only models whose catalog declares a `promptCache` lifetime. In Pi
+  1.2.0 the OpenAI and `openai-codex` entries declare none, so they are never
+  warmed. Anthropic declares 300 s and 3600 s.
+- With `idle`, refreshes are scheduled at 90% of the TTL but stop at a fixed
+  30-minute idle horizon. Under the `PI_CACHE_RETENTION=long` Meridian sets,
+  the first refresh would fall at 54 min, so it never fires.
+- A refresh emits none of the events Meridian's extension listens to.
+
+Only a short-retention Anthropic Pi session with `cacheWarming: idle` could
+get warmed past Meridian's schedule, which would make its warning premature.
+If Pi starts declaring OpenAI lifetimes, or a user adds `modelOverrides.promptCache`,
+re-check this. The lightest fix would be for the Pi extension to pass the
+effective warming decision into `idle arm`. Source:
+`work:harness-compaction-cache` `research/pi-cache-warming.md`.
 
 Recheck this page when Codex, OpenCode or Pi releases a new version, when a
 provider changes its cache-lifetime docs, or when OpenAI documents the ChatGPT

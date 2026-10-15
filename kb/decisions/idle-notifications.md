@@ -192,30 +192,32 @@ last:
 1. not a primary
 2. idle disabled for this harness
 3. stage already done in this stretch
-4. stretch closed, or the timer is stale
-5. timer fired early
-6. timer fired late (machine slept)
+4. stretch closed
+5. timer is stale (the anchor moved)
+6. stage not scheduled
+7. timer fired early
+8. timer fired late (machine slept)
 
 Compaction only, after those:
 
-7. compaction disabled for this harness
-8. cache already cold
-9. harness busy
-10. unsent draft
-11. agents running in the harness
-12. child spawns still active
-13. compaction not worth it: on `main`, a known total context under
-    `min_compact_tokens`; on the growth-floor branch, growth below the
-    per-harness break-even, or context or baseline unknown
+9. compaction disabled for this harness
+10. cache already cold
+11. harness busy
+12. agents running in the harness
+13. child spawns still active
+14. compaction not worth it: growth below the per-harness break-even, or
+    context or baseline unknown
     ([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even))
-14. harness's own auto-compaction off
+15. harness's own auto-compaction off
 
-**Unknown facts (D6, user-accepted):**
+There is no draft guard: unsent composer text never blocks compaction
+([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
 
-| Fact | When unknown | Why |
-|---|---|---|
-| draft | fail closed: skip compaction | Compacting over someone typing is visible harm. A harness compacts only if it can see the draft. |
-| context tokens | `main`: fail open, compact. Growth-floor branch: fail closed, `skipped:context-unknown` | The old rule assumed compacting a small context costs little. The measured costs showed that a compaction can cost more than it saves, so the branch makes unknown context skip. |
+**Unknown facts:** an unknown context or baseline fails closed
+(`skipped:context-unknown`, `skipped:baseline-unknown`). The original rule (D6)
+let unknown context compact, on the assumption that compacting a small context
+costs little. Measured costs showed that a compaction can cost more than it
+saves, so v0.10.6 made unknown skip.
 
 **State:** one JSON file per harness session at
 `~/.meridian/idle/<harness>-<native_session_id>.json`, written atomically and
@@ -227,16 +229,13 @@ without a durable marker a reload re-sends the push and can compact twice.
 The file is the only record (files as authority); timers are disposable
 (crash-only).
 
-**Compaction floor: decided.** The 40k total-context floor blocked almost
-nothing for a Claude primary (about 39k at start) and never applied to Codex
-or OpenCode. The user chose a growth-based, per-harness break-even instead
+**Compaction size check:** growth since a baseline against a per-harness
+break-even, not total context
 ([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
-It is built on a local branch and unreleased, so `main` still uses the old
-floor.
 
 ## D-idle-reopen-return — A Meridian reopen is a user return
 
-**Status:** PR #578 (branch `fix/idle-close-no-compact`), unreleased.
+**Status:** merged in PR #578 (`b90b78517`), released in v0.10.3.
 
 **User rule (2026-10-14):** "if we close it, we should get rid of any
 autocompaction" / "closing it and reopening it - we shouldn't autocompact it".
@@ -314,8 +313,97 @@ after the reopen started, `done` stayed `{}` past the old compact deadline, no
 compaction marker. A new turn opened stretch 2 on a fresh schedule. Pi killed
 and reopened: closed about 1.7 s after reopen, no compaction. A fresh Claude
 launch created no row. Codex and OpenCode pass the same launcher call but had
-nothing to reproduce. Per-adapter close/reopen paths are in
+nothing to reproduce. A later probe (`spawn:p7893`) confirmed Codex and
+OpenCode: the old row closed at reopen and nothing fired. Per-adapter
+close/reopen paths are in
 [Idle Adapter Architecture](../architecture/idle-adapters.md#close-and-reopen).
+
+## D-idle-compact-over-drafts — Compaction wins over unsent text
+
+**Status:** decided by the user (2026-10-15); merged in PR #583 (`8bd2f4775`),
+released in v0.10.5. `work:idle-compaction-floor` ("User: compact even with a
+draft"), evidence `evidence/drop-draft-guard.md`.
+
+**User rule:** "I would rather we compact than keep any drafts." The user said
+this after asking what happens when a tmux pane is mangled or resized.
+
+**Problem:** compaction used to skip when the composer held unsent text, and
+also when the adapter could not tell. Only Claude and Pi could see a draft
+through their host APIs. Codex and OpenCode guessed from the tmux pane. The
+OpenCode 2.x pane parser looked for a footer separator that 2.0.28 never
+renders, so every 2.x compaction skipped as `draft-unknown`. Its replacement, a
+parser anchored on the composer border, still depended on a pane that resizes
+and redraws. A rare lost draft costs less than a guard that silently disables
+compaction.
+
+**Decision:** delete the draft fact and its guard everywhere: the core guard,
+`IdleFacts`/`GuardFacts`, the CLI `--draft` flag, the OpenCode pane parser, and
+the Claude and Pi draft vetoes. Claude, Pi and OpenCode compact through APIs
+that do not touch the composer. Codex still compacts by typing into its TUI,
+so it has to clear the composer first. The busy check, the `/compact`
+verify-before-Enter step and the TUI-alive check stay.
+
+**Codex clears the composer with a screen-gated Ctrl+C.** Codex 0.162.1 has
+no single key that clears a multi-line composer: Ctrl+U deletes only to the
+start of the line. Ctrl+C clears the whole composer, including attachments,
+but only when the composer is non-empty. On an empty composer the key falls
+through to the outer handler, which interrupts running work or quits Codex.
+The double-press quit confirmation is disabled in this release. So the
+sequence is:
+
+1. Capture the pane and require the focused composer layout: two blank rows
+   above a column-zero `›` prompt, indented continuation rows, the blank
+   bottom margin, an indented status row, and the footer (`… for shortcuts`
+   when empty, blank with a draft). Reject `Working (`.
+2. Type the primer `ix`, which makes the composer non-empty in both normal and
+   Vim mode (`i` enters insert mode). Confirm that the visible text is exactly
+   the previous text plus `ix`.
+3. Re-check busy and liveness, then send Ctrl+C.
+4. Confirm the composer shows empty, type `/compact`, verify it, press Enter,
+   and wait for a new `compacted` rollout record.
+
+A slash-command popup takes the blank rows above the prompt. Modals, the
+agents overview and transcript views replace the footer. None of them match
+the layout, so Ctrl+C is never sent to them. The first version without the
+layout gate was sent back in review. In that version a key could reach a modal
+or the agents overview, and an unprimed Ctrl+C could quit Codex or interrupt
+it. The deleted empty-`›` draft check had been blocking those screens by
+accident.
+
+**An unreadable screen retries, then notifies.** If the layout doesn't match,
+the actuator re-captures for about 10 s (three reads). If it still can't
+recognize the screen, it vetoes with `screen-not-recognized`, the same reason
+it uses when the primer or the cleared composer fails to verify. No key is
+sent. Core recognizes that one reason and sends a push-only notice:
+"Codex not compacted: Meridian couldn't read its screen", plus the minutes of
+cache left. The decision about who to notify stays in the idle policy layer,
+not the adapter (user decision). Other vetoes and failures keep the generic
+compaction notice.
+
+**Verified live** (codex-cli 0.162.1, `gpt-5.6-luna`, scratch homes):
+
+- A three-line draft was cleared and compacted, and Codex kept running.
+- An open `/` popup gave `composer-not-focused` before any key was sent.
+- Five resizes just before compaction still compacted cleanly.
+- A popup left open gave the `screen-not-recognized` veto after 10.02 s, with
+  exactly one notice.
+
+**Accepted residual risk:** the pane can change between the capture and the
+keys. No tmux key sequence is atomic with the TUI's handling. The primer makes
+the quit path unreachable in a normal composer, and the exact `/compact` check
+blocks submission if stray text remains.
+
+**Rejected:**
+
+- **Keeping the guard with a better OpenCode pane parser.** A parser was built
+  (`spawn:p7902`) and then deleted unmerged. It still depended on the pane, and
+  the user preferred compaction.
+- **Silent vetoes for an unreadable Codex screen.** Compaction would stop
+  without the user knowing. One notice per stretch costs little.
+
+**Related, not decided here:** Codex and OpenCode TUIs resize correctly when
+run natively, but their layout gets mangled under Meridian primaries. That is
+tracked in `work:primary-resize-mangling`.
 
 ## D-session-role — One `MERIDIAN_SESSION_ROLE` at the bind seam
 
@@ -360,13 +448,13 @@ before it arms.
 | Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` | push, warn, compact |
 | Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push, warn, compact on `anthropic` and `openai` under long retention, which Meridian sets for primaries ([D-pi-cache-retention](#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)), and on `openai-codex` in either mode (estimated). Push only on `xai`, `deepseek`, any other provider, and `anthropic`/`openai` with `PI_CACHE_RETENTION=short` ([D-idle-ttl-detection](idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)) |
 | OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor`; the sensor dialect follows the connection's resolved backend version ([D-opencode-idle-v2](#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)) | 2.x: `POST /api/session/{id}/compact`, completion tied to the returned inbox ID. 1.x: `POST /session/{id}/summarize` with the session's current model | 2.x `openai` provider: push, warn, compact (1800 s, estimated). Other providers and 1.x: push only. No `ttl_seconds` default ([D-idle-ttl-detection](idle-ttl-detection.md#opencode-provider-ttl)) |
-| Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: type `/compact`, verify, press Enter, wait for an appended `compacted` rollout record | push, warn, compact (`ttl_seconds` 1800) |
+| Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: screen-gated composer clear, then type `/compact`, verify, press Enter, wait for an appended `compacted` rollout record ([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)) | push, warn, compact (`ttl_seconds` 1800) |
 | Cursor | none | no primary path | — | no idle |
 
-The Default column describes what gets scheduled. On the unreleased
-growth-floor branch, the compact stage on Pi and on OpenCode `openai` skips
-as `not-worth-it` unless `compact_min_growth_tokens` is set. Claude and Codex
-compact only after enough growth
+The Default column describes what gets scheduled. When the compact stage
+fires, Claude, Codex and OpenCode 2.x `openai` compact only after enough growth.
+Pi's stage always skips as `not-worth-it` unless `compact_min_growth_tokens`
+is set
 ([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
 
 The launcher task is an asyncio task inside `PrimaryAttachLauncher.run`. It
@@ -391,10 +479,11 @@ compaction actuator remains tmux-based. (User decision U5 / design Q4.)
 native TUI was attached and successfully called `thread/compact/start`. Both
 WebSocket clients and the TUI remained usable, and the TUI rendered the
 completion. This corrects any categorical claim that backend compaction is
-impossible, but it does not remove the tmux dependency from production: the
-current actuator is unchanged, approval routing was not exercised, and the
-backend does not expose an unsent TUI draft. The pane-based draft guard must
-therefore remain conservative, including vetoing when draft state is unknown.
+impossible, but production still compacts through tmux: approval routing was
+not exercised, and the actuator was never switched. A backend actuator would
+remove the screen-gated composer clear
+([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)),
+but nobody has evaluated it as a replacement.
 Provenance: `evidence/codex-backend-compact-probe.md` (`work:idle-cache-notify`).
 
 **Why the Claude mod is bundled, not mars-synced:** the mod is code coupled
@@ -503,12 +592,35 @@ route was also gone: `POST /session/{id}/summarize` returns 405 on 2.x and
 (one terminal), so the two-execution queue shape exists only in tests. The fix
 covers both shapes.
 
-**Deferred** (`lib/harness/.context/FUTURE`): the V2 sensor reports no
-`context_tokens` on `main`. The growth-floor branch reads it from the
-turn-end message fetch and again at fire
-([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#context-facts-read-at-arm-and-again-at-fire)),
-which settles that item once it lands. Still deferred: split the V2 sensor into
-`opencode_idle_v2.py` when it grows again.
+**Stream lifetime (PR #583, v0.10.5; `work:idle-close-no-compact` D8).** As
+released in v0.9.9, the sensor went deaf about two minutes after every turn.
+The shared `events()` loop ended the stream after its 120 s liveness-stall
+reconciliation. That is right for a spawn, which needs a terminal. For a
+primary it meant Meridian's compaction completion was never seen (it timed out
+as `failed` after 300 s) and later turns were never seen either. Each 2.x
+session got at most one idle stretch. The decision:
+
+- **The stream's lifetime follows its consumer.** Spawns keep
+  stall → reconcile → terminal → end. A managed primary's observer keeps one
+  stream for the primary's lifetime. When it goes quiet, hits EOF or a
+  recoverable error, it reconnects with backoff capped at 10 s. It never
+  synthesizes a terminal. The mode comes from the existing
+  `_primary_observer_mode`. Review rejected a new `EventStreamLifetime` enum as
+  a second name for the same fact.
+- **Compaction is confirmed from durable data after a gap.** `/api/event` is
+  live-only, so a reconnect can miss `session.compaction.ended`. If the waiter
+  times out, the sensor accepts the compaction only when it finds the
+  compaction message for the admitted inbox ID with `status == "completed"`
+  and the session is idle with a successful outcome at or after admission. The
+  message exists from admission onward, so its existence alone proves nothing.
+
+Live check: a Meridian-initiated compaction came back `ok` with a native
+compaction marker, the next turn opened stretch 2, and a one-shot OpenCode
+spawn still finalized.
+
+**Deferred** (`lib/harness/.context/FUTURE`): split the V2 sensor into
+`opencode_idle_v2.py` when it grows again, and split `events()` into a
+per-response drain with small lifetime policies for spawns and primaries.
 
 **Codex needed no change** (`work:idle-ttl-detection` D8). No interactive Codex
 primary had run since #550 shipped, so there was no evidence either way. A
@@ -648,7 +760,7 @@ compaction run only in primaries.
 | State machine lift to `machine.py`; launcher-owned sensor lifecycle; split of `IdleSensor`; dedicated Codex identity pin; arm-drift diagnostic | `src/meridian/lib/idle/.context/FUTURE` |
 | `effective()` re-derives the option catalog by hand; idle/notify config models belong in their own modules | `src/meridian/lib/config/.context/FUTURE` |
 | `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
-| Claude-only `claude_runtime` touches six projections; three tmux helpers; OpenCode 2.x `context_tokens` unread; V2 sensor module split (both on PR #573) | `src/meridian/lib/harness/.context/FUTURE` |
+| Claude-only `claude_runtime` touches six projections; two tmux capture helpers; V2 sensor module split; `events()` drain split | `src/meridian/lib/harness/.context/FUTURE` |
 | Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
 
 ## Deferred adjacent issues
@@ -683,14 +795,11 @@ To close the gap, the user sets up an app password and sends one test notice:
 5. Run `meridian notify "test" --json`. The report's `gmail` result should
    carry no `error`, and the message should arrive in the inbox.
 
-**Meridian-initiated compaction on OpenCode 2.x has not run live.** The gate
-probe saw the `/api/session/{id}/compact` route and its event order through a
-manual POST, and the full schedule on `openai/gpt-6-luna`, but no session sat
-idle until the compact stage fired. The sensor's waiter is covered by fixture
-tests only. A failed compaction on 2.x has not been captured either.
-
-**Warn and compact have not fired live on Codex.** Only arming and the push
-were observed on 0.9.8.
+**A failed compaction on OpenCode 2.x has not been captured live.** Successful
+Meridian-initiated 2.x compactions have run live: two on 2026-10-14
+(`spawn:p7902`), then one through the reconnecting stream (`spawn:p7914`). A
+compaction gated by the break-even rule on the `openai` route has not fired
+live yet.
 
 ## Related
 
@@ -745,8 +854,11 @@ were observed on 0.9.8.
   launcher runs there, so a reopen can still adopt the old stretch
   ([D-idle-reopen-return](#d-idle-reopen-return--a-meridian-reopen-is-a-user-return)
   gaps). The fix belongs in the Claude mod.
-- Someone measures the compaction summary size, or the
-  [compaction floor](../research/idle-compaction-break-even.md) is decided.
+- Codex changes its composer layout, its Ctrl+C clear behaviour or its quit
+  confirmation. A layout change makes every Codex compaction veto with
+  `screen-not-recognized` (loud, one notice per stretch); a Ctrl+C change can
+  quit or interrupt Codex
+  ([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
 
 ## Sources
 
@@ -770,8 +882,13 @@ were observed on 0.9.8.
   (`spawn:p7881`), `reviews/review-2-thermo.md` (`spawn:p7889`, why D1 was
   replaced), `evidence/probe-reopen-return.md` (`spawn:p7891`),
   `pr-body-idle-close.md`. D1's review and probe (`reviews/review-1.md`,
-  `evidence/probe-close-reopen.md`) describe the replaced design. Break-even analysis from the
-  tech-lead primary `spawn:p7743`.
+  `evidence/probe-close-reopen.md`) describe the replaced design. The same work
+  item's D7/D8 and `investigate-opencode-compact-completion.md` cover the
+  OpenCode 2.x stream lifetime (PR #583).
+- `work:idle-compaction-floor`: `decisions.md` "2026-10-15 User: compact even
+  with a draft" and `evidence/drop-draft-guard.md` (Codex source reading at
+  `rust-v0.162.1`, live probes `spawn:p7991`, `spawn:p7992`, `spawn:p8002`,
+  `spawn:p8003`).
 - Process lessons: [parallel test lanes](../lessons/spawn-lane-operations.md#parallel-lanes-can-collide-on-test-basenames),
   [adapter-suite coverage](../lessons/verification-and-review-discipline.md#run-every-adapter-suite-in-a-gate),
   and [dependency injection](../lessons/harness-integration.md#a-function-local-import-hides-a-layering-cycle).

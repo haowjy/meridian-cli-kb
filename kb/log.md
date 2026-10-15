@@ -3,6 +3,33 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-15 — Idle compaction work shipped: v0.10.3, v0.10.5, v0.10.6 (`work:idle-compaction-floor`, `work:idle-close-no-compact`, `work:harness-compaction-cache`)
+
+- [D-idle-compaction-growth-floor](decisions/idle-compaction-growth-floor.md) now
+  describes merged behaviour (PR #589). Corrected the OpenCode claim: only
+  OpenCode 1.x compacts cold. 2.x `openai` is priced (c = 0.104, need ≈60k/44k).
+  Recorded Pi "never" until haowjy/meridian-cli#593, the rejected sensor-level
+  cost seam, and the user's patch-release choice despite the key rename.
+- New decision [D-idle-compact-over-drafts](decisions/idle-notifications.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)
+  (PR #583): the draft guard is deleted on every harness. It records Codex's
+  screen-gated Ctrl+C composer clear and why it is gated, plus the
+  unreadable-screen retry and notice. Deleted the draft guard, the draft
+  unknown-fact row and the "pane-based draft guard must remain" paragraph from
+  [Idle notifications](decisions/idle-notifications.md), and the draft re-checks
+  from [Idle adapters](architecture/idle-adapters.md).
+- [D-opencode-idle-v2](decisions/idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)
+  gains the stream-lifetime decision (the primary stream reconnects for the
+  primary's lifetime, and compaction is confirmed from durable data).
+  D-idle-reopen-return is marked released in v0.10.3.
+- [Prompt-cache retention](research/prompt-cache-retention.md): new sections on
+  which compaction requests read the cache, and on Pi cache warming versus idle.
+- Deleted `research/idle-compaction-break-even.md`. It was the superseded
+  first-cut model and described the removed 40k floor as current. Its one
+  unique measurement (the 39,386-token primary prefix) moved into the decision
+  record.
+- Guard list renumbered to match `guards.py` (stale-anchor and not-scheduled
+  listed separately).
+
 ## 2026-10-15 — History-index readers stop waiting on session writers (`work:v010-followups`, PR #588 landing, #586)
 
 - Added [D-history-index-readers-never-wait-on-session-writers](decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)
@@ -107,8 +134,8 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 - [Idle adapters](architecture/idle-adapters.md#close-and-reopen): new
   close/reopen table per harness; owner propagation added as a fail-silent
   fragility.
-- New research page [Idle Compaction Break-Even](research/idle-compaction-break-even.md)
-  (analysis, not decided), linked from the idle decision as an open question
+- New research page `research/idle-compaction-break-even.md`
+  (analysis, not decided; deleted 2026-10-15), linked from the idle decision as an open question
   and from [prompt-cache retention](research/prompt-cache-retention.md).
 
 ## 2026-10-14 — Two-tier project identity and user-scope packages (`work:two-tier-identity`, PR #575)
