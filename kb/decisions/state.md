@@ -302,8 +302,9 @@ before approval. #591 was closed as a duplicate of #418, which has owned this wo
 since the 2026-07 thermo-nuclear audit.
 
 **Problem.** Session state is one global `sessions.jsonl`, and per-spawn operations
-replay it ([session state](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-log)).
-The cost measurements and acceptance bar are maintained on [per-operation cost](../architecture/per-operation-cost.md).
+replay it: 9 full-log reads per foreground launch
+([session state](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-log);
+measurements and the acceptance bar on [per-operation cost](../architecture/per-operation-cost.md)).
 It is the shape spawn state left in May 2026 ([spawn state v2](#spawn-state-v2-per-spawn-statejson-over-global-jsonl-2026-05)).
 The owner had believed sessions already lived in per-chat files. They never did.
 

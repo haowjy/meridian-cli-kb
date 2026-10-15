@@ -24,11 +24,11 @@ about 0.8 s was CLI startup, and `HistoryIndex.spawns()` took 0.126 s. On a copy
 catch-up took 4–169 ms for 0–100 changed sources (`spawn:p7970`). An uncontended read
 was 20× under the deadline. So every timeout meant a reader queued behind some
 holder, and a longer budget would only have made the queue longer. The holder was a
-full fold of `sessions.jsonl` under its writer lock, on every session append.
-Removing the fold, and letting readers stop waiting on that lock, removed the
-queueing failure. The cost measurements are kept on the
-[per-operation cost page](../architecture/per-operation-cost.md), while this page
-records how the diagnosis was made. The retry budget was deleted.
+full fold of a 46.6 MB `sessions.jsonl` under its writer lock, on every session
+append. That took 1,463 ms per append in the runtime where 14 of the 15 incidents
+happened (`spawn:p7975`). Removing the fold, and letting readers stop waiting on
+that lock, brought reader P95 from 2,001 ms to about 100 ms. The retry budget was
+deleted.
 
 **The rule.** When an operation exhausts a deadline on a lock or gate:
 
@@ -123,10 +123,10 @@ number (#592).
 ## Probe the whole command, not just the seams you suspect
 
 The first constant-time audit (`spawn:p7993`) timed the seams it knew about. Its
-end-to-end sub-spawn hung, so it estimated an orange launch from only the seams it
-had observed. A real end-to-end probe with a fake harness found more callers than
-the audit had listed (`spawn:p7997`); the measurements are recorded on the
-[per-operation cost page](../architecture/per-operation-cost.md).
+end-to-end sub-spawn hung, so it estimated an orange launch at "0.8 s startup +
+1.16 s bind", about 2 s. A real end-to-end probe with a fake harness then measured
+9.12 s and 9 full-log reads (`spawn:p7997`). That was more callers than the audit
+had listed.
 The same counting probe later showed 980 `state.json` reads per launch on base,
 which nobody could explain at first. A stack capture traced them to session
 teardown, `reclaim_session_owned_scopes_for_chat` → `list_spawns`. That is a path

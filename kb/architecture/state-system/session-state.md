@@ -32,8 +32,8 @@ fail every read
 ## `sessions.jsonl` is one global log
 
 Session state is event-sourced into **one file per runtime**. Every chat appends to
-`sessions.jsonl`, the file only grows, and most reads replay it. **Sessions are not
-stored per chat.** The
+`sessions.jsonl`, the file only grows (46.6 MB and 18.9 MB on the development box in
+October 2026), and most reads replay it. **Sessions are not stored per chat.** The
 only per-chat files are the lifetime lock and lease below. A `chats/` directory
 appears empty in every runtime: it was created for a `chats/<chat_id>/lifecycle.jsonl`
 primitive (2026-04) that nothing ever wrote. #418 (2026-07) prescribed per-session
@@ -48,11 +48,21 @@ proportional to every chat that ever ran. If it also holds `sessions.jsonl.flock
 it serializes every other session writer.
 
 #588 removed the worst holder (the append guard) and stopped history-index readers
-from waiting on the lock. The remaining reader inventory, measurements, and
-acceptance counts belong to the [per-operation cost bar](../per-operation-cost.md);
-this page keeps the session mechanism and its ownership boundaries rather than
-duplicating those measurements. The remaining readers lengthen launch but no
-longer stall index readers.
+from waiting on the lock. The readers that still replay the whole log (as of
+v0.10.10; their measured costs are on
+[per-operation cost](../per-operation-cost.md#1-session-state-is-one-global-replay-log-418)):
+
+| Reader | When | Lock held during the fold, where recorded |
+|---|---|---|
+| `session_bindings()` / `SessionBindings.__init__` | native-ID bind at spawn or primary start (twice per launch), repair, legacy import | `sessions.jsonl.flock` |
+| `start_session` lookups; `record_model_selection` / `record_model_observation` dedup; `get_or_create_observed_chat` | start, model events, observed chats | `sessions.jsonl.flock` |
+| `start_spawn` owner-chat read | every launch | `spawns_flock` |
+| `conclude_native_run` → observed chat | every native run's exit | the spawn lock |
+| `get_session_active_work_id`, `_session_execution_context`, `session_scope`, `spawn_session_log_available` | every launch | not recorded |
+| `get_session_record_for_spawn`, `session_records_for_spawns` | wait, show, archive witness | not recorded |
+| Automatic archiver, one fold per candidate | interval-gated, on primary stop | not the log's lock |
+
+These readers lengthen launch but no longer stall index readers.
 
 **The accepted plan, not built:** per-chat journals,
 `session-state/chats/<cN>.jsonl`, each the only authority for its chat, plus small

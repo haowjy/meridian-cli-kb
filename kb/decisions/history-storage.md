@@ -241,11 +241,11 @@ behind a lock holder. The holders were:
 1. **Every session update, stop and model-selection append replayed the whole
    `sessions.jsonl` under `sessions.jsonl.flock`.** `_append_session_event` called
    `list_session_generations()` (a full Pydantic fold) only to refuse mutation of
-   restored historical sessions (added in v0.5.0, `120b6d44b`). Hold time grew with
-   the session log because every append performed the fold; the measured
-   before/after costs are kept on the [per-operation cost page](../architecture/per-operation-cost.md).
-   With two writers, readers failed under the old holder and none failed after the
-   fold was removed (`spawn:p7975`).
+   restored historical sessions (added in v0.5.0, `120b6d44b`). Hold time: 1,463 ms
+   at 46.6 MB, 786 ms at 18.9 MB, 77 ms at 1 MB, 16 ms with the fold patched out. That
+   is about four folding appends per spawn. With two writers, 5 of 30 readers failed,
+   and none failed without the fold (`spawn:p7975`). 14 of the 15 logged incidents
+   came from the runtime with the 46.6 MB log.
 2. **Readers waited on that lock while holding the exclusive catch-up gate.** The
    `sessions` marker is one file per source and stays pending until acknowledged, so
    a reader draining it waits through every later writer's fold, and every other
@@ -337,9 +337,10 @@ retried. The parts:
   complete coverage. Answering from a stale projection stays rejected: it could miss
   a just-created spawn.
 
-**Result:** with the fold removed, readers no longer queued behind session writers;
-the measured before/after latency and failure counts are recorded on the
-[per-operation cost page](../architecture/per-operation-cost.md).
+**Result** (copy of the 46.6 MB log, 240 spawn states, 30 reads): with no writers,
+P95 39 ms. With 2 update writers, P95 101 ms and 0/30 failed; `main` had P95 2,001 ms
+and 5/30 failed. With 2 spawn-start bind writers that each still hold the lock for
+1.16 s, P95 43 ms and 0/30 busy.
 
 **Still open:**
 - [#418](https://github.com/haowjy/meridian-cli/issues/418) (absorbed #591): the
@@ -348,7 +349,7 @@ the measured before/after latency and failure counts are recorded on the
   and the accepted per-chat design,
   [D-session-per-chat-journals](state.md#d-session-per-chat-journals).
 - [#592](https://github.com/haowjy/meridian-cli/issues/592): a cold build holds the
-  catch-up gate for seconds; see the measured inventory on [per-operation cost](../architecture/per-operation-cost.md).
+  catch-up gate for 2.4–5.7 s.
 - [#594](https://github.com/haowjy/meridian-cli/issues/594): every reader takes the
   exclusive catch-up gate even when nothing changed. With 16 pollers, 1 of 37 CLI
   reads is busy, the same as on `main`.
