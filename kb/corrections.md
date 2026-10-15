@@ -4,7 +4,8 @@ Each time the human corrects an agent working on Meridian, the correction is
 recorded here under the mistake behind it. A class that recurs gets fixed
 where the next agent can't repeat it: architecture first, then types, a lint,
 a test, a tool permission, and a written rule last (`/correct`). The format is
-defined in `/knowledge-layers` `resources/corrections.md`.
+defined in `/knowledge-layers` `resources/corrections/` (`register.md`,
+`code.md`).
 
 Almost every class below is enforced only by a written rule the agent was
 already given. That is the pattern this page exists to break: the rule was
