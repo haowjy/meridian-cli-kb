@@ -3,6 +3,34 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-15 — Primary terminal ownership and exit text (`work:native-terminal-primaries`, `work:relay-exit-text`)
+
+- New [architecture/primary-terminal-ownership.md](architecture/primary-terminal-ownership.md):
+  terminal mode per harness, shared foreground job, the SIGINT window and
+  signal-handler reentrancy, cancellation by order, the never-write/never-cover
+  rule with the `ESC[?1049l` root cause, known gaps.
+- New [decisions/primary-terminal-ownership.md](decisions/primary-terminal-ownership.md):
+  D-exit-text-append (PR #607, v0.10.9), D-native-terminal,
+  D-shared-foreground-job, D-launcher-watchdog, D-cancel-by-order, with rejected
+  alternatives.
+- [architecture/process-scope.md](architecture/process-scope.md): new
+  "Parent-death: one watchdog per launcher" section; native TUI scope is a
+  planned PID-tree scope; `parent_death_linked` redefined.
+- [architecture/managed-primary-lifecycle.md](architecture/managed-primary-lifecycle.md):
+  roles table and "Launcher Death" no longer claim the backend and TUI outlive
+  a crashed launcher on POSIX.
+- Deleted stale claims: "Claude needs the PTY to observe" / "PTY for session-ID
+  detection" (lessons/harness-integration, principles §10, codebase/vocabulary);
+  Linux PDEATHSIG as the backend link (codebase/harness-adapters,
+  launch-system). The harness-integration PTY section was rewritten as a lesson
+  about a relay that observed nothing; the thread-safety lesson gained the
+  signal-handler `RLock` finding.
+- New [lessons/probe-runtime-placement.md](lessons/probe-runtime-placement.md)
+  (the 24 GB autosync incident, #538, meridian-dev-workflow#7). The scratch
+  section moved out of dogfooding-pr-builds, and codebase/work-items now points
+  to it.
+
+---
 ## 2026-10-15 — Idle compaction work shipped: v0.10.3, v0.10.5, v0.10.6 (`work:idle-compaction-floor`, `work:idle-close-no-compact`, `work:harness-compaction-cache`)
 
 - [D-idle-compaction-growth-floor](decisions/idle-compaction-growth-floor.md) now

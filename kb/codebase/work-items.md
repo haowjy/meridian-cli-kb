@@ -50,6 +50,8 @@ Each work item has a **scratch directory** for agents to write design docs, plan
 
 Configured via `[context.work]` in `meridian.toml`. Surfaced to agents as `MERIDIAN_CONTEXT_WORK_DIR`. On `work done`, the scratch dir is archived alongside the metadata. On `work reopen`, it's restored.
 
+When the work dir lives in a git-synced context repo (as it does here), everything written to it is committed by autosync. It holds notes, scripts and result summaries only. Probe runtimes (scratch homes, copied state, environments, databases) go under `/tmp`. A 24 GB pile of them once stalled autosync for hours; see [probe runtime placement](../lessons/probe-runtime-placement.md).
+
 See [../concepts/context-resolution.md](../concepts/context-resolution.md) for how `MERIDIAN_CONTEXT_*_DIR` env vars are populated.
 
 ## Worktree Assignment

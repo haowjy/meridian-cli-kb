@@ -85,14 +85,10 @@ run it with its own interpreter, or set **both** `UV_TOOL_DIR` and `UV_TOOL_BIN_
 
 ## Scratch data does not go in the synced docs repo
 
-A probe brief said "your scratch" without a location. The probe put a 5.3 GB runtime
-copy and a 205 MB search database under the work item's directory, which lives in
-the auto-synced docs repo. The copy held private conversation data. It was caught
-before an autosync commit.
-
-**The rule:** runtime copies and probe databases live under `/tmp`. The work
-directory keeps only scripts and timing tables. The docs checkout now also ignores
-`work/*/scratch/` locally.
+Runtime copies and probe databases live under `/tmp`, never in a work directory.
+This rule has its own page, with the 5.3 GB near miss from this PR and the
+24 GB autosync outage that followed:
+[probe runtime placement](probe-runtime-placement.md).
 
 ## Probing the upgrade path needs a genuinely old build and old state
 

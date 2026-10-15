@@ -241,8 +241,9 @@ the guard at their respective ownership boundaries.
 Codex/OpenCode managed backends launch through one helper:
 `harness/connections/managed_backend.py:launch_managed_backend()`. The helper starts
 the backend subprocess, captures birth time for PID-reuse guards, determines
-containment (`posix_pgid`, `windows_job`, or fallback), links child lifetime to the
-parent when the platform supports it, builds a `ProcessScopeSnapshot`, records
+containment (`posix_pgid`, `windows_job`, or fallback), registers the child with the
+launcher's [parent watchdog](process-scope.md#parent-death-one-watchdog-per-launcher)
+(POSIX) or a Job Object (Windows), builds a `ProcessScopeSnapshot`, records
 `process_scopes.json`, and returns a `ManagedBackendHandle`.
 
 Adapters no longer own per-harness backend launch blocks. They provide command/env/cwd
@@ -274,7 +275,7 @@ graph TD
 
     FACTORY --> LC["LaunchContext"]
 
-    LC --> PROC["process/\nrun_harness_process()\nPTY/pipe"]
+    LC --> PROC["process/\nrun_harness_process()\nnative/PTY/pipe"]
     LC --> STREAM["streaming_runner.py\nexecute_with_streaming()\nasync"]
     LC --> RSTREAM["run_streaming_spawn()\nstreaming_serve path"]
 ```
@@ -289,7 +290,7 @@ graph TD
    - Allocates session via `session_scope`; creates spawn row
    - Materializes fork if needed (only after row exists — invariant I-10)
    - **Binds the same prepared surface again** with real paths (report path, actual state root, work_id)
-   - Runs PTY or pipe subprocess
+   - Runs the harness through the launcher `select_process_backend()` picks: native inherit (Codex/OpenCode TUI), PTY relay (Claude/Pi), or pipe capture; see [primary terminal ownership](primary-terminal-ownership.md)
    - Finalizes inline; calls `conclude_native_run()` once per turn after teardown
 
 Two binds are intentional: the preview context exists for `--dry-run` display; the second bind drives actual execution with concrete paths. `prepared` is mandatory; there is no rebuild-from-request fallback.
@@ -620,7 +621,7 @@ launch/
   composition.py        ComposedLaunchContent, ProjectedContent — semantic IR types
   request.py            SpawnRequest, LaunchRuntime, LaunchArgvIntent, LaunchCompositionSurface
   plan.py               build_primary_spawn_request/runtime() — primary-path input builders
-  process/              run_harness_process(); PTY/pipe; primary-path executor
+  process/              run_harness_process(); native/PTY/pipe launchers; primary-path executor
   streaming_runner.py   one-turn startup, connection, drain, teardown, and finalization
   policies.py           resolve_policies() → ResolvedPolicies
   permissions.py        resolve_permission_pipeline()

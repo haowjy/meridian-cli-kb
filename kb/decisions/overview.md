@@ -21,6 +21,7 @@ Decision records explain why durable architectural choices were made — what al
 | [native-session-identity.md](native-session-identity.md) | Immutable chat→native key, exact-target entry evidence bound before exec, one recorded source key, qualified-event identity, observed exit; native transcripts as content authority; phase state |
 | [legacy-native-import.md](legacy-native-import.md) | Why chats created before native keys existed get one bounded, exact-evidence import rather than runtime repair |
 | [native-source-argument-admission.md](native-source-argument-admission.md) | Superseded raw-argument admission design; only identity-overriding passthrough refusal survives |
+| [primary-terminal-ownership.md](primary-terminal-ownership.md) | Interactive primary terminal ownership: exit text is appended, never covered (all harnesses); Codex/OpenCode native, Claude/Pi relay; shell-owned job control; one parent watchdog per launcher instead of PDEATHSIG; cancellation by order of observation |
 | [launch.md](launch.md) | Launch pipeline, composition seam, harness identity env, spawn wait barrier, spawn-level goal authority and completion-contract composition (D32–D34, D57, D63-launch, 2026-05 spawn-goal) |
 | [startup-health-sandbox.md](startup-health-sandbox.md) | Descriptor-driven startup, bootstrap split, doctor/reaper, sandbox projection policy |
 | [testing.md](testing.md) | Test-tier ownership, aggressive deletion safeguards, security-suite exception, rejected alternatives, and fake-executable observation discipline |

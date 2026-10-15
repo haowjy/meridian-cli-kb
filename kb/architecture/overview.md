@@ -17,6 +17,8 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [pi-native-sessions.md](pi-native-sessions.md) — Pi native session identity discovery, shared-directory collision hazard, and journal tree readback.
 - [atomic-child-row-publication.md](atomic-child-row-publication.md) — Nested-stage directory publication protocol, POSIX evidence, and remaining platform gates.
 - [managed-primary-lifecycle.md](managed-primary-lifecycle.md) — Codex/OpenCode managed-primary process roles, startup/stop ownership, passive reaper safety, and explicit cleanup boundary.
+- [primary-terminal-ownership.md](primary-terminal-ownership.md) — Native terminal vs PTY relay per harness, shared job control, cancellation by order, and the never-cover-exit-text rule.
+- [process-scope.md](process-scope.md) — Durable process scopes, platform containment, the launcher parent watchdog, and cleanup triggers.
 - [mars-compiler.md](mars-compiler.md) — Mars compiler module map, config-entry pipeline, collision resolution, and stale cleanup.
 - [mars-targeting.md](mars-targeting.md) — Mars targeting architecture: `.mars/` as Meridian compiled read surface, native harness skill dirs, and conditional native agent emission.
 - [mars-user-scope.md](mars-user-scope.md) — User Mars root, project/user content layering, root resolution, `--fallback-root` layering (Mars 0.16.0 pin, `--help` probe as safety net) and user-agent alias resolution.
