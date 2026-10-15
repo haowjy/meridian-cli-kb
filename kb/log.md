@@ -3,6 +3,15 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-15 — Corrections register
+
+- New [corrections.md](corrections.md): the human's corrections of agents,
+  grouped into ten classes and ten candidates, each with what enforces it.
+  Seeded from 139 primary sessions, 2026-09-15 to 2026-10-15 (`spawn:p8116`,
+  `spawn:p8117`). Nine of the ten classes are enforced only by a written rule.
+  Indexed under Root Pages.
+
+---
 ## 2026-10-15 — Constant-time program, phase 1: #588/#599/#605/#608 shipped; #418 design B accepted (`work:v010-followups`)
 
 - New [per-operation cost](architecture/per-operation-cost.md): the owner's bar

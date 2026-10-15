@@ -14,6 +14,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, the mars package comp
 | How do I operate or diagnose X? | [operations/](#operations) |
 | What principles guide X? | [principles/](#principles) |
 | What did we learn the hard way? | [lessons/](#lessons) |
+| What do agents keep getting wrong here? | [corrections.md](corrections.md) |
 | What's still unresolved? | [open-questions/](#open-questions) |
 | What external research applies? | [research/](#research) |
 | What other repos are in the ecosystem? | [ecosystem/](#ecosystem) |
@@ -26,6 +27,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, the mars package comp
 - [overview.md](overview.md) — System identity, mental model, major subsystems, harness-agnostic coordination model
 - [vocabulary.md](vocabulary.md) — Alphabetical shared terminology contract; every domain term defined in one place
 - [decisions.md](decisions.md) — Chronological index of durable architectural decisions; entries link to domain pages for full rationale
+- [corrections.md](corrections.md) — Register of the human's corrections of agents, grouped by mistake class, with what enforces each and dated occurrences
 - [AGENTS.md](AGENTS.md) — KB maintenance guide: five-layer model, writing conventions, FLAG protocol, diagram rules, validation checklist (`CLAUDE.md` is a symlink)
 
 ---
