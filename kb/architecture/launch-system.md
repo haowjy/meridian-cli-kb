@@ -526,7 +526,7 @@ Tooling the agent or an in-harness plugin calls, such as `meridian notify` run
 from a Claude mod, can never read it. A plain `MERIDIAN_*` variable does get
 through, but every spawn inherits it and any agent can print it. The idle-notify
 SMTP password uses a 0600 file for this reason
-([D-notify-smtp-password-file](../decisions/idle-notifications.md#d-notify-smtp-password-file--smtp-password-from-a-file-env-as-leaky-fallback)).
+([D-notify-smtp-password-file](../decisions/idle-notify-channels.md#d-notify-smtp-password-file--smtp-password-from-a-file-env-as-leaky-fallback)).
 
 `bind_launch_context()` also overwrites `MERIDIAN_SESSION_ROLE` on every launch,
 next to `_MERIDIAN_HARNESS`: `primary` for an interactive primary and `spawn`

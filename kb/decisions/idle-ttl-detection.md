@@ -130,7 +130,7 @@ user docs say the same (`docs/configuration.md` idle section).
 **Status:** released in v0.9.9, PR #573 (`work:idle-ttl-detection` D7, phase 2).
 
 **Problem:** fixing the OpenCode 2.x sensor
-([D-opencode-idle-v2](idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport))
+([D-opencode-idle-v2](idle-opencode-v2.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport))
 would have restored only the push. OpenCode had a configured default of
 `ttl_seconds = 300`. Warn sits at TTL − 15 min and compact at TTL − 5 min, so
 neither fits in 300 s. And because a configured TTL wins over detection in

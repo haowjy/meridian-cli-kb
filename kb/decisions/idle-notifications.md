@@ -52,7 +52,7 @@ each harness actually schedules today is in
   ([D-idle-reopen-return](#d-idle-reopen-return--a-meridian-reopen-is-a-user-return)).
 - **Harness isolation.** `launch/` and `lib/idle` contain no `HarnessId`
   branches. Harness modules depend only on `lib/harness/idle_types.py`, never
-  on `lib/idle` ([D-idle-leaf-packages](#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services)).
+  on `lib/idle` ([D-idle-leaf-packages](idle-notify-channels.md#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services)).
   The branch deleted a Pi-specific role branch instead of adding a new one
   ([D-session-role](#d-session-role--one-meridian_session_role-at-the-bind-seam)).
 - **Launcher fault containment.** The idle task is cancelled before the
@@ -97,77 +97,6 @@ returning mid-compaction) are solved once.
 
 **Rejected:** idle policy inside each adapter.
 
-## D-idle-leaf-packages — `lib/notify` and `lib/idle` are leaf services
-
-**Decision:** Two new packages, modelled on `lib/artifact/` (a self-contained
-feature whose CLI is its only entry point), not on `lib/ops/`.
-
-- **`lib/notify/`** delivers notices. It builds the reason-first session
-  context (terminal, actor, and explicit work/project label; see
-  [D-idle-notice-context](#d-idle-notice-context--reason-first-titles-and-send-time-cache-countdown))
-  and fans out to a channel registry: `ntfy`, `smtp`, `gmail` (an SMTP
-  preset), `command`, `none`. A new channel is one module plus one registry
-  entry. `meridian notify` works with idle turned off. ntfy titles are RFC
-  2047-encoded, because the HTTP `Title` header is Latin-1 and the label's `·`
-  would otherwise arrive mangled.
-- **`lib/idle/`** holds the policy: a pure timeline, pure guards, a service
-  over the state file, and the sidecar loop. It builds `lib.notify.Notice`
-  values and calls `lib.notify.send` directly; `lib/notify` never imports
-  `lib/idle`. The service's `notify_sender` parameter is only a seam for
-  tests.
-- **`lib/state/idle_store.py`** owns the state file, because `lib/state/`
-  owns all disk I/O.
-
-`lib/idle` depends on config, state, platform helpers, and the neutral
-contracts in `lib/harness/idle_types.py`. **`lib/harness` never imports
-`lib/idle`.** An AST test (`test_layering.py`) enforces this, including
-function-local imports. Harness modules supply sensors, native idle hooks, env
-readers, and TTL detectors through optional `HarnessBundle` ports. The
-`NativeIdleHook` groups native observation with downstream delegation:
-`meridian idle event` applies a supported event before delegation, but the
-delegation runs in `finally` for rejected, malformed, unpinned, blank, or
-apply-failing payloads too. The user's Codex `notify` callback is therefore
-not consumed by Meridian's parser.
-
-**Why:** `lib/ops/` is policy over spawns, sessions and work and drives launch.
-Sending a message touches none of that. Keeping notify separate from idle lets
-agents call `meridian notify` without the idle machinery. The harness → idle
-ban keeps the dependency one-way. Without it, a harness parser that reads
-policy state creates a cycle, and a function-local import hides that cycle
-from import-time checks (G2 K3).
-
-## D-idle-notice-context — Reason-first titles and send-time cache countdown
-
-**Decision:** Idle notice
-titles lead with the reason, then include the terminal and explicit work
-context when available. The shape is `[idle] a2: pi on work: "idle-cache-notify"`;
-cache warnings use `[cache warning]`, and compaction results use their result
-reason (`[compacted]`, `[compaction failed]`, or `[compaction skipped]`). The
-terminal prefix is the recorded tmux session when present, and is omitted
-outside tmux. A work item is labelled explicitly; when there is no work item,
-an explicitly labelled project is used when available. Custom titles supplied
-to `meridian notify` retain the terminal/actor/work context in the body rather
-than dropping it. There is no duplicated tmux footer.
-
-Idle and cache-warning notices calculate the remaining cache lifetime **at send
-time**, from the persisted idle anchor and TTL. A known TTL is shown plainly;
-an estimated TTL is prefixed `est.`; an unknown TTL has no countdown. The
-renderer uses `<1 min until cold` below a minute and `cache cold` after the
-deadline. Compaction-result notices omit the old countdown because compaction
-may refresh the cache. `ttl_estimated` is persisted with the idle state, with
-old records defaulting conservatively to estimated. Claude's observed transcript
-TTL and Pi's Anthropic retention are known. Pi's `openai` and `openai-codex`
-heuristics and OpenCode's `openai` mapping are estimated, and so are explicit,
-configured and default TTLs
-([D-idle-ttl-detection](idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)). This changes notice context only;
-the schedule and compaction guards are unchanged.
-
-**Why:** A reason-first title tells the user why a notice arrived, while the
-terminal and explicit work label identify which session needs attention. Rendering
-from persisted state at send time avoids publishing a stale precomputed deadline.
-The confidence marker prevents a provider heuristic or configured fallback from
-looking like a provider guarantee.
-
 ## D-idle-stretch-at-most-once — Each stage fires at most once per stretch
 
 **Decision:** A *stretch* runs from one user prompt to the next. Push, warn
@@ -211,7 +140,7 @@ Compaction only, after those:
 15. harness's own auto-compaction off
 
 There is no draft guard: unsent composer text never blocks compaction
-([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
+([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
 
 **Unknown facts:** an unknown context or baseline fails closed
 (`skipped:context-unknown`, `skipped:baseline-unknown`). The original rule (D6)
@@ -318,93 +247,6 @@ OpenCode: the old row closed at reopen and nothing fired. Per-adapter
 close/reopen paths are in
 [Idle Adapter Architecture](../architecture/idle-adapters.md#close-and-reopen).
 
-## D-idle-compact-over-drafts — Compaction wins over unsent text
-
-**Status:** decided by the user (2026-10-15); merged in PR #583 (`8bd2f4775`),
-released in v0.10.5. `work:idle-compaction-floor` ("User: compact even with a
-draft"), evidence `evidence/drop-draft-guard.md`.
-
-**User rule:** "I would rather we compact than keep any drafts." The user said
-this after asking what happens when a tmux pane is mangled or resized.
-
-**Problem:** compaction used to skip when the composer held unsent text, and
-also when the adapter could not tell. Only Claude and Pi could see a draft
-through their host APIs. Codex and OpenCode guessed from the tmux pane. The
-OpenCode 2.x pane parser looked for a footer separator that 2.0.28 never
-renders, so every 2.x compaction skipped as `draft-unknown`. Its replacement, a
-parser anchored on the composer border, still depended on a pane that resizes
-and redraws. A rare lost draft costs less than a guard that silently disables
-compaction.
-
-**Decision:** delete the draft fact and its guard everywhere: the core guard,
-`IdleFacts`/`GuardFacts`, the CLI `--draft` flag, the OpenCode pane parser, and
-the Claude and Pi draft vetoes. Claude, Pi and OpenCode compact through APIs
-that do not touch the composer. Codex still compacts by typing into its TUI,
-so it has to clear the composer first. The busy check, the `/compact`
-verify-before-Enter step and the TUI-alive check stay.
-
-**Codex clears the composer with a screen-gated Ctrl+C.** Codex 0.162.1 has
-no single key that clears a multi-line composer: Ctrl+U deletes only to the
-start of the line. Ctrl+C clears the whole composer, including attachments,
-but only when the composer is non-empty. On an empty composer the key falls
-through to the outer handler, which interrupts running work or quits Codex.
-The double-press quit confirmation is disabled in this release. So the
-sequence is:
-
-1. Capture the pane and require the focused composer layout: two blank rows
-   above a column-zero `›` prompt, indented continuation rows, the blank
-   bottom margin, an indented status row, and the footer (`… for shortcuts`
-   when empty, blank with a draft). Reject `Working (`.
-2. Type the primer `ix`, which makes the composer non-empty in both normal and
-   Vim mode (`i` enters insert mode). Confirm that the visible text is exactly
-   the previous text plus `ix`.
-3. Re-check busy and liveness, then send Ctrl+C.
-4. Confirm the composer shows empty, type `/compact`, verify it, press Enter,
-   and wait for a new `compacted` rollout record.
-
-A slash-command popup takes the blank rows above the prompt. Modals, the
-agents overview and transcript views replace the footer. None of them match
-the layout, so Ctrl+C is never sent to them. The first version without the
-layout gate was sent back in review. In that version a key could reach a modal
-or the agents overview, and an unprimed Ctrl+C could quit Codex or interrupt
-it. The deleted empty-`›` draft check had been blocking those screens by
-accident.
-
-**An unreadable screen retries, then notifies.** If the layout doesn't match,
-the actuator re-captures for about 10 s (three reads). If it still can't
-recognize the screen, it vetoes with `screen-not-recognized`, the same reason
-it uses when the primer or the cleared composer fails to verify. No key is
-sent. Core recognizes that one reason and sends a push-only notice:
-"Codex not compacted: Meridian couldn't read its screen", plus the minutes of
-cache left. The decision about who to notify stays in the idle policy layer,
-not the adapter (user decision). Other vetoes and failures keep the generic
-compaction notice.
-
-**Verified live** (codex-cli 0.162.1, `gpt-5.6-luna`, scratch homes):
-
-- A three-line draft was cleared and compacted, and Codex kept running.
-- An open `/` popup gave `composer-not-focused` before any key was sent.
-- Five resizes just before compaction still compacted cleanly.
-- A popup left open gave the `screen-not-recognized` veto after 10.02 s, with
-  exactly one notice.
-
-**Accepted residual risk:** the pane can change between the capture and the
-keys. No tmux key sequence is atomic with the TUI's handling. The primer makes
-the quit path unreachable in a normal composer, and the exact `/compact` check
-blocks submission if stray text remains.
-
-**Rejected:**
-
-- **Keeping the guard with a better OpenCode pane parser.** A parser was built
-  (`spawn:p7902`) and then deleted unmerged. It still depended on the pane, and
-  the user preferred compaction.
-- **Silent vetoes for an unreadable Codex screen.** Compaction would stop
-  without the user knowing. One notice per stretch costs little.
-
-**Related, not decided here:** Codex and OpenCode TUIs resize correctly when
-run natively, but their layout gets mangled under Meridian primaries. That is
-tracked in `work:primary-resize-mangling`.
-
 ## D-session-role — One `MERIDIAN_SESSION_ROLE` at the bind seam
 
 **Decision:** Meridian marks every session it launches with
@@ -441,35 +283,17 @@ before it arms.
 
 ## D-idle-adapter-hosting — Where each adapter runs
 
-**Decision:**
+**Decision:** The current adapter hosts, bundle ports, per-harness schedules,
+contracts, close/reopen behavior, and known fragility are maintained in
+[Idle Adapter Architecture](../architecture/idle-adapters.md). Claude and Pi
+use bundled in-harness extensions; Codex and OpenCode use tasks in Meridian's
+managed attach launcher. The hosting boundary keeps harness observation and
+actuation at the adapter while core owns idle policy.
 
-| Harness | Adapter host | How it gets there | Compacts with | Default |
-|---|---|---|---|---|
-| Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` | push, warn, compact |
-| Pi | a fourth bundled extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` | push, warn, compact on `anthropic` and `openai` under long retention, which Meridian sets for primaries ([D-pi-cache-retention](#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)), and on `openai-codex` in either mode (estimated). Push only on `xai`, `deepseek`, any other provider, and `anthropic`/`openai` with `PI_CACHE_RETENTION=short` ([D-idle-ttl-detection](idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)) |
-| OpenCode | task in meridian's attach launcher | optional bundle hook `primary_idle_sensor`; the sensor dialect follows the connection's resolved backend version ([D-opencode-idle-v2](#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)) | 2.x: `POST /api/session/{id}/compact`, completion tied to the returned inbox ID. 1.x: `POST /session/{id}/summarize` with the session's current model | 2.x `openai` provider: push, warn, compact (1800 s, estimated). Other providers and 1.x: push only. No `ttl_seconds` default ([D-idle-ttl-detection](idle-ttl-detection.md#opencode-provider-ttl)) |
-| Codex | Codex `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: screen-gated composer clear, then type `/compact`, verify, press Enter, wait for an appended `compacted` rollout record ([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)) | push, warn, compact (`ttl_seconds` 1800) |
-| Cursor | none | no primary path | — | no idle |
-
-The Default column describes what gets scheduled. When the compact stage
-fires, Claude, Codex and OpenCode 2.x `openai` compact only after enough growth.
-Pi's stage always skips as `not-worth-it` unless `compact_min_growth_tokens`
-is set
-([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
-
-The launcher task is an asyncio task inside `PrimaryAttachLauncher.run`. It
-starts after the TUI is running and follows the TUI launch task's liveness, not
-the observer stream. It is cancelled and awaited before the connection is
-stopped. Synchronous policy and store calls run through `asyncio.to_thread`.
-Compaction runs as its own task, so a user return doesn't cancel it mid-action
-or lose its `done`. Failures in raw events, the event stream, timers, store
-polling and compaction are contained per event and written to spawn-local debug
-telemetry, never to the TUI's terminal.
-
-**Why the launcher, not plugins, for Codex and OpenCode:** both are
-managed-attach primaries, so a meridian process already lives for the whole
-session, runs an event loop and holds the backend connection. OpenCode needs
-no plugin at all: meridian already consumes its raw live events and can POST to
+**Why:** The launcher is the right host for Codex and OpenCode because both are
+managed-attach primaries: a meridian process already lives for the whole
+session, runs an event loop and holds the backend connection. OpenCode needs no
+plugin at all: meridian already consumes its raw live events and can POST to
 its server. In the current Codex attach path, the TUI/observer arrangement
 leaves Meridian dependent on `notify` for the turn sensor, and production's
 compaction actuator remains tmux-based. (User decision U5 / design Q4.)
@@ -482,7 +306,7 @@ completion. This corrects any categorical claim that backend compaction is
 impossible, but production still compacts through tmux: approval routing was
 not exercised, and the actuator was never switched. A backend actuator would
 remove the screen-gated composer clear
-([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)),
+([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)),
 but nobody has evaluated it as a replacement.
 Provenance: `evidence/codex-backend-compact-probe.md` (`work:idle-cache-notify`).
 
@@ -500,134 +324,16 @@ reply shape, that session's idle silently stops until it restarts. v0.9.8 did
 this when it removed `--cwd`; see
 [Bundled mods outlive the CLI they call](../lessons/harness-integration.md#bundled-mods-outlive-the-cli-they-call).
 
-The current per-harness coverage, adapter contracts and known fragility are in
-[Idle Adapter Architecture](../architecture/idle-adapters.md).
-
 **Rejected:**
 
-- **Shipping the mod through `mars sync`:** it would separate the mod's version
-  from the CLI it calls.
-- **An OpenCode TypeScript plugin on `session.idle`:** it would duplicate the
-  event stream meridian already reads, and the launcher can POST the
-  compaction directly.
-- **A thread from `runner.py` in the PTY path:** a first draft did this; review
-  found it needed cross-thread plumbing.
+- **Shipping the mod through `mars sync`:** it would separate the mod's version from the CLI it calls.
+- **An OpenCode TypeScript plugin on `session.idle`:** it would duplicate the event stream meridian already reads, and the launcher can POST the compaction directly.
+- **A thread from `runner.py` in the PTY path:** a first draft did this; review found it needed cross-thread plumbing.
 - **Codex hooks as the return sensor:** they need an interactive trust screen.
-- **A spawn → session index for Codex:** meridian's recorded
-  `harness_session_id` already is the main thread id.
-- **A tmux-pane-activity fallback (D5):** not built, because every harness has
-  a better sensor.
-- **Idle support for the black-box fallback** (managed attach failed): none,
-  accepted as a gap.
-- **Sharing adapter code between the Claude mod and the Pi extension:** the
-  host APIs differ (`$.process.run` against `node:child_process`). The
-  duplicated reply handling is better removed by having core return the
-  pending stages from `arm` and `status` (GitHub #549; see
-  [Structural debt](#structural-debt)).
-
-## D-opencode-idle-v2 — OpenCode 2.x gets its own sensor, chosen by the resolved transport
-
-**Status:** merged in PR #573, released in v0.9.9 (merge `04127891c`). Builds
-up to 0.9.8 run only the V1 sensor; running OpenCode primaries keep the sensor
-they started with until restarted. (`work:idle-ttl-detection` D6, with the
-review-2 and review-3 fixes.)
-
-**Problem it fixed:** none of 10 interactive OpenCode primaries on Oct 12–13
-wrote any idle state, one of them three hours long. No sidecar error was
-logged. OpenCode 2.0.28 ends a turn with `session.execution.succeeded`, and the
-sensor waited for V1's `session.idle`, which 2.x never sends. Its compaction
-route was also gone: `POST /session/{id}/summarize` returns 405 on 2.x and
-`/api/session/{id}/summarize` returns 404.
-
-**Decision:**
-
-- **A second sensor beside the frozen V1 one.** `OpenCodeV2IdleSensor` reads
-  V2 execution and inbox events and compacts through `/api/session/{id}/compact`
-  ([adapter contract](../architecture/idle-adapters.md#adapter-contracts)). Both dialects share `_OpenCodeIdleSensorBase` for event
-  plumbing, pane capture and requests. Dialect-only state lives in each
-  subclass. V1 code is unchanged.
-- **Dispatch on the version the connection resolved.** `primary_idle_sensor`
-  reads `OpenCodeConnection.resolved_version`, set once when the dispatcher
-  picks a transport at `start()`. Only if that is absent does it call
-  `resolve_opencode_version` on `MERIDIAN_HARNESS_OPENCODE_VERSION`, the
-  connection's own resolver. The sensor must speak the dialect the transport
-  is emitting, so the transport's choice is the one source of truth.
-- **The user return fires on enqueue, not at the next execution start.** V2
-  inbox items are typed, so a `user` item is a positive identification the
-  moment it is enqueued. Delivery fires it again (outside Meridian's own
-  compaction) so a queued prompt that runs after an armed stretch still closes
-  it.
-
-**Rejected:**
-
-- **Dispatching on the env var's value** (the first cut). Launch writes the
-  *preference* into `MERIDIAN_HARNESS_OPENCODE_VERSION`, and the default is
-  `auto`. Treating anything but `v1` as V2 handed a 1.x user on the default
-  config the V2 sensor, which never fires on V1 events: a regression for the
-  one dialect that worked. The dispatch test parametrized `None`, `v1` and
-  `v2` but not `auto`, the value real launches carry (review-2 H1).
-- **Re-probing `opencode --version` in the sensor** as the primary path: a
-  second resolution can disagree with the transport. It stays only as the
-  fallback.
-- **Holding user inbox IDs until the next `session.execution.started`**, which
-  is how V1 tells its own compaction message from a real prompt. On V2 the
-  default delivery is `steer`: a prompt typed while the agent works runs at
-  the next step boundary, inside the current execution, so no new start
-  follows. The ID stayed pending. When Meridian's compaction started an
-  execution later, the stale ID surfaced as a user return, which closed the
-  stretch and re-armed a fresh push, warning and compaction on a session the
-  user never came back to (review-2 M1). Firing only on enqueue then missed
-  queued delivery: the queued prompt runs after an earlier terminal armed a
-  stretch, so the push fired while the agent was busy (review-3 M1′). Hence
-  enqueue plus delivery. Review 4 added two guards: no delivery-return while
-  Meridian is compacting (a stranded steer delivered inside the compaction),
-  and discard on `session.inbox.cancelled`.
-- **Subclassing the V1 sensor.** The first cut inherited V1-only state that
-  V2 never read, including a `_compacting` flag that gated nothing (review-2
-  L4). Replaced by the shared base.
-- **A compaction result taken from the POST response.** V2 acknowledges
-  admission immediately; only the event sequence says the compaction finished.
-
-**Observed:** OpenCode 2.0.28 ran a queued prompt inside the *same* execution
-(one terminal), so the two-execution queue shape exists only in tests. The fix
-covers both shapes.
-
-**Stream lifetime (PR #583, v0.10.5; `work:idle-close-no-compact` D8).** As
-released in v0.9.9, the sensor went deaf about two minutes after every turn.
-The shared `events()` loop ended the stream after its 120 s liveness-stall
-reconciliation. That is right for a spawn, which needs a terminal. For a
-primary it meant Meridian's compaction completion was never seen (it timed out
-as `failed` after 300 s) and later turns were never seen either. Each 2.x
-session got at most one idle stretch. The decision:
-
-- **The stream's lifetime follows its consumer.** Spawns keep
-  stall → reconcile → terminal → end. A managed primary's observer keeps one
-  stream for the primary's lifetime. When it goes quiet, hits EOF or a
-  recoverable error, it reconnects with backoff capped at 10 s. It never
-  synthesizes a terminal. The mode comes from the existing
-  `_primary_observer_mode`. Review rejected a new `EventStreamLifetime` enum as
-  a second name for the same fact.
-- **Compaction is confirmed from durable data after a gap.** `/api/event` is
-  live-only, so a reconnect can miss `session.compaction.ended`. If the waiter
-  times out, the sensor accepts the compaction only when it finds the
-  compaction message for the admitted inbox ID with `status == "completed"`
-  and the session is idle with a successful outcome at or after admission. The
-  message exists from admission onward, so its existence alone proves nothing.
-
-Live check: a Meridian-initiated compaction came back `ok` with a native
-compaction marker, the next turn opened stretch 2, and a one-shot OpenCode
-spawn still finalized.
-
-**Deferred** (`lib/harness/.context/FUTURE`): split the V2 sensor into
-`opencode_idle_v2.py` when it grows again, and split `events()` into a
-per-response drain with small lifetime policies for spawns and primaries.
-
-**Codex needed no change** (`work:idle-ttl-detection` D8). No interactive Codex
-primary had run since #550 shipped, so there was no evidence either way. A
-live check on installed 0.9.8 showed the sidecar arming with the 1800 s
-schedule and a real turn sending the push (see [Per-harness coverage](../architecture/idle-adapters.md#per-harness-coverage)).
-Warn and compact share the core timeline with Claude, where they have fired,
-so they were not waited out.
+- **A spawn → session index for Codex:** meridian's recorded `harness_session_id` already is the main thread id.
+- **A tmux-pane-activity fallback (D5):** not built, because every harness has a better sensor.
+- **Idle support for the black-box fallback** (managed attach failed): none, accepted as a gap.
+- **Sharing adapter code between the Claude mod and the Pi extension:** the host APIs differ (`$.process.run` against `node:child_process`). The duplicated reply handling is better removed by having core return the pending stages from `arm` and `status` (GitHub #549; see [Structural debt](#structural-debt)).
 
 ## D-idle-config — Separate `[notify]` / `[idle]` namespaces, standard precedence
 
@@ -720,36 +426,6 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
   (`2c7c7f78`): review rejected it as a second seam for one concept. Folding
   `run` into `env_defaults` keeps one place where adapter defaults live and one
   missing-or-blank rule in `build_harness_child_env` (`bac44c01`).
-
-## D-notify-smtp-password-file — SMTP password from a file, env as leaky fallback
-
-**Decision (U3):** `[notify] smtp_password_file` (a path to a 0600 file)
-is the primary mechanism. `MERIDIAN_NOTIFY_SMTP_PASSWORD` is accepted only when
-no file is set, and is documented as leaky.
-
-**Why:** `meridian notify` runs inside the harness process (called by the
-Claude mod, the Pi extension or an agent), so it sees only the harness child
-env. Meridian strips `MERIDIAN_SECRET_*` from every harness child, primaries
-included, so the secret mechanism can never reach in-session tooling (see
-[Launch System](../architecture/launch-system.md#child-env-boundaries)). A plain
-`MERIDIAN_NOTIFY_SMTP_PASSWORD` does get through, but every spawn inherits
-it and any agent that runs `env` can copy it into a transcript. A Gmail app
-password is a full-mailbox credential.
-
-**Rejected:**
-
-- **`MERIDIAN_SECRET_NOTIFY_SMTP_PASSWORD`:** stripped before the harness
-  starts, so in-session email would always fail.
-- **The env var as the primary mechanism:** it is inherited by every spawn.
-- **ntfy's email forwarding as an email channel:** not built. It would need a
-  role-aware result contract.
-
-## D-notify-from-spawns — Spawns may notify; idle automation stays primary-only
-
-**Decision (U2):** Any agent, spawn included, may call `meridian notify`
-deliberately. A meridian-base prompt rule says when: blocked on a decision,
-long work done, or a failure; not for routine progress. Idle push, warn and
-compaction run only in primaries.
 
 ## Structural debt
 
@@ -858,7 +534,7 @@ live yet.
   confirmation. A layout change makes every Codex compaction veto with
   `screen-not-recognized` (loud, one notice per stretch); a Ctrl+C change can
   quit or interrupt Codex
-  ([D-idle-compact-over-drafts](#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
+  ([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
 
 ## Sources
 

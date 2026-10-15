@@ -65,7 +65,7 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   rollout record is observed. An unrecognized screen is re-read for about 10 s,
   then vetoed as `screen-not-recognized` without sending a key. Why the clear
   is gated this way is in
-  [D-idle-compact-over-drafts](../decisions/idle-notifications.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text).
+  [D-idle-compact-over-drafts](../decisions/idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text).
   An empty composer appears as soon as any turn starts and is no evidence of
   completion (G2 K1).
 - **OpenCode 2.x** (PR #573, v0.9.9; probed on 2.0.28). Events reach the

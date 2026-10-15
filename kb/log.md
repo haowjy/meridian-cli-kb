@@ -10,14 +10,14 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   OpenCode 1.x compacts cold. 2.x `openai` is priced (c = 0.104, need ≈60k/44k).
   Recorded Pi "never" until haowjy/meridian-cli#593, the rejected sensor-level
   cost seam, and the user's patch-release choice despite the key rename.
-- New decision [D-idle-compact-over-drafts](decisions/idle-notifications.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)
+- New decision [D-idle-compact-over-drafts](decisions/idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)
   (PR #583): the draft guard is deleted on every harness. It records Codex's
   screen-gated Ctrl+C composer clear and why it is gated, plus the
   unreadable-screen retry and notice. Deleted the draft guard, the draft
   unknown-fact row and the "pane-based draft guard must remain" paragraph from
   [Idle notifications](decisions/idle-notifications.md), and the draft re-checks
   from [Idle adapters](architecture/idle-adapters.md).
-- [D-opencode-idle-v2](decisions/idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)
+- [D-opencode-idle-v2](decisions/idle-opencode-v2.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)
   gains the stream-lifetime decision (the primary stream reconnects for the
   primary's lifetime, and compaction is confirmed from durable data).
   D-idle-reopen-return is marked released in v0.10.3.

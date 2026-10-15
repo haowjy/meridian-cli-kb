@@ -287,7 +287,7 @@ module under `lib/harness`, including function bodies.
 enforced. Function-local imports and defaulted callbacks are the two ways around
 it. Inject the dependency without a default, as in the section above, and enforce
 the direction with an AST test that includes function bodies. See the
-[idle dependency boundary](../decisions/idle-notifications.md#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services).
+[idle dependency boundary](../decisions/idle-notify-channels.md#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services).
 Provenance: `work:idle-cache-notify`, `reviews/G2-review.md` K3.
 
 ---
@@ -396,7 +396,7 @@ release from 0.9.3 to 0.9.8. The #550 review had listed "if `session.status` /
 is fails-silent. It surfaced only when the user re-opened idle work for the
 other harnesses and the before-state check found no OpenCode idle state at
 all. Fix:
-[D-opencode-idle-v2](../decisions/idle-notifications.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)
+[D-opencode-idle-v2](../decisions/idle-opencode-v2.md#d-opencode-idle-v2--opencode-2x-gets-its-own-sensor-chosen-by-the-resolved-transport)
 (PR #573).
 
 **The lesson:**
