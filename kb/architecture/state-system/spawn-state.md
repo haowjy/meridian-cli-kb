@@ -18,6 +18,17 @@ spawn files. Provenance: `work:spawn-state-v2`, benchmark notes from the May
 2026 state-v2 campaign. These historical measurements are not current
 performance guarantees.
 
+**Listing today.** `spawn list`, `stats`, `children`, `@latest` and no-arg wait
+discover rows through the disposable history index (`indexed_spawn_scan`), not by
+reading every file. `spawn_store.list_spawns()`, which opens every `state.json`, is
+meant for recovery, `doctor` and retention. Two per-spawn paths still call it and
+break the [per-operation cost bar](../per-operation-cost.md):
+- session teardown on every launch (#612);
+- continue's live-observer check (#418 B3).
+
+Indexed reads still materialize every row before filtering, about 2 s at 12,000
+spawns (#600).
+
 ### Spawn Status Machine
 
 Status progression is v2 per-spawn state plus the current terminal set:

@@ -21,7 +21,7 @@ lineage-scoped: all spawns at any nesting depth inherit the same root chat ID.
 
 | Filter | Detail |
 |---|---|
-| `chat_id == MERIDIAN_CHAT_ID` | Only spawns belonging to this chat tree |
+| Owner chat (`owner_chat_id`, else `chat_id`) `== MERIDIAN_CHAT_ID` | Only spawns belonging to this chat tree |
 | Active status only | `queued`, `running`, or `finalizing` |
 | Self-exclusion | The current spawn (`MERIDIAN_SPAWN_ID`) is excluded from the wait set |
 | **Descendant-scoping** | When called from a nested spawn, only descendants of the caller are included (not siblings, ancestors, or the primary session) |
@@ -29,20 +29,32 @@ lineage-scoped: all spawns at any nesting depth inherit the same root chat ID.
 If `MERIDIAN_CHAT_ID` is unset (not running inside a harness session), the
 no-arg form returns an error — there is no meaningful chat scope to resolve.
 
+Since #599 (v0.10.8), the history index applies these filters in SQL. A root
+caller asks for active rows whose owner chat is `MERIDIAN_CHAT_ID`, and a nested
+caller asks for its active descendant projection. The traversal keeps terminal and
+archived ancestors, so active grandchildren under an archived parent are still
+found. The index only selects membership: each selected spawn is re-read from its
+authoritative `state.json` before wait decides it is pending. Before #599,
+discovery materialized every indexed row and filtered in Python (819 ms at 3,951
+rows; 95 ms warm after). This keeps discovery within the
+[per-operation cost bar](../architecture/per-operation-cost.md).
+
 If no pending spawns exist, the command returns immediately with a clean no-op
 message. That answer requires complete history-index coverage. Discovery reads
 the index for at most `QUERY_TIMEOUT` (2 s), even when the wait budget is 3000 s,
-so one discovery never holds the exclusive catch-up gate for the whole wait. Landing
-in PR #588: if the index is still busy, wait exits 0 with a checkpoint instead of an
-error, and the orchestrator re-runs it:
+so one discovery never holds the exclusive catch-up gate for the whole wait. Since
+#588 (v0.10.4), if the index is still busy, wait exits 0 with a checkpoint instead
+of an error, and the orchestrator re-runs it:
 
 ```
 Wait checkpoint after 0s.
 Discovery still pending (history index busy); run `meridian spawn wait` again.
 ```
 
-On `main` the same contention surfaces as `History index deadline exhausted` and
-exit 1 ([decision](../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
+Before v0.10.4 the same contention surfaced as `History index deadline exhausted`
+and exit 1 ([decision](../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
+On a freshly copied or cold index, the checkpoint can appear on every call until the
+first catch-up finishes.
 
 ### Descendant-Scoping in Nested Spawns
 
@@ -51,9 +63,9 @@ agent, not from the primary session), `spawn wait` restricts the wait set to
 **descendants of the caller only**. Siblings, ancestors, and the primary
 session are excluded.
 
-This is implemented via BFS from the caller's spawn ID through the
-`_collect_descendants()` tree walk in `ops/spawn/api.py`. The scope is then
-intersected with the active-status filter.
+Wait discovery gets this set from the history index's descendant projection,
+restricted to active rows (`_discover_pending_spawns` in `ops/spawn/api.py`). It
+then re-reads each selected row from authority.
 
 **Why this matters:** Without descendant-scoping, a tech-lead or orchestrator
 agent calling `spawn wait` would block on the primary session (which is running

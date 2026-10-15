@@ -184,6 +184,23 @@ exception, and deletion safeguards.
 
 ---
 
+## 16. Per-Spawn Operations Cost the Same at Any History Size
+
+Launch, finalize, wait, show, cancel and continue concern one spawn and one chat, so
+their cost must not grow with the project's session-log bytes, spawn count or chat
+count. Read the target's own files, or a bounded candidate set found by a keyed
+lookup and re-read from authority. Leave whole-project scans to explicit global
+commands and gated maintenance.
+
+**Why:** a history-proportional step on a per-spawn path degrades every busy project
+until something times out. #586's daily `spawn wait` failures were a full
+session-log fold under a lock, and a no-op launch took 9.1 s at 46.6 MB of history
+against 3.6 s at 1 MB. Spawn state v2 fixed the same shape for spawns in 2026-05.
+
+**Apply it:** measure work counts at two or more history sizes, not wall time.
+When narrowing a scan, keep every guarantee it gave. Known violators, the harness
+and the acceptance gate are on [per-operation cost](../architecture/per-operation-cost.md).
+
 ## Cross-References
 
 - [principles/invariants.md](invariants.md) — collected system invariants

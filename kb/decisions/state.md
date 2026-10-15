@@ -26,7 +26,7 @@ See [principles/design-principles.md](../principles/design-principles.md) for fu
 
 **Decision (original):** Spawn and session state is stored as append-only JSONL event logs, not a database or mutable JSON files.
 
-**Session state** still uses JSONL (see below). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
+**Session state** still uses one global JSONL log. A per-chat split is the accepted design, pending owner approval: see [D-session-per-chat-journals](#d-session-per-chat-journals). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
 
 **Constraints that drove the original JSONL design:**
 1. **Crash tolerance** — JSONL appends are atomic at the OS level: a partial write corrupts only the partial line, not any previous lines.
@@ -138,7 +138,13 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### D-spawn-run-identity: a spawn id names the conversation; each launch is a run (2026-10) {#d-spawn-run-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, nothing merged or shipped. Phases 1–2 (PR-A: run identity in storage, surfaces that resolve spawns to runs) are draft PR #587 (`feat/primary-keeps-spawn-id`, `096119fa5`). Phases 3–4 (PR-B: reopen, telemetry, hooks, vocabulary docs) are on the branch `feat/continue-keeps-spawn-id` (`c625a0918`), stacked on PR-A and pushed; no PR opened yet. On `main`, **every primary and child launch, `--continue` included, still mints a new bare `pN`**. Architecture, vocabulary and native-session-binding pages describe `main`, so they still show one spawn per launch and move when PR-B merges.
+**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, not merged. On 2026-10-15 the owner agreed to combine #587 (phases 1–2: run identity in storage, surfaces that resolve spawns to runs) and #590 (phases 3–4: reopen, telemetry, hooks, vocabulary docs) into one branch, `feat/spawn-identity` (`work:v010-followups` D26). It will open as one PR that replaces both. The reasons for combining:
+- #587 alone had no visible value, but it carried the v8 index rebuild, a bare-`pN` directory scan and an `@latest` regression;
+- CI releases every merge;
+- the cost fixes straddled the two PRs (the latest-run pointer's writer was in #590, its reader in #587);
+- it is one design.
+
+The branch adds fixes so it meets the [per-operation cost bar](../architecture/per-operation-cost.md): a latest-run head, a keyed owner lookup, `show pN` reading only its own runs, and session and parent reads moved out of `spawns_flock`. The correctness review found three blockers in those fixes ([lessons](../lessons/cost-cuts-and-safety-checks.md)), and fix pass 2 is in progress. On `main`, **every primary and child launch, `--continue` included, still mints a new bare `pN`**. Architecture, vocabulary and native-session-binding pages describe `main`, so they still show one spawn per launch and change when the combined PR merges.
 
 **Decision.** `--continue` reopens the spawn; `--fork` and `--from` create a new one. The rule is the same for primaries and children.
 
@@ -189,7 +195,7 @@ A reopen that fails before acquiring its session finalizes only the new run. Tha
 
 On every surface, `pN` labels the spawn and `pN.K` the run. `spawn show` heads with the spawn and names the exact run on its own line. The quit hint says `pN`. Telemetry and hook payloads carry the stable `spawn_id` and the exact `run_id`. `MERIDIAN_CHAT_ID` is the run's entry chat.
 
-**Revisit when:** the user reverses "continue keeps the id" before PR-B merges. Phases 1–2 change no behavior and still give a cleaner id boundary, so PR-A could ship alone. Also revisit if provenance drift from reopened spawns causes real confusion.
+**Revisit when:** the user reverses "continue keeps the id" before the combined PR merges, or provenance drift from reopened spawns causes real confusion.
 
 ---
 
@@ -282,7 +288,88 @@ O(1). The canonical dataset and timing provenance are recorded in
 - `decide_terminal_write()` is preserved as a pure function — application point shifted from read-time (v1 reducer) to write-time (v2 `write_state_locked()` mutator). The authority lattice and `CompleteSpawnOutcome` contract are unchanged.
 - Per-spawn locking in v2 eliminates the global `spawns.jsonl.flock` contention bottleneck.
 
-**Known remaining gap:** listing remains O(spawns) file reads. See the canonical measurement in [Architecture: State System](../architecture/state-system/spawn-state.md).
+**Known remaining gap:** sessions never got the same split; they are still one global log ([D-session-per-chat-journals](#d-session-per-chat-journals) is the accepted fix). Listing now goes through the history index, but two per-spawn paths still read every `state.json` ([spawn state](../architecture/state-system/spawn-state.md), [per-operation cost](../architecture/per-operation-cost.md)).
+
+---
+
+### D-session-per-chat-journals: per-chat session journals replace the global log (#418 design B, 2026-10) {#d-session-per-chat-journals}
+
+**Status:** accepted design, **pending the owner's formal approval; not built**. The
+owner chose option B ("redo PR 2") on 2026-10-15, and the design converged after two
+adversarial review passes (`work:v010-followups` D22, D25; design in that work item's
+`design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`). No B1 code is written
+before approval. #591 was closed as a duplicate of #418, which has owned this work
+since the 2026-07 thermo-nuclear audit.
+
+**Problem.** Session state is one global `sessions.jsonl`, and per-spawn operations
+replay it: 9 full-log reads per launch, and a no-op launch at 9.12 s with a 46.6 MB
+log ([session state](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-log)).
+It is the shape spawn state left in May 2026 ([spawn state v2](#spawn-state-v2-per-spawn-statejson-over-global-jsonl-2026-05)).
+The owner had believed sessions already lived in per-chat files. They never did.
+
+**Decision.**
+- **Per-chat journals.** Each chat gets an append-only journal,
+  `session-state/chats/<cN>.jsonl`, in today's row format. It is that chat's only
+  authority.
+- **Native-ID files.** The only facts that cross chats are keyed by native session
+  ID, in `session-state/native/<aa>/<sha256(id)>.jsonl`: `claim` rows naming the
+  chats, plus model observations.
+- **Locks.** Writers take a per-chat lock and at most one native lock. Readers take
+  no lock. This build never writes `sessions.jsonl`.
+- **Cutover.** A one-time split of `sessions.jsonl`, published by one rename. It is
+  lossless on the orange corpus (0 fold mismatches over 12,363 chats) and took
+  2.1–2.3 s.
+- **Absorb.** Rows that older builds still append to the legacy file are copied
+  into their journals at the next `meridian` command's entry point. The fast path
+  is one `stat`. Each copy is tagged `legacy_offset`, so a crash can't copy a row
+  twice. The POC was exactly-once under 55 `kill -9`s with a concurrent older writer.
+- **One fold rule.** An absorbed start that is older than the chat's accepted start
+  adds its generation without replacing it.
+
+Each per-run operation then reads its run row and one journal: 1.7 KB at p50, and
+1.2 ms to fold the largest real chat.
+
+**Settled specifics** (owner questions in `decision-B.md`; recommendations adopted
+in D25):
+- **Journal, not `state.json`.** #418 had literally prescribed
+  `sessions/<chat_id>/state.json`. Every consumer of chat state reads events, so a
+  state file would need a new derived schema and a read-modify-write on every
+  update, to save about 1 ms.
+- **Index bumps in sequence:** the spawn-identity PR ships index v8, B2 ships v9.
+- **Pre-B builds are unsupported for reads** against a cut-over runtime; their
+  writes are still absorbed. The cutover fails loudly on a read-only runtime.
+- **Corpus search cuts over other projects' runtimes** when it initializes them.
+- **Out of scope:** per-chat pruning, and the automatic archive's full scan.
+- **Deferred:** B4, retiring `sessions.jsonl` after 14 quiet days. Decide after B2
+  has run for two weeks.
+
+**PR slices**, each off `main` with its own merge approval:
+- **B1:** one read/append seam over today's log, keyed lookups, deletion of redundant
+  reads, plus an old-versus-new equivalence harness. No format change.
+- **B2:** the journals, cutover, absorb and index v9.
+- **B3:** observer rows, so continue's live-observer check stops scanning every
+  spawn.
+- **B4** (optional): retire the old file.
+
+**Rejected alternatives.**
+
+| Alternative | Why rejected |
+|---|---|
+| **A: offset sidecar.** Keep `sessions.jsonl` as the only authority and add disposable per-key offset files (round 2's pick) | It avoided an authority migration, but the owner's context removed most of that risk: one user, no backwards compatibility, and upgrade survivors that live hours, not days. A leaves the global log growing forever and needs an O(log) sidecar rebuild after every reboot (1.3 s at orange). Chats can't be pruned one at a time, and writers keep sharing one global lock |
+| **Ingest-on-observe** (round 1): every session-store entry ingests legacy growth, under a global ingest lock, with per-chat watermarks | It made session reads write and lock, which brought a deadlock class (review M1) and a global-lock tax on every call. It was about twice the code of absorb at entry points |
+| **Ignore older-build writes after the cutover** | It loses facts the user would notice and can't recover: about 2.4 native binds and 2.3 model selections per cutover. A run that bound after the upgrade can't be resumed natively, and `--continue` forgets its model. Pre-B worktrees sharing the live runtime keep writing for weeks, not hours. It was simpler by only about 80 lines |
+| **Wait for quiescence before cutting over** | It never fires while any pre-B worktree is in use, so the build would carry two live storage modes indefinitely. Spawn state v2 rejected a quiescence gate for the same reason |
+| **Literal `state.json` per chat** | See "Journal, not `state.json`" above |
+| **Keep the cross-chat archive witness check** | It never occurred (0 of 12,332 spawns), and the cutover reports any it finds |
+
+**Revisit if:** a chat journal grows large enough to matter (p99 is 11 rows, the max
+77), in which case compact that one file. Also revisit if absorb ever has to handle
+a legacy-file rewrite rather than appends. It currently absorbs nothing and warns.
+
+**Provenance:** `work:v010-followups` D19, D21, D22, D25; `design-591/` round 1–3
+designs and reviews (`review.md`, `review-r2.md`, `review-r3.md`, `review-B.md`,
+`review-B-r2.md`); design lead `spawn:p8040`; reviewers `spawn:p8059`,
+`spawn:p8066`; `chat:c7736`.
 
 ---
 

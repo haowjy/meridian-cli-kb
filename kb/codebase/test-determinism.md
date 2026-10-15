@@ -83,6 +83,36 @@ resulting thread and resource state directly; do not infer prompt cancellation
 or non-blocking behavior from an elapsed-time threshold. Event wait timeouts are
 hang guards, not behavioral assertions.
 
+## Wait on What the API Reports, Not on Its Persistence File
+
+A component that persists state and then adopts it in memory has a window where
+the file is ahead of the API. A test that polls the file, sees the new state, and
+then calls the API can land in that window. The API then answers from the old
+in-memory state, correctly.
+
+#606 was this case. `BashPublication` writes the terminal snapshot to
+`bash-records.json` atomically and only then adopts it in memory. That order is
+deliberate: a failed write must not leave memory ahead of disk. The
+notification-dedup test polled the file for a terminal record, then called
+`bash_manage output` once. Inside the window, `output` still saw `running`, so it
+correctly wrote no consumed mark, and the test failed. The product was right: the
+agent had been told "running", so a later completion notice was legitimate. The
+test failed twice in CI on one day and never locally (200/200 plain, 100/100 under
+load). An injected 100 ms delay between persist and adopt made it fail 20 of 20
+runs, which proved the window.
+
+The fix (PR #608, test-only) retries `output` until the status *it returns* is
+terminal, then asserts the mark. Between attempts it yields 10 ms. That is a poll
+inside a condition wait, not a fixed sleep: it lets the adoption task run even if
+`output` ever stops awaiting I/O. A 2 s deadline reports the attempt count and the
+last status. Rejected: reordering the product to adopt before persisting (that
+weakens failed-write semantics), and loosening the assertion (the test would stop
+guarding against double notification).
+
+**The rule.** Synchronize on the condition the code under test reads. If the
+assertion is about what an API does, wait on that API's own answer. A file, a log
+line or a sibling projection can lead or lag it.
+
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 
 Runs N worker processes under `multiprocessing.get_context("spawn")` with a ready barrier — every child arms before any is released, maximizing real contention.

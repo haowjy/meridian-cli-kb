@@ -47,7 +47,7 @@ Managed writers publish durable dirty-source intent before changing indexed file
 They do not depend on SQLite to complete the authoritative write. Catch-up captures
 a finite marker set, reads authority, commits the projection, and acknowledges only
 unchanged marker tokens, always under the source lock. Spawn and archive-catalog
-sources are also read under that lock. Landing in PR #588, the append-only
+sources are also read under that lock. Since #588 (v0.10.4), the append-only
 `sessions.jsonl` is the exception: when its writer holds the lock, catch-up projects
 to the committed end of one open inode and leaves the marker pending, so a reader
 never waits on a session writer. Incremental session catch-up loads only the chats
@@ -131,7 +131,7 @@ corpora and cache state.
 
 After any cold build, an ordinary read makes **one** catch-up attempt within the
 caller's deadline (`QUERY_TIMEOUT`, 2 s, by default). The cold build has its own
-budget, and the caller's deadline never cuts it short. Landing in PR #588,
+budget, and the caller's deadline never cuts it short. Since #588 (v0.10.4),
 contention raises `HistoryIndexBusy`, a subclass of `HistoryIndexIncomplete`.
 The index never retries internally and never answers from partial coverage.
 Corrupt or incompatible files, generation errors and real I/O or SQLite failures

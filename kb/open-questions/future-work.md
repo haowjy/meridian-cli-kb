@@ -49,27 +49,36 @@ the new build ("Restored metadata changed"). It is the same model coupling that 
 removed for record digests. Fix: hash the stored `historical_import` session event
 JSON. Reads and a first restore are unaffected.
 
-### Session-log and history-index scaling (#591, #592, #594)
+### Per-operation cost program
 
-**Status:** Open. These are follow-ups from #586 / PR #588.
-- [#591](https://github.com/haowjy/meridian-cli/issues/591) (`decision-needed`): spawn-start
-  paths still fold the whole `sessions.jsonl` under its writer lock, and the archiver
-  folds it once per candidate. The table and the likely per-chat-file shape are in
-  [session state](../architecture/state-system/session-state.md#sessionsjsonl-is-the-remaining-global-on-log).
-- [#592](https://github.com/haowjy/meridian-cli/issues/592): a cold index build holds the
-  catch-up gate for 2.4–5.7 s, mostly at upgrade time.
-- [#594](https://github.com/haowjy/meridian-cli/issues/594): every reader takes the
-  exclusive catch-up gate even when nothing changed. A no-change fast path would remove
-  the residual busy reads under many pollers.
+**Status:** Open. The bar (a per-spawn operation's cost must not grow with project
+history), the measured violators and the measurement method are on
+[per-operation cost](../architecture/per-operation-cost.md). This entry only lists
+the open issues and how they depend on each other:
 
-### Spawn-list scaling
-
-**Status:** Deferred until scale pressure recurs. Individual spawn reads are
-O(1), while listing is O(spawns) file reads. The measured migration dataset and
-timings live only in [Architecture: State System](../architecture/state-system/spawn-state.md); this page does not duplicate them.
-
-An index would require invalidation rules under concurrent writers, so the
-complexity is not justified without renewed evidence.
+- [#418](https://github.com/haowjy/meridian-cli/issues/418): sessions move to per-chat
+  journals. The design is accepted and pending owner approval
+  ([D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals)).
+  B3 also removes continue's O(spawns) live-observer scan. #591 was closed as its
+  duplicate.
+- [#612](https://github.com/haowjy/meridian-cli/issues/612): session teardown reads
+  every spawn's `state.json` on every launch. The fix is a chat-filtered index query
+  plus authoritative re-reads, after #594.
+- [#594](https://github.com/haowjy/meridian-cli/issues/594): no-change catch-up still
+  takes the exclusive gate and re-reads every active spawn.
+- [#600](https://github.com/haowjy/meridian-cli/issues/600): indexed reads materialize
+  every row; missing order indexes; work listings load everything before `limit`.
+- [#601](https://github.com/haowjy/meridian-cli/issues/601): `doctor` and lock GC scan
+  everything.
+- [#592](https://github.com/haowjy/meridian-cli/issues/592): a cold index build holds
+  the catch-up gate for 2.4–5.7 s.
+- [#595](https://github.com/haowjy/meridian-cli/issues/595) and
+  [#527](https://github.com/haowjy/meridian-cli/issues/527): the history-independent
+  floor (launch-bundle subprocess, background worker interpreter, cancel grace, CLI
+  imports).
+- **Untracked:** the automatic archiver folds the whole session log once per
+  candidate (612 folds, 4.7 s warm). #418 leaves it out of scope, and no issue
+  exists yet.
 
 ### D-003: Nested-Depth "After Reconciliation" Wording
 

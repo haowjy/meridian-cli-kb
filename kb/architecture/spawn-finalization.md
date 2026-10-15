@@ -146,27 +146,40 @@ async def arbitrate_terminal(
     timeout_task=None,
     budget_task=None,
     watchdog_task=None,
-    grace_seconds=0.5,
+    inactivity_task=None,
 ) -> ArbitrationDecision:
 ```
 
-**Priority order** (first trigger that fires wins):
+It waits for the first task to finish (`FIRST_COMPLETED`). Several tasks can be
+done in the same tick, so it then checks them in priority order:
 
-1. **Terminal frame** — explicit `meridian.spawn.stop` event from the harness (most authoritative)
-2. **Budget exceeded** — `budget_task` signals cost/token limit breach
-3. **Timeout** — `timeout_task` deadline exceeded
-4. **Watchdog** — report watchdog stopped the spawn after grace
-5. **Completion** — harness process exited; waits `grace_seconds=0.5s` for a late terminal frame
-6. **Signal** — SIGINT/SIGTERM received (lowest precedence)
+1. **Terminal frame**: an explicit `meridian.spawn.stop` event from the harness (most authoritative).
+2. **Budget exceeded**: `budget_task` signals a cost or token limit breach.
+3. **Timeout**: `timeout_task` deadline exceeded. If a terminal frame or completion has already resolved, that wins instead.
+4. **Watchdog**: the report watchdog stopped the spawn after the report grace period. It wins only if its result is `True`.
+5. **Inactivity**: the inactivity watchdog stopped a stalled spawn. It wins only if its result is `True`.
+6. **Completion**: the harness process exited. It uses a terminal frame that has already arrived, if there is one, and does not wait for a later frame.
+7. **Signal**: SIGINT/SIGTERM received (lowest precedence). If completion resolved in the same tick, completion wins.
 
-When completion fires, the arbitrator waits up to 0.5 seconds for a terminal frame before producing a completion decision. This handles the race where the harness emits a terminal frame just before the drain future resolves.
+**Watchdogs wake on completion (#605, v0.10.10).** Both watchdogs wait on the
+attempt's `completion_event` with a timeout (`_wait_for_event_or_timeout` in
+`streaming_runner.py`) instead of sleeping a full poll interval. A normal finish no
+longer waits up to 1 s for the report watchdog's next poll: exit to finalized went
+from 1,610 to 460 ms on the tiny corpus. The report grace wait is also capped by
+its remaining deadline.
+
+Because the watchdog now finishes in the same tick as completion, a watchdog
+returning `False` (it saw completion and stopped nothing) must not win: it would
+have won on every normal finish. `WATCHDOG` and `INACTIVITY` therefore mean "this
+task stopped the spawn". The old `watchdog_noop` flag was deleted because it became
+unreachable. The lesson is in
+[cost cuts that weakened safety checks](../lessons/cost-cuts-and-safety-checks.md#a-faster-wake-changed-arbitration-order-605).
 
 `ArbitrationDecision` fields:
-- `trigger` — which `TriggerKind` won
-- `terminal_outcome` — the `TerminalEventOutcome` if a terminal frame was received
-- `stop_required` — whether the caller must call `manager.stop_spawn()` 
-- `synthetic_status/exit_code/error` — values to use when `stop_required` and no terminal frame
-- `watchdog_noop` — True when the watchdog resolved without stopping the spawn
+- `trigger`: which `TriggerKind` won.
+- `terminal_outcome`: the `TerminalEventOutcome`, if a terminal frame was received.
+- `stop_required`: whether the caller must call `manager.stop_spawn()`. It is `False` for `WATCHDOG` and `INACTIVITY`, because those tasks already stopped the spawn.
+- `synthetic_status` / `synthetic_exit_code` / `synthetic_error`: the values to use when `stop_required` is set and no terminal frame arrived.
 
 Both `run_streaming_spawn()` and `_run_streaming_attempt()` delegate to `arbitrate_terminal()` — there is one arbitration point, not two slightly-different implementations.
 

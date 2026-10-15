@@ -3,6 +3,48 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-15 — Constant-time program, phase 1: #588/#599/#605/#608 shipped; #418 design B accepted (`work:v010-followups`)
+
+- New [per-operation cost](architecture/per-operation-cost.md): the owner's bar
+  (per-spawn operations don't grow with history); what #588 (v0.10.4), #599
+  (v0.10.8) and #605 (v0.10.10) fixed; the known violators by root cause with
+  issue numbers; the count-based measurement harness and acceptance gate. Added
+  design principle 16, which links to it.
+- New decision [D-session-per-chat-journals](decisions/state.md#d-session-per-chat-journals)
+  (#418 design B), marked "accepted design, pending the owner's approval; not built",
+  with rejected alternatives: the offset sidecar (A), ingest-on-observe, ignoring
+  older-build writes, waiting for quiescence, literal `state.json`. Added a decision
+  index row.
+- [Session state](architecture/state-system/session-state.md): the "remaining
+  O(n) log" section is rewritten as current truth. Sessions are one global log, not
+  per-chat. The empty `chats/` directory is a dead primitive. Lists the measured
+  per-launch readers and the #418 plan. #591 links are repointed to #418 here, in
+  history-storage, future-work, the state-system overview and contention-diagnosis.
+- Status corrections: #588 is shipped (v0.10.4), not "landing". Fixed in the
+  decision index, history-storage, codebase-cleanup (#546 was closed by #599),
+  portable-history, durability-and-locking and spawn-wait. D-spawn-run-identity now
+  records the combined #587+#590 branch (D26) and its review fix pass.
+- [Spawn wait](concepts/spawn-wait-barrier.md): SQL-scoped discovery plus an
+  authoritative re-read (#599); the descendant mechanism is corrected.
+- [Spawn finalization](architecture/spawn-finalization.md#terminal-arbitration-terminalarbitrator):
+  the arbitration section is rewritten for `main`. Added the inactivity trigger.
+  Removed the 0.5 s completion grace and `watchdog_noop` (both gone). Documented
+  the event-woken watchdogs (#605).
+- Lessons:
+  - [contention diagnosis](lessons/contention-diagnosis.md) is broadened to
+    "contention and cost diagnosis": count rather than time on a shared box, warm the
+    index, probe end to end;
+  - new [cost cuts that weakened safety checks](lessons/cost-cuts-and-safety-checks.md):
+    #605's arbitration order, and the combined-branch B1–B3 regressions;
+  - [test determinism](codebase/test-determinism.md): wait on what the API reports,
+    not on its persistence file (#606/#608).
+- [Future work](open-questions/future-work.md): the #591/#592/#594 entry is replaced
+  by a per-operation cost program list. The untracked archiver fold is recorded.
+  Deleted the stale "spawn-list scaling, an index is not justified" entry: the
+  history index exists, and the current listing cost is under #600 in
+  [spawn state](architecture/state-system/spawn-state.md).
+
+---
 ## 2026-10-15 — Primary terminal ownership and exit text (`work:native-terminal-primaries`, `work:relay-exit-text`)
 
 - New [architecture/primary-terminal-ownership.md](architecture/primary-terminal-ownership.md):

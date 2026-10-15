@@ -216,11 +216,11 @@ conversion. The index remains disposable metadata, not history authority.
 
 ### D-history-index-readers-never-wait-on-session-writers: shorten the holder, don't widen the wait (2026-10-15) {#d-history-index-readers-never-wait-on-session-writers}
 
-**Status:** Landing in PR #588 (`43e98ab6e`, rebased on v0.10.3, CI green), not
-merged as of 2026-10-15. Fixes #586 and supersedes the B7 slice of PR #546
+**Status:** Shipped in v0.10.4 (PR #588, merge `c0db78058`). Fixes #586 and
+supersedes the B7 slice of PR #546
 ([D-b7-via-546](codebase-cleanup.md#d-b7-via-546-the-spawn-wait-contention-failure-is-fixed-by-pr-546)).
-Until it merges, `main` folds the whole session log on every session append and reads
-every source under its writer lock.
+#546's other half, scoped no-arg wait discovery, shipped separately in v0.10.8
+(PR #599), which closed #546.
 
 **The symptom.** From 2026-10-12, agents hit this daily on 0.10.x:
 
@@ -343,9 +343,11 @@ and 5/30 failed. With 2 spawn-start bind writers that each still hold the lock f
 1.16 s, P95 43 ms and 0/30 busy.
 
 **Still open:**
-- [#591](https://github.com/haowjy/meridian-cli/issues/591): the remaining per-spawn
-  O(log) work under `sessions.jsonl.flock`; see
-  [session state](../architecture/state-system/session-state.md#sessionsjsonl-is-the-remaining-global-on-log).
+- [#418](https://github.com/haowjy/meridian-cli/issues/418) (absorbed #591): the
+  remaining per-spawn full-log reads, some under `sessions.jsonl.flock`; see
+  [session state](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-log)
+  and the accepted per-chat design,
+  [D-session-per-chat-journals](state.md#d-session-per-chat-journals).
 - [#592](https://github.com/haowjy/meridian-cli/issues/592): a cold build holds the
   catch-up gate for 2.4–5.7 s.
 - [#594](https://github.com/haowjy/meridian-cli/issues/594): every reader takes the
@@ -355,8 +357,9 @@ and 5/30 failed. With 2 spawn-start bind writers that each still hold the lock f
   command is startup imports and model construction, not index work.
 
 **Revisit if:** a second rewriter of `sessions.jsonl` appears that is not an atomic
-replace (the lock-free read assumes there is none), or #591 moves session authority
-to per-chat files (the lock-free projection then changes shape).
+replace (the lock-free read assumes there is none), or #418 B2 moves session
+authority to per-chat journals (index v9 makes each chat its own source, and this
+lock-free projection of `sessions.jsonl` goes away).
 
 **Provenance:** `work:v010-followups` `decisions.md` D11–D16; `lock-holders-588.md`
 (`spawn:p7970`); `session-fold-probe-588.md` (`spawn:p7975`); review `spawn:p7987`;

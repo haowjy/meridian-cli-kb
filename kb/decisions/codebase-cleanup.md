@@ -36,13 +36,13 @@ conflicts with the typing work.
 
 **Superseded 2026-10-15** by
 [D-history-index-readers-never-wait-on-session-writers](history-storage.md#d-history-index-readers-never-wait-on-session-writers),
-landing in PR #588 (#586). PR #546 stalled. The root cause below was incomplete, and
-#546's fix (retry within the wait budget) was rejected: retrying waited out the lock
-holder instead of shortening it. The holder was a full session-log fold under
-`sessions.jsonl.flock` on every session append. Still current: keeping B7 out of the
-cleanup program, and refusing to answer from stale discovery. #546 is to be closed
-with credit after #588 merges, which needs the user's OK. The record is kept for the
-fail-closed reasoning.
+shipped in v0.10.4 (PR #588, #586). PR #546 stalled. The root cause below was
+incomplete, and #546's fix (retry within the wait budget) was rejected: retrying
+waited out the lock holder instead of shortening it. The holder was a full
+session-log fold under `sessions.jsonl.flock` on every session append. #546's
+scoped-discovery half was ported as PR #599 (v0.10.8), whose merge closed #546.
+Still current: keeping B7 out of the cleanup program, and refusing to answer from
+stale discovery. The record is kept for the fail-closed reasoning.
 
 **Decision (2026-10-13):** B7 (`meridian spawn wait` failing with "History index has
 unresolved sources (7 files)" while six spawns started; a retry succeeded) is
@@ -284,7 +284,6 @@ the newline became the commit marker, is recorded with the state decisions:
 
 ## Revisit when
 
-- #588 merges: B7 is closed; drop it from the program's open list and close #546.
 - A phase-3/4 behavior change is signed off: record it here before its phase starts.
 - Someone needs spawn archiving again: design it fresh against current listings
   rather than restoring the deleted overlay.

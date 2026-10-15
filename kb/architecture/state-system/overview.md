@@ -67,7 +67,7 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 ## Pages in This Domain
 
 - [Spawn state](spawn-state.md) — per-spawn rows, status transitions, publication lifetime, and legacy migration
-- [Session state](session-state.md) — authoritative session journal, index projection, session files, and the remaining O(log) folds under the session lock (#591)
+- [Session state](session-state.md) — the global `sessions.jsonl` log (sessions are not per-chat yet), index projection, session files, its remaining full-log readers, and the accepted per-chat plan (#418)
 - [Native session binding](../native-session-binding.md) — immutable chat-to-native-key binding across harnesses
 - [Attempt facts and delivery](../attempt-facts-and-delivery.md) — emit path, per-harness one-turn folds, and the Pi lifecycle sidecar
 - [Portable history](portable-history.md) — transcript identity, dirty-source projection, verified ZIP retention, and inert restore
