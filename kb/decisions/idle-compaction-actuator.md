@@ -33,12 +33,17 @@ primer verification, retry window, veto reasons, and compaction-result
 observation are mechanism owned by
 [Idle Adapter Architecture](../architecture/idle-adapters.md#adapter-contracts).
 
-**Why the boundary is strict:** Codex 0.162.1 clears a non-empty composer with
-Ctrl+C, but an empty composer sends the key to the outer handler and can
-interrupt or quit Codex. The actuator therefore must recognize the focused
-composer and make it non-empty before clearing it; an unreadable screen must
-veto rather than send a key. The core, not the adapter, decides that the
-`screen-not-recognized` veto gets one push notice.
+**Why Ctrl+C, and why it is gated:** Codex 0.162.1 has no single key that
+clears a multi-line composer: Ctrl+U deletes only to the start of the line.
+Ctrl+C clears the whole composer, attachments included, but only when the
+composer is non-empty. On an empty composer the key falls through to the outer
+handler, which interrupts running work or quits Codex, and this release has
+the double-press quit confirmation disabled. So the actuator must recognize the
+focused composer and make it non-empty before clearing it. The primer `ix`
+works in normal and Vim mode (`i` enters insert mode). An unreadable screen
+vetoes rather than sends a key. The core, not the adapter, decides that the
+`screen-not-recognized` veto gets one push notice (user decision); other vetoes
+and failures keep the generic compaction notice.
 
 **Verified live** (codex-cli 0.162.1, `gpt-5.6-luna`, scratch homes):
 
@@ -59,6 +64,11 @@ remain in the architecture contract linked above.
 - **Keeping the guard with a better OpenCode pane parser.** A parser was built
   (`spawn:p7902`) and then deleted unmerged. It still depended on the pane, and
   the user preferred compaction.
+- **An ungated clear** (busy recheck, `ix`, Ctrl+C, `/compact`; the first
+  implementation). It passed a live draft probe, but review sent it back: with
+  a modal or the agents overview open, the keys go there instead, and an
+  unprimed Ctrl+C quits or interrupts Codex. The deleted empty-`›` draft check
+  had been keeping those screens out by accident. The layout gate replaced it.
 - **Silent vetoes for an unreadable Codex screen.** Compaction would stop
   without the user knowing. One notice per stretch costs little.
 

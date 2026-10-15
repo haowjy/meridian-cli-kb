@@ -27,11 +27,27 @@ and scratch state.
 | Harness | Arms on | TTL source | Stages | Last verified |
 |---|---|---|---|---|
 | Claude | mod: `turn.complete` | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn, compact | Replay on installed 0.9.8, 2026-10-14: `ttl=3600`, all three stages for a session that had changed directory. Idle compaction fired live once, 2026-10-12 (session `c64e02c6`, `compact: ok`). |
-| Pi | extension: `agent_end` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn, compact on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with all stages; `xai` push only. |
+| Pi | extension: `agent_end` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn, compact scheduled on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise. The compact stage skips as `not-worth-it` unless `compact_min_growth_tokens` is set ([why](../decisions/idle-compaction-growth-floor.md#pi-stays-never-until-in-context-compaction-ships)) | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with all stages scheduled; `xai` push only. Meridian-initiated compaction ran live on Pi 1.2.0 under the pre-v0.10.6 floor (41.9k → 29.5k; Pi keeps the newest 20k), `work:idle-close-no-compact` `evidence/probe-pi-control-2.md`. |
 | Codex | `notify` callback on turn completion, pinned to the recorded thread | `[harness.codex.idle] ttl_seconds` default 1800, estimated | push, warn, compact | Idle compaction fired live 2026-10-14 (`spawn:p7893`, `gpt-5.6-luna`, `compacted` marker). Composer clear, popup veto, resize and unreadable-screen notice probed live on codex-cli 0.162.1, 2026-10-15. |
 | OpenCode 2.x | V2 sensor: `session.execution.{succeeded,failed,interrupted}` | provider read from `GET /api/session/{id}` at turn end; `openai` → 1800 est., everything else unknown | `openai`: push, warn, compact. Others: push only | Released in v0.9.9 (PR #573); the stream fix shipped in v0.10.5. Live with opencode 2.0.28: `openai/gpt-6-luna` → all three stages with 1800 s offsets; other providers → push only; steer and queued prompts close the stretch. Meridian-initiated compactions ran live 2026-10-14 (`spawn:p7902`, `spawn:p7914`); the break-even rule on `openai` has not fired live. Released ≤0.9.8 arms nothing on 2.x. |
 | OpenCode 1.x | frozen V1 sensor: `session.idle` | none (V1 never reports a provider) | push only | Probed live on 1.18.32 when the adapter was built (2026-10-08). Not re-run in phase 2; dispatch to it is covered by unit tests. |
 | Cursor | — | — | none | No primary path. |
+
+### Hosts and actuators
+
+Why each adapter runs where it does is in
+[D-idle-adapter-hosting](../decisions/idle-notifications.md#d-idle-adapter-hosting--where-each-adapter-runs).
+
+| Harness | Adapter host | How it gets there | Compacts with |
+|---|---|---|---|
+| Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` |
+| Pi | bundled `meridian-idle` extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` |
+| Codex | `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: screen-gated composer clear, `/compact`, Enter; `ok` on a new `compacted` rollout record |
+| OpenCode | task in the attach launcher | bundle hook `primary_idle_sensor`; V1 or V2 sensor from the connection's resolved version | 2.x: `POST /api/session/{id}/compact`. 1.x: `POST /session/{id}/summarize` with the session's current model |
+
+The launcher task's lifecycle (started after the TUI, cancelled and awaited
+before the connection stops, compaction as its own task) is in
+[Launch System](launch-system.md).
 
 ## Adapter contracts
 
@@ -59,8 +75,14 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   length, not a non-empty list. Push and warn are skipped while the pane shows
   Codex working, because Codex has no return signal until the turn ends
   (G2 K2). The actuator (`codex_idle.py`) requires the focused-composer layout
-  of codex-cli 0.162.1, types the primer `ix` and verifies it, sends Ctrl+C to
-  clear the composer, confirms it is empty, types `/compact`, verifies it,
+  of codex-cli 0.162.1, read bottom-up from the pane: two blank rows above a
+  column-zero `›` prompt, indented continuation rows, a blank bottom margin, a
+  non-empty indented status row, and a footer ending `… for shortcuts` (empty
+  composer) or blank (draft). A slash popup takes the blank rows; modals, the
+  agents overview and transcript views replace the footer; so none of them
+  match. It rejects `Working (`, types the primer `ix` and verifies the text
+  is exactly the old text plus `ix`, re-checks busy and liveness, sends Ctrl+C
+  to clear the composer, confirms it is empty, types `/compact`, verifies it,
   presses Enter, and reports `ok` only when a newly appended `compacted`
   rollout record is observed. An unrecognized screen is re-read for about 10 s,
   then vetoed as `screen-not-recognized` without sending a key. Why the clear

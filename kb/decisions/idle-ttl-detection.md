@@ -9,8 +9,9 @@ idle notifications: Claude, Pi, and OpenCode 2.x.
   `da1250a0f`). Verified on the installed 0.9.8 with scratch state: a Claude
   session that had moved directories now detects `ttl=3600` exactly and gets
   push, warn and compact; on 0.9.7 the same session gave `ttl=None`, push only.
-  Pi `openai-codex` gets 1800 s estimated and all stages; Pi `xai` gets push
-  only.
+  Pi `openai-codex` gets 1800 s estimated and all stages scheduled; Pi `xai`
+  gets push only. Since v0.10.6 Pi's compact stage skips as `not-worth-it`
+  ([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#pi-stays-never-until-in-context-compaction-ships)).
 - OpenCode provider TTL (D7) shipped in v0.9.9 (PR #573). Builds up to 0.9.8
   still carry the 300 s OpenCode default.
 - The user confirmed D5 and D7 (1800 s on the ChatGPT backend) on 2026-10-14.
@@ -124,6 +125,8 @@ user docs say the same (`docs/configuration.md` idle section).
 - **Leaving Pi `openai-codex` unknown**, which the research recommended: it
   would make Pi on the ChatGPT backend the one route where warn and compact
   never fire, while the Codex harness on the same backend schedules both.
+  The warning is the part that still matters: since v0.10.6 the break-even
+  rule skips Pi's compaction on every route.
 
 ## OpenCode provider TTL
 

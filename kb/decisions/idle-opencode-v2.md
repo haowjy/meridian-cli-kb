@@ -71,8 +71,12 @@ as `failed` after 300 s) and later turns were never seen either. Each 2.x
 session got at most one idle stretch. The decision is that stream lifetime
 follows the consumer: spawns retain stall → reconcile → terminal → end, while a
 managed primary reconnects for its lifetime and never synthesizes a terminal.
-A compaction missed during a reconnect is confirmed from durable completion
-data. The exact reconnect, timeout, and durable-data checks are in
+The mode comes from the existing `_primary_observer_mode`; review rejected a
+new `EventStreamLifetime` enum as a second name for the same fact. A
+compaction missed during a reconnect is confirmed from durable data. The check
+requires the compaction message to be `completed`, not just present, because
+OpenCode writes that message at admission. The exact reconnect, timeout, and
+durable-data checks are in
 [Adapter contracts](../architecture/idle-adapters.md#adapter-contracts).
 
 Live check: a Meridian-initiated compaction came back `ok` with a native

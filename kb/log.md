@@ -29,6 +29,14 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   record.
 - Guard list renumbered to match `guards.py` (stale-anchor and not-scheduled
   listed separately).
+- Split `decisions/idle-notifications.md` (about 900 lines) by concern, keeping
+  every decision ID and heading: [idle-notify-channels](decisions/idle-notify-channels.md)
+  (leaf packages, notice context, SMTP password, spawns may notify),
+  [idle-opencode-v2](decisions/idle-opencode-v2.md), and
+  [idle-compaction-actuator](decisions/idle-compaction-actuator.md). The
+  per-harness hosting table moved to
+  [Idle adapters](architecture/idle-adapters.md#hosts-and-actuators), which owns
+  the mechanism; the decision pages keep the rationale and rejected options.
 
 ## 2026-10-15 — History-index readers stop waiting on session writers (`work:v010-followups`, PR #588 landing, #586)
 
