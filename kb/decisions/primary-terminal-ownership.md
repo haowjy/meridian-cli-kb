@@ -62,8 +62,9 @@ the per-harness selection and process-launch details.
 - **A PTY override for Codex/OpenCode.** The investigator proposed keeping one
   as an escape hatch. Rejected for simplicity; revisit only if native fails
   somewhere real.
-- **Moving Claude/Pi native too.** Their relay reads nothing for managed
-  interaction, but they resize fine. The owner kept the relay by choice, not
+- **Moving Claude/Pi native too.** Their relay reads nothing (no capture
+  without `--print`, session id fixed at launch, idle from transcript or
+  extension), but they resize fine. The owner kept the relay by choice, not
   because native mode is impossible; the mechanism page records what the relay
   still provides.
 - **Keeping the relay with fixed resize forwarding (option A, #596)** for these
@@ -129,10 +130,9 @@ environment details belong to the [process-scope mechanism](../architecture/proc
   RSS cost.
 - **Unknown birth time treated as "probably fine".** The watchdog kills by PID,
   and PID reuse makes that unsafe.
-
-Registering after spawn rather than using a pre-exec hook was also retained:
-the hook would run Python after fork in a threaded launcher and would still
-cover only one PID. See the [process-scope mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
+- **A pre-exec parent-death hook** to close the spawn-to-registration window.
+  It would run Python after fork in a threaded launcher and would still cover
+  only one PID. See the [process-scope mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
 
 **Follow-ups:** #609 (fold `platform/terminate.py` and
 `fallback.terminate_tree` onto `scope_termination`, leaving one termination

@@ -19,17 +19,12 @@ read nothing and caused bugs at the user-visible surface.
 
 **The lesson:** when a mechanism's justification is "we need it to observe X",
 check that X is still read through it. Here the honest answers are: Codex and
-OpenCode need no relay (they now run native), and Claude/Pi keep it only
+OpenCode need no relay (decided: they move to the native terminal on branch
+`feat/native-terminal-primaries`; `main` still relays them), and Claude/Pi keep it only
 because the owner saw no resize problems with them, not because anything
 depends on it. Keep terminal transport separate from
 [identity binding](../architecture/native-session-binding.md). Current model:
 [primary terminal ownership](../architecture/primary-terminal-ownership.md).
-
-> [!FLAG] **Needs human review**: This lesson says Codex/OpenCode "now run
-> native," while the linked architecture page says that implementation is on
-> an unmerged branch and `main` still relays all four primaries. Clarify whether
-> this lesson describes the decided branch design or shipped behavior. Flagged
-> 2026-10-15.
 
 ---
 

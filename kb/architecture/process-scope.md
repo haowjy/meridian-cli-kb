@@ -233,7 +233,7 @@ its backend. Windows starts none.
 
 - **Fail closed.** A scope with unknown birth time is refused. If registration
   fails, the child is terminated and the launch raises, and the same happens if
-  the watchdog cannot start. No harness child runs without a parent-death owner.
+  the watchdog cannot start. No managed backend or native TUI runs without a parent-death owner. Stdio children (`launch_managed_stdio()`: Claude, Pi, Cursor spawns) are not registered with a watchdog; their durable scope and the reaper own residue.
 - **Release after a confirmed stop.** Owners send `release` with the scope's
   `release_id` only after the child is stopped and reaped. Codex releases only
   after its backend stop is confirmed, so an uncertain stop stays covered.
@@ -249,12 +249,6 @@ its backend. Windows starts none.
   rejected: it would run Python after fork in a threaded launcher, and a
   PID-only death signal still misses wrapper descendants.
 
-> [!FLAG] **Needs human review**: This section says that no harness child runs
-> without a parent-death owner, while `codebase/harness-adapters.md` says
-> `launch_managed_stdio()` children (Claude, Pi, Cursor) have no parent-death
-> link and rely on durable scope/reaper cleanup. Confirm whether this watchdog
-> contract is limited to managed-primary and background backend launches or also
-> applies to stdio children. Flagged 2026-10-15.
 
 This replaced Linux `PR_SET_PDEATHSIG`, which reaches only the direct child.
 Codex's command is a Node wrapper, so the real `codex` TUI and app-server
