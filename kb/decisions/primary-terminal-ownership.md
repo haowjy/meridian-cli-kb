@@ -25,11 +25,10 @@ alternate screen. tmux read the second one as "restore the saved cursor".
 Commit `95d429f10` (in open PR #590) answered with `ESC[J`, which erased the
 leftover characters but also erased the harness's real exit text.
 
-**Decision:** Fix the cause. The relay tracks the child's alternate-screen
-state and sends `ESC[?1049l` only when the child exited while still inside it.
-Restore codes that don't move the cursor stay unconditional. After a harness
-exits, Meridian appends plain text only, never moving the cursor up and never
-erasing. While a TUI owns the terminal, Meridian writes nothing to it.
+**Decision:** Meridian appends its hint after a harness exits and never moves
+the cursor up or erases the harness's exit text. While a TUI owns the terminal,
+Meridian writes nothing to it. The relay-level fix is documented in the
+[current mechanism](../architecture/primary-terminal-ownership.md).
 
 **Rejected:** erasing the leftovers with `ESC[J`; scrubbing or rewriting
 harness exit text, including Codex's `resume <uuid>` reconnect line, in any
@@ -53,30 +52,25 @@ nothing needs it. For Codex and OpenCode, nothing does: Meridian observes them
 through its own backend connection, and the managed attach never captured TUI
 output.
 
-**Decision:**
-- Codex and OpenCode run native inherit: the TUI gets the launcher's stdio.
-  Claude and Pi stay PTY mediated.
-- The adapter declares the default mode. There is no user override: no real
-  users, one path. TTY detection no longer picks PTY for managed launches.
-- The mode is not persisted in launch-policy snapshots (D8). It is adapter
-  policy, not a user choice, so `--continue` uses the current default.
-- One mode type: `TerminalSurfaceMode` drives the process selector, and the
-  near-duplicate `ProcessSurfaceMode` was folded into it (D5).
+**Decision:** Codex and OpenCode run with native inherited stdio; Claude and Pi
+stay PTY mediated. The adapter owns the default terminal mode, with no user
+override or snapshot replay, and `TerminalSurfaceMode` is the single mode type.
+The [current mechanism](../architecture/primary-terminal-ownership.md) records
+the per-harness selection and process-launch details.
 
 **Rejected:**
 - **A PTY override for Codex/OpenCode.** The investigator proposed keeping one
   as an escape hatch. Rejected for simplicity; revisit only if native fails
   somewhere real.
-- **Moving Claude/Pi native too.** The tech lead proposed it after checking that
-  their relay reads nothing (no capture without `--print`; session id from
-  launch; idle from transcript or extension). The owner kept them on the relay
-  because they resize fine. It is a choice, not a constraint, and Pi already
-  declares native as supported.
+- **Moving Claude/Pi native too.** Their relay reads nothing for managed
+  interaction, but they resize fine. The owner kept the relay by choice, not
+  because native mode is impossible; the mechanism page records what the relay
+  still provides.
 - **Keeping the relay with fixed resize forwarding (option A, #596)** for these
   two harnesses. It fixes the symptom and keeps the byte path.
 
-**Cost accepted:** with no relay, a `kill -9`ed native TUI leaves stale screen
-bytes. Nobody runs a restore.
+**Cost accepted:** a `kill -9`ed native TUI can leave stale screen bytes; the
+accepted consequence is described in the [current mechanism](../architecture/primary-terminal-ownership.md).
 
 ---
 
@@ -85,18 +79,17 @@ bytes. Nobody runs a restore.
 **Status:** decided 2026-10-15 (work-item D2, confirmed by the long-stop
 investigation). On the native-terminal branch.
 
-**Decision:** the launcher and the native TUI share the shell's foreground
-process group. Meridian calls neither `setpgid` nor `tcsetpgrp` and installs no
-SIGTSTP, SIGTTIN, SIGTTOU or SIGCONT handler. Ctrl+Z is the TUI's own
-`kill(0, SIGTSTP)`, which stops launcher and TUI together, and `fg` resumes both.
-The launcher ignores SIGINT only while the TUI runs, through a no-op receiver
-on `SignalCoordinator`. SIGHUP/SIGTERM handling is unchanged.
+**Decision:** the shell remains the job-control owner: the launcher and native
+TUI share its foreground process group, and Meridian does not create a competing
+job-control implementation. The [current mechanism](../architecture/primary-terminal-ownership.md)
+records the signal windows and cancellation behavior.
 
 **Why the SIGINT receiver goes through `SignalCoordinator`:** the first version
 set `signal.signal(SIGINT, SIG_IGN)` directly. That bypassed the coordinator,
 which owns handler install and restore, so the restore could be lost. The
 receiver was first registered for all of `run()`, which swallowed Ctrl+C during
-backend startup. It now covers only the TUI's lifetime.
+backend startup. It now covers only the TUI's lifetime; the resulting ordering
+is in the [current mechanism](../architecture/primary-terminal-ownership.md).
 
 **Rejected:**
 - **A separate process group with `tcsetpgrp`.** That means writing
@@ -122,29 +115,13 @@ survived. `main` already leaks the inner app-server this way.
 
 **Decision:** on POSIX, each launcher starts one PID/birth-guarded watchdog
 before any child. It owns the backend's process group and the TUI's process
-tree, which can't be a process group because it shares the shell's. PDEATHSIG
-is removed everywhere. Background Codex/OpenCode spawns get the same watchdog
-for their backend.
+tree; PDEATHSIG is removed. Background Codex/OpenCode spawns use the same
+ownership model for their backend. Registration, release, and failure behavior
+are the [current mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
 
-- **Registration fails closed.** A scope with unknown birth time is refused.
-  If registration fails, the child is terminated and the launch aborts, so no
-  child exists without an owner.
-- **Release only after a confirmed stop.** An owner releases its scope by
-  `release_id` (required) only after the child is stopped and reaped. Codex
-  releases only after its backend stop is confirmed. A graceful launcher close
-  sends `shutdown`; EOF on the pipe without one means the launcher died.
-- **Register after spawn, not pre-exec.** There is a millisecond-scale window
-  between `Popen` and registration. A pre-exec hook would close it but would run
-  Python after fork in a threaded launcher, and would still cover only one PID.
-
-**Cost accepted:** the first watchdog imported Meridian's package initializers
-and used about 34 MB RSS per launcher. It was accepted for correctness, then cut
-to about 17 MB: the watchdog runs by file path with `python -S -OO`, imports
-only the stdlib, psutil and the dependency-free `scope_termination.py`, and gets
-a sanitized environment. Every inherited `PYTHON*` variable is stripped and
-`PYTHONPATH` is set explicitly. That last part was a blocker: with
-`PYTHONSAFEPATH` set, the script's directory dropped off `sys.path` and every
-Codex/OpenCode launch failed.
+**Cost accepted:** the watchdog's initial package imports cost about 34 MB RSS;
+the isolated implementation reduced that to about 17 MB. Its containment and
+environment details belong to the [process-scope mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
 
 **Rejected:**
 - **PDEATHSIG on the TUI**, and per-child watchdogs or PDEATHSIG elsewhere.
@@ -152,6 +129,10 @@ Codex/OpenCode launch failed.
   RSS cost.
 - **Unknown birth time treated as "probably fine".** The watchdog kills by PID,
   and PID reuse makes that unsafe.
+
+Registering after spawn rather than using a pre-exec hook was also retained:
+the hook would run Python after fork in a threaded launcher and would still
+cover only one PID. See the [process-scope mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
 
 **Follow-ups:** #609 (fold `platform/terminate.py` and
 `fallback.terminate_tree` onto `scope_termination`, leaving one termination
@@ -164,8 +145,9 @@ path), #610 (macOS instant-exit TUI reported as a link failure).
 **Status:** decided 2026-10-15 (work-item D9). On the native-terminal branch.
 
 **Decision:** a native primary run is cancelled (exit 130) if the launcher
-received SIGHUP/SIGTERM before it observed the TUI's exit, whatever the exit
-code. If the TUI's exit was observed first, the real result stands.
+received SIGHUP/SIGTERM before it observed the TUI's exit; if the TUI's exit
+was observed first, the real result stands. The recorder and teardown ordering
+are in the [current mechanism](../architecture/primary-terminal-ownership.md).
 
 **Why not exit codes:** a closed pane sends SIGHUP to the TUI as well as the
 launcher. OpenCode exits 0 on SIGHUP, so "the TUI died by signal" recorded a

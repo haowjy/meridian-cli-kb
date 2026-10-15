@@ -25,6 +25,12 @@ depends on it. Keep terminal transport separate from
 [identity binding](../architecture/native-session-binding.md). Current model:
 [primary terminal ownership](../architecture/primary-terminal-ownership.md).
 
+> [!FLAG] **Needs human review**: This lesson says Codex/OpenCode "now run
+> native," while the linked architecture page says that implementation is on
+> an unmerged branch and `main` still relays all four primaries. Clarify whether
+> this lesson describes the decided branch design or shipped behavior. Flagged
+> 2026-10-15.
+
 ---
 
 ## Why Managed Primary Attach for Codex

@@ -115,6 +115,7 @@ independent agent catalog.
 ## Related Pages
 
 - [Launch System](../architecture/launch-system.md)
+- [Primary Terminal Ownership](../architecture/primary-terminal-ownership.md) — per-harness interactive primary terminal surface
 - [Harness Adapters](../codebase/harness-adapters.md)
 - [Native Session Binding](../architecture/native-session-binding.md) — cross-harness identity plan, bind, and verification seams
 - [Composition Pipeline](composition-pipeline.md)

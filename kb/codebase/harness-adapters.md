@@ -291,6 +291,7 @@ change for other harnesses. The recorder protocol is unchanged.
 - [../decisions/native-session-identity.md](../decisions/native-session-identity.md)
 - [../architecture/native-session-binding.md](../architecture/native-session-binding.md)
 - [../architecture/launch-system.md](../architecture/launch-system.md) — how adapters plug into the launch factory
+- [../architecture/primary-terminal-ownership.md](../architecture/primary-terminal-ownership.md) — which primary TUIs use native inherited stdio versus the PTY relay
 - [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — policy/mechanism split mental model
 - [../concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — resolved harness-model projection at the effective native boundary
 - [../concepts/composition-pipeline.md](../concepts/composition-pipeline.md) — project_content() semantic IR pattern

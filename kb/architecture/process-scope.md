@@ -249,6 +249,13 @@ its backend. Windows starts none.
   rejected: it would run Python after fork in a threaded launcher, and a
   PID-only death signal still misses wrapper descendants.
 
+> [!FLAG] **Needs human review**: This section says that no harness child runs
+> without a parent-death owner, while `codebase/harness-adapters.md` says
+> `launch_managed_stdio()` children (Claude, Pi, Cursor) have no parent-death
+> link and rely on durable scope/reaper cleanup. Confirm whether this watchdog
+> contract is limited to managed-primary and background backend launches or also
+> applies to stdio children. Flagged 2026-10-15.
+
 This replaced Linux `PR_SET_PDEATHSIG`, which reaches only the direct child.
 Codex's command is a Node wrapper, so the real `codex` TUI and app-server
 outlived the launcher. Rationale:

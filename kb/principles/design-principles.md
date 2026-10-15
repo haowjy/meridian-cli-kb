@@ -116,6 +116,12 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **In Meridian:** Codex and OpenCode primaries are observed through Meridian's own connection to the harness backend, so their TUIs run on the user's real terminal with nothing in between. Meridian writes nothing to a terminal while a TUI owns it, and it never covers a harness's exit text; its own hint is appended below. The PTY relay that once sat in front of every primary was justified as observation ("Claude only shows its session ID on a TTY"), outlived that reason, and caused resize and exit-text bugs. See [primary terminal ownership](../architecture/primary-terminal-ownership.md). Any intrusive code should be justified against a specific unobservable-otherwise constraint, and re-checked when that constraint goes away.
 
+> [!FLAG] **Needs human review**: This paragraph presents native Codex/OpenCode
+> primaries as current behavior, while the linked architecture page says the
+> implementation is on an unmerged branch and `main` still relays all four
+> primaries. Clarify whether this principle describes the decided design or
+> shipped behavior. Flagged 2026-10-15.
+
 ---
 
 ## 11. Idempotent Operations
