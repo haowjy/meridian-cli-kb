@@ -49,6 +49,19 @@ the new build ("Restored metadata changed"). It is the same model coupling that 
 removed for record digests. Fix: hash the stored `historical_import` session event
 JSON. Reads and a first restore are unaffected.
 
+### Session-log and history-index scaling (#591, #592, #594)
+
+**Status:** Open. These are follow-ups from #586 / PR #588.
+- [#591](https://github.com/haowjy/meridian-cli/issues/591) (`decision-needed`): spawn-start
+  paths still fold the whole `sessions.jsonl` under its writer lock, and the archiver
+  folds it once per candidate. The table and the likely per-chat-file shape are in
+  [session state](../architecture/state-system/session-state.md#sessionsjsonl-is-the-remaining-global-on-log).
+- [#592](https://github.com/haowjy/meridian-cli/issues/592): a cold index build holds the
+  catch-up gate for 2.4–5.7 s, mostly at upgrade time.
+- [#594](https://github.com/haowjy/meridian-cli/issues/594): every reader takes the
+  exclusive catch-up gate even when nothing changed. A no-change fast path would remove
+  the residual busy reads under many pollers.
+
 ### Spawn-list scaling
 
 **Status:** Deferred until scale pressure recurs. Individual spawn reads are

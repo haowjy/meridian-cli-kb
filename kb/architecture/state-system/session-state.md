@@ -17,9 +17,50 @@ records its outcome in `legacy-native-import-v1.json` at the runtime root.
 `sessions.jsonl` is the sole authority for these facts. There is no session SQLite
 index: `session_store` replays the journal on each read. `get_session_record` and
 `get_session_records` filter events down to the requested chats before folding, so a
-one-chat lookup does not fold the whole journal. `list_all_session_records` folds
-everything. A `sessions-index.sqlite3` or `sessions-append-state.json` found in an old
-runtime root was left by an older build; no current code reads either one.
+one-chat lookup does not fold the whole journal, but it still reads and parses every
+line. `list_all_session_records` folds everything. A `sessions-index.sqlite3` or
+`sessions-append-state.json` found in an old runtime root was left by an older build;
+no current code reads either one.
+
+Restored sessions are immutable. Landing in PR #588, restore mints their generation
+with the reserved `historical-` prefix, and the append guard checks the event's own
+generation in O(1). On `main` the guard still folds the whole log under the writer
+lock on every update, stop and model-selection append. The prefix rules are enforced
+at append time only, never in replay, so an older build's unprefixed restore cannot
+fail every read
+([decision](../../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
+
+## `sessions.jsonl` is the remaining global O(n) log
+
+Every chat in a runtime appends to one file, and it only grows: 46.6 MB and 18.9 MB
+on the development box in October 2026. Spawn state left this shape in May 2026.
+Replaying the global `spawns.jsonl` made every status read O(total history), and its
+one flock serialized every writer. Each spawn now owns `spawns/<id>/state.json` with
+its own lock
+([spawn state v2](../../decisions/state.md#spawn-state-v2-per-spawn-statejson-over-global-jsonl-2026-05)). Sessions never got that split. Any
+path that folds the whole log costs time proportional to every chat that ever ran,
+and if it holds `sessions.jsonl.flock` it serializes every other session writer.
+
+The rule to keep is that no per-spawn path replays `sessions.jsonl` while holding
+`sessions.jsonl.flock`. #588 removes the worst violator (the append guard, about four
+folds per spawn) and stops history-index readers from waiting on the lock at all.
+Several paths still violate the rule, tracked in
+[#591](https://github.com/haowjy/meridian-cli/issues/591):
+
+| Path | When | Cost at 46.6 MB |
+|---|---|---|
+| `SessionBindings.__init__` | once per spawn or primary start (native-ID bind), repair, legacy import | 1,157 ms median hold |
+| `start_session()` lookups | every start | full fold under the lock |
+| `record_model_selection()` / `record_model_observation()` dedup | model events | full fold under the lock |
+| `get_or_create_observed_chat()` | observed-chat binding | full fold under the lock |
+| Automatic archiver, one fold per candidate (no lock on the log) | each archiver run | 612 folds, 4.7 s warm, >20 s cold |
+
+Since #588, these paths add latency to spawn start but no longer stall index
+readers. The fix is a design decision (`decision-needed` on #591). Binding conflict
+checks may need every chat's records, so a per-chat read alone may not be enough.
+The likely shape is per-chat session files that follow the per-spawn `state.json`
+precedent, or a compacted log. Either way, the projection must stay rebuildable from
+files (files as authority).
 
 Two disposable projections sit beside the journal. Neither holds a fact the journal
 lacks:

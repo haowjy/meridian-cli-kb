@@ -298,6 +298,9 @@ For source-size changes, state whether generated files, fixtures, and moves are
 included. For performance, distinguish cold/warm runs and dataset size. Other
 pages should link to the canonical measurement rather than copying it.
 
+Before widening a timeout or adding retries, measure the uncontended cost and
+find the holder; see [contention diagnosis](contention-diagnosis.md).
+
 ## From Repeated Finding to Redesign
 
 When the same class recurs in one function or pipeline, stop repairing branches.

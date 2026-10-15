@@ -3,6 +3,36 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-15 — History-index readers stop waiting on session writers (`work:v010-followups`, PR #588 landing, #586)
+
+- Added [D-history-index-readers-never-wait-on-session-writers](decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)
+  and its [decision index](decisions.md) row. It covers the measured holders, the O(1)
+  `historical-` prefix guard (with the rejected sidecar, prefilter and drop-the-guard
+  options), prefix rules at append time only, the lock-free sessions projection with
+  lock-only acknowledgement, touched-chat catch-up, one bounded attempt (the 15 s retry
+  budget is rejected), an owned sticky cold build for every caller, and no-arg wait
+  discovery capped at `QUERY_TIMEOUT`.
+- Superseded [D-b7-via-546](decisions/codebase-cleanup.md#d-b7-via-546-the-spawn-wait-contention-failure-is-fixed-by-pr-546)
+  in place. Its root cause was incomplete and #546's retry fix is rejected; the
+  fail-closed reasoning stays current. The index, overview and revisit trigger
+  were updated to match.
+- New lessons page [contention diagnosis](lessons/contention-diagnosis.md): measure the
+  holder before widening a timeout; check a cause ranking against the protocol;
+  pending-source labels can name a bystander. Linked from
+  [measurement discipline](lessons/verification-and-review-discipline.md#measurement-discipline).
+- Current truth, marked "landing in #588":
+  - [portable history](architecture/state-system/portable-history.md): the
+    source-lock exception for sessions, and the one-attempt read budget;
+  - [session state](architecture/state-system/session-state.md): the O(1) guard,
+    plus a new section on `sessions.jsonl` as the remaining global O(n) log (#591,
+    with the per-spawn `state.json` precedent);
+  - [durability and locking](architecture/state-system/durability-and-locking.md):
+    the append guard;
+  - [spawn wait](concepts/spawn-wait-barrier.md): the discovery cap and the
+    discovery-pending checkpoint;
+  - [future work](open-questions/future-work.md): #591, #592, #594.
+
+---
 ## 2026-10-14 — Spawn/run identity decided; phases 1–2 built locally (`work:primary-spawn-identity`)
 
 - Added [D-spawn-run-identity](decisions/state.md#d-spawn-run-identity) and its

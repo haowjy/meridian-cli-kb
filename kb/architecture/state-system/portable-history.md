@@ -45,9 +45,15 @@ and neither is a runner event stream.
 
 Managed writers publish durable dirty-source intent before changing indexed files.
 They do not depend on SQLite to complete the authoritative write. Catch-up captures
-a finite marker set, reads authority under the corresponding source lock, commits
-the projection, and acknowledges only unchanged marker tokens. Rebuild uses the
-same projectors rather than a second interpretation path.
+a finite marker set, reads authority, commits the projection, and acknowledges only
+unchanged marker tokens, always under the source lock. Spawn and archive-catalog
+sources are also read under that lock. Landing in PR #588, the append-only
+`sessions.jsonl` is the exception: when its writer holds the lock, catch-up projects
+to the committed end of one open inode and leaves the marker pending, so a reader
+never waits on a session writer. Incremental session catch-up loads only the chats
+that new events touch
+([decision](../../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
+Rebuild uses the same projectors rather than a second interpretation path.
 
 The index can hold discovery metadata, aliases, relationships, independent loose or
 ZIP locations, and bounded preview checkpoints. It must not become a full
@@ -122,6 +128,20 @@ performs the under-lock recheck, publishes once for concurrent callers, and reco
 from non-sticky interruption.
 These results establish behavior, not a controlled speed improvement across changing
 corpora and cache state.
+
+After any cold build, an ordinary read makes **one** catch-up attempt within the
+caller's deadline (`QUERY_TIMEOUT`, 2 s, by default). The cold build has its own
+budget, and the caller's deadline never cuts it short. Landing in PR #588,
+contention raises `HistoryIndexBusy`, a subclass of `HistoryIndexIncomplete`.
+The index never retries internally and never answers from partial coverage.
+Corrupt or incompatible files, generation errors and real I/O or SQLite failures
+are still fatal, not busy. An uncontended catch-up costs milliseconds to about
+0.2 s, so a busy result means a reader queued behind a lock holder. The fix for
+that is a shorter holder, not a longer wait
+([decision](../../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
+No-arg `spawn wait` caps its discovery read at `QUERY_TIMEOUT`, and reports a
+discovery-pending checkpoint when busy
+([spawn wait](../../concepts/spawn-wait-barrier.md#no-arg-wait-by-chat-lineage)).
 
 ## Bounded preview projection
 

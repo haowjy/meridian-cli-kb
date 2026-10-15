@@ -30,7 +30,19 @@ If `MERIDIAN_CHAT_ID` is unset (not running inside a harness session), the
 no-arg form returns an error — there is no meaningful chat scope to resolve.
 
 If no pending spawns exist, the command returns immediately with a clean no-op
-message.
+message. That answer requires complete history-index coverage. Discovery reads
+the index for at most `QUERY_TIMEOUT` (2 s), even when the wait budget is 3000 s,
+so one discovery never holds the exclusive catch-up gate for the whole wait. Landing
+in PR #588: if the index is still busy, wait exits 0 with a checkpoint instead of an
+error, and the orchestrator re-runs it:
+
+```
+Wait checkpoint after 0s.
+Discovery still pending (history index busy); run `meridian spawn wait` again.
+```
+
+On `main` the same contention surfaces as `History index deadline exhausted` and
+exit 1 ([decision](../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
 
 ### Descendant-Scoping in Nested Spawns
 

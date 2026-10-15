@@ -214,6 +214,154 @@ would make warm contention slower without fixing ownership or retry behavior.
 sticky busy/cancellation state, per-root 15-second resets, and destructive transcript
 conversion. The index remains disposable metadata, not history authority.
 
+### D-history-index-readers-never-wait-on-session-writers: shorten the holder, don't widen the wait (2026-10-15) {#d-history-index-readers-never-wait-on-session-writers}
+
+**Status:** Landing in PR #588 (`43e98ab6e`, rebased on v0.10.3, CI green), not
+merged as of 2026-10-15. Fixes #586 and supersedes the B7 slice of PR #546
+([D-b7-via-546](codebase-cleanup.md#d-b7-via-546-the-spawn-wait-contention-failure-is-fixed-by-pr-546)).
+Until it merges, `main` folds the whole session log on every session append and reads
+every source under its writer lock.
+
+**The symptom.** From 2026-10-12, agents hit this daily on 0.10.x:
+
+```
+$ meridian spawn wait
+error: History index deadline exhausted
+error: History index has unresolved sources: (...)
+```
+
+The first #588 design treated this as a budget problem: it classified contention
+as `HistoryIndexBusy` and retried catch-up in roughly 2 s attempts inside a 15 s
+overall budget. The user objected that even 2 s is too long for a metadata read. Measurement
+then showed that the budget was never the issue. An uncontended
+`HistoryIndex.spawns()` takes about 0.1 s, and catch-up takes 4–169 ms for 0–100
+changed sources (`spawn:p7970`). So a 2 s timeout always meant a reader was queued
+behind a lock holder. The holders were:
+
+1. **Every session update, stop and model-selection append replayed the whole
+   `sessions.jsonl` under `sessions.jsonl.flock`.** `_append_session_event` called
+   `list_session_generations()` (a full Pydantic fold) only to refuse mutation of
+   restored historical sessions (added in v0.5.0, `120b6d44b`). Hold time: 1,463 ms
+   at 46.6 MB, 786 ms at 18.9 MB, 77 ms at 1 MB, 16 ms with the fold patched out. That
+   is about four folding appends per spawn. With two writers, 5 of 30 readers failed,
+   and none failed without the fold (`spawn:p7975`). 14 of the 15 logged incidents
+   came from the runtime with the 46.6 MB log.
+2. **Readers waited on that lock while holding the exclusive catch-up gate.** The
+   `sessions` marker is one file per source and stays pending until acknowledged, so
+   a reader draining it waits through every later writer's fold, and every other
+   reader queues behind that reader. The slow fold ran *before* `mark()`, which is
+   why the first investigation ruled it out; see the
+   [lesson](../lessons/contention-diagnosis.md#check-a-cause-ranking-against-the-protocol).
+3. **Each reader catch-up re-validated every stored session row** (about 8k rows) under
+   that gate. `HistoryIndex._sessions()` loaded all `session_chats` and `sessions`
+   rows on any append.
+
+**Decision.** Fix the holders. A history-index read never waits on a session writer
+and does work proportional to what changed. Contention that remains is reported, not
+retried. The parts:
+
+- **An O(1) historical-session guard via a reserved generation prefix.** Restore is
+  the only place that mints a historical generation, and it now mints
+  `historical-<uuid hex>` (`session_fold.new_historical_generation`). The append guard
+  checks the event's own normalized generation and folds nothing. This is exact:
+  replay raises "Historical session authority contains a mutation" only when an event's
+  generation matches the historical record's, and that generation now carries the
+  prefix. Restore already minted a fresh chat ID and a uuid4 generation, so only
+  the string changed. The real logs held 0 `historical_import` events, so nothing
+  was migrated.
+  - *Rejected: a sidecar set of historical keys.* It is new derived state that must
+    stay consistent with the log.
+  - *Rejected: a byte-level prefilter scan.* It is still O(log size), and it
+    string-matches JSON.
+  - *Rejected: dropping the guard, or making replay ignore historical mutations.*
+    The documented invariant says restored generations are immutable at the append
+    boundary as well as in replay.
+- **The prefix rules apply at append time only, never in replay.** An import must
+  carry the prefix and a live start must not. Both checks run in
+  `_append_session_event`. Replay keeps only the "historical import must be inactive"
+  check and the mutation check. The review (`spawn:p7987`, `old_restore_bricks.py`)
+  showed what a replay-side prefix check would do: an unprefixed restore appended by
+  an older build would fail every indexed read and every `rebuild` on that runtime
+  permanently, because replay cannot skip a row. The check would add nothing, since
+  the mutation check already keys on `record_mode` plus a matching generation. An
+  older build's unprefixed restore bypasses the O(1) append guard but stays inert,
+  because operations refuse to continue or fork historical sessions.
+- **The sessions source is projected without the writer lock; acknowledgement
+  happens only under it.** This revises the invariant in the repo's
+  `lib/state/.context/history.md`. That invariant used to say that catch-up reads
+  every authority under its source lock. Now, when `sessions.jsonl.flock` is busy, catch-up projects to the committed end
+  of one open inode (`iter_jsonl_file` with a fixed extent) and leaves the marker
+  pending. The tech lead's ruling was that the invariant exists to protect
+  acknowledgement: never acknowledge a change you didn't see. That still holds. It is
+  safe because:
+  - the log is append-only and newline-committed;
+  - a read that overlaps an in-flight append can be linearized before that append;
+  - every completed append lies below EOF;
+  - the cursor advances only over committed rows.
+
+  The only rewriter, tail repair, is an atomic replace. A reader still holding the
+  old inode sees a consistent pre-rewrite file, and the cursor's inode/tail check
+  forces a full replay next time. The reviewer's `stress_l.py` tested this with 3
+  writers (split batches, torn tails) racing 3 readers: the incrementally caught-up
+  tables equalled a fresh `rebuild(reset=True)` in 3 of 3 runs. *Accepted cost:* one
+  read can see a committed prefix of a multi-line `SessionBindings.commit()` batch.
+  The index is a discovery projection, and lifecycle and control decisions read
+  session authority directly. Spawn and catalog sources keep locked reads. Their
+  writers hold the lock for 22–38 ms, and reading them unlocked could give a torn
+  multi-file view.
+- **Touched-chat catch-up.** Incremental `_sessions()` loads only the stored rows of
+  the chats that new events touch: 2 rows decoded instead of 40 in the pinning test.
+  Projection reads only the event's own chat, because fork lineage is copied from the
+  start event.
+- **One bounded attempt, not a retry budget.** `query()` and `catch_up()` make one
+  catch-up within the caller's deadline (`QUERY_TIMEOUT`, 2 s, by default).
+  Contention raises `HistoryIndexBusy`, a subclass of `HistoryIndexIncomplete`, so
+  existing handlers keep working. Incompatible baselines, coordination errors and
+  real I/O or SQLite errors still fail closed. `_source_lock` tells a held lock
+  (never latched) from an exhausted budget. *Rejected: the 15 s `_retry_busy`
+  budget.* It hid the holder and lengthened the catch-up queue for every other reader.
+- **Every caller gets an owned, sticky cold build.** An absent index always gets
+  one owned `INITIALIZATION_TIMEOUT` build, as
+  [D-history-index-initialization](#d-history-index-initialization) requires, for
+  every caller. A caller's deadline bounds only the catch-up after it. *Rejected
+  (reversed in round 3): letting a caller's deadline bound the cold build, unlatched.*
+  Descendant evidence polls every 0.25 s with a 2 s deadline. On an absent index it
+  would start and abort a cold build on every poll, holding the catch-up gate up to
+  2 s each time, where `main` did one owned build.
+- **No-arg `spawn wait` caps discovery at `QUERY_TIMEOUT`.** Discovery used to
+  receive the whole wait deadline (3000 s for Claude and Codex). One catch-up could
+  then hold the exclusive gate, plus the shared mutation and database locks, for up
+  to 50 minutes while it waited on a marked spawn lock. If discovery is still busy,
+  wait exits 0 with a checkpoint: `Discovery still pending (history index busy); run
+  \`meridian spawn wait\` again.` It never reports "no pending spawns" without
+  complete coverage. Answering from a stale projection stays rejected: it could miss
+  a just-created spawn.
+
+**Result** (copy of the 46.6 MB log, 240 spawn states, 30 reads): with no writers,
+P95 39 ms. With 2 update writers, P95 101 ms and 0/30 failed; `main` had P95 2,001 ms
+and 5/30 failed. With 2 spawn-start bind writers that each still hold the lock for
+1.16 s, P95 43 ms and 0/30 busy.
+
+**Still open:**
+- [#591](https://github.com/haowjy/meridian-cli/issues/591): the remaining per-spawn
+  O(log) work under `sessions.jsonl.flock`; see
+  [session state](../architecture/state-system/session-state.md#sessionsjsonl-is-the-remaining-global-on-log).
+- [#592](https://github.com/haowjy/meridian-cli/issues/592): a cold build holds the
+  catch-up gate for 2.4–5.7 s.
+- [#594](https://github.com/haowjy/meridian-cli/issues/594): every reader takes the
+  exclusive catch-up gate even when nothing changed. With 16 pollers, 1 of 37 CLI
+  reads is busy, the same as on `main`.
+- [#527](https://github.com/haowjy/meridian-cli/issues/527): about 0.8 s of each CLI
+  command is startup imports and model construction, not index work.
+
+**Revisit if:** a second rewriter of `sessions.jsonl` appears that is not an atomic
+replace (the lock-free read assumes there is none), or #591 moves session authority
+to per-chat files (the lock-free projection then changes shape).
+
+**Provenance:** `work:v010-followups` `decisions.md` D11–D16; `lock-holders-588.md`
+(`spawn:p7970`); `session-fold-probe-588.md` (`spawn:p7975`); review `spawn:p7987`;
+coders `spawn:p7978`, `spawn:p7986`, `spawn:p7988`, `spawn:p7989`; `chat:c7736`.
+
 ### D-history-index-schema-namespace: each index schema owns its own files; never migrate in place (2026-09-26) {#d-history-index-schema-namespace}
 
 **Status:** Shipped in v0.7.0 (PR #534, merge `3dae2434`; implementation commit
