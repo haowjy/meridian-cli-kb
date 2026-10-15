@@ -35,9 +35,9 @@ caller asks for its active descendant projection. The traversal keeps terminal a
 archived ancestors, so active grandchildren under an archived parent are still
 found. The index only selects membership: each selected spawn is re-read from its
 authoritative `state.json` before wait decides it is pending. Before #599,
-discovery materialized every indexed row and filtered in Python (819 ms at 3,951
-rows; 95 ms warm after). This keeps discovery within the
-[per-operation cost bar](../architecture/per-operation-cost.md).
+discovery materialized every indexed row and filtered in Python. The measured
+before/after cost is recorded on the [per-operation cost bar](../architecture/per-operation-cost.md).
+The SQL filter keeps discovery within that bar.
 
 If no pending spawns exist, the command returns immediately with a clean no-op
 message. That answer requires complete history-index coverage. Discovery reads
@@ -284,4 +284,10 @@ error.
 - [State Model](state-model.md) — JSONL event stores and crash-only design
 - `../operations/configuration-guide.md` — TOML config and env var reference
 - [Spawn Output Contract](spawn-output-contract.md) — what `spawn wait` prints when a single spawn completes; report-first default, transcript pointer, progressive disclosure
+- [Per-operation cost](../architecture/per-operation-cost.md) — discovery's
+  constant-time bar and measured acceptance evidence
+- [Session state](../architecture/state-system/session-state.md) — session
+  authority and the history-index source behind discovery
+- [Contention and cost diagnosis](../lessons/contention-diagnosis.md) — why wait
+  reports a checkpoint instead of hiding index contention
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md) — current provider TTL evidence and the open question behind the 3000-second default

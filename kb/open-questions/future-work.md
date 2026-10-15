@@ -77,8 +77,8 @@ the open issues and how they depend on each other:
   floor (launch-bundle subprocess, background worker interpreter, cancel grace, CLI
   imports).
 - **Untracked:** the automatic archiver folds the whole session log once per
-  candidate (612 folds, 4.7 s warm). #418 leaves it out of scope, and no issue
-  exists yet.
+  candidate. #418 leaves it out of scope, and no issue exists yet; see the
+  [per-operation cost inventory](../architecture/per-operation-cost.md).
 
 ### D-003: Nested-Depth "After Reconciliation" Wording
 

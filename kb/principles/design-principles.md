@@ -194,8 +194,9 @@ commands and gated maintenance.
 
 **Why:** a history-proportional step on a per-spawn path degrades every busy project
 until something times out. #586's daily `spawn wait` failures were a full
-session-log fold under a lock, and a no-op launch took 9.1 s at 46.6 MB of history
-against 3.6 s at 1 MB. Spawn state v2 fixed the same shape for spawns in 2026-05.
+session-log fold under a lock. The measured examples and acceptance gate live on
+[per-operation cost](../architecture/per-operation-cost.md); spawn state v2 fixed
+the same shape for spawns in 2026-05.
 
 **Apply it:** measure work counts at two or more history sizes, not wall time.
 When narrowing a scan, keep every guarantee it gave. Known violators, the harness

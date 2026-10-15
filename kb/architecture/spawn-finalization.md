@@ -164,9 +164,9 @@ done in the same tick, so it then checks them in priority order:
 **Watchdogs wake on completion (#605, v0.10.10).** Both watchdogs wait on the
 attempt's `completion_event` with a timeout (`_wait_for_event_or_timeout` in
 `streaming_runner.py`) instead of sleeping a full poll interval. A normal finish no
-longer waits up to 1 s for the report watchdog's next poll: exit to finalized went
-from 1,610 to 460 ms on the tiny corpus. The report grace wait is also capped by
-its remaining deadline.
+longer waits for the report watchdog's next poll. The measured before/after cost
+belongs to [per-operation cost](per-operation-cost.md). The report grace wait is
+also capped by its remaining deadline.
 
 Because the watchdog now finishes in the same tick as completion, a watchdog
 returning `False` (it saw completion and stopped nothing) must not win: it would
@@ -456,4 +456,8 @@ decide_generic_reconciliation(record, snapshot, now):
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary.
 - [architecture/state-system/overview.md](state-system/overview.md) — JSONL store, atomic writes, flock locking, and the published spawn artifact lifetime boundary
 - [decisions/state.md](../decisions/state.md) — design decisions for this subsystem
+- [Per-operation cost](per-operation-cost.md) — measured finalization floor and
+  constant-time acceptance bar
+- [Cost cuts that weakened safety checks](../lessons/cost-cuts-and-safety-checks.md)
+  — why the watchdog trigger must prove it caused the stop
 - [principles/invariants.md](../principles/invariants.md) — projection authority rule as invariant

@@ -204,6 +204,10 @@ Also `chat:c7736`.
 ## Related
 
 - [Session state](state-system/session-state.md): the global log and its readers.
+- [Spawn wait barrier](../concepts/spawn-wait-barrier.md): the bounded discovery and
+  wait-set semantics that make the bar user-visible.
+- [Spawn finalization](spawn-finalization.md): terminal arbitration and the
+  watchdog floor.
 - [Contention and cost diagnosis](../lessons/contention-diagnosis.md): how these
   costs were found, and the measurement traps.
 - [Cost cuts that weakened safety checks](../lessons/cost-cuts-and-safety-checks.md)

@@ -32,8 +32,8 @@ fail every read
 ## `sessions.jsonl` is one global log
 
 Session state is event-sourced into **one file per runtime**. Every chat appends to
-`sessions.jsonl`, the file only grows (46.6 MB and 18.9 MB on the development box in
-October 2026), and most reads replay it. **Sessions are not stored per chat.** The
+`sessions.jsonl`, the file only grows, and most reads replay it. **Sessions are not
+stored per chat.** The
 only per-chat files are the lifetime lock and lease below. A `chats/` directory
 appears empty in every runtime: it was created for a `chats/<chat_id>/lifecycle.jsonl`
 primitive (2026-04) that nothing ever wrote. #418 (2026-07) prescribed per-session
@@ -47,23 +47,11 @@ Sessions never got that split. Every path that folds the whole log costs time
 proportional to every chat that ever ran. If it also holds `sessions.jsonl.flock`,
 it serializes every other session writer.
 
-#588 removed the worst holder (the append guard, about four folds per spawn) and
-stopped history-index readers from waiting on the lock. What remains, measured on a
-real launch with a fake harness at 46.6 MB (v0.10.4,
-[per-operation cost](../per-operation-cost.md#1-session-state-is-one-global-replay-log-418)):
-
-| Reader | When | Cost at 46.6 MB |
-|---|---|---|
-| `session_bindings()` / `SessionBindings.__init__`, under the flock | native-ID bind at spawn or primary start (twice per launch), repair, legacy import | 1.12 s for both reads |
-| `get_session_active_work_id` | every launch | 0.60 s |
-| `conclude_native_run` → observed chat, under the spawn lock | every native run's exit | 0.58 s |
-| `_session_execution_context` re-read (plus `session_scope`'s own re-read) | every launch | 0.46 s for the first |
-| `start_session` lookups, `record_model_selection` / `record_model_observation` dedup, `get_or_create_observed_chat`, under the flock | start, model events, observed chats | one full fold each |
-| `get_session_record_for_spawn`, `session_records_for_spawns` | wait, show, archive witness | one full fold each |
-| Automatic archiver, one fold per candidate (no lock on the log) | interval-gated, on primary stop | 612 folds, 4.7 s warm, >20 s cold |
-
-That adds up to 9 full-log reads per foreground launch, and a no-op launch that takes
-9.12 s at 46.6 MB against 3.59 s at 1 MB. These readers lengthen launch but no
+#588 removed the worst holder (the append guard) and stopped history-index readers
+from waiting on the lock. The remaining reader inventory, measurements, and
+acceptance counts belong to the [per-operation cost bar](../per-operation-cost.md);
+this page keeps the session mechanism and its ownership boundaries rather than
+duplicating those measurements. The remaining readers lengthen launch but no
 longer stall index readers.
 
 **The accepted plan, not built:** per-chat journals,
@@ -122,5 +110,11 @@ Per-session files under `sessions/<chat_id>/`:
 - [../../decisions/native-session-identity.md](../../decisions/native-session-identity.md)
 - [State system overview](overview.md) — state roots and subsystem map
 - [Spawn state](spawn-state.md) — per-spawn authority and artifact lifetime
+- [Per-operation cost](../per-operation-cost.md) — measured history-proportional
+  readers and the constant-time acceptance bar
+- [Contention and cost diagnosis](../../lessons/contention-diagnosis.md) — how the
+  session-writer contention was identified
+- [Spawn wait barrier](../../concepts/spawn-wait-barrier.md) — the wait path that
+  consumes history-index discovery
 - [Portable history](portable-history.md) — cross-record discovery, exact identities, ZIP retention, and inert restore
 - [Reconciliation](reconciliation.md) — read-time projection and durable repair

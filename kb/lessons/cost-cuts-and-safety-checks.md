@@ -17,9 +17,10 @@ pointer combined with a gap (`review-combined-correctness.md` N5).
 
 ## A faster wake changed arbitration order (#605)
 
-The finalize report watchdog polled once a second, so a normal finish waited up to
-1 s for it. #605 made the watchdog wait on the completion event instead, which
-removed about 1 s of every finalize.
+The finalize report watchdog polled once a second, so a normal finish could wait
+for its next poll. #605 made the watchdog wait on the completion event instead,
+removing that avoidable finalization delay. The measured before/after cost belongs
+to [per-operation cost](../architecture/per-operation-cost.md).
 
 The terminal arbitrator races completion against the watchdog and checks the
 watchdog first. That priority order had been safe only because the watchdog
@@ -101,6 +102,8 @@ review's S2 found the second head could move backwards).
 ## Related
 
 - [Contention and cost diagnosis](contention-diagnosis.md): finding the costs.
+- [Per-operation cost](../architecture/per-operation-cost.md): the measured bar and
+  acceptance evidence.
 - [Spawn/run identity decision](../decisions/state.md#d-spawn-run-identity)
 - [Spawn finalization](../architecture/spawn-finalization.md#terminal-arbitration-terminalarbitrator):
   the arbitrator as it is now.
