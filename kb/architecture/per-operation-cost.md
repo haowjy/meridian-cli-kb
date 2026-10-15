@@ -136,8 +136,10 @@ These don't grow with history, but they are the next-largest cost per launch:
   Counts on that branch: direct continue is flat across 240 / 2,400 / 12,000 spawns
   × 1 / 10 / 50 runs (0 scans, 5 state reads, 1 keyed lookup, 1 `spawns_flock`
   hold). Show, `@latest`, wait, cancel and bare `pN` read the same as base or less.
-  Review found three safety regressions in the cost cuts. A fix pass followed:
-  - the live-observer narrowing was reverted to base's full scan;
+  Review found three safety regressions in the cost cuts. Fix pass 2 is in
+  progress; the branch was at `b664556ca` on 2026-10-15:
+  - the live-observer narrowing was reverted to base's full scan, so continue keeps
+    one O(spawns) pass until #418 B3;
   - the ancestor walk follows every run;
   - one rebuildable latest-run head replaces the two heads.
 

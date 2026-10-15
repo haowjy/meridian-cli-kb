@@ -22,45 +22,58 @@ line. `list_all_session_records` folds everything. A `sessions-index.sqlite3` or
 `sessions-append-state.json` found in an old runtime root was left by an older build;
 no current code reads either one.
 
-Restored sessions are immutable. Landing in PR #588, restore mints their generation
+Restored sessions are immutable. Since #588 (v0.10.4), restore mints their generation
 with the reserved `historical-` prefix, and the append guard checks the event's own
-generation in O(1). On `main` the guard still folds the whole log under the writer
-lock on every update, stop and model-selection append. The prefix rules are enforced
-at append time only, never in replay, so an older build's unprefixed restore cannot
+generation in O(1) instead of folding the log. The prefix rules are enforced at
+append time only, never in replay, so an older build's unprefixed restore cannot
 fail every read
 ([decision](../../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)).
 
-## `sessions.jsonl` is the remaining global O(n) log
+## `sessions.jsonl` is one global log
 
-Every chat in a runtime appends to one file, and it only grows: 46.6 MB and 18.9 MB
-on the development box in October 2026. Spawn state left this shape in May 2026.
-Replaying the global `spawns.jsonl` made every status read O(total history), and its
-one flock serialized every writer. Each spawn now owns `spawns/<id>/state.json` with
-its own lock
-([spawn state v2](../../decisions/state.md#spawn-state-v2-per-spawn-statejson-over-global-jsonl-2026-05)). Sessions never got that split. Any
-path that folds the whole log costs time proportional to every chat that ever ran,
-and if it holds `sessions.jsonl.flock` it serializes every other session writer.
+Session state is event-sourced into **one file per runtime**. Every chat appends to
+`sessions.jsonl`, the file only grows (46.6 MB and 18.9 MB on the development box in
+October 2026), and most reads replay it. **Sessions are not stored per chat.** The
+only per-chat files are the lifetime lock and lease below. A `chats/` directory
+appears empty in every runtime: it was created for a `chats/<chat_id>/lifecycle.jsonl`
+primitive (2026-04) that nothing ever wrote. #418 (2026-07) prescribed per-session
+authority files, and they were never built.
 
-The rule to keep is that no per-spawn path replays `sessions.jsonl` while holding
-`sessions.jsonl.flock`. #588 removes the worst violator (the append guard, about four
-folds per spawn) and stops history-index readers from waiting on the lock at all.
-Several paths still violate the rule, tracked in
-[#591](https://github.com/haowjy/meridian-cli/issues/591):
+Spawn state left this shape in May 2026. Replaying the global `spawns.jsonl` made
+every status read O(total history), and its one flock serialized every writer.
+Each spawn now owns `spawns/<id>/state.json` with its own lock
+([spawn state v2](../../decisions/state.md#spawn-state-v2-per-spawn-statejson-over-global-jsonl-2026-05)).
+Sessions never got that split. Every path that folds the whole log costs time
+proportional to every chat that ever ran. If it also holds `sessions.jsonl.flock`,
+it serializes every other session writer.
 
-| Path | When | Cost at 46.6 MB |
+#588 removed the worst holder (the append guard, about four folds per spawn) and
+stopped history-index readers from waiting on the lock. What remains, measured on a
+real launch with a fake harness at 46.6 MB (v0.10.4,
+[per-operation cost](../per-operation-cost.md#1-session-state-is-one-global-replay-log-418)):
+
+| Reader | When | Cost at 46.6 MB |
 |---|---|---|
-| `SessionBindings.__init__` | once per spawn or primary start (native-ID bind), repair, legacy import | 1,157 ms median hold |
-| `start_session()` lookups | every start | full fold under the lock |
-| `record_model_selection()` / `record_model_observation()` dedup | model events | full fold under the lock |
-| `get_or_create_observed_chat()` | observed-chat binding | full fold under the lock |
-| Automatic archiver, one fold per candidate (no lock on the log) | each archiver run | 612 folds, 4.7 s warm, >20 s cold |
+| `session_bindings()` / `SessionBindings.__init__`, under the flock | native-ID bind at spawn or primary start (twice per launch), repair, legacy import | 1.12 s for both reads |
+| `get_session_active_work_id` | every launch | 0.60 s |
+| `conclude_native_run` → observed chat, under the spawn lock | every native run's exit | 0.58 s |
+| `_session_execution_context` re-read (plus `session_scope`'s own re-read) | every launch | 0.46 s for the first |
+| `start_session` lookups, `record_model_selection` / `record_model_observation` dedup, `get_or_create_observed_chat`, under the flock | start, model events, observed chats | one full fold each |
+| `get_session_record_for_spawn`, `session_records_for_spawns` | wait, show, archive witness | one full fold each |
+| Automatic archiver, one fold per candidate (no lock on the log) | interval-gated, on primary stop | 612 folds, 4.7 s warm, >20 s cold |
 
-Since #588, these paths add latency to spawn start but no longer stall index
-readers. The fix is a design decision (`decision-needed` on #591). Binding conflict
-checks may need every chat's records, so a per-chat read alone may not be enough.
-The likely shape is per-chat session files that follow the per-spawn `state.json`
-precedent, or a compacted log. Either way, the projection must stay rebuildable from
-files (files as authority).
+That adds up to 9 full-log reads per foreground launch, and a no-op launch that takes
+9.12 s at 46.6 MB against 3.59 s at 1 MB. These readers lengthen launch but no
+longer stall index readers.
+
+**The accepted plan, not built:** per-chat journals,
+`session-state/chats/<cN>.jsonl`, each the only authority for its chat, plus small
+per-native-ID files for the facts that cross chats. A one-time cutover splits the
+old log, and rows that older builds keep appending are absorbed at the next
+command. The design is accepted and pending the owner's approval; it ships as
+#418 B1–B3
+([D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)).
+Until it lands, describe and test sessions as the global log above.
 
 Two disposable projections sit beside the journal. Neither holds a fact the journal
 lacks:

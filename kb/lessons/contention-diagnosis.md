@@ -1,9 +1,13 @@
-# Contention Diagnosis
+# Contention and Cost Diagnosis
 
-Lessons from #586 / PR #588, where `meridian spawn wait` failed daily with
-"History index deadline exhausted". The decision and the mechanism are recorded in
+How lock contention and per-operation cost were diagnosed in `work:v010-followups`
+(2026-10). The first three sections come from #586 / PR #588 (v0.10.4), where
+`meridian spawn wait` failed daily with "History index deadline exhausted"; the
+diagnosis went wrong twice before it went right. The decision and mechanism are in
 [D-history-index-readers-never-wait-on-session-writers](../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers).
-This page covers how the diagnosis went wrong twice before it went right.
+The later sections come from the constant-time program that followed. Its bar, its
+violators and its harness are on
+[per-operation cost](../architecture/per-operation-cost.md).
 
 ## A deadline error is a contention symptom: find the holder before designing recovery
 
@@ -75,10 +79,67 @@ timeout was on the catch-up lock (`spawn:p7987`). #588 changed busy messages to 
 the lock that timed out (`FileLockTimeout.path`) instead of listing pending sources.
 When an error lists "what was pending", treat that list as context, not as the cause.
 
+## Count work; don't time it on a shared box
+
+The development box is shared, and its load swung between about 5 and 60 during
+this work. The probe comparing base, #587 and #590 (`spawn:p8044`) started its
+batches at 1-minute loads of 41.7, 50.7 and 15.5, against a quiet reference of 5.25.
+Its wall times showed regressions and improvements of several seconds that were
+just scheduler noise, and the whole timing batch was discarded. Its counts were
+deterministic, and they were the useful result. They found that #587's `show
+@latest` read every spawn row (2 → about 250–500 `state.json` reads), which neither
+code reviewer had caught.
+
+The instrument is a `sitecustomize.py` on `PYTHONPATH`. It counts:
+- spawn-directory scans;
+- `state.json` opens;
+- full `sessions.jsonl` reads;
+- lock acquisitions, with summed hold time.
+
+It can capture a stack per event. Counts don't depend on load, they attribute cost
+to a caller, and a test can pin them.
+
+**The rules.**
+- Make counts the acceptance evidence, and treat wall time as secondary.
+- Record `uptime` with every batch, and redo any wall-time batch taken above about
+  2× the quiet load.
+- Measure several checkouts with one prober, one after another, so their batches
+  don't load the box against each other (D23).
+- Count one logical operation once. One keyed fold passed through three
+  instrumented seams and showed up as three events, so an uncorrected count of
+  30–39 "full-log reads" was really 9.
+
+## Warm the index before you measure
+
+A copied corpus starts with a cold history index. In the end-to-end probe, every
+orange no-arg wait during a launch returned "discovery pending". That looked like a
+launch-path lock held for more than 2 s, and an investigation was opened. It was
+the cold catch-up after the copy: 3 of 3 pending cold against 0 of 8 warm (D21).
+
+**The rule.** Run one catch-up on the measured root and check that coverage is
+complete before you take samples. Measure the cold build separately, as its own
+number (#592).
+
+## Probe the whole command, not just the seams you suspect
+
+The first constant-time audit (`spawn:p7993`) timed the seams it knew about. Its
+end-to-end sub-spawn hung, so it estimated an orange launch at "0.8 s startup +
+1.16 s bind". A real end-to-end probe with a fake harness then measured 9.12 s and 9
+full-log reads (`spawn:p7997`). That was more callers than the audit had listed.
+The same counting probe later showed 980 `state.json` reads per launch on base,
+which nobody could explain at first. A stack capture traced them to session
+teardown, `reclaim_session_owned_scopes_for_chat` → `list_spawns`. That is a path
+no seam audit had considered, and it became #612 (`spawn:p8095`).
+
+**The rule.** Run the real command end to end, with a fake harness, at two or
+three history sizes. Look at what grows. An unexplained count is a finding to
+chase, not noise to average away.
+
 ## Related
 
 - [Verification and review discipline](verification-and-review-discipline.md#measurement-discipline):
   provenance for measurements.
 - [Review convergence gate](review-convergence-gate.md)
-- [Session state](../architecture/state-system/session-state.md#sessionsjsonl-is-the-remaining-global-on-log):
-  the remaining O(log) holders (#591).
+- [Session state](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-log):
+  the remaining full-log readers (#418).
+- [Cost cuts that weakened safety checks](cost-cuts-and-safety-checks.md)
