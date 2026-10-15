@@ -18,54 +18,27 @@ this after asking what happens when a tmux pane is mangled or resized.
 also when the adapter could not tell. Only Claude and Pi could see a draft
 through their host APIs. Codex and OpenCode guessed from the tmux pane. The
 OpenCode 2.x pane parser looked for a footer separator that 2.0.28 never
-renders, so every 2.x compaction skipped as `draft-unknown`. Its replacement, a
-parser anchored on the composer border, still depended on a pane that resizes
+renders, so every 2.x compaction skipped as `draft-unknown`. Its replacement,
+a parser anchored on the composer border, still depended on a pane that resizes
 and redraws. A rare lost draft costs less than a guard that silently disables
 compaction.
 
-**Decision:** delete the draft fact and its guard everywhere: the core guard,
+**Decision:** Delete the draft fact and its guard everywhere: the core guard,
 `IdleFacts`/`GuardFacts`, the CLI `--draft` flag, the OpenCode pane parser, and
 the Claude and Pi draft vetoes. Claude, Pi and OpenCode compact through APIs
 that do not touch the composer. Codex still compacts by typing into its TUI,
-so it has to clear the composer first. The busy check, the `/compact`
-verify-before-Enter step and the TUI-alive check stay.
+so it clears the composer first. The busy check, `/compact`
+verify-before-Enter step and TUI-alive check stay. The screen-gated clear,
+primer verification, retry window, veto reasons, and compaction-result
+observation are mechanism owned by
+[Idle Adapter Architecture](../architecture/idle-adapters.md#adapter-contracts).
 
-**Codex clears the composer with a screen-gated Ctrl+C.** Codex 0.162.1 has
-no single key that clears a multi-line composer: Ctrl+U deletes only to the
-start of the line. Ctrl+C clears the whole composer, including attachments,
-but only when the composer is non-empty. On an empty composer the key falls
-through to the outer handler, which interrupts running work or quits Codex.
-The double-press quit confirmation is disabled in this release. So the
-sequence is:
-
-1. Capture the pane and require the focused composer layout: two blank rows
-   above a column-zero `›` prompt, indented continuation rows, the blank
-   bottom margin, an indented status row, and the footer (`… for shortcuts`
-   when empty, blank with a draft). Reject `Working (`.
-2. Type the primer `ix`, which makes the composer non-empty in both normal and
-   Vim mode (`i` enters insert mode). Confirm that the visible text is exactly
-   the previous text plus `ix`.
-3. Re-check busy and liveness, then send Ctrl+C.
-4. Confirm the composer shows empty, type `/compact`, verify it, press Enter,
-   and wait for a new `compacted` rollout record.
-
-A slash-command popup takes the blank rows above the prompt. Modals, the
-agents overview and transcript views replace the footer. None of them match
-the layout, so Ctrl+C is never sent to them. The first version without the
-layout gate was sent back in review. In that version a key could reach a modal
-or the agents overview, and an unprimed Ctrl+C could quit Codex or interrupt
-it. The deleted empty-`›` draft check had been blocking those screens by
-accident.
-
-**An unreadable screen retries, then notifies.** If the layout doesn't match,
-the actuator re-captures for about 10 s (three reads). If it still can't
-recognize the screen, it vetoes with `screen-not-recognized`, the same reason
-it uses when the primer or the cleared composer fails to verify. No key is
-sent. Core recognizes that one reason and sends a push-only notice:
-"Codex not compacted: Meridian couldn't read its screen", plus the minutes of
-cache left. The decision about who to notify stays in the idle policy layer,
-not the adapter (user decision). Other vetoes and failures keep the generic
-compaction notice.
+**Why the boundary is strict:** Codex 0.162.1 clears a non-empty composer with
+Ctrl+C, but an empty composer sends the key to the outer handler and can
+interrupt or quit Codex. The actuator therefore must recognize the focused
+composer and make it non-empty before clearing it; an unreadable screen must
+veto rather than send a key. The core, not the adapter, decides that the
+`screen-not-recognized` veto gets one push notice.
 
 **Verified live** (codex-cli 0.162.1, `gpt-5.6-luna`, scratch homes):
 
@@ -78,7 +51,8 @@ compaction notice.
 **Accepted residual risk:** the pane can change between the capture and the
 keys. No tmux key sequence is atomic with the TUI's handling. The primer makes
 the quit path unreachable in a normal composer, and the exact `/compact` check
-blocks submission if stray text remains.
+blocks submission if stray text remains. The recognition and actuator details
+remain in the architecture contract linked above.
 
 **Rejected:**
 
@@ -91,7 +65,6 @@ blocks submission if stray text remains.
 **Related, not decided here:** Codex and OpenCode TUIs resize correctly when
 run natively, but their layout gets mangled under Meridian primaries. That is
 tracked in `work:primary-resize-mangling`.
-
 
 ## Related
 

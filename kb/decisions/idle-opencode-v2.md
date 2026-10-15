@@ -19,24 +19,14 @@ sensor waited for V1's `session.idle`, which 2.x never sends. Its compaction
 route was also gone: `POST /session/{id}/summarize` returns 405 on 2.x and
 `/api/session/{id}/summarize` returns 404.
 
-**Decision:**
-
-- **A second sensor beside the frozen V1 one.** `OpenCodeV2IdleSensor` reads
-  V2 execution and inbox events and compacts through `/api/session/{id}/compact`
-  ([adapter contract](../architecture/idle-adapters.md#adapter-contracts)). Both dialects share `_OpenCodeIdleSensorBase` for event
-  plumbing, pane capture and requests. Dialect-only state lives in each
-  subclass. V1 code is unchanged.
-- **Dispatch on the version the connection resolved.** `primary_idle_sensor`
-  reads `OpenCodeConnection.resolved_version`, set once when the dispatcher
-  picks a transport at `start()`. Only if that is absent does it call
-  `resolve_opencode_version` on `MERIDIAN_HARNESS_OPENCODE_VERSION`, the
-  connection's own resolver. The sensor must speak the dialect the transport
-  is emitting, so the transport's choice is the one source of truth.
-- **The user return fires on enqueue, not at the next execution start.** V2
-  inbox items are typed, so a `user` item is a positive identification the
-  moment it is enqueued. Delivery fires it again (outside Meridian's own
-  compaction) so a queued prompt that runs after an armed stretch still closes
-  it.
+**Decision:** Add a second sensor beside the frozen V1 sensor. The V2 sensor
+uses execution and typed inbox events, and its compaction route is
+`/api/session/{id}/compact`; V1 remains unchanged. Select the sensor from
+`OpenCodeConnection.resolved_version`, the version chosen by the transport,
+with the environment-based resolver only as fallback. A typed V2 user inbox
+item is a return when enqueued, and delivery is also a return outside
+Meridian's own compaction. The full event, inbox, and compaction contract is
+in [Adapter contracts](../architecture/idle-adapters.md#adapter-contracts).
 
 **Rejected:**
 
@@ -78,21 +68,12 @@ The shared `events()` loop ended the stream after its 120 s liveness-stall
 reconciliation. That is right for a spawn, which needs a terminal. For a
 primary it meant Meridian's compaction completion was never seen (it timed out
 as `failed` after 300 s) and later turns were never seen either. Each 2.x
-session got at most one idle stretch. The decision:
-
-- **The stream's lifetime follows its consumer.** Spawns keep
-  stall → reconcile → terminal → end. A managed primary's observer keeps one
-  stream for the primary's lifetime. When it goes quiet, hits EOF or a
-  recoverable error, it reconnects with backoff capped at 10 s. It never
-  synthesizes a terminal. The mode comes from the existing
-  `_primary_observer_mode`. Review rejected a new `EventStreamLifetime` enum as
-  a second name for the same fact.
-- **Compaction is confirmed from durable data after a gap.** `/api/event` is
-  live-only, so a reconnect can miss `session.compaction.ended`. If the waiter
-  times out, the sensor accepts the compaction only when it finds the
-  compaction message for the admitted inbox ID with `status == "completed"`
-  and the session is idle with a successful outcome at or after admission. The
-  message exists from admission onward, so its existence alone proves nothing.
+session got at most one idle stretch. The decision is that stream lifetime
+follows the consumer: spawns retain stall → reconcile → terminal → end, while a
+managed primary reconnects for its lifetime and never synthesizes a terminal.
+A compaction missed during a reconnect is confirmed from durable completion
+data. The exact reconnect, timeout, and durable-data checks are in
+[Adapter contracts](../architecture/idle-adapters.md#adapter-contracts).
 
 Live check: a Meridian-initiated compaction came back `ok` with a native
 compaction marker, the next turn opened stretch 2, and a one-shot OpenCode
