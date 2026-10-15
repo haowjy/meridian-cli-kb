@@ -1,0 +1,22 @@
+# Allowlist: sync notes, evidence images, small text evidence, and Meridian's
+# work state. Everything else (traces, logs, JSON dumps, runtimes, binaries)
+# stays local. Rules after this block re-exclude whole scratch directories,
+# including any notes inside them.
+*
+!*/
+!*.md
+!*.txt
+!*.html
+!*.csv
+!*.tsv
+!*.diff
+!*.patch
+!*.mmd
+!*.png
+!*.jpg
+!*.jpeg
+!*.webp
+!*.gif
+!*.svg
+!__status.json
+!/.gitignore
