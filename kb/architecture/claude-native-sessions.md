@@ -298,7 +298,7 @@ and projection tests.
 - [Native session identity decision](../decisions/native-session-identity.md)
 - [Native session binding](native-session-binding.md)
 - [Pi native sessions](pi-native-sessions.md): the analogous shared-store hazard for Pi
-- [Codebase: harness adapters](../codebase/harness-adapters.md): Claude PTY capture, system-prompt channel
+- [Codebase: harness adapters](../codebase/harness-adapters.md): system-prompt channel; [primary terminal ownership](primary-terminal-ownership.md): why the Claude PTY relay reads nothing
 - [Launch harness compatibility](../decisions/launch-harness-compatibility.md): the original trampoline decision
 
 **Provenance:** `work:native-harness-session-identity`; Lane C `spawn:p7041`, review
