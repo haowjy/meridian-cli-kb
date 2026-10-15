@@ -87,6 +87,7 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `lib/platform/process_scope/` | **Mechanism only** — how to launch in a new scope and terminate the tree. Four sub-modules: `base.py` (shared types), `posix.py` (setsid/process-group), `windows_job.py` (Job Object), `fallback.py` (psutil tree kill) |
+| `lib/platform/detached_process.py`, `parent_watchdog.py`, `scope_termination.py` | **Parent-death mechanism** — start the launcher's watchdog, register/release scopes over its pipe, and the dependency-free termination logic the watchdog runs. See [Parent-death](#parent-death-one-watchdog-per-launcher). |
 | `lib/core/process_cleanup.py` | **Policy only** — whether to terminate a scope. Consults spawn record, session lease store, and managed-primary metadata. Never decides how. |
 | `lib/state/process_scope_projection.py` | **Persistence** — read/write process-scope sidecars at `spawns/<spawn-id>/process_scopes.json`. Operations: `record_scope`, `mark_scope_released`, `read_scopes_from_disk`, tolerant read for legacy spawns. |
 
@@ -174,8 +175,9 @@ Key fields:
   mechanism was actually established.
 - **`root_created_at_epoch`** — PID-reuse guard. Before any signal, the current
   process birth time is compared against this value. Confirmed reuse skips the kill.
-- **`parent_death_linked`** — true when platform support linked the scope root to the
-  launcher lifetime. It is a mechanism fact, not a cleanup decision.
+- **`parent_death_linked`** — true when the scope is registered with the launcher's
+  watchdog (POSIX) or assigned to a Job Object (Windows). It is a mechanism fact, not a
+  cleanup decision.
 - **`release_id`** — stable identity for one concrete scope release. Re-recording the
   same release upgrades ownership in place; distinct releases with the same label are
   preserved.
@@ -205,14 +207,58 @@ to PID 1 are still in the original group and receive the signal.
 Group kill is only used when the recorded scope root is the process-group leader
 (`pgid == root_pid`). If a launch inherited the parent process group, signalling that
 PGID could kill the parent agent or test runner. Those non-isolated scopes degrade to
-PID-tree cleanup, and native-inherit TUI paths fall back to signalling only the child
-process for the same reason.
+PID-tree cleanup. A native-inherit TUI is the planned case: it shares the shell's
+foreground group with the launcher, so its scope is recorded as `pid_tree_fallback`
+and only its own process tree is ever signalled.
 
 Pipe-captured subprocess launches and Claude/Pi observer backends are isolated into
 their own POSIX sessions so later scope cleanup targets the child group, not the
 launching Meridian process group.
 
-### Windows: Job Object
+### Parent-death: one watchdog per launcher
+
+A scope record lets the reaper clean up *later*. The watchdog makes launcher death
+clean up *now*, before anything reads state.
+
+On POSIX, a launcher that starts harness children first starts one watchdog: a
+detached Python process in its own session, connected by a control pipe. Each
+child is registered after it is spawned. The backend goes in as its isolated
+process group (`posix_pgid`) and a native TUI as its process tree
+(`pid_tree_fallback`). When the pipe hits EOF without a `shutdown` message, the
+launcher is gone, and the watchdog terminates every registered scope that has
+not been released: SIGTERM, a grace period, then SIGKILL, with each target
+checked against its recorded birth time. A managed primary shares one watchdog
+for backend and TUI, and a background Codex/OpenCode spawn starts its own for
+its backend. Windows starts none.
+
+- **Fail closed.** A scope with unknown birth time is refused. If registration
+  fails, the child is terminated and the launch raises, and the same happens if
+  the watchdog cannot start. No harness child runs without a parent-death owner.
+- **Release after a confirmed stop.** Owners send `release` with the scope's
+  `release_id` only after the child is stopped and reaped. Codex releases only
+  after its backend stop is confirmed, so an uncertain stop stays covered.
+  `close()` sends `shutdown` and leaves remaining scopes alone.
+- **Small and isolated.** The watchdog runs `parent_watchdog.py` by file path
+  with `python -S -OO`. It imports only the stdlib, psutil and
+  `scope_termination.py`, never `meridian`, and uses about 17 MB RSS. Its
+  environment drops every inherited `PYTHON*` variable and sets `PYTHONPATH`
+  explicitly. Under `PYTHONSAFEPATH` the script's own directory would otherwise
+  leave `sys.path` and the watchdog would fail to start.
+- **Registration window.** Registration follows process creation, so a launcher
+  SIGKILL in that millisecond window can orphan the child. A pre-exec hook was
+  rejected: it would run Python after fork in a threaded launcher, and a
+  PID-only death signal still misses wrapper descendants.
+
+This replaced Linux `PR_SET_PDEATHSIG`, which reaches only the direct child.
+Codex's command is a Node wrapper, so the real `codex` TUI and app-server
+outlived the launcher. Rationale:
+[D-launcher-watchdog](../decisions/primary-terminal-ownership.md#d-launcher-watchdog--one-watchdog-per-launcher-instead-of-pdeathsig).
+Status: on branch `feat/native-terminal-primaries`; `main` still uses
+PDEATHSIG for the Linux backend. #609 tracks folding the older termination
+paths (`platform/terminate.py`, `fallback.terminate_tree`) onto
+`scope_termination`.
+
+### Windows: Job Object (legacy, untested)
 
 Managed backend parent-death linkage on Windows uses a Job Object with
 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. `launch_managed_backend()` keeps the returned

@@ -74,11 +74,16 @@ OpenCode event-shape logic in generic helpers.
 Two launch helpers consolidate process lifecycle for the two child categories:
 
 - **Managed backend** (`launch_managed_backend()`): detached resident child
-  (Codex app-server, OpenCode serve) with DEVNULL stdout, parent-death link,
-  scope id `backend`, role `harness_backend`. Records the backend scope and
-  links the child to the worker lifetime where the platform can enforce it
-  (Linux parent-death signal, Windows Job Object; other POSIX platforms
-  degrade to isolated-session containment plus recorded scope cleanup).
+  (Codex app-server, OpenCode serve) in its own session, DEVNULL stdout, scope
+  id `backend`, role `harness_backend`. Records the backend scope and registers
+  its process group with the launcher's
+  [parent watchdog](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher)
+  on POSIX (a managed primary passes its shared watchdog; a background spawn
+  starts its own), or a Job Object on Windows. Registration failure kills the
+  child and fails the launch. Codex releases the watchdog scope only after a
+  confirmed backend stop. (Branch `feat/native-terminal-primaries`; `main`
+  still uses Linux `PR_SET_PDEATHSIG`, which misses the inner process behind
+  Codex's Node wrapper.)
 - **Managed stdio child** (`launch_managed_stdio()`): spawn-lifetime piped
   child (Claude, Pi, Cursor) whose stdout/stderr pipes ARE the transport or
   its log — PIPE stdout, stderr into `spawns/<id>/stderr.log`, scope id

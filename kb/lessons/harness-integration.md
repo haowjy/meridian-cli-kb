@@ -2,15 +2,28 @@
 
 These are the non-obvious discoveries from integrating Claude, Codex, and OpenCode into a single harness-agnostic coordination layer. Each lesson came from a real integration challenge.
 
-## Why PTY Capture for Claude Primary Launch
+## A Terminal Relay Is Not an Observation Channel
 
-Claude's interactive TUI needs a terminal for input and rendering. Meridian's
-PTY launcher supplies that terminal and relays its output; piping stdout is not
-an equivalent interactive surface.
+**The belief that outlived its reason:** "Claude needs the PTY so Meridian can
+observe the session." Earlier designs said so: the session id was scraped from
+the TTY stream. That stopped being true long ago. A fresh Claude session gets
+its id through `--session-id <uuid>` before exec, idle reads the transcript,
+and interactive output is never captured (only `--print` captures). Codex and
+OpenCode were relayed too, though Meridian watches them through its own backend
+connection.
 
-Fresh sessions receive an assigned ID through `--session-id <uuid>` before
-exec. Identity is not extracted from a startup banner. Keep terminal transport
-separate from [identity binding](../architecture/native-session-binding.md).
+**What it cost:** the nested PTY mangled resizes (#596). Its restore codes
+overwrote harness exit text (the double `ESC[?1049l`, fixed in PR #607), and an
+`ESC[J` workaround then erased that text. A component kept "for observation"
+read nothing and caused bugs at the user-visible surface.
+
+**The lesson:** when a mechanism's justification is "we need it to observe X",
+check that X is still read through it. Here the honest answers are: Codex and
+OpenCode need no relay (they now run native), and Claude/Pi keep it only
+because the owner saw no resize problems with them, not because anything
+depends on it. Keep terminal transport separate from
+[identity binding](../architecture/native-session-binding.md). Current model:
+[primary terminal ownership](../architecture/primary-terminal-ownership.md).
 
 ---
 
@@ -28,7 +41,7 @@ separate from [identity binding](../architecture/native-session-binding.md).
 
 The user sees the normal TUI. Meridian sees all events.
 
-**The lesson:** Different harnesses have different architectural models. Claude is "invoke and observe output." Codex is "connect to a running server." The adapter layer must accommodate both, and the connection machinery (`harness/connections/`) enables this without exposing the difference to the rest of the system.
+**The lesson:** Different harnesses have different architectural models. Claude is "invoke one black-box process." Codex is "connect to a running server." The adapter layer must accommodate both, and the connection machinery (`harness/connections/`) enables this without exposing the difference to the rest of the system.
 
 **Where this lives:** `launch/process/primary_attach.py`, `harness/connections/codex_ws.py`
 
@@ -88,7 +101,19 @@ The user sees the normal TUI. Meridian sees all events.
 
 **The lesson learned the hard way:** PTY lifecycle management (signal setup, terminal restoration) must happen in the main thread. The PTY capture worker can run in a thread, but setup and teardown must be coordinated with the main thread. This adds boilerplate but is non-negotiable.
 
-**Where this manifests:** `launch/signals.py` (signal coordination), `launch/process/pty_launcher.py` (PTY launch with main-thread signal setup)
+**The second half (2026-10-15):** main-thread installation is not enough. A
+Python signal handler also *runs* on the main thread, between bytecodes of
+whatever the main thread was doing. The native-terminal launcher's
+`_TuiExitOrdering` recorder took a plain `threading.Lock` both from main-thread
+code and from a `SignalCoordinator` receiver. A SIGHUP arriving while the main
+thread held the lock would make the handler wait on a lock its own thread
+holds, so the launcher would hang on a pane close. Review caught it and the
+lock became an `RLock`. Rule: anything a signal receiver touches must be
+lock-free or reentrant, and every handler goes through `SignalCoordinator`
+rather than raw `signal.signal`. A raw `SIG_IGN` for SIGINT once bypassed it
+and could lose the handler restore.
+
+**Where this manifests:** `launch/signals.py` (signal coordination), `launch/process/pty_launcher.py` (PTY launch with main-thread signal setup), `launch/process/primary_attach.py` (signal receivers, `_TuiExitOrdering`)
 
 ---
 

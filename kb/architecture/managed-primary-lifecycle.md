@@ -8,7 +8,8 @@ spawns, so reconciliation and cleanup policy must treat them differently.
 Related pages:
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — generic spawn status machine and reconciliation model
 - [architecture/spawn-finalization.md](spawn-finalization.md) — finalization authority lattice
-- [architecture/process-scope.md](process-scope.md) — process-scope ownership model; spawn_owned vs session_owned split for managed primaries
+- [architecture/process-scope.md](process-scope.md) — process-scope ownership model; spawn_owned vs session_owned split for managed primaries; the launcher watchdog
+- [architecture/primary-terminal-ownership.md](primary-terminal-ownership.md) — native terminal for the TUI, shared job control, cancellation by order, exit-text rule
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — Codex/OpenCode adapter notes and approval routing
 - [decisions/idle-notifications.md](../decisions/idle-notifications.md) — idle adapter hosting for Codex/OpenCode primaries
 - [operations/troubleshooting.md](../operations/troubleshooting.md#managed-primary-orphan-orphan_primary) — operational diagnosis for `orphan_primary`
@@ -34,9 +35,14 @@ flowchart TD
 
 | Role | Owner | Responsibility | Expected exit relationship |
 |---|---|---|---|
-| `launcher_pid` | Meridian wrapper process | Start backend, launch TUI, write `primary_meta.json`, persist events, stop backend during normal teardown | Should outlive the TUI and exit after normal teardown |
-| `backend_pid` | Meridian-managed app-server / connection runtime launched by `launch_managed_backend()` | Maintain the remote protocol connection and event stream; expose `scope_snapshot` | May be alive while TUI is alive; can outlive a crashed launcher |
-| `tui_pid` | Harness TUI process | User-facing interactive session | User interacts here directly |
+| `launcher_pid` | Meridian wrapper process | Start the watchdog, backend and TUI; write `primary_meta.json`; persist events; stop backend during normal teardown | Should outlive the TUI and exit after normal teardown |
+| `backend_pid` | Meridian-managed app-server / connection runtime launched by `launch_managed_backend()` | Maintain the remote protocol connection and event stream; expose `scope_snapshot` | Own session/pgid; registered with the launcher's watchdog, so launcher death kills it on POSIX |
+| `tui_pid` | Harness TUI process | User-facing interactive session, on the user's real terminal in the launcher's foreground group | Registered with the same watchdog as a process tree |
+
+The launcher also runs one [parent watchdog](process-scope.md#parent-death-one-watchdog-per-launcher)
+outside the foreground group. It terminates both registered scopes if the
+launcher dies without a graceful close. (On branch `feat/native-terminal-primaries`;
+`main` still relays the TUI through a PTY and links only the backend.)
 
 Claude primaries are different: Claude is a single black-box harness process.
 There is no managed backend/TUI split, and no `primary_meta.json` with
@@ -83,11 +89,16 @@ The launcher is expected to:
 4. Wait for the TUI to exit.
 5. Enter finalization / teardown and stop the backend.
 
-If step 4 is interrupted by launcher death, the backend and TUI may still be
-running. Killing them from a passive read path turns an abnormal wrapper failure
-into a hard user-visible crash. Future diagnostics should preserve evidence
-about why the launcher died rather than using launcher death as an automatic
-runtime-child termination trigger.
+If step 4 is interrupted by launcher death on POSIX, the launcher's watchdog
+terminates the backend and TUI as soon as its control pipe closes, so a dead launcher
+normally means a dead runtime. The row is still `running` on disk until
+something reconciles it (`spawn show` lazily projects `cancelled (exit 130)` /
+`session_ended_without_finalize`). The reaper rules below still matter for the
+cases the watchdog does not cover: the watchdog itself killed, the
+millisecond window between spawn and registration, Windows, and rows from
+builds without it. Killing runtime children from a passive read path would
+still turn an abnormal wrapper failure into a hard user-visible crash, so the
+reaper keeps its skip/finalize discipline.
 
 The inverse failure is also handled at the launcher boundary: if the observed event
 stream dies during managed-primary attach, launch fails and tears down the TUI/backend
