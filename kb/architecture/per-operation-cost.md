@@ -1,7 +1,8 @@
 # Per-Operation Cost: the Constant-Time Bar
 
 **State as of 2026-10-15, `main` at `ea8e37e58` (v0.10.10 plus #608).** Status
-and memory findings updated 2026-10-16 (`main` at `8ecd44989`, #631).
+and memory findings updated 2026-10-16 (`main` at `0a6b3acb4`, v0.10.16: #634
+and #651 shipped).
 
 ## The bar
 
@@ -40,6 +41,8 @@ surfaced as daily `spawn wait` timeouts.
 | #588 | v0.10.4 | The session append guard is O(1) (the `historical-` generation prefix), and history-index readers never wait on session writers | `sessions.jsonl.flock` hold per append: 1,463 ms → about 16 ms at 46.6 MB; reader P95 under 2 writers 2,001 → 101 ms ([decision](../decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers)) |
 | #599 | v0.10.8 | No-arg `spawn wait` discovery filters by owner and descendant in SQL, then re-reads only those rows from authority | 672 → 95 ms warm at 3,951 indexed rows ([spawn wait](../concepts/spawn-wait-barrier.md)) |
 | #605 | v0.10.10 | Finalize watchdogs wake on the completion event instead of on their next 1 s poll | exit → finalized 1,610 → 460 ms on the tiny corpus; this is floor, not slope ([finalization](spawn-finalization.md#terminal-arbitration-terminalarbitrator)) |
+| #634 (MEM-1) | v0.10.14 | Startup repair streams `state.json`; single-chat session reads decode only that chat's rows; scoped `SessionBindings`. **Memory only**: repair still reads every spawn row, and filtered reads still scan every byte of `sessions.jsonl` | repair RSS 226 → 101 MB, flat with spawn count (4× spawns: 309 → 101 MB); runner RSS while the harness runs 224 → 96 MB, the empty-runtime floor ([§5](#5-resident-memory-full-scans-kept-as-pydantic-objects-627)) |
+| #651 (#418 B1) | v0.10.16 | One session read/append seam; every multi-chat read is one pass; native scope is two passes regardless of alias count. Same caveat: passes are filtered, not removed | primary close 6.3 → 1.7 s (mellow), 14.4 → 5.3 s (orange); `resolve_session_ref` 0.88 → 0.17 s; runner peak RSS 329 → 103 MiB, close 678 → 335 MiB ([§1](#1-session-state-is-one-global-replay-log-418), [§5](#5-resident-memory-full-scans-kept-as-pydantic-objects-627)) |
 
 ## Known violators on `main`
 
@@ -61,9 +64,20 @@ re-read (0.46 s). Explicit-ID wait, show and cancel also replay the log, 1–11 
 per command depending on the operation and corpus.
 
 The accepted fix is per-chat journals,
-[D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals). B1
-(one read seam, no format change) is being built; B2 and B3 are pending the owner's
-approval. #591 was closed as a duplicate of #418.
+[D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals).
+#591 was closed as a duplicate of #418.
+
+**After #634 and #651 (v0.10.16).** Every per-operation session read now goes
+through one keyed seam ([contract](../decisions/state.md#d-session-read-seam)).
+A read selects its chats with a byte prefilter and decodes only their rows, and a
+multi-chat read is one pass. Unfiltered folds per primary close went 7 → 0 and per
+runner 1 → 0. **The slope in bytes is still there**: every filtered pass reads the
+whole file, and a primary close makes 10 of them. What shrank is the decode and the
+resident memory, plus the wall time that went with them (table above). The #418
+gate of 0 full-log reads per launch, close, continue or wait is B2's, when each
+chat's rows live in their own journal. Bulk reads still outside the seam:
+`list_all_session_records`, `list_session_generations`, and
+`legacy_native_import.py`'s raw reads.
 
 ### 2. Launch and continue read every spawn's `state.json` (#612, #418 B3)
 
@@ -75,6 +89,10 @@ approval. #591 was closed as a duplicate of #418.
   run. The background worker hits the same path when its run exits. The cleanup
   must still reclaim every session-owned scope of *every* run on the chat, not just
   the current one. A test pins that, so "current spawn only" is wrong.
+  Since #634 the pass is `reclaim_session_owned_scopes_for_chats`: one streamed
+  pass for every cleaned chat, keeping only the matching rows. Memory no longer
+  grows with spawn count and N stale chats cost one pass, not N (23 chats had taken
+  6.2–6.6 s). It still opens every `state.json`, so #612 stays open.
 - **Continue into an existing chat (#418 B3).** `start_session` calls
   `live_observer_for_chat`, which also lists every spawn. That makes a second
   O(spawns) pass per continue: 518 reads at 240 directories. `native_run._warn_overlap`
@@ -135,9 +153,35 @@ were suspected but not reproduced: instrumented queues never passed depth 4 or 1
 
 Import cost is separate: `meridian --help` is 16 MB, `import execute_bg` 92 MB.
 
-**In progress, not merged:** MEM-1 (startup repair streams `state.json` row by row,
-and single-chat reads such as `get_session_active_work_id` skip other chats' lines)
-and MEM-2 (#418 B1, stacked on #631).
+**The fix is to stop materializing, not to free memory afterwards.** Because the
+arenas stay at their peak, a scan that builds every row as an object costs its
+peak for the rest of the process, even if the caller keeps one row. Both shipped
+fixes read the same authority and keep only what they return:
+
+| Workload (copy of real state) | Before | After | Fixed by |
+|---|---:|---:|---|
+| Startup repair, no orphan primary (1,027 spawns, 25 MB log) | 226 MB, 9.8–10.3 s | 101 MB, 3.5–3.6 s | #634: `iter_repair_candidates` streams `state.json` and yields only active rows and rows with a cleanup claim |
+| Startup repair at 4× spawns (4,096 rows) | 309 MB | 101 MB | #634 |
+| Startup repair with real orphan-primary capture | 363 MB | 308–311 MB | not fixed: the residual is the capture guard's owner scan |
+| `execute_bg` runner, RSS while the harness runs | 224 MB | 96 MB | #634: single-chat `get_session_active_work_id` and `get_session_harness_id`, and a scoped `SessionBindings` |
+| `execute_bg` runner peak, largest runtime | 329 MiB | 103 MiB | #651: `record_model_selection`'s cross-chat dedupe reads native scope in two passes |
+| Primary close peak, largest runtime | 678 MiB | 335 MiB | #651 |
+
+Converting `get_session_active_work_id` alone did not move the runner:
+`SessionBindings.__init__` replayed the whole log 0.5 s later and refilled the same
+arenas. Remove every full replay on a path before you measure; one survivor sets the
+peak.
+
+**Left:**
+- **The close residual, about 230 MiB.** Capture's spawn-side owner check still
+  reads every spawn row. That O(spawns) scan was permitted in B1; #418 B3 (observer
+  rows in the chat) or identity-v2's derived reads remove it. Close is not yet at
+  the roughly 100 MiB import floor.
+- **A cold history index.** A runner on a cold index reached 376 MiB. Cold builds
+  are outside the bounded-read claim (#592).
+- The rarer bind branch of legacy import, `list_all_session_records`, index
+  catch-up batching, `list_active_session_records` and `get_last_session`. None is
+  measured on a hot path yet.
 
 ### 6. The fixed floor (#595, #527)
 
@@ -176,9 +220,11 @@ These don't grow with history, but they are the next-largest cost per launch:
     (0 scans, 5 state reads, 1 keyed lookup, 1 `spawns_flock` hold).
   - The safety regressions its cost cuts introduced are recorded as
     [lessons](../lessons/cost-cuts-and-safety-checks.md).
-- **#418 B1 → B2 → B3:** B1 is being built by the `memory-audit` lane as MEM-2,
-  stacked on #631. B2 (index v12, after identity-v2 PR 4's v11) and B3 are pending
-  the owner's approval of the design.
+- **#418 B1 → B2 → B3 (#418 open):** B1 shipped as #651 (v0.10.16). B2 (the
+  journals, cutover, absorb, index v12) needs the owner's answers to design
+  questions 1–4 and 6–11, and comes after identity-v2 PR 4 (index v11). B3 removes
+  the O(spawns) observer and capture-owner scans, and with them the ~230 MiB close
+  residual.
 
 ## How to measure
 
@@ -201,6 +247,11 @@ The harness lives in `work:v010-followups` under `launch-e2e-probe/`:
 
   Stack capture per event names the caller. That is how #612 was attributed to
   session teardown and not to the reaper or the index.
+- **Count every pass, filtered or not, per operation.** A gate that counted only
+  unfiltered folds passed while B1's first draft looped a filtered pass per chat
+  ([lesson](../lessons/contention-diagnosis.md#count-every-pass-per-operation-not-one-kind-of-fold)).
+  `tests/support/session_lookup_measurement.py` (with `io_probe.py`) counts physical
+  `iter_jsonl_file` passes and lock holds on built wheels; B2's gate reuses it.
 - **Count one logical read once.** One keyed fold passes through three nested
   instrumented seams, so it shows up as three events. Report logical reads, or
   state the seam multiplicity. An uncorrected probe reported 30–39 "full-log
@@ -232,8 +283,10 @@ The harness lives in `work:v010-followups` under `launch-e2e-probe/`:
 - `investigate-launch-scan.md` (`spawn:p8095`);
 - `watchdog-finalize-report.md`.
 
-Also `chat:c7736`. Memory: `work:memory-audit` `decisions.md` M1, M6, M8–M10
-(`evidence/memory-audit.md`, `spawn:p8175`; runner probe `spawn:p8256`).
+Also `chat:c7736`. Memory: `work:memory-audit` `decisions.md` M1, M6, M8–M24
+(`evidence/memory-audit.md`, `spawn:p8175`; runner probe `mem3-discriminate.md`,
+`spawn:p8256`; MEM-1 `mem1-startup-repair.md`, `spawn:p8261`/`p8270`; B1
+`b1-one-chat.md`, `spawn:p8274`/`p8298`/`p8299`/`p8302`).
 
 ## Related
 

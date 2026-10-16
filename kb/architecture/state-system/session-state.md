@@ -15,10 +15,24 @@ lock-scoped `state/session_binding.py` path with `source: legacy_import`, and it
 records its outcome in `legacy-native-import-v1.json` at the runtime root.
 
 `sessions.jsonl` is the sole authority for these facts. There is no session SQLite
-index: `session_store` replays the journal on each read. `get_session_record` and
-`get_session_records` filter events down to the requested chats before folding, so a
-one-chat lookup does not fold the whole journal, but it still reads and parses every
-line. `list_all_session_records` folds everything. A `sessions-index.sqlite3` or
+index. Since #651 (v0.10.16) every per-operation read and every append goes through
+one keyed seam in `session_store.py`
+([D-session-read-seam](../../decisions/state.md#d-session-read-seam)):
+- **Reads:** `chats_rows(root, chats)` reads the selected chats in one pass and
+  returns `ChatRows`, a per-chat mapping plus `.ordered`, the same rows in global
+  log order. `chat_rows`, `chat_record` and `chat_generations` are its single-chat
+  cases; `chats_rows(root, None)` is the explicit full snapshot. `native_chats` and
+  `native_observations` select by native key.
+- **Selection:** a byte prefilter nominates rows that might name a selected chat,
+  and only those are decoded. The decoded check decides. Every read still scans
+  every byte of the file.
+- **Appends:** `append_chat_rows` and `append_native_rows`. `SessionBindings.commit`
+  publishes through `append_chat_rows` as one durable batch.
+- **Multi-chat callers make one call**, never a loop over single-chat reads, and
+  never sort rows by timestamp.
+
+`list_all_session_records`, `list_session_generations` and legacy import's raw reads
+still fold everything outside the seam. A `sessions-index.sqlite3` or
 `sessions-append-state.json` found in an old runtime root was left by an older build;
 no current code reads either one.
 
@@ -48,28 +62,28 @@ proportional to every chat that ever ran. If it also holds `sessions.jsonl.flock
 it serializes every other session writer.
 
 #588 removed the worst holder (the append guard) and stopped history-index readers
-from waiting on the lock. The readers that still replay the whole log (as of
-v0.10.10; their measured costs are on
-[per-operation cost](../per-operation-cost.md#1-session-state-is-one-global-replay-log-418)):
+from waiting on the lock. #634 and #651 then moved the per-operation readers
+(bindings, start, model selection and observation dedup, observed chats, the
+launch work-id and execution-context reads, spawn witnesses) onto the keyed seam
+above. They no longer decode or keep other chats' rows, so their memory and decode
+time stopped growing with the log. Their reads still pass over every byte, and some
+still hold `sessions.jsonl.flock` while they do; a primary close makes 10 filtered
+passes and 0 full folds. Measured costs are on
+[per-operation cost](../per-operation-cost.md#1-session-state-is-one-global-replay-log-418).
+The automatic archiver still folds once per candidate.
 
-| Reader | When | Lock held during the fold, where recorded |
-|---|---|---|
-| `session_bindings()` / `SessionBindings.__init__` | native-ID bind at spawn or primary start (twice per launch), repair, legacy import | `sessions.jsonl.flock` |
-| `start_session` lookups; `record_model_selection` / `record_model_observation` dedup; `get_or_create_observed_chat` | start, model events, observed chats | `sessions.jsonl.flock` |
-| `start_spawn` owner-chat read | every launch | `spawns_flock` |
-| `conclude_native_run` → observed chat | every native run's exit | the spawn lock |
-| `get_session_active_work_id`, `_session_execution_context`, `session_scope`, `spawn_session_log_available` | every launch | not recorded |
-| `get_session_record_for_spawn`, `session_records_for_spawns` | wait, show, archive witness | not recorded |
-| Automatic archiver, one fold per candidate | interval-gated, on primary stop | not the log's lock |
+A scoped `SessionBindings` (`scope` is a frozenset of chats) holds only those chats'
+history. Binding any other chat raises `ChatOutsideBindingScope`, and cross-chat
+uniqueness checks need the full snapshot (`scope=None`). A corrupt row poisons only
+its own chat: other chats still read and bind, while reading that chat, or the full
+list, raises.
 
-These readers lengthen launch but no longer stall index readers.
-
-**The accepted plan, not built:** per-chat journals,
+**The accepted plan, B2 not built:** per-chat journals,
 `session-state/chats/<cN>.jsonl`, each the only authority for its chat, plus small
 per-native-ID files for the facts that cross chats. A one-time cutover splits the
 old log, and rows that older builds keep appending are absorbed at the next
-command. The design is accepted and pending the owner's approval; it ships as
-#418 B1–B3
+command. B1 (the seam) shipped in #651. B2 swaps the seam's bodies and waits on the
+owner's open design questions and on identity-v2 PR 4
 ([D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)).
 Until it lands, describe and test sessions as the global log above.
 
@@ -81,6 +95,9 @@ lacks:
   discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
   `sessions` table folds native keys with the authority's own step,
   `project_session_generation`, and persists the working state as `session_chats`.
+  Recency and preview freshness select a chat's highest-ordinal generation bucket.
+  That can differ from the accepted generation when a generation key is reused;
+  making the index follow the accepted generation is B2's change, with v12.
 - **Search projection** (`history-index/native-search-v1.sqlite3`): normalized display
   text keyed by native key, with no chat IDs. Chats are joined at query time from the
   fold with `by_native_key`

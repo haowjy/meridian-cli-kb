@@ -57,14 +57,17 @@ history), the measured violators and the measurement method are on
 the open issues and how they depend on each other:
 
 - [#418](https://github.com/haowjy/meridian-cli/issues/418): sessions move to per-chat
-  journals. The design is accepted and pending owner approval
-  ([D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals)).
-  B1, which changes no format, is being built as `memory-audit` MEM-2.
-  B3 also removes continue's O(spawns) live-observer scan. #591 was closed as its
-  duplicate.
+  journals ([D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals)).
+  B1, the read/append seam, shipped as #651 (v0.10.16;
+  [D-session-read-seam](../decisions/state.md#d-session-read-seam)). B2 needs the
+  owner's answers to design questions 1–4 and 6–11 (Q5, automatic retirement, is
+  yes) and comes after identity-v2 PR 4. B3 removes continue's O(spawns)
+  live-observer scan and capture's owner scan, the ~230 MiB primary-close residual.
+  #591 was closed as its duplicate.
 - [#612](https://github.com/haowjy/meridian-cli/issues/612): session teardown reads
-  every spawn's `state.json` on every launch. The fix is a chat-filtered index query
-  plus authoritative re-reads, after #594.
+  every spawn's `state.json` on every launch. Since #634 it is one streamed pass for
+  all cleaned chats, so memory no longer grows, but the read count does. The fix is
+  a chat-filtered index query plus authoritative re-reads, after #594.
 - [#594](https://github.com/haowjy/meridian-cli/issues/594): no-change catch-up still
   takes the exclusive gate and re-reads every active spawn.
 - [#600](https://github.com/haowjy/meridian-cli/issues/600): indexed reads materialize

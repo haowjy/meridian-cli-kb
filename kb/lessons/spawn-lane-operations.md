@@ -19,8 +19,12 @@ A credential rejected after launch is a run failure, not an unavailable harness.
 Claude backup (`-a gpt-dev -m opus`, `-a prober -m sonnet`), resuming with `--from`. The
 key was the user's; the tech lead did not touch credentials and told the user instead.
 
-**The lesson:** when several spawns on one harness fail fast with an auth error, stop
-relaunching on that route. Pin a declared backup explicitly, and report the credential
+The same holds for model capacity. On 2026-10-16 two Codex `gpt-5.6-sol` coder lanes
+(`spawn:p8250`, `spawn:p8252`) died mid-run at model capacity. No backup was tried;
+the work was resumed with `--from` on Opus (`work:memory-audit` M8, M12).
+
+**The lesson:** when several spawns on one harness fail fast with an auth or capacity
+error, stop relaunching on that route. Pin a declared backup explicitly, and report the credential
 problem to the user. Every spawn on that route fails until the key is fixed.
 
 ## A Claude-Routed Lane Can End Its Turn Before Its Gate Finishes

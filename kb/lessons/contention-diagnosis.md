@@ -109,6 +109,33 @@ to a caller, and a test can pin them.
   instrumented seams and showed up as three events, so an uncorrected count of
   30–39 "full-log reads" was really 9.
 
+## Count every pass per operation, not one kind of fold
+
+#418 B1 (#651) moved session reads behind a keyed seam. Its gate counted
+*unfiltered* folds of `sessions.jsonl` and required them to drop, and they did:
+7 → 0 per primary close, 1 → 0 per runner. But B1's first draft could only ask for
+one chat at a time. Every multi-chat caller looped over it, and each call was a
+*filtered* pass over the whole file, which the gate didn't count. Two reviewers
+found it independently, and measurement confirmed it: `bind_late_legacy_sessions`
+went from 0.2 s to 57–120 s (on every CLI start while the import marker was
+stale, holding `legacy-native-import.lock`). `record_model_selection` on a 19-alias
+key went from 0.87 s to 4.4–5.7 s under the exclusive sessions flock. The fix was a
+multi-chat read that takes one pass
+([D-session-read-seam](../decisions/state.md#d-session-read-seam)).
+
+A gate that counts the thing being removed can't see the replacement multiply.
+"No unfiltered folds" was true while the operation got hundreds of times slower.
+
+**The rules.**
+- Count every physical pass over the file, whatever its filter, **per operation**,
+  and compare it with `main`. A pass count that grows with the number of chats,
+  aliases or candidates is the regression.
+- Also gate on wall time and lock hold time against `main`, for the operations
+  that fan out: bulk binds, multi-alias selection, archive and close. Read the
+  ranges, not only the medians, and take samples alternately on a shared box. B1's
+  final gate accepted three medians 0.4–5 ms above `main` with overlapping ranges as
+  noise; the pass counts showed no multiplication.
+
 ## Warm the index before you measure
 
 A copied corpus starts with a cold history index. In the end-to-end probe, every

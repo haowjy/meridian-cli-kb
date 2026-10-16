@@ -278,7 +278,9 @@ retried. The parts:
     boundary as well as in replay.
 - **The prefix rules apply at append time only, never in replay.** An import must
   carry the prefix and a live start must not. Both checks run in
-  `_append_session_event`. Replay keeps only the "historical import must be inactive"
+  `_append_session_rows`, under the append seam's `append_chat_rows` /
+  `append_native_rows` since #651
+  ([D-session-read-seam](state.md#d-session-read-seam)). Replay keeps only the "historical import must be inactive"
   check and the mutation check. The review (`spawn:p7987`, `old_restore_bricks.py`)
   showed what a replay-side prefix check would do: an unprefixed restore appended by
   an older build would fail every indexed read and every `rebuild` on that runtime
@@ -344,7 +346,8 @@ and 5/30 failed. With 2 spawn-start bind writers that each still hold the lock f
 
 **Still open:**
 - [#418](https://github.com/haowjy/meridian-cli/issues/418) (absorbed #591): the
-  remaining per-spawn full-log reads, some under `sessions.jsonl.flock`; see
+  remaining per-spawn full-log reads, some under `sessions.jsonl.flock`. Since #651
+  (B1) they decode only the selected chats' rows but still scan every byte; see
   [session state](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-log)
   and the accepted per-chat design,
   [D-session-per-chat-journals](state.md#d-session-per-chat-journals).

@@ -59,6 +59,29 @@ until #594 lands. It belongs to #418 B3, which records observer rows in the chat
 also writes the key. List those writers (here: launch links the run; native
 observation does not) before replacing a scan with a lookup.
 
+## Generated corpora with increasing clocks hid an ordering change (#418 B1)
+
+B1's first draft read each chat's rows separately and rebuilt cross-chat order by
+sorting on timestamps. Its equivalence test compared the new reads with a frozen
+copy of `main`'s over generated corpora and passed. The generator gave every row a
+strictly increasing timestamp, and in such a corpus a timestamp sort *is* log
+order. The correctness review built five cases with tied timestamps and clocks that
+step backwards. All five diverged from `main` (cases A–D2, `spawn:p8288`). The fix
+kept `main`'s log order outright: one pass returns rows in file order, and nothing
+sorts by clock
+([D-session-read-seam](../decisions/state.md#d-session-read-seam) invariant 2).
+
+The same oracle later caught a second blind spot only because one random seed
+(42) happened to reuse a generation key. Real writers never do that, but the
+plan's claim that "accepted equals the last bucket" was false for it, and the
+semantics change moved to B2.
+
+**The rule.** An equivalence corpus has to produce the inputs on which old and new
+could differ, not just realistic ones. For any change to how rows are ordered,
+grouped or selected, include tied timestamps, backward clock steps, interleaved
+writers and reused keys. Show each such case red against the old candidate before
+you trust a green run.
+
 ## A cycle check followed one edge per node (B2)
 
 The base cycle check treated every run's `parent_id` as an edge. The fast walk

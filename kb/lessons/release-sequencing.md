@@ -107,12 +107,17 @@ the next PR to `main` and merging `main` into it.
   merge → PyPI release → pin bump and `uv lock` on the consumer → re-gate →
   consumer merge ([D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)).
   Ask what binary the consumer actually installs, not only whether it degrades.
-- **Merging a `release: vX` commit into a stacked branch misfiles CHANGELOG
-  bullets.** Git's three-way merge can attach the branch's `Unreleased` bullets
-  to the new `## vX` header that `main` just added. After every such merge,
-  check the CHANGELOG and move the branch's bullets back under `Unreleased`.
-  When a parent PR ships, re-home its bullets under the version that actually
-  carried them (phase 1's bullets moved from 0.9.10 to 0.9.11).
+- **Merging or rebasing across a `release: vX` commit misfiles CHANGELOG
+  bullets.** Git can attach the branch's `Unreleased` bullets to the new `## vX`
+  header that `main` just added. A rebase does it silently, with no conflict to
+  look at. On 2026-10-16 it happened four times in one day. Rebases put MEM-1's
+  (#634) entries under `[0.10.12]` and B1's (#651) under `[0.10.14]`
+  (`work:memory-audit` M13, M17), and #633's entries reached `main` under
+  `[0.10.12]`, which #636 had to fix. After every merge
+  or rebase that crosses a release, run `git diff origin/main -- CHANGELOG.md`
+  and check that the branch's bullets sit under `Unreleased`. When a parent PR ships,
+  re-home its bullets under the version that actually carried them (phase 1's
+  bullets moved from 0.9.10 to 0.9.11).
 - **`git merge-tree --write-tree` prints a tree id even on conflict.** A
   dry-run script that read only the first line reported a conflicting chain as
   clean. Check the exit code (1 means conflicts), per

@@ -63,5 +63,7 @@ The port would then go strangler-style, runner first.
   is 16 MB; importing `execute_bg` is 92 MB.
 - Runner heap above that came from `get_session_active_work_id` replaying all of
   `sessions.jsonl` (#418 B1). A port of the same algorithm would carry that cost
-  over, so the memory-audit lane is fixing it in Python
-  ([D-session-per-chat-journals](state.md#d-session-per-chat-journals)).
+  over, so it was fixed in Python: #634 and #651 (v0.10.16) brought a real runner
+  from 329 to 103 MiB, the import floor
+  ([D-session-read-seam](state.md#d-session-read-seam)). Fixed Python processes sit
+  near 100 MiB; the audit's estimate for Rust was 5–30 MB.

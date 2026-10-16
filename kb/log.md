@@ -3,6 +3,39 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-16 — Memory program shipped: #634 (MEM-1) and #651 (#418 B1) (`work:memory-audit`)
+
+- New decision [D-session-read-seam](decisions/state.md#d-session-read-seam): the
+  B1 seam contract and invariants (one pass per multi-chat read; global log order,
+  never a timestamp sort; B2's stable per-stream merge; one append path; the
+  prefilter only nominates; `SessionBindings.scope`; poison isolation), the two
+  deviations (accepted generation moves to B2, M20; eager-import walk plus tuple,
+  M14), the equivalence oracle and the rejected alternatives. Indexed in
+  [decisions.md](decisions.md).
+- [D-session-per-chat-journals](decisions/state.md#d-session-per-chat-journals):
+  status is now B1 shipped, B2 not built. Owner answered Q5 (B4 automatic
+  retirement) yes; Q1–4 and Q6–11 are open; B2 follows identity-v2 PR 4.
+- [Per-operation cost](architecture/per-operation-cost.md): #634 and #651 in the
+  fixed table; §1 says the byte-scan slope remains until B2; §2 notes #612's
+  streamed teardown; §5 records the causes, the before/after and what is left (the
+  ~230 MiB close residual for B3, cold-index runs); a pass-count measurement rule.
+- [Session state](architecture/state-system/session-state.md): the keyed seam
+  replaces the v0.10.10 table of full-log readers; scope and poison rules;
+  highest-ordinal index generation.
+- Stale code references fixed: `_append_session_event` no longer exists
+  ([durability and locking](architecture/state-system/durability-and-locking.md),
+  [history storage](decisions/history-storage.md)). Status lines updated in
+  [future work](open-questions/future-work.md) and
+  [Rust rewrite](decisions/rust-rewrite.md).
+- Lessons: count every pass per operation
+  ([contention diagnosis](lessons/contention-diagnosis.md#count-every-pass-per-operation-not-one-kind-of-fold));
+  corpora with increasing clocks hide ordering changes
+  ([cost cuts](lessons/cost-cuts-and-safety-checks.md));
+  CHANGELOG misfiling on rebase ([release sequencing](lessons/release-sequencing.md));
+  model-capacity deaths aren't covered by declared backups
+  ([spawn lanes](lessons/spawn-lane-operations.md)).
+
+---
 ## 2026-10-16 — Identity-v2 approved; PR 1 (start gate + guardian, #633) (`work:v010-followups`)
 
 - New [decisions/spawn-identity.md](decisions/spawn-identity.md):

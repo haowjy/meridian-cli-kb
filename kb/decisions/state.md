@@ -27,7 +27,7 @@ See [principles/design-principles.md](../principles/design-principles.md) for fu
 
 **Decision (original):** Spawn and session state is stored as append-only JSONL event logs, not a database or mutable JSON files.
 
-**Session state** still uses one global JSONL log. A per-chat split is the accepted design, pending owner approval: see [D-session-per-chat-journals](#d-session-per-chat-journals). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
+**Session state** still uses one global JSONL log, read through a keyed seam since #651 ([D-session-read-seam](#d-session-read-seam)). The per-chat split is the accepted design; its storage change (B2) waits on the owner's open questions: see [D-session-per-chat-journals](#d-session-per-chat-journals). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
 
 **Constraints that drove the original JSONL design:**
 1. **Crash tolerance** — JSONL appends are atomic at the OS level: a partial write corrupts only the partial line, not any previous lines.
@@ -235,14 +235,20 @@ O(1). The canonical dataset and timing provenance are recorded in
 
 ### D-session-per-chat-journals: per-chat session journals replace the global log (#418 design B, 2026-10) {#d-session-per-chat-journals}
 
-**Status:** accepted design, **pending the owner's formal approval; not built**. The
-owner chose option B ("redo PR 2") on 2026-10-15, and the design converged after two
-adversarial review passes (`work:v010-followups` D22, D25; design in that work item's
-`design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`). Update 2026-10-16: B1
-changes no storage format, so its hold was lifted, and the `memory-audit` lane is
-building it as MEM-2, stacked on #631 (`work:memory-audit` M9, M10; not merged).
-The owner's open questions concern B2 and B4. #591 was closed as a duplicate of #418, which has owned this work
-since the 2026-07 thermo-nuclear audit.
+**Status:** accepted design; **B1 shipped, the storage change is not built**. #418 is
+open. The owner chose option B ("redo PR 2") on 2026-10-15, and the design converged
+after two adversarial review passes (`work:v010-followups` D22, D25; design in that
+work item's `design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`).
+- **B1** merged as #651 (`e6ae6cf53`, v0.10.16, 2026-10-16), with no format change.
+  Its contract and its two deviations from the plan are
+  [D-session-read-seam](#d-session-read-seam).
+- **Owner answers** (`decision-B.md` "Owner answers"): Q5, automatic retirement of
+  `sessions.jsonl` (B4), is **yes** (2026-10-16). Questions 1–4 and 6–11 are still
+  open and must be answered before B2.
+- **B2** comes after identity-v2 PR 4, which takes index v11; B2 takes v12.
+
+On `main` sessions are still the one global log. #591 was closed as a duplicate of
+#418, which has owned this work since the 2026-07 thermo-nuclear audit.
 
 **Problem.** Session state is one global `sessions.jsonl`, and per-spawn operations
 replay it: 9 full-log reads per foreground launch
@@ -286,16 +292,19 @@ in D25):
   writes are still absorbed. The cutover fails loudly on a read-only runtime.
 - **Corpus search cuts over other projects' runtimes** when it initializes them.
 - **Out of scope:** per-chat pruning, and the automatic archive's full scan.
-- **Deferred:** B4, retiring `sessions.jsonl` after 14 quiet days. Decide after B2
-  has run for two weeks.
+- **B4, automatic retirement: yes** (owner, 2026-10-16). After the B2 upgrade, once
+  14 days pass with no growth from older builds, `sessions.jsonl` is renamed to
+  `sessions.jsonl.pre-418`. It is never deleted automatically.
 
 **PR slices**, each off `main` with its own merge approval:
-- **B1:** one read/append seam over today's log, keyed lookups, deletion of redundant
-  reads, plus an old-versus-new equivalence harness. No format change.
-- **B2:** the journals, cutover, absorb and index v12.
-- **B3:** observer rows, so continue's live-observer check stops scanning every
-  spawn.
-- **B4** (optional): retire the old file.
+- **B1 (shipped, #651):** one read/append seam over today's log, keyed lookups,
+  deletion of redundant reads, plus an old-versus-new equivalence harness. No format
+  change.
+- **B2:** the journals, cutover, absorb and index v12. It also owns the
+  accepted-generation index semantics and seam-owned lock epochs that B1 deferred.
+- **B3:** observer rows, so continue's live-observer check and capture's owner check
+  stop scanning every spawn. That scan is the ~230 MiB primary-close residual.
+- **B4:** retire the old file (approved, above).
 
 **Rejected alternatives.**
 
@@ -316,6 +325,134 @@ a legacy-file rewrite rather than appends. It currently absorbs nothing and warn
 designs and reviews (`review.md`, `review-r2.md`, `review-r3.md`, `review-B.md`,
 `review-B-r2.md`); design lead `spawn:p8040`; reviewers `spawn:p8059`,
 `spawn:p8066`; `chat:c7736`.
+
+---
+
+### D-session-read-seam: one keyed read/append seam over `sessions.jsonl` (#418 B1, 2026-10-16) {#d-session-read-seam}
+
+**Status:** shipped. #634 (MEM-1, `a7e53cadb`, v0.10.14) added the selected reads,
+the byte prefilter and the scoped `SessionBindings`. #651 (#418 B1, `e6ae6cf53`,
+v0.10.16) made them one seam with a multi-chat read and a single append path. The
+storage behind the seam is still the one global log; B2 replaces the bodies
+([D-session-per-chat-journals](#d-session-per-chat-journals)).
+
+**Problem.** Per-operation session reads replayed all of `sessions.jsonl` and built
+every row as a Pydantic object. That cost time in proportion to history, and
+because CPython keeps freed arenas it also set each process's resident memory at
+the peak of its largest replay: a background runner sat at 321–325 MB against
+101 MB on an empty runtime, and a primary close peaked at 678 MiB
+([per-operation cost §5](../architecture/per-operation-cost.md#5-resident-memory-full-scans-kept-as-pydantic-objects-627)).
+B2 also needs one place to swap: a reader that opens the log itself would be
+missed by the cutover.
+
+**The seam** (`state/session_store.py`). Reads: `chats_rows`, `chat_rows`,
+`chat_record`, `chat_generations`, `native_chats`, `native_observations`.
+Appends: `append_chat_rows`, `append_native_rows`. `start_session` returns a
+`StartedSession` (chat, generation, record), so launch no longer reads back what it
+just wrote. B2 changes these bodies and nothing else. The colocated contract is
+`src/meridian/lib/state/.context/history.md`.
+
+**Invariants.** Each one exists because a draft broke it.
+
+1. **One pass per multi-chat read, never a pass per chat.**
+   `chats_rows(root, chats)` reads the selected set once; `chat_rows` is its
+   single-chat case; `chats_rows(root, None)` is the explicit full snapshot. Native
+   scope is `native_chats` then one `chats_rows`: two passes, whatever the alias
+   count. B1's first draft offered only a one-chat read, so every multi-chat caller
+   looped it, and each call was a filtered pass over the whole log.
+   `bind_late_legacy_sessions` went from 0.2 s to 57–120 s, on every CLI start
+   while the import marker was stale, holding `legacy-native-import.lock`.
+   `record_model_selection` on a 19-alias key went from 0.87 s to 4.4–5.7 s under
+   the exclusive sessions flock.
+2. **Global log order, never a timestamp sort.** `ChatRows` is the per-chat mapping
+   plus `.ordered`, the same rows in log order, for cross-chat decisions. Within one
+   chat, row order always wins, in B2 too. The first draft rebuilt cross-chat order
+   by sorting on timestamps and diverged from `main` in five tie and clock-step
+   cases. **B2 must supply a stable merge of per-chat streams, each in row order**,
+   not a global sort; read `pr-plan-B.md`'s `(time, chat number, row)` that way.
+   One accepted exception: `SessionBindings.commit` groups its rows by chat, so
+   order across chats within one commit batch is not kept. Bind rows never create a
+   chat's first row and are compared only within a chat.
+3. **One append path.** `SessionBindings.commit` publishes through
+   `append_chat_rows` as one grouped, durable batch (one fsync). Selection and
+   observation dedup run inside the append's lock epoch, so validation and
+   publication are atomic. Lock order: project lifetime → history mutation (shared)
+   → `sessions.jsonl.flock`. A second writer path would be a second thing B2 has to
+   find.
+4. **The byte prefilter only nominates.** `_row_may_select_chat` and
+   `_row_may_name_native` let a selected read skip `json.loads` on other chats'
+   lines. They must return true for every row the decoded check would keep; the
+   decoded check decides. A false positive costs one decode; a false negative drops
+   history silently. The first prefilter dropped whitespace-padded ids, which the
+   decoded side strips. The fix applies the decoder's own predicate to every
+   `chat_id` token, and nominates any row it can't see into (NUL bytes, an escaped
+   key letter). A 100k-row fuzz found no false negatives.
+5. **`SessionBindings.scope` is explicit.** `None` is a full snapshot; otherwise a
+   frozenset of the chats it read. Binding outside the scope raises
+   `ChatOutsideBindingScope`, a `RuntimeError` so data-error `except ValueError`
+   handlers don't swallow it. Cross-chat uniqueness checks require `scope is None`.
+   Without this, a cross-chat check could run inside a truncated snapshot and pass
+   because the conflicting chat was never read.
+6. **Poison stays in its chat.** A corrupt row in another chat no longer blocks this
+   chat's read or bind; reading the corrupt chat, or the full list, still raises.
+   Accepted as better crash-only behaviour.
+7. **A spawn row without a chat falls back to one full pass.** `session_records_for_spawns`
+   and `get_session_record_for_spawn` keep `main`'s `spawn_id` match for that case:
+   the crash window between `start_session` and the spawn row learning its chat.
+   Named rows stay restricted to their own chat, even in a mixed batch.
+
+**Deviations from `pr-plan-B.md`** (recorded in `decision-B.md` "Owner answers"):
+- **The accepted generation moves to B2** (`work:memory-audit` M20). Index consumers
+  (`recent_sessions`, preview freshness) keep `main`'s highest-ordinal generation
+  bucket, and the index stays at schema 10. The plan claimed that without absorbed
+  rows the accepted generation equals the last bucket. That is false when a
+  generation key is reused: the key keeps its original ordinal. No current writer
+  reuses a key (all use `uuid4`), but joining on the accepted generation needs a
+  new index namespace, B1's contract is no format change, and v11 belongs to
+  identity-v2 PR 4. B2 carries absorbed rows and its own bump (v12), so "latest =
+  accepted" lands there. Non-index `chat_record` readers keep accepted-record
+  semantics.
+- **Eager close-path imports are a walk plus a named tuple** (M14). A daemon thread
+  at session start imports every module under `meridian.lib.state` and
+  `meridian.lib.ops`, then `_CLOSE_PATH_MODULES` in `launch/session_scope.py`
+  (`harness.capture_qualify`, `harness.transcript_capture`), which capture loads
+  lazily at close. The point is that an in-place upgrade can't break a running
+  process at close ([D-update-crash-waits-for-rust](rust-rewrite.md#d-update-crash-waits-for-rust)).
+  An acceptance test checks that a full close then adds no `meridian.*` module, so
+  a new lazy close-path import must join the tuple. Rejected: walking
+  `meridian.lib.harness`, which loads every adapter into every runner and undoes
+  the memory win; dropping eager imports. The thread suppresses its own exceptions
+  and only debug-logs them, because a traceback on a primary's terminal would break
+  the rule that nothing reaches a terminal a TUI owns.
+
+**Equivalence oracle.** `tests/support/session_lookup_oracle.py` is a frozen copy of
+`main`'s 17 lookup functions (AST-equal at freeze). The extended test compares it
+with the seam over generated corpora that include tied and backward clocks,
+aliases, late binds, historical imports and legacy arrays, and over real runtime
+copies through the real disk seams. 11 real runtimes matched with 0 mismatches. B2
+reuses this oracle and the pass/lock probe
+(`tests/support/session_lookup_measurement.py`).
+
+**Rejected alternatives.**
+
+| Alternative | Why rejected |
+|---|---|
+| A standalone native-identity lookup for the capture guard (MEM-2 as first scoped) | Native identity isn't indexed and observers have no per-chat rows on `main`, so it would duplicate B1's native-scope seam and conflict with it |
+| Startup repair from history-index candidates | A dirty index makes catch-up project the log into memory, the cost being removed, and a stale disposable projection could hide an orphan. Repair streams the authority (`iter_repair_candidates`); identity-v2 PR 4 swaps only its predicate |
+| A dirty marker to skip startup repair | Another state file to keep correct; identity-v2 bounds the pass anyway |
+| A per-chat read looped by multi-chat callers | Invariant 1 |
+| Rebuilding cross-chat order from timestamps | Invariant 2 |
+| A cap on the Codex/OpenCode event queues | Suspected for runner RSS but not reproduced: instrumented queues never passed depth 4 or 1.8 KB. A stalled consumer under a real burst is unmeasured |
+
+**Deferred:** seam-owned lock epochs (`chat_epoch`/`native_epoch`) to B2, which
+touches every lock site anyway; deduping `native_identity_candidates` inline in
+`_native_session_owners`; appending an observed chat's start and stop as one batch.
+
+**Provenance:** `work:memory-audit` M1–M24 and `evidence/` (`memory-audit.md`,
+`mem3-discriminate.md`, `mem2-explore.md`, `mem1-startup-repair.md`,
+`b1-one-chat.md`, `b1-recent-generation-conflict.md`); reviews `spawn:p8268`
+(MEM-1), `spawn:p8288`/`p8289` and re-reviews `p8300`/`p8301` (B1);
+`work:v010-followups` `design-591/decision-B.md` "Owner answers".
 
 ---
 
