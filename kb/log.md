@@ -3,6 +3,37 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-15 — Resume after crash: TUI-quiet launcher and abandoned generations (`work:resume-after-crash`)
+
+- [Primary terminal ownership](architecture/primary-terminal-ownership.md): new
+  section on the fd-level `launcher.log` window and its one pointer (PR #621, not
+  merged), the #614 integration requirement, and a known gap: Claude/Pi launchers
+  have no SIGTERM/SIGHUP handler on `main` or #614. The status block now says #614
+  is an open PR. The stale #590 `ESC[J` gap was deleted: #590 is closed and #616
+  doesn't carry it.
+- New decision [D-tui-quiet-launcher](decisions/primary-terminal-ownership.md#d-tui-quiet-launcher--launcher-output-never-reaches-a-live-tui)
+  with rejected alternatives; D-exit-text-append links to it.
+- [Session state](architecture/state-system/session-state.md): new section on the
+  fold rule that closes abandoned generations (branch
+  `fix/abandoned-session-generation`, not merged) and why it is sound. Index file
+  names now say `history-v<N>` with the schema per branch, here and in the
+  [state overview](architecture/state-system/overview.md); `v6` was stale (main is
+  7).
+- [Portable history](architecture/state-system/portable-history.md): new
+  subsection on live-owner capture deferral and retry on owner stop, plus the
+  `main` behavior.
+- New decision [D-abandoned-generation-closure](decisions/history-storage.md#d-abandoned-generation-closure);
+  decision index rows for both decisions. Stale rows fixed: D-native-terminal (#614
+  open), D-exit-text-append (#590 closed), D-spawn-run-identity (#616 open).
+- Lessons: [repair the state before relaxing the check](lessons/state-design-lessons.md#repair-the-state-before-relaxing-the-check);
+  [a scratch home does not isolate the harness binary](lessons/probe-runtime-placement.md#a-scratch-home-does-not-isolate-the-harness-binary)
+  (Codex self-update). Troubleshooting: [primary crashed with no exit or stop
+  recorded](operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded)
+  (systemd `OOMPolicy=stop` takes down the pane scope).
+- [Managed primary lifecycle](architecture/managed-primary-lifecycle.md): marks
+  the launcher watchdog as #614-only. Corrections register: one new candidate.
+
+---
 ## 2026-10-15 — Corrections register
 
 - New [corrections.md](corrections.md): the human's corrections of agents,

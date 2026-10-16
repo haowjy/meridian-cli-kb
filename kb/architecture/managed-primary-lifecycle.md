@@ -91,7 +91,9 @@ The launcher is expected to:
 
 If step 4 is interrupted by launcher death on POSIX, the launcher's watchdog
 terminates the backend and TUI as soon as its control pipe closes, so a dead launcher
-normally means a dead runtime. The row is still `running` on disk until
+normally means a dead runtime. (The watchdog is on PR #614,
+`feat/native-terminal-primaries`, not merged. On `main` a Linux backend's link is
+still `PR_SET_PDEATHSIG`, which reaches only the direct child.) The row is still `running` on disk until
 something reconciles it (`spawn show` lazily projects `cancelled (exit 130)` /
 `session_ended_without_finalize`). The reaper rules below still matter for the
 cases the watchdog does not cover: the watchdog itself killed, the

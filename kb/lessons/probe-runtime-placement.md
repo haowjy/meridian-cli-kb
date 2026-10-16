@@ -1,4 +1,4 @@
-# Lessons: Probe Runtimes Live Under /tmp, Never in a Work Directory
+# Lessons: Probe Runtimes Live Under /tmp, Never in a Work Directory, and Never Touch Shared Installs
 
 **The rule:** a probe, POC or live check that needs a scratch `HOME`,
 `MERIDIAN_HOME`, `_MERIDIAN_RUNTIME_DIR`, `CODEX_HOME`, XDG roots, copied
@@ -39,6 +39,28 @@ before an autosync commit.
 The same mistake happened twice, a month apart, because nothing in the probe's
 path said where scratch goes. A brief that says "scratch" without "under
 `/tmp`" invites it.
+
+## A scratch home does not isolate the harness binary
+
+**2026-10-15, the user's global Codex replaced.** A probe for PR #621 ran Codex in
+a fully isolated scratch root: its own `HOME`, `CODEX_HOME`, XDG roots and tmux
+socket. Codex showed its built-in update prompt, the update was accepted, and it
+replaced the user's real global install
+(`~/.nvm/versions/node/…/lib/node_modules/@openai/codex`). A scratch `HOME` doesn't
+cover that: the binary lives on the shared `PATH`, and the updater writes wherever
+the binary was installed. The coder reinstalled 0.162.1 (`codex --version`
+confirmed it), and the probe was repeated on a clean TUI.
+
+**The rule:** a scratch Codex run disables update checks in its scratch
+`CODEX_HOME`, with `check_for_update_on_startup = false` in `config.toml`
+(the key is present in codex-cli 0.162.1). Nothing in a probe ever accepts an
+update prompt. The same applies to any harness with a self-updater: a probe brief
+that isolates the home but runs the shared binary must say how the updater is
+switched off. If a probe does hit an update, check the installed version
+afterwards and restore it before reporting.
+
+Source: `work:resume-after-crash` `decisions.md` R9; `evidence/lane-a-live-terminal-ownership.md`
+("Review-finding recheck"); `spawn:p8162`.
 
 ## What is in place, and what isn't
 

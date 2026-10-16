@@ -365,6 +365,79 @@ lock-free projection of `sessions.jsonl` goes away).
 (`spawn:p7970`); `session-fold-probe-588.md` (`spawn:p7975`); review `spawn:p7987`;
 coders `spawn:p7978`, `spawn:p7986`, `spawn:p7988`, `spawn:p7989`; `chat:c7736`.
 
+### D-abandoned-generation-closure: a later start of the same chat closes earlier generations; capture defers to real owners (2026-10-15) {#d-abandoned-generation-closure}
+
+**Status:** decided by the tech lead after investigation (`work:resume-after-crash`
+R4, R6, R8, R11). The user's ruling was the premise, not the mechanism: an
+expected "native session is live" refusal is not an error ("why is this an
+error at all anyways...?", R3). Implemented on branch
+`fix/abandoned-session-generation`, head `933385b15`, built on #616's head
+`6d1bc3ce3`. Not merged. Its PR opens after #616 merges, rebased onto `main`.
+
+**Problem:** a Claude primary died with its pane when systemd stopped the scope
+after an OOM kill. Its launcher wrote no exit and no session stop. The user ran
+`--continue` at once, and the new launcher took the chat lock before stale-lock
+cleanup could append the old stop. Capture treated the old unstopped generation
+as a live writer, and no operation ever stopped it. A deterministic replay showed
+the refusal was permanent on `main` and on #616. #616 makes the second launch run
+`p1.2` of the same spawn, but the old run's generation stays open. Separately,
+the refusal surfaced as a traceback, and on `main` that traceback was drawn over
+the resumed TUI ([D-tui-quiet-launcher](primary-terminal-ownership.md#d-tui-quiet-launcher--launcher-output-never-reaches-a-live-tui)).
+
+**Decision:**
+1. **Fix the state, in the fold.** A later accepted start of the same chat
+   closes every earlier unstopped generation at its `started_at`. The premise is
+   that every start writer holds the chat's exclusive lock; the reviewer
+   (`spawn:p8156`) verified it for both production writers. History index schema
+   9 → 10.
+2. **Liveness comes from real signals.** The guard drops "`stopped_at is None`"
+   as proof of a live writer. Liveness now comes from a non-terminal row, a
+   birth-validated lease, a serving scope or an observer.
+3. **A live owner is a typed deferral.** `NativeCaptureDeferred` names the real
+   owner. Startup repair logs it at debug level, stop maintenance stays silent,
+   and archive lists it as deferred.
+4. **Retry when the owner stops.** Stop maintenance captures the terminal records
+   bound to the same native session.
+
+Mechanism: [abandoned generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations),
+[deferral and retry](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops).
+
+**Rejected:**
+- **Writing stop events at start time.** `start_session` would append explicit
+  stops for earlier unstopped generations under the chat lock. That works, but
+  finding those generations needs a full `sessions.jsonl` replay on the start
+  path, against the constant-time bar in
+  [per-operation cost](../architecture/per-operation-cost.md), and it would not
+  heal journals already written. The fold rule heals
+  existing journals on replay at no launch cost. It was the fallback if the
+  start-writer audit failed.
+- **Lease-only liveness without the state fix.** Replacing the `stopped_at`
+  check with an exact-generation lease check alone would have made capture
+  succeed, but the leaked open generation would stay in state. Capture would
+  stop looking at it, and every other reader would still see a chat with two
+  open generations. The
+  fix repairs the state first and then trusts real liveness signals
+  ([lesson](../lessons/state-design-lessons.md#repair-the-state-before-relaxing-the-check)).
+- **Keeping the `stopped_at` fence as defence in depth.** Not needed once
+  starts and leases are written together under the lock. It would keep a latent
+  permanent block when a lease write fails after its start is appended.
+- **A durable "capture deferred" marker drained by a later pass.** The owner's
+  stop is already the exact retry trigger, and the guard's query already yields
+  the retry set. A marker would add a state and a drain path without adding
+  durability.
+- **Having stop maintenance give the guard a second job** (raise and also return
+  related records, behind a `collect_related` flag). The owner query is split
+  from the guard instead; capture returns its native key, and stop maintenance
+  queries once.
+
+**Revisit if:** a `SessionStartEvent` writer appears that doesn't hold the chat
+lock, or a native writer can outlive its launcher outside a fenced process scope.
+
+**Provenance:** `work:resume-after-crash` (`decisions.md` R3, R4, R6, R8, R11,
+R12; `evidence/incident-b1.md`, `lane-b-capture-guard.md`, `lane-b-fix.md`,
+`review-lane-b.md`, `lane-b-shape-pass.md`); investigation `spawn:p8139`;
+implementation `spawn:p8150`, `spawn:p8163`; review `spawn:p8156`; `chat:c7524`.
+
 ### D-history-index-schema-namespace: each index schema owns its own files; never migrate in place (2026-09-26) {#d-history-index-schema-namespace}
 
 **Status:** Shipped in v0.7.0 (PR #534, merge `3dae2434`; implementation commit

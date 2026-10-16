@@ -183,6 +183,68 @@ delayed observation may include later native continuation and must state its sco
 Same-runtime owner checks are safety preconditions, not a fence against external
 writers.
 
+### Capture defers to a live owner and retries when it stops
+
+*Branch `fix/abandoned-session-generation`, built on #616's head `6d1bc3ce3`. Not
+merged; its PR opens after #616 merges. The `main` behavior is described at the
+end.*
+
+Capture refuses to seal a native transcript while a same-runtime process may
+still be writing it. That guard is correct: without it, capture can seal a
+partial transcript. Several runs can bind the same native session, for example a
+crashed primary and the `--continue` that resumed it. So the guard
+(`_native_session_owners` and the thin `_require_inactive_native_session`
+wrapper in `ops/session_archive.py`) checks every spawn or run record bound to
+the native key, plus session records outside the spawn projection.
+
+**What counts as live.** One of these must hold:
+- a non-terminal row bound to the key;
+- a birth-validated lease on the exact generation;
+- a live, unreleased serving scope;
+- a live observer (`live_observer_for_chat`).
+
+An unstopped generation alone is not evidence of a writer. Its stop may simply
+never have been written ([abandoned generations](session-state.md#a-later-start-closes-abandoned-generations)).
+Dropping that check is safe because `start_session` appends the start and
+writes the lease together under the sessions lock before the harness launches,
+and a spawn-linked start already has a non-terminal row. Keeping it would also
+have left a second permanent block: if the lease write fails after the start is
+appended, nothing would ever stop that generation.
+
+**Deferral is not an error.** A live owner raises `NativeCaptureDeferred`, which
+names the real owner: `spawn p1, run p1.2` for a run, chat and generation for a
+standalone lease. Each caller treats it as "not yet":
+
+| Caller | On deferral |
+|---|---|
+| Startup orphan repair (`ops/diag.py`) | `orphan_primary_capture_deferred` at debug level, no traceback |
+| Stop maintenance | Silent. It catches the deferral around each capture and still runs the automatic archive pass |
+| `session archive --apply` | Reported under `Deferred`, separate from errors; nothing suppresses the next pass |
+| `session archive` dry run | Protected records are not counted as capturable |
+
+Corrupt, quarantined, incomplete or missing-source captures stay errors. A
+deferral raised inside snapshot `finish()` removes the atomic temp file and
+publishes nothing.
+
+**Retry on owner stop.** By default (`history.archive.automatic = false`) no
+archive pass runs on its own, and startup repair captures only runs it just
+reconciled. A deferred capture of the crashed run therefore needs a retry point.
+The owner's own stop is that point. `materialize_native_history` returns the
+native key it captured, and `session_stop_maintenance` queries the owners of that
+key once. It then captures every terminal, uncaptured record bound to the same
+native session. Each retry goes through the same guard, so a record still
+blocked by another live owner defers quietly again. There is no durable
+"deferred" marker. The exiting owner is already the exact trigger, and the
+guard's query already has the retry set.
+
+**On `main` and on #616.** The guard also treats an unstopped generation as live,
+and it raises a plain `ValueError("Cannot capture an active native owner: pN")`
+that names the stale row. Startup repair logs it as `orphan_primary_capture_failed`
+with a traceback, stop maintenance returns it as a warning, and archive lists it
+under errors. After a crash followed by an immediate `--continue`, the old
+generation is never stopped, so capture of that native session fails on every
+pass.
+
 ## Verified publication and short reclaim serialization
 
 Archive capture runs under the shared root gate and source lock. It brackets a full
@@ -302,6 +364,9 @@ Native-only capture and inert legacy members: `work:native-harness-session-ident
 Retained-snapshot reads: `evidence/investigate-import-restore-report.md`
 (`spawn:p7209`), fix `spawn:p7217` (commit `8354176a`). Schema namespace:
 `spawn:p7222`, `spawn:p7225` (commit `a3fd1439`).
+Capture deferral and retry: `work:resume-after-crash` (`decisions.md` R3, R4, R6,
+R8, R11, R12; `evidence/lane-b-capture-guard.md`, `lane-b-fix.md`,
+`review-lane-b.md`; `spawn:p8139`, `spawn:p8150`, `spawn:p8156`, `spawn:p8163`).
 
 ## Related
 

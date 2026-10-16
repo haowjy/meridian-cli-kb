@@ -201,7 +201,8 @@ cursor. The incident: a crashed Claude primary was resumed, the repair thread
 logged `orphan_primary_capture_failed` with a traceback, and the traceback was
 drawn across the live Claude screen. Codex panes showed the same thing.
 
-The fix works at the file-descriptor level, so no writer can get around it.
+The fix works at the file-descriptor level, so nothing that writes through fds
+0–2 can get around it.
 `tui_terminal_window()` (`lib/launch/process/terminal_ownership.py`) opens before
 the TUI process starts and closes after it exits:
 

@@ -173,7 +173,7 @@ streams.
 **Keep the premise true.** A future start writer that doesn't hold the chat lock
 would make this rule close a live generation. Rationale and
 rejected alternatives:
-[D-abandoned-generation-closure](../../decisions/history-storage.md#d-abandoned-generation-closure-a-later-start-of-the-same-chat-closes-earlier-generations).
+[D-abandoned-generation-closure](../../decisions/history-storage.md#d-abandoned-generation-closure).
 
 
 ## Related Pages

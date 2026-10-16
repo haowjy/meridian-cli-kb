@@ -22,13 +22,13 @@ meridian.toml
   sessions.jsonl                    — session events
   legacy-native-import-v1.json      — one-time legacy key import outcome
   history-index/                    — disposable projections, named by schema
-    history-v6.sqlite3              — metadata index: discovery, aliases, previews
+    history-v<N>.sqlite3            — metadata index (N = SCHEMA_VERSION; 7 on main)
     native-search-v1.sqlite3        — native-keyed FTS5 search projection
-    pending-v6/                     — dirty-source intent for schema 6
+    pending-v<N>/                   — dirty-source intent for schema N
     history.sqlite3 · pending/      — 0.6.7's schema-2 index; left untouched
-  history-index-init-failure-v6.json — latched genuine build failure
+  history-index-init-failure-v<N>.json — latched genuine build failure
   history-archives/                 — ZIP receipts and private restore stages
-  locks/history-*-v6.lock           — projection coordination (per schema)
+  locks/history-*-v<N>.lock         — projection coordination (per schema)
   locks/history-mutation.lock       — authority mutation gate (shared by all builds)
   session-id-counter · spawn-id-counter
   sessions/ · locks/

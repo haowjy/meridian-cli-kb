@@ -120,6 +120,45 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 **The fix:** For `finalizing` rows, the reaper uses only heartbeat recency, not PID liveness. A stale heartbeat during `finalizing` means the runner crashed mid-drain → `orphan_finalization`.
 
+## Repair the State Before Relaxing the Check
+
+*From `work:resume-after-crash` (2026-10-15). The fix is on branch
+`fix/abandoned-session-generation`, not merged.*
+
+**The situation:** native capture refused forever with "Cannot capture an active
+native owner: p12669". p12669 was long dead. Its launcher had been killed before
+writing a session stop, and the `--continue` that followed took the chat lock
+before cleanup could write it. The guard read "this generation has no stop" as
+"someone is still writing".
+
+**The tempting fix:** make the guard ask a better question. Check the exact
+generation's lease instead of `stopped_at`, and the refusal goes away. The
+investigator (`spawn:p8139`) argued against doing only that, and the lead agreed.
+A lease-only check makes capture work while the state stays wrong: the chat keeps
+an open generation that nothing will ever close. Capture has stopped looking at
+that field, but the rest of the system hasn't. Every other reader still sees a
+chat with two live generations, and the next check written against `stopped_at`
+inherits the same permanent refusal.
+
+**What shipped:** two changes, in this order.
+1. **Fix the state.** The generation fold closes an earlier unstopped generation
+   when a later start of the same chat is accepted. That inference is safe only
+   because every start writer holds the chat lock, so an audit of the writers
+   came first.
+2. **Then trust real liveness signals.** Once the state no longer leaks, the guard
+   can drop `stopped_at` and rely on a non-terminal row, a birth-validated lease,
+   a serving scope or an observer.
+
+Doing (2) alone would have hidden the leak. Doing (1) alone would have left a
+guard that still refuses whenever a stop is lost some other way, such as a failed
+lease write.
+
+**The lesson:** when a safety check refuses because the state says something
+false, fix the state first. A check relaxed to step around bad state makes the
+symptom disappear and leaves the bad state for the next reader to find. Mechanism:
+[abandoned generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations);
+[decision](../decisions/history-storage.md#d-abandoned-generation-closure).
+
 ## Typed State Contracts: Systemic Patterns (PR #423)
 
 Bug patterns that recurred across multiple lanes of the typed-state-contracts

@@ -64,6 +64,10 @@ Seen once. Each moves into the table on its second occurrence.
   2026-09-22.
 - **Shaped a general artifact around developers.** `chat:c7258` 2026-10-08
   "it shouldn't be dev focused".
+- **Accepted a symptom that clears on its own as fixed.** The fix removes the
+  symptom; "the TUI redraws over it" or "it goes away on retry" is not a fix.
+  `chat:c7524` 2026-10-15 "it still garbles the screen when claude hasn't
+  redrawn --- we shouldn't garble the text at all".
 - **Didn't record repeated corrections.** `chat:c7796` 2026-10-15 "aren't
   repeated mistakes supposed to be recorded into the kb...?" Enforced by
   `doc:` base `@kb-lead` and this register.
