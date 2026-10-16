@@ -649,6 +649,9 @@ integrity as proof that the selected transcript was complete.
 - [Spawn wait barrier](../concepts/spawn-wait-barrier.md) — the discovery path
   whose contention motivated this decision
 - [Portable history](../architecture/state-system/portable-history.md) — current history-storage mechanism
+- [Session state](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — the fold rule that closes abandoned generations
+- [State-design lesson](../lessons/state-design-lessons.md#repair-the-state-before-relaxing-the-check) — the state-first repair lesson
+- [Crash troubleshooting](../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded) — the incident behind the decision
 - [State-system overview](../architecture/state-system/overview.md) — state-system map
 - [Native transcript reads](../architecture/native-transcript-reads.md) — live and retained transcript read paths
 - [Native session identity lessons](../lessons/native-session-identity.md) — upgrade and cross-harness seam failures

@@ -319,3 +319,9 @@ Provenance: `work:native-terminal-primaries` (`decisions.md` D1–D9;
 Launcher-output window: `work:resume-after-crash` (`decisions.md` R1, R5, R7,
 R9, R10; `evidence/incident-b1.md`, `lane-a-live-terminal-ownership.md`,
 `review-lane-a.md`; `spawn:p8138`, `spawn:p8161`, `spawn:p8162`).
+
+## Related
+
+- [Primary-terminal ownership decisions](../decisions/primary-terminal-ownership.md) — D-exit-text-append, D-tui-quiet-launcher, and the native-terminal choice
+- [Managed primary lifecycle](managed-primary-lifecycle.md) — launcher roles, failure cleanup, and reconciliation
+- [Crash troubleshooting](../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded) — the systemd OOM-scope incident that exposed the launcher-output gap

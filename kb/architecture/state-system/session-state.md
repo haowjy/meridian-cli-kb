@@ -188,5 +188,8 @@ rejected alternatives:
   session-writer contention was identified
 - [Spawn wait barrier](../../concepts/spawn-wait-barrier.md) — the wait path that
   consumes history-index discovery
-- [Portable history](portable-history.md) — cross-record discovery, exact identities, ZIP retention, and inert restore
+- [Portable history](portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — cross-record discovery, exact identities, ZIP retention, inert restore, and live-owner capture deferral
+- [History-storage decision](../../decisions/history-storage.md#d-abandoned-generation-closure) — why the fold closes abandoned generations before capture trusts liveness signals
+- [State-design lesson](../../lessons/state-design-lessons.md#repair-the-state-before-relaxing-the-check) — repair persisted state before relaxing a safety check
+- [Crash troubleshooting](../../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded) — the crash path that leaves a generation unstopped
 - [Reconciliation](reconciliation.md) — read-time projection and durable repair

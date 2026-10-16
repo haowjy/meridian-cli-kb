@@ -371,9 +371,12 @@ R8, R11, R12; `evidence/lane-b-capture-guard.md`, `lane-b-fix.md`,
 ## Related
 
 - [State-system overview](overview.md)
-- [Session state](session-state.md)
+- [Session state](session-state.md#a-later-start-closes-abandoned-generations) — generation folding and abandoned-generation closure
 - [Spawn state](spawn-state.md)
 - [Session-log rendering](../../codebase/session-log-rendering.md)
 - [History-storage decisions](../../decisions/history-storage.md)
+- [Abandoned-generation closure decision](../../decisions/history-storage.md#d-abandoned-generation-closure) — real-owner deferral and retry-on-stop
+- [State-design lesson](../../lessons/state-design-lessons.md#repair-the-state-before-relaxing-the-check) — why state repair precedes a relaxed capture guard
+- [Crash troubleshooting](../../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded) — the crash path that triggers the deferral problem
 - [Native transcript reads](../native-transcript-reads.md) — live bindings and selected retained snapshots
 - [Native session identity lessons](../../lessons/native-session-identity.md) — upgrade and prompt-delivery failures

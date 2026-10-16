@@ -345,4 +345,8 @@ git log --oneline -10
 - [health-checks.md](health-checks.md) — doctor flow, pruning, cache
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn statuses and reaper decisions
 - [../architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary roles and passive/explicit cleanup boundary
+- [../architecture/primary-terminal-ownership.md#known-gaps](../architecture/primary-terminal-ownership.md#known-gaps) — launcher signal-handling gap and terminal-output ownership
+- [../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — abandoned-generation repair
+- [../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — capture deferral and retry
+- [../decisions/history-storage.md#d-abandoned-generation-closure](../decisions/history-storage.md#d-abandoned-generation-closure) — decision and rejected alternatives
 - [configuration-guide.md](configuration-guide.md) — workspace and config setup

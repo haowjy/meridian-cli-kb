@@ -286,3 +286,6 @@ you all of them.
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — reaper decision logic
 - [principles/design-principles.md](../principles/design-principles.md) — crash-only design, files as authority
 - [principles/invariants.md](../principles/invariants.md) — projection authority rule, JSONL invariant
+- [Abandoned-generation closure](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — the fold rule that repairs the leaked generation
+- [Portable-history capture](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — the guard that can then trust real liveness signals
+- [History-storage decision](../decisions/history-storage.md#d-abandoned-generation-closure) — rationale and rejected alternatives
