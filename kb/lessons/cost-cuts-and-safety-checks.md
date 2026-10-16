@@ -103,7 +103,7 @@ review's S2 found the second head could move backwards).
 - [Contention and cost diagnosis](contention-diagnosis.md): finding the costs.
 - [Per-operation cost](../architecture/per-operation-cost.md): the measured bar and
   acceptance evidence.
-- [Spawn/run identity decision](../decisions/state.md#d-spawn-run-identity)
+- [Spawn/run identity decision](../decisions/spawn-identity.md#d-spawn-run-identity)
 - [Spawn finalization](../architecture/spawn-finalization.md#terminal-arbitration-terminalarbitrator):
   the arbitrator as it is now.
 - [Review convergence gate](review-convergence-gate.md)

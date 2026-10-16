@@ -223,7 +223,7 @@ the reload path.
   included, mints a new spawn id. The user does not want that as a contract
   ("I don't think every launch should get a new spawn id"); if a resumed
   primary keeps its spawn id, the reopen matches the old owner and the bug
-  returns silently. [D-spawn-run-identity](state.md#d-spawn-run-identity)
+  returns silently. [D-spawn-run-identity](spawn-identity.md#d-spawn-run-identity)
   later decided that it does. #616, which built that reopen, closed unmerged; identity-v2 keeps the requirement. It also added about five concepts (owner identity, a
   spawn-id dependency, an `owner-gone` reason that mutates state, cross-owner
   arm branches, a lazy close) to every harness for a bug that lives in two

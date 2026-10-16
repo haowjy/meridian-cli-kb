@@ -232,7 +232,7 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 ---
 ## 2026-10-14 — Spawn/run identity decided; phases 1–2 built locally (`work:primary-spawn-identity`)
 
-- Added [D-spawn-run-identity](decisions/state.md#d-spawn-run-identity) and its
+- Added [D-spawn-run-identity](decisions/spawn-identity.md#d-spawn-run-identity) and its
   [decision index](decisions.md) row: user decision, run-row rationale, D-guard narrow `RunId`
   guard, retention and counter specifics, rejected alternatives, accepted provenance cost, and
   PR-B (phases 3–4) remaining scope. Cross-linked from the rejected launch-owned stretches in
