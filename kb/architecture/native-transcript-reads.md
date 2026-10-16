@@ -135,7 +135,7 @@ checkpoint files.
 
 Corpus `session search` reads a disposable SQLite file,
 `<runtime_root>/history-index/native-search-v1.sqlite3`. It is separate from the
-metadata index `history-v6.sqlite3`: it has its own WAL. Both put the schema version in
+metadata index `history-v<N>.sqlite3`: it has its own WAL. Both put the schema version in
 the file name, so builds with different schemas never open each other's file
 ([D-history-index-schema-namespace](../decisions/history-storage.md#d-history-index-schema-namespace)).
 
