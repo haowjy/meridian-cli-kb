@@ -12,12 +12,20 @@ Process roles and reconciliation:
 [managed-primary-lifecycle.md](managed-primary-lifecycle.md). Scope
 containment and the launcher watchdog: [process-scope.md](process-scope.md).
 
-> **Status (2026-10-15).** The exit-text rule shipped in v0.10.9 (PR #607). The
-> native terminal for Codex/OpenCode is built on branch
-> `feat/native-terminal-primaries` and has no PR yet. Until it merges, `main`
-> still runs Codex/OpenCode primaries through the PTY relay, and a Linux
-> backend's parent-death link is still `PR_SET_PDEATHSIG`. The rest of this
-> page describes the decided design, which that branch implements.
+> **Status (2026-10-15).** Three branches are in flight:
+> - The exit-text rule is merged (PR #607).
+> - The native terminal for Codex/OpenCode is PR #614, branch
+>   `feat/native-terminal-primaries`, open and not merged. Until it merges,
+>   `main` still runs Codex/OpenCode primaries through the PTY relay, and a Linux
+>   backend's parent-death link is still `PR_SET_PDEATHSIG`.
+> - The launcher-output window
+>   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is PR #621,
+>   branch `fix/launcher-quiet-under-tui`, open and not merged. It merges after
+>   #616. Until it merges, `main` lets any launcher thread or child write over a
+>   live TUI.
+>
+> The rest of this page describes the decided design, which those branches
+> implement.
 
 ---
 
@@ -144,9 +152,12 @@ Order of observation gives the same answer for every harness.
 
 Two rules, for every harness:
 
-1. **While a TUI owns the terminal, Meridian writes nothing to it.** Native mode
-   has no relay at all. Startup telemetry clears its own line with carriage
-   returns before the TUI takes over and is silent after.
+1. **While a TUI owns the terminal, Meridian writes nothing to it.** That covers
+   every launcher thread, every warning and traceback, and every child that is
+   not the TUI. Native mode has no relay at all. Startup telemetry clears its own
+   line with carriage returns before the TUI takes over and is silent after. The
+   launcher's other output is held in a file for the length of the TUI
+   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)).
 2. **Meridian never covers or erases a harness's exit text; its hint goes
    below.** Codex prints `Disconnected… codex --remote … resume <uuid>`, Claude
    prints `Resume this session with: claude --resume …`, and Pi prints its own
@@ -164,7 +175,8 @@ itself when it exits. The relay's teardown restore sequence then sent
 jumped back to where the harness had started, so the hint was printed over the
 harness's text.
 
-An earlier fix (`95d429f10`, in still-open PR #590) added `ESC[J` to erase what
+An earlier fix (`95d429f10`, in PR #590, closed unmerged and replaced by #616,
+which does not carry it) added `ESC[J` to erase what
 was below the cursor. That hid the leftover UUID tail by erasing the harness's
 exit text along with it. The owner rejected it: "i don't want to cover the
 harness exit", "we should just append after it", "(for all harneses)".
@@ -176,6 +188,79 @@ teardown it sends `ESC[?1049l` only if the child's last transition was an
 *enter*, which means it crashed or was killed inside the alternate screen.
 Codes that don't move the cursor (mouse reporting off, cursor shown) stay
 unconditional. No `ESC[J`.
+
+### Launcher output during the TUI goes to `launcher.log`
+
+*Branch `fix/launcher-quiet-under-tui`, PR #621, not merged.*
+
+Rule 1 was first kept only by Meridian's own code paths printing nothing, and
+that was not enough. A launcher runs threads beside the TUI. The startup
+background-repair thread, for one, logs through structlog to `sys.stderr`, and
+children inherit fd 2. On `main`, any warning from any of them lands at the TUI's
+cursor. The incident: a crashed Claude primary was resumed, the repair thread
+logged `orphan_primary_capture_failed` with a traceback, and the traceback was
+drawn across the live Claude screen. Codex panes showed the same thing.
+
+The fix works at the file-descriptor level, so no writer can get around it.
+`tui_terminal_window()` (`lib/launch/process/terminal_ownership.py`) opens before
+the TUI process starts and closes after it exits:
+
+- It duplicates the terminal fds and yields the duplicates as `TerminalFds`
+  (defined in `ports.py`). The TUI and the relay talk to the terminal only through
+  these duplicates.
+- It points launcher fd 0 at `/dev/null`, so no child started during the window
+  can read the user's keystrokes.
+- It points fds 1 and 2 at `spawns/<id>/launcher.log`, so Python logging,
+  tracebacks from threads, C-level writes and inheriting children all land in the
+  file.
+- A relay owns its own duplicates until its `wait()` returns. When the window
+  closes the saved fds while a managed-attach relay thread is still running
+  (after a stop timeout or a second cancel), the kernel can hand those fd numbers
+  to the next `open()`. The relay would then write TUI bytes into a state file.
+- `terminal_fds` is always set. When the run isn't interactive the window yields
+  the real fds 0, 1 and 2, so no launcher keeps a `None` fallback.
+- The subprocess launcher mirrors a TUI's stderr to the saved terminal fd, not to
+  `sys.stderr`. Otherwise the TUI's own stderr would land in `launcher.log` and
+  trigger the pointer.
+
+**Why a separate file, not `stderr.log`.** During the TUI, the Codex and
+OpenCode backends and Claude's `PRIMARY_STDERR_LOG` all write to the spawn's
+`stderr.log`. App-server `ERROR` lines in mid-session are normal. A pointer keyed
+to `stderr.log` would show after ordinary Codex sessions.
+
+**The pointer.** After the TUI exits, Meridian prints at most one line, below the
+harness's exit text and the `meridian --continue` hint:
+`Launcher output during the TUI was written to …/launcher.log`. It is printed
+only when the log grew during this window. "The log is non-empty" is the wrong
+test: after #616, runs of one spawn share a spawn directory, so an old run's
+output would trigger a pointer on a clean run. On a normal exit, the result
+renderer appends the pointer. When an exception leaves the window, the window
+prints it itself after restoring the fds. Those failed runs are the ones where
+the log matters most.
+
+**Limits.**
+- A program that opens `/dev/tty` directly, such as an ssh or git credential
+  prompt, can still draw on the screen. Closing that would need `setsid` for
+  launcher-spawned helpers, which is out of scope.
+- A background write that races the fd swap can split, so part of a line can
+  reach the terminal just after the TUI exits. Nothing is drawn over a live TUI.
+  This was accepted.
+- Inside the window `sys.stdout.isatty()` is `False`. Terminal capability
+  checks must run before the window or use `window.terminal_fds`.
+- The window doesn't change signal policy. A launcher killed by a default
+  signal dies whatever its fds point at. Signal handling belongs to the runner,
+  and on #614 to `SignalCoordinator`.
+
+**Integration with #614.** A native-terminal launcher must enter the same window
+and pass `window.terminal_fds` as the TUI's `stdin`, `stdout` and `stderr`.
+Otherwise the "inherited" stdio it hands to the TUI is `/dev/null` and
+`launcher.log`. `Popen` dups the passed fds onto the child's 0, 1 and 2 even
+though the duplicates are non-inheritable. Whichever of #614 and #621 lands second
+makes this change during its rebase.
+
+The invariant for code in that directory is in the colocated
+`src/meridian/lib/launch/process/AGENTS.md` ("The TUI owns the terminal
+exclusively") on the branch.
 
 ### What native mode cannot clean
 
@@ -197,19 +282,28 @@ in the byte path, and it was accepted.
 - **#610**: on macOS a native TUI that exits instantly can be reported as a
   lifetime-link failure, because psutil sees a zombie with no birth time and
   watchdog registration fails closed.
-- **#590 still carries `ESC[J`**: the open PR's restore sequence appends
-  `ESC[J`, and a comment there asks for it to be dropped. Merged as-is, it would
-  break rule 2 for Claude/Pi again.
+- **A Claude/Pi primary's launcher has no SIGTERM/SIGHUP handler.** This is true
+  on `main` and on #614. Claude, Pi and Cursor primaries take the black-box PTY
+  path (`run_primary_process_with_capture`, bootstrap mode `SUBPROCESS_ONLY`),
+  which registers no receiver. Only `PrimaryAttachLauncher`, the
+  Codex/OpenCode managed attach, has one, and it has it on both branches. So a
+  SIGTERM to a Claude primary's launcher, for example from a systemd scope stop,
+  kills it by default action. No runner exit is recorded and no session stop is
+  appended. Reconciliation later records the run as `orphan_run`, and the session
+  generation stays unstopped
+  ([what that does to capture](state-system/session-state.md#a-later-start-closes-abandoned-generations);
+  [incident](../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded)).
 - **OpenCode mid-turn Ctrl+C ends the session.** That is OpenCode's own key
   binding (`app_exit=ctrl+c`, `session_interrupt=escape`) and also happens on
   `main`. It is not a Meridian bug.
 
 ---
 
-## Implementation map (branch `feat/native-terminal-primaries`)
+## Implementation map (branches `feat/native-terminal-primaries` and `fix/launcher-quiet-under-tui`)
 
 | Path | Role |
 |---|---|
+| `lib/launch/process/terminal_ownership.py` | `tui_terminal_window()`: fd-level window, `launcher.log`, exceptional-exit pointer (PR #621) |
 | `lib/launch/policies.py` | Resolves the adapter's default `TerminalSurfaceMode` |
 | `lib/harness/{codex,opencode,claude,pi}.py` | Capability declarations: supported modes and default |
 | `lib/launch/process/selector.py` | `select_process_backend()`: capture → PTY/pipe; else mode → native/PTY/fallback |
@@ -221,3 +315,6 @@ in the byte path, and it was accepted.
 Provenance: `work:native-terminal-primaries` (`decisions.md` D1–D9;
 `evidence/native-terminal.md`, `final-matrix.md`, `long-stop.md`,
 `round-4-live.md`); `work:relay-exit-text` (archived); `chat:c7524`.
+Launcher-output window: `work:resume-after-crash` (`decisions.md` R1, R5, R7,
+R9, R10; `evidence/incident-b1.md`, `lane-a-live-terminal-ownership.md`,
+`review-lane-a.md`; `spawn:p8138`, `spawn:p8161`, `spawn:p8162`).

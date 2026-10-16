@@ -94,10 +94,13 @@ source; `assigned` and `observed` obey the same immutability.
 - `Same` still appends when it carries a startup attempt ID. That update is the
   attempt→native link that model-selection lookups read.
 
-In PR 2 (draft #526), the per-event generation step is also public, as
-`project_session_generation(...)`. The metadata index (schema 6) persists the fold's
+The per-event generation step is also public, as
+`project_session_generation(...)`. The metadata index persists the fold's
 working state and feeds appended events through it, so its incremental catch-up
-calls the same code instead of re-deriving it. Search inverts the fold with
+calls the same code instead of re-deriving it. On branch
+`fix/abandoned-session-generation` (not merged), that step also closes earlier
+unstopped generations when a later start of the same chat arrives
+([rule](state-system/session-state.md#a-later-start-closes-abandoned-generations)). Search inverts the fold with
 `by_native_key` to map native keys to chats.
 
 **Runner-side writer.** `launch/session_scope.SessionAttempt.bind(attempted, source)`

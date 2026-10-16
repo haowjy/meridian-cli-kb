@@ -75,7 +75,8 @@ Until it lands, describe and test sessions as the global log above.
 
 Two disposable projections sit beside the journal. Neither holds a fact the journal
 lacks:
-- **Metadata index** (`history-index/history-v6.sqlite3`; the file is named by schema): cross-record browse,
+- **Metadata index** (`history-index/history-v<N>.sqlite3`, named by schema: 7 on
+  `main`, 9 on #616's branch, 10 on `fix/abandoned-session-generation`): cross-record browse,
   discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
   `sessions` table folds native keys with the authority's own step,
   `project_session_generation`, and persists the working state as `session_chats`.
@@ -112,6 +113,67 @@ Session-ID counter (`session-id-counter`) is monotonically incremented under `pl
 Per-session files under `sessions/<chat_id>/`:
 - `<chat_id>.lock` — held for active session duration
 - `<chat_id>.lease.json` — PID + generation token for staleness detection
+
+## A later start closes abandoned generations
+
+*Branch `fix/abandoned-session-generation`, built on #616's head `6d1bc3ce3`. Not
+merged. Its PR opens after #616 merges. On `main` and on #616, an abandoned
+generation stays open forever.*
+
+Each launch of a chat opens a **session generation**: a start event with its own
+`session_instance_id`, closed by a stop event that names the same generation.
+`session_fold.py` applies a stop only to the generation it names. A launcher
+writes its stop in `session_scope`'s `finally`. If the launcher dies before
+that block runs (SIGKILL, a default-action SIGTERM, an OOM-driven scope stop),
+nothing stops its generation.
+
+`cleanup_stale_sessions` normally repairs that: it takes the dead owner's chat
+lock and appends the stop. But it skips a chat whose lock is held. When the user
+runs `--continue` right after the crash, the new launcher takes the lock first.
+Its own stop later closes only its own generation. Neither `doctor`,
+`session archive --apply` nor another `--continue` would ever stop the old one.
+On `main`, capture treated an unstopped generation as a live writer, so that
+native session's history could never be captured
+([capture side](portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops)).
+
+**The rule:** in the generation fold, a later accepted start of the same chat
+closes every earlier unstopped generation of that chat, at the new start's
+`started_at`. The fold keeps a set of open generation keys per chat, so each
+start does constant work and doesn't scan the chat's history. A late real stop
+for a closed generation still applies and records the real stop time. A start
+rejected by `bind` (`Conflict`) closes nothing.
+
+**Why it is sound:** the rule depends on one fact. A later start of chat `cN` can
+only exist once every earlier owner of `cN` has released the chat's lock. Both
+production `SessionStartEvent` writers satisfy that:
+
+- `session_store.start_session` covers primary starts, `--continue`, forks and
+  spawns. It holds the chat's exclusive `flock` before it appends. Reopen
+  refuses with `ChatBusy` while the lease owner is alive, and any start refuses
+  while `live_observer_for_chat` finds a live external observer. The lock is a
+  per-handle `flock` and the acquirer checks the inode, so neither a second
+  handle in the same process nor replacing the lock file gets around it.
+- `_get_or_create_observed_chat_locked` writes a start only for a freshly
+  reserved chat ID and appends its stop immediately. It never starts a later
+  generation of an existing chat.
+
+Restores and imports write `SessionHistoricalEvent`, not starts. The audit and
+review that established this are `spawn:p8150` and `spawn:p8156`. The premise is
+"lock released means the launcher is gone", not "the native writer is gone". A
+harness child that outlives its launcher is fenced by the scope's process-group
+liveness, as it already is for `cleanup_stale_sessions`.
+
+**Projection:** the rule changes replay semantics, so the history index moves
+from schema 9 to 10 and the first indexed read rebuilds `history-v10.sqlite3`
+from `sessions.jsonl`. No authority is rewritten. Existing journals heal on
+replay with no synthetic stop. Incremental catch-up rebuilds the touched chat's
+open set from its stored rows. It matched a cold rebuild over 120 random event
+streams.
+
+**Keep the premise true.** A future start writer that doesn't hold the chat lock
+would make this rule close a live generation. Rationale and
+rejected alternatives:
+[D-abandoned-generation-closure](../../decisions/history-storage.md#d-abandoned-generation-closure-a-later-start-of-the-same-chat-closes-earlier-generations).
 
 
 ## Related Pages

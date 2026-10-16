@@ -6,7 +6,8 @@ terminal, and what follows from that. Current mechanism:
 Watchdog mechanism: [architecture/process-scope.md](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
 
 Provenance for the whole page: `work:native-terminal-primaries` (`decisions.md`,
-evidence), `work:relay-exit-text` (archived), `chat:c7524`.
+evidence), `work:relay-exit-text` (archived), `work:resume-after-crash`
+(`decisions.md` R1, R5, R7, R9), `chat:c7524`.
 
 ---
 
@@ -22,13 +23,15 @@ harneses)".
 **Problem:** Meridian's quit hint overwrote Claude's resume line. The cause was
 the PTY relay sending `ESC[?1049l` again after the harness had already left the
 alternate screen. tmux read the second one as "restore the saved cursor".
-Commit `95d429f10` (in open PR #590) answered with `ESC[J`, which erased the
-leftover characters but also erased the harness's real exit text.
+Commit `95d429f10` (in PR #590, since closed unmerged) answered with `ESC[J`,
+which erased the leftover characters but also erased the harness's real exit
+text.
 
 **Decision:** Meridian appends its hint after a harness exits and never moves
 the cursor up or erases the harness's exit text. While a TUI owns the terminal,
-Meridian writes nothing to it. The relay-level fix is documented in the
-[current mechanism](../architecture/primary-terminal-ownership.md).
+Meridian writes nothing to it; [D-tui-quiet-launcher](#d-tui-quiet-launcher--launcher-output-never-reaches-a-live-tui)
+extends that to every launcher thread and child. The relay-level fix is
+documented in the [current mechanism](../architecture/primary-terminal-ownership.md).
 
 **Rejected:** erasing the leftovers with `ESC[J`; scrubbing or rewriting
 harness exit text, including Codex's `resume <uuid>` reconnect line, in any
@@ -39,12 +42,65 @@ is unreadable. Even then, append a reset; don't erase.
 
 ---
 
+## D-tui-quiet-launcher — Launcher output never reaches a live TUI
+
+**Status:** decided by the user (2026-10-15). Implemented on branch
+`fix/launcher-quiet-under-tui`, PR #621, CI green, open and not merged; it
+merges after #616. On `main`, launcher threads and children still write to the
+TUI's terminal. Work-item IDs R1, R5, R7, R9.
+
+**User rule:** "it still garbles the screen when claude hasn't redrawn --- we
+shouldn't garble the text at all". The text vanishing on the TUI's next redraw
+is not a fix. This applies to every harness.
+
+**Problem:** D-exit-text-append said Meridian writes nothing while a TUI owns
+the terminal, but only Meridian's own printing code obeyed it. A resumed Claude
+primary's startup-repair thread logged a warning and traceback to `sys.stderr`,
+which was the pane, and they were drawn over the live TUI. Any launcher thread,
+any C-level write and any child that inherits fd 2 can do the same, for every
+harness.
+
+**Decision:** while a primary TUI owns the terminal, the launcher's fd 0 points
+at `/dev/null` and its fds 1 and 2 at a dedicated `spawns/<id>/launcher.log`.
+The TUI, relays and launchers use saved duplicates of the terminal fds, and a
+relay owns its duplicates until its `wait()` returns. After exit, one pointer
+line is printed below the harness's exit text, only if the log grew during this
+window. The window prints it itself when an error leaves the window. Mechanism:
+[launcher output during the TUI](../architecture/primary-terminal-ownership.md#launcher-output-during-the-tui-goes-to-launcherlog).
+
+**Rejected:**
+- **Swapping Python logging handlers or `sys.stderr`.** It misses inheriting
+  children, C-level writes and any writer that doesn't go through Python's
+  streams. Only an fd-level redirect covers every writer.
+- **Reusing `stderr.log`.** The Codex and OpenCode backends and Claude's
+  primary stderr log write to it during normal sessions, so the pointer would
+  show after ordinary Codex runs.
+- **A SIGTERM/SIGHUP barrier and signal masking inside the window.** If the
+  launcher dies by a default signal, where its fds point doesn't matter. A
+  barrier would also be a hidden change to signal policy, which belongs to the
+  runner (on #614, to `SignalCoordinator`). A `ctypes` `fflush(None)` that
+  flushed C stdio buffers nothing used was deleted with it.
+- **Deciding the pointer by "the log is non-empty".** After #616, runs of one
+  spawn share a spawn directory, so a stale log from an earlier run would print a
+  pointer on a clean run. Three error paths in `runner.py` used that test. They
+  were deleted, and the window owns the one rule.
+
+**Accepted limits:** programs that open `/dev/tty` directly can still draw on the
+screen. A write that races the fd swap can split across it just after the TUI
+exits.
+
+**Revisit if:** a native-terminal driver needs to hand the TUI something other
+than the window's saved fds, or launcher-spawned helpers start prompting on
+`/dev/tty`.
+
+---
+
 ## D-native-terminal — Codex/OpenCode inherit the real terminal; Claude/Pi keep the relay
 
 **Status:** decided by the user (2026-10-15: "option B is better"; Claude/Pi:
 "i didn't really have any problems resizing claude and pi so its fine").
-Implemented on branch `feat/native-terminal-primaries`, no PR yet; `main` still
-relays all four. Work-item IDs D1, D5, D8.
+Implemented on branch `feat/native-terminal-primaries`, PR #614, open and not
+merged; `main` still relays all four. Work-item IDs D1, D5, D8.
 
 **Problem:** the PTY relay's nested PTY mangled resizes (#596). Option A
 patched resize forwarding inside the relay. Option B removes the relay where
