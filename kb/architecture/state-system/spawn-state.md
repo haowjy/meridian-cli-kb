@@ -31,6 +31,12 @@ spawns (#600).
 
 ### Spawn Status Machine
 
+> **Decided, not built:** state v4 under
+> [D-spawn-identity-v2](../../decisions/spawn-identity.md#d-spawn-identity-v2)
+> (identity-v2 PR 4). Lifecycle fields move into a fixed-size `current` launch
+> entry. Status is derived from the runner-held `launch.lock` plus a once-written
+> outcome, and per-launch files move to `spawns/pN/launches/K/` (PR 6).
+
 Status progression is v2 per-spawn state plus the current terminal set:
 
 ```mermaid

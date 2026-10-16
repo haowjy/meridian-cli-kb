@@ -3,6 +3,37 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-16 — Identity-v2 approved; PR 1 (start gate + guardian, #633) (`work:v010-followups`)
+
+- New [decisions/spawn-identity.md](decisions/spawn-identity.md):
+  D-spawn-identity-v2 (one ID per spawn, launches internal, derived status, gate +
+  guardian + sweep, 7-PR plan, #616 rejected) and D-start-gate-guardian. Supersedes
+  D-spawn-run-identity (status line now links here) and D-launcher-watchdog's
+  mechanism (marked in place).
+- New [decisions/rust-rewrite.md](decisions/rust-rewrite.md):
+  D-update-crash-waits-for-rust (#628) with carried requirements; sequencing
+  recommendation, pending the owner.
+- New [lessons/process-containment.md](lessons/process-containment.md). Spawn
+  identity lessons added to [state design lessons](lessons/state-design-lessons.md);
+  its reaper lessons now say they describe the mechanism being retired.
+- [Test determinism](codebase/test-determinism.md): two flake classes, cold index
+  builds inside a deadline (#577/#624, #630) and real-time deadlines in fake-clock
+  tests (#632).
+- **Correction:** [process scope](architecture/process-scope.md) described #614's
+  unmerged per-launcher watchdog as the current mechanism. It now describes
+  `main` (Linux PDEATHSIG, macOS backend-only polling watchdog, no link for stdio
+  children or primaries) and the decided replacement. The anchor is renamed to
+  `#parent-death-linkage` and inbound links are updated (managed-primary
+  lifecycle, harness adapters, launch system, vocabulary, primary-terminal
+  decisions). The #614/#633 collision is flagged for human review.
+- Decided-replacement notes added to reconciliation, spawn lifecycle, spawn
+  state, the `mark_finalizing` decision, the vocabularies (Launch, Start gate /
+  guardian, Heartbeat, Reaper, Parent watchdog), PROC-004 and the per-operation
+  cost "In flight" section (the stale #616 fix-pass text was removed).
+- Corrections register: a third occurrence for "grew the code instead of
+  reusing structure", and one new candidate.
+
+---
 ## 2026-10-16 — Status sweep: #621 and #631 merged, #616 closed (`work:resume-after-crash`, `work:memory-audit`)
 
 - #621 (launcher output off live TUIs) marked shipped in v0.10.11 (`23eb2d6d2`)

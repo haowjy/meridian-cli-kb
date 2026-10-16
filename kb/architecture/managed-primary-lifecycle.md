@@ -39,10 +39,14 @@ flowchart TD
 | `backend_pid` | Meridian-managed app-server / connection runtime launched by `launch_managed_backend()` | Maintain the remote protocol connection and event stream; expose `scope_snapshot` | Own session/pgid; registered with the launcher's watchdog, so launcher death kills it on POSIX |
 | `tui_pid` | Harness TUI process | User-facing interactive session, on the user's real terminal in the launcher's foreground group | Registered with the same watchdog as a process tree |
 
-The launcher also runs one [parent watchdog](process-scope.md#parent-death-one-watchdog-per-launcher)
-outside the foreground group. It terminates both registered scopes if the
-launcher dies without a graceful close. (On branch `feat/native-terminal-primaries`;
-`main` still relays the TUI through a PTY and links only the backend.)
+On branch `feat/native-terminal-primaries` (#614) the launcher also runs one
+parent watchdog outside the foreground group, which terminates both registered
+scopes if the launcher dies without a graceful close. `main` still relays the TUI
+through a PTY and links only the backend
+([parent-death linkage](process-scope.md#parent-death-linkage)). Both are
+superseded by the start gate and guardian (identity-v2 PR 1, #633, open): every
+backend and TUI starts behind a gate, and a guardian in its process group kills
+it on launcher death.
 
 Claude primaries are different: Claude is a single black-box harness process.
 There is no managed backend/TUI split, and no `primary_meta.json` with
@@ -89,16 +93,16 @@ The launcher is expected to:
 4. Wait for the TUI to exit.
 5. Enter finalization / teardown and stop the backend.
 
-If step 4 is interrupted by launcher death on POSIX, the launcher's watchdog
-terminates the backend and TUI as soon as its control pipe closes, so a dead launcher
-normally means a dead runtime. (The watchdog is on PR #614,
-`feat/native-terminal-primaries`, not merged. On `main` a Linux backend's link is
-still `PR_SET_PDEATHSIG`, which reaches only the direct child.) The row is still `running` on disk until
+If step 4 is interrupted by launcher death on POSIX, `main` relies on the
+backend's parent-death link: `PR_SET_PDEATHSIG` on Linux, which reaches only the
+direct child, so Codex's native app-server survives. #614's watchdog and #633's
+guardian each make a dead launcher mean a dead runtime; neither is merged. The row is still `running` on disk until
 something reconciles it (`spawn show` lazily projects `cancelled (exit 130)` /
 `session_ended_without_finalize`). The reaper rules below still matter for the
-cases the watchdog does not cover: the watchdog itself killed, the
-millisecond window between spawn and registration, Windows, and rows from
-builds without it. Killing runtime children from a passive read path would
+cases a parent-death link does not cover: the link missing or itself killed,
+Windows, and rows from builds without it. On #633 the reaper may terminate a
+primary's scope only when the runner is proven dead by the exact birth check
+([D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian)). Killing runtime children from a passive read path would
 still turn an abnormal wrapper failure into a hard user-visible crash, so the
 reaper keeps its skip/finalize discipline.
 

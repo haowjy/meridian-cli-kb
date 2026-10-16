@@ -18,6 +18,9 @@ containment and the launcher watchdog: [process-scope.md](process-scope.md).
 >   `feat/native-terminal-primaries`, open and not merged. Until it merges,
 >   `main` still runs Codex/OpenCode primaries through the PTY relay, and a Linux
 >   backend's parent-death link is still `PR_SET_PDEATHSIG`.
+>   The parent watchdog this page shows for #614 is superseded by the start gate
+>   and guardian ([D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian),
+>   PR #633, open). Whichever of #614 and #633 merges second reconciles them.
 > - The launcher-output window
 >   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is merged
 >   (PR #621, merge `23eb2d6d2`, v0.10.11).

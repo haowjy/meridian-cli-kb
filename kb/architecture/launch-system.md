@@ -241,9 +241,9 @@ the guard at their respective ownership boundaries.
 Codex/OpenCode managed backends launch through one helper:
 `harness/connections/managed_backend.py:launch_managed_backend()`. The helper starts
 the backend subprocess, captures birth time for PID-reuse guards, determines
-containment (`posix_pgid`, `windows_job`, or fallback), registers the child with the
-launcher's [parent watchdog](process-scope.md#parent-death-one-watchdog-per-launcher)
-(POSIX) or a Job Object (Windows), builds a `ProcessScopeSnapshot`, records
+containment (`posix_pgid`, `windows_job`, or fallback), sets up its
+[parent-death link](process-scope.md#parent-death-linkage) (PDEATHSIG or a
+watchdog on POSIX, a Job Object on Windows), builds a `ProcessScopeSnapshot`, records
 `process_scopes.json`, and returns a `ManagedBackendHandle`.
 
 Adapters no longer own per-harness backend launch blocks. They provide command/env/cwd

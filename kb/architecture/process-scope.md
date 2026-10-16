@@ -87,7 +87,7 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `lib/platform/process_scope/` | **Mechanism only** — how to launch in a new scope and terminate the tree. Four sub-modules: `base.py` (shared types), `posix.py` (setsid/process-group), `windows_job.py` (Job Object), `fallback.py` (psutil tree kill) |
-| `lib/platform/detached_process.py`, `parent_watchdog.py`, `scope_termination.py` | **Parent-death mechanism** — start the launcher's watchdog, register/release scopes over its pipe, and the dependency-free termination logic the watchdog runs. See [Parent-death](#parent-death-one-watchdog-per-launcher). |
+| `lib/platform/detached_process.py`, `parent_watchdog.py` | **Parent-death linkage** for detached managed backends: PDEATHSIG on Linux, a polling watchdog elsewhere. See [Parent-death linkage](#parent-death-linkage). |
 | `lib/core/process_cleanup.py` | **Policy only** — whether to terminate a scope. Consults spawn record, session lease store, and managed-primary metadata. Never decides how. |
 | `lib/state/process_scope_projection.py` | **Persistence** — read/write process-scope sidecars at `spawns/<spawn-id>/process_scopes.json`. Operations: `record_scope`, `mark_scope_released`, `read_scopes_from_disk`, tolerant read for legacy spawns. |
 
@@ -175,9 +175,11 @@ Key fields:
   mechanism was actually established.
 - **`root_created_at_epoch`** — PID-reuse guard. Before any signal, the current
   process birth time is compared against this value. Confirmed reuse skips the kill.
-- **`parent_death_linked`** — true when the scope is registered with the launcher's
-  watchdog (POSIX) or assigned to a Job Object (Windows). It is a mechanism fact, not a
-  cleanup decision.
+- **`parent_death_linked`** — true when the launch set up a parent-death link:
+  PDEATHSIG or the backend watchdog on POSIX, a Job Object on Windows. It records that
+  a link was configured, not that it covers the harness: Codex's native process
+  outlived its runner on a scope marked `true` (`spawn:p8231`). Nothing decides on it.
+  PR #633 deletes the field.
 - **`release_id`** — stable identity for one concrete scope release. Re-recording the
   same release upgrades ownership in place; distinct releases with the same label are
   preserved.
@@ -215,49 +217,48 @@ Pipe-captured subprocess launches and Claude/Pi observer backends are isolated i
 their own POSIX sessions so later scope cleanup targets the child group, not the
 launching Meridian process group.
 
-### Parent-death: one watchdog per launcher
+### Parent-death linkage
 
-A scope record lets the reaper clean up *later*. The watchdog makes launcher death
-clean up *now*, before anything reads state.
+A scope record lets the reaper clean up *later*. A parent-death link is meant to
+make runner death clean up *now*. On `main` only detached managed backends
+(Codex app-server, OpenCode serve) get one, from `detached_subprocess_config()`:
 
-On POSIX, a launcher that starts harness children first starts one watchdog: a
-detached Python process in its own session, connected by a control pipe. Each
-child is registered after it is spawned. The backend goes in as its isolated
-process group (`posix_pgid`) and a native TUI as its process tree
-(`pid_tree_fallback`). When the pipe hits EOF without a `shutdown` message, the
-launcher is gone, and the watchdog terminates every registered scope that has
-not been released: SIGTERM, a grace period, then SIGKILL, with each target
-checked against its recorded birth time. A managed primary shares one watchdog
-for backend and TUI, and a background Codex/OpenCode spawn starts its own for
-its backend. Windows starts none.
+| Platform | Link | What it misses |
+|---|---|---|
+| Linux | `PR_SET_PDEATHSIG` in a pre-exec hook | Everything but the direct child. Codex's Node wrapper re-execs the native process, which survived a runner SIGKILL with PPID 1 in the backend's group (`spawn:p8231`) |
+| Other POSIX (macOS) | `parent_watchdog.py`, a Python helper per backend that polls the runner every 0.5 s and terminates the backend's scope when it disappears | About 17 MB per backend; nothing but the backend |
+| Windows (legacy, untested) | Job Object, below | — |
 
-- **Fail closed.** A scope with unknown birth time is refused. If registration
-  fails, the child is terminated and the launch raises, and the same happens if
-  the watchdog cannot start. No managed backend or native TUI runs without a parent-death owner. Stdio children (`launch_managed_stdio()`: Claude, Pi, Cursor spawns) are not registered with a watchdog; their durable scope and the reaper own residue.
-- **Release after a confirmed stop.** Owners send `release` with the scope's
-  `release_id` only after the child is stopped and reaped. Codex releases only
-  after its backend stop is confirmed, so an uncertain stop stays covered.
-  `close()` sends `shutdown` and leaves remaining scopes alone.
-- **Small and isolated.** The watchdog runs `parent_watchdog.py` by file path
-  with `python -S -OO`. It imports only the stdlib, psutil and
-  `scope_termination.py`, never `meridian`, and uses about 17 MB RSS. Its
-  environment drops every inherited `PYTHON*` variable and sets `PYTHONPATH`
-  explicitly. Under `PYTHONSAFEPATH` the script's own directory would otherwise
-  leave `sys.path` and the watchdog would fail to start.
-- **Registration window.** Registration follows process creation, so a launcher
-  SIGKILL in that millisecond window can orphan the child. A pre-exec hook was
-  rejected: it would run Python after fork in a threaded launcher, and a
-  PID-only death signal still misses wrapper descendants.
+**No link at all** for managed stdio children (Claude, Pi, Cursor) or for
+either primary launcher. After a runner SIGKILL, Claude keeps running with
+PPID 1, and a `--continue` then starts a second Claude on the same session
+beside it (`spawn:p8233`, #625). Their durable scope and the reaper own the
+residue. On every path, the harness also execs *before* its scope is recorded
+(`managed_backend.py`, `managed_stdio.py`), so a runner killed in that window
+leaves an unregistered harness.
 
+**Decided replacement:**
+[D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian),
+identity-v2 PR 1 (#633, draft, not merged). Every launch path starts its
+harness as an `sh` stub that runs only after its scope is durable. The stub
+leaves a guardian in the harness's process group that kills the group on runner
+EOF. It deletes `parent_watchdog.py`, the PDEATHSIG branch and
+`parent_death_linked`. Identity-v2 PR 2 then adds a birth-checked sweep of the
+previous launch's scopes before every continue.
 
-This replaced Linux `PR_SET_PDEATHSIG`, which reaches only the direct child.
-Codex's command is a Node wrapper, so the real `codex` TUI and app-server
-outlived the launcher. Rationale:
-[D-launcher-watchdog](../decisions/primary-terminal-ownership.md#d-launcher-watchdog--one-watchdog-per-launcher-instead-of-pdeathsig).
-Status: on branch `feat/native-terminal-primaries`; `main` still uses
-PDEATHSIG for the Linux backend. #609 tracks folding the older termination
-paths (`platform/terminate.py`, `fallback.terminate_tree`) onto
-`scope_termination`.
+PR #614 (`feat/native-terminal-primaries`, open) carries a different
+replacement: one Python watchdog per launcher
+([D-launcher-watchdog](../decisions/primary-terminal-ownership.md#d-launcher-watchdog--one-watchdog-per-launcher-instead-of-pdeathsig)),
+which the guardian supersedes.
+
+> [!FLAG] **Needs human review.** #614 and #633 both rewrite parent-death
+> linkage and touch the same launchers. Whichever merges second has to drop
+> #614's watchdog in favour of the gate. #614's native-inherit TUI shares the
+> shell's foreground group, so it presumably maps to the gate's root-only mode.
+> No work item records that mapping yet.
+
+#609 tracks folding the older termination paths (`platform/terminate.py`,
+`fallback.terminate_tree`) onto one termination path.
 
 ### Windows: Job Object (legacy, untested)
 

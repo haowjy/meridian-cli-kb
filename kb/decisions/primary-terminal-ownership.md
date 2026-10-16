@@ -3,7 +3,8 @@
 How much of Meridian sits between an interactive primary's TUI and the user's
 terminal, and what follows from that. Current mechanism:
 [architecture/primary-terminal-ownership.md](../architecture/primary-terminal-ownership.md).
-Watchdog mechanism: [architecture/process-scope.md](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
+Parent-death linkage on `main` and its decided replacement:
+[architecture/process-scope.md](../architecture/process-scope.md#parent-death-linkage).
 
 Provenance for the whole page: `work:native-terminal-primaries` (`decisions.md`,
 evidence), `work:relay-exit-text` (archived), `work:resume-after-crash`
@@ -161,7 +162,14 @@ is in the [current mechanism](../architecture/primary-terminal-ownership.md).
 ## D-launcher-watchdog — One watchdog per launcher instead of PDEATHSIG
 
 **Status:** decided 2026-10-15 (work-item D3, amended after review). On the
-native-terminal branch.
+native-terminal branch, PR #614, open and not merged. **Mechanism superseded** on
+2026-10-16 by [D-start-gate-guardian](spawn-identity.md#d-start-gate-guardian)
+(identity-v2 PR 1, #633). That replaces this watchdog, PDEATHSIG and
+`parent_watchdog.py` with one `sh` guardian per harness, on every launch path.
+The diagnosis below still holds: PDEATHSIG misses wrapper descendants, and an
+unknown birth time is never safe to signal. The Python watchdog, its
+registration protocol and its 17 MB do not. #614 has to adopt the gate when it
+rebases.
 
 **Problem:** killing a native launcher with `kill -9` left the TUI alive and
 "Reconnecting…". The backend had a parent-death link and the TUI had none. The
@@ -173,12 +181,11 @@ survived. `main` already leaks the inner app-server this way.
 **Decision:** on POSIX, each launcher starts one PID/birth-guarded watchdog
 before any child. It owns the backend's process group and the TUI's process
 tree; PDEATHSIG is removed. Background Codex/OpenCode spawns use the same
-ownership model for their backend. Registration, release, and failure behavior
-are the [current mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
+ownership model for their backend. Children register over a control pipe after
+they are spawned; pipe EOF without `shutdown` means the launcher died.
 
 **Cost accepted:** the watchdog's initial package imports cost about 34 MB RSS;
-the isolated implementation reduced that to about 17 MB. Its containment and
-environment details belong to the [process-scope mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
+the isolated implementation reduced that to about 17 MB.
 
 **Rejected:**
 - **PDEATHSIG on the TUI**, and per-child watchdogs or PDEATHSIG elsewhere.
@@ -188,7 +195,8 @@ environment details belong to the [process-scope mechanism](../architecture/proc
   and PID reuse makes that unsafe.
 - **A pre-exec parent-death hook** to close the spawn-to-registration window.
   It would run Python after fork in a threaded launcher and would still cover
-  only one PID. See the [process-scope mechanism](../architecture/process-scope.md#parent-death-one-watchdog-per-launcher).
+  only one PID. The guardian closes that window another way: the harness's
+  first exec is an `sh` stub that blocks until its scope is durable.
 
 **Follow-ups:** #609 (fold `platform/terminate.py` and
 `fallback.terminate_tree` onto `scope_termination`, leaving one termination

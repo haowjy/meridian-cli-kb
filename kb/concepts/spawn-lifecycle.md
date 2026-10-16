@@ -23,6 +23,15 @@ process exits until retention deletes the spawn aggregate. The process itself
 is ephemeral; while the aggregate is published, the spawn record is its durable
 authority.
 
+> **Decided, not built: identity-v2** ([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2),
+> approved 2026-10-16, seven PRs). This page describes `main`. Under the decision
+> a spawn keeps one ID across `--continue`, with each run a **launch** counted
+> inside the record. Status stops being a stored field with three writers. It is
+> derived: `running` while the runner holds `spawns/pN/launch.lock`, otherwise the
+> outcome the lock holder wrote once, or `failed`/`crashed` if none. `queued` and
+> `finalizing` stop being statuses. The heartbeat, the reaper's status writes and
+> the graces below are deleted (PRs 3–4).
+
 ### Primary vs Child
 
 | Kind | Created by | Purpose |

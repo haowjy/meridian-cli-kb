@@ -1,5 +1,17 @@
 # Reconciliation
 
+> **Decided replacement** ([D-spawn-identity-v2](../../decisions/spawn-identity.md#d-spawn-identity-v2),
+> approved 2026-10-16, not built). The reaper stops writing status and stops
+> guessing liveness. PR 3 makes every reader use one consistent read of the
+> runner-held `launch.lock`. PR 4 replaces `reconcile_active_spawn` and the
+> primary-launch repair over every row with `recover_crashed_launches`: a lock
+> holder that writes only the outcome every reader already derives, at most
+> 64 lock attempts and 32 recoveries per pass after a rotating cursor. Cleanup
+> claims, finalize evidence and the heartbeat window below go with it. Until
+> then (PR #633, open): the reaper may terminate a primary's scope only when the
+> runner is proven dead by the birth check, with the same ±1 s tolerance as the
+> alive check.
+
 
 Meridian no longer lets ordinary read surfaces terminate processes as a side effect.
 The state layer has two reconciliation shapes:

@@ -162,21 +162,20 @@ These don't grow with history, but they are the next-largest cost per launch:
 
 ## In flight
 
-- **Spawn identity.** The combined PR #616 (`feat/spawn-identity`) was closed
-  unmerged on 2026-10-16 and replaced by identity-v2
-  ([status](../decisions/state.md#d-spawn-run-identity)). Its measurements stay
-  here as evidence. Counts on that branch: direct continue is flat across 240 / 2,400 / 12,000 spawns
-  × 1 / 10 / 50 runs (0 scans, 5 state reads, 1 keyed lookup, 1 `spawns_flock`
-  hold). Show, `@latest`, wait, cancel and bare `pN` read the same as base or less.
-  Review found three safety regressions in the cost cuts. Fix pass 2 is in
-  progress; the branch was at `b664556ca` on 2026-10-15:
-  - the live-observer narrowing was reverted to base's full scan, so continue keeps
-    one O(spawns) pass until #418 B3;
-  - the ancestor walk follows every run;
-  - one rebuildable latest-run head replaces the two heads.
-
-  These are recorded as [lessons](../lessons/cost-cuts-and-safety-checks.md), not as
-  shipped behavior.
+- **Spawn identity: identity-v2**
+  ([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)),
+  seven PRs, PR 1 is #633 (draft). Its acceptance bar: continue, show, cancel,
+  wait and close have equal counts and equal `state.json` bytes across 240 /
+  2,400 / 12,000 spawns × 1 / 10 / 50 / 500 launches. `spawns_flock` is held only
+  for allocation, publication and a bounded re-parent write. Background repair is
+  capped at 64 lock attempts and 32 recoveries per pass, replacing the reaper over
+  every row on each primary launch. Continue's live-observer scan stays O(spawns)
+  and is measured as its own exempt line until #418 B3.
+  - The bound to carry forward comes from #616, closed unmerged on 2026-10-16:
+    direct continue was flat across 240 / 2,400 / 12,000 spawns × 1 / 10 / 50 runs
+    (0 scans, 5 state reads, 1 keyed lookup, 1 `spawns_flock` hold).
+  - The safety regressions its cost cuts introduced are recorded as
+    [lessons](../lessons/cost-cuts-and-safety-checks.md).
 - **#418 B1 → B2 → B3:** B1 is being built by the `memory-audit` lane as MEM-2,
   stacked on #631. B2 (index v12, after identity-v2 PR 4's v11) and B3 are pending
   the owner's approval of the design.

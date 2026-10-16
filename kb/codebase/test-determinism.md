@@ -260,6 +260,48 @@ constant:
 2. If the test asserts timeout behavior (the subprocess should time out),
    use a deterministic signal instead of a wall-clock race.
 
+## Cold Index Builds Inside a Test Deadline: A Flake Class
+
+A test whose first query builds the history index from cold can spend most of its
+deadline on that build. Under suite load the build alone exceeds the deadline,
+and the product correctly answers `unknown` or times out. The test passes
+serially and fails in the full suite.
+
+**Known instances:**
+- **#577, fixed by #624.** Four Pi delivery-contract tests. A cold build took
+  1.09–1.94 s under load, inside the 2 s `QUERY_TIMEOUT`, while incremental
+  catch-up took 0.11–0.16 s. Red baseline: 4 failures with `-n 8` beside the full
+  suite at load 18–21. After warming: 30/30 per file at mean load 30, peak 46.
+- **#630, open.** `test_reconciled_descendant_evidence_is_transitive_and_reconciled`
+  returns `unknown` instead of `blocked`. It reproduces on `main`. #616 had fixed
+  the same shape on its branch by warming the index (pass 7), and the fix was lost
+  when #616 closed unmerged.
+
+**Remedy:** warm the index before the measured call with `warm_history_index()`
+(`tests/support/pi.py`, from #624), so the deadline covers only the behavior
+under test. Don't widen `QUERY_TIMEOUT`; the product's bound is right. A fix
+that lives only on an unmerged branch is not a fix on `main`. When a branch
+closes, file what it fixed incidentally.
+
+## Real-Time Deadlines in Fake-Clock Tests
+
+A test that advances a fake clock but waits through a helper with a *real*
+monotonic deadline is two clocks at once. The fake clock makes the product's
+timing deterministic. The real deadline still races the scheduler, so a loaded
+suite can time out the wait while the fake-time behavior is correct.
+
+**Known instance (#632, open):**
+`tests/integration/idle/test_sidecar.py::test_sidecar_drives_idle_push_warn_compact_and_done`
+waits for `state.done["compact"] == "ok"` through `wait_until`
+(`tests/support/async_determinism.py`), which has a 1 s real deadline. It failed
+twice in full-gate runs during PR 1's verification and passed alone in 0.54 s.
+Scheduler starvation is the leading hypothesis. A dropped schedule or compaction
+event has not been ruled out.
+
+**Remedy:** synchronize on the event the test is waiting for, not a wall-clock
+bound. Reproduce under full-gate ordering first, to tell starvation from a lost
+event. Don't raise the deadline blind.
+
 ## Real Sleeps: When They're Acceptable
 
 Real sub-second sleeps are acceptable only when:

@@ -38,6 +38,13 @@ double-reparent/new-PGID scenario requires harnesses that fork through disposabl
 intermediaries, which is uncommon in practice. Defer until there is a concrete observed
 leak of this type.
 
+**Still open under identity-v2.** The guardian and the pre-continue sweep both act
+on the recorded process group, so a descendant that moved to its own session or
+group escapes them too. The design names this residual and pins it with a
+documented-unsupported test in PR 2
+([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)). A Linux
+`/proc/*/environ` scan for `MERIDIAN_SPAWN_ID` is the deferred best-effort option.
+
 **Decision context:** [decisions/launch.md](../decisions/launch-process-ownership.md#d-process-scope-ownership-durable-process-scope-ownership-over-posix-only-or-psutil-only-cleanup)
 and [architecture/process-scope.md](../architecture/process-scope.md)
 

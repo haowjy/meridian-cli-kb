@@ -138,7 +138,7 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### D-spawn-run-identity: a spawn id names the conversation; each launch is a run (2026-10) {#d-spawn-run-identity}
 
-**Status: superseded, never shipped.** The combined PR #616 (`feat/spawn-identity`) was closed unmerged on 2026-10-16. Its `pN`/`pN.K` run model is replaced by identity-v2 (`work:v010-followups` `design-identity-v2/`, approved by the owner in D53, being built as a 7-PR series off `main`): one ID per spawn everywhere, launches counted inside the record and never shown to users, status derived from an exact runner lock. The user's requirement below, that `--continue` keeps the spawn id, carries over. `main` still mints a new bare `pN` per launch. This record is kept for the requirement and the rejected alternatives; the run-row mechanism, reopen contract and type guard below describe #616, not current or planned code.
+**Status: superseded, never shipped.** Replaced by [D-spawn-identity-v2](spawn-identity.md#d-spawn-identity-v2) (owner-approved 2026-10-16): one ID per spawn, with launches counted inside the record and never shown, and status derived from a runner-held lock plus an outcome written once. The combined PR #616 (`feat/spawn-identity`) was closed unmerged on 2026-10-16, and #617–#620 were closed as moot. The user's requirement below, that `--continue` keeps the spawn id, carries over. `main` still mints a new bare `pN` per launch. This record stays for the requirement and for why runs were separate rows. That reason, a fence against late writes from several status writers and guessed liveness, is exactly what the replacement removes. The run-row mechanism, reopen contract and type guard below describe #616, not current or planned code.
 
 **Original status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, not merged. On 2026-10-15 the owner agreed to combine #587 (phases 1–2: run identity in storage, surfaces that resolve spawns to runs) and #590 (phases 3–4: reopen, telemetry, hooks, vocabulary docs) into one branch, `feat/spawn-identity` (`work:v010-followups` D26). It will open as one PR that replaces both. The reasons for combining:
 - #587 alone had no visible value, but it carried the v8 index rebuild, a bare-`pN` directory scan and an `@latest` regression;
@@ -202,6 +202,8 @@ On every surface, `pN` labels the spawn and `pN.K` the run. `spawn show` heads w
 ---
 
 ### `mark_finalizing` CAS enables `orphan_finalization` distinction
+
+**Status:** current on `main`. Decided for deletion by [D-spawn-identity-v2](spawn-identity.md#d-spawn-identity-v2) (PR 4): `finalizing` stops being a status, and the runner writes one outcome instead of `record_runner_exit` → `mark_finalizing` → `finalize`.
 
 **Decision:** After the harness process exits, `streaming_runner.py` atomically transitions the spawn from `running` to `finalizing` (compare-and-swap) before beginning drain and report extraction. The reaper uses this state to distinguish `orphan_finalization` from `orphan_run`.
 

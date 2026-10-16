@@ -90,6 +90,11 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 ## Reaper Lessons
 
+These explain the reaper on `main`. Each guard below patched a guess, and the
+windows the guesses left are why [identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)
+replaces the reaper's liveness with an exact lock (PRs 3 and 4). See
+[exact liveness beats guessed liveness](#exact-liveness-beats-guessed-liveness).
+
 ### Heartbeat-Based Liveness Over PID-Only
 
 **Early design:** The reaper checked if the runner PID was alive. If dead, the spawn was orphaned.
@@ -119,6 +124,78 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 **The problem:** PID-probing the runner during `finalizing` gives "alive" (runner hasn't exited yet), which would suppress reaping forever for a runner that crashed mid-drain.
 
 **The fix:** For `finalizing` rows, the reaper uses only heartbeat recency, not PID liveness. A stale heartbeat during `finalizing` means the runner crashed mid-drain → `orphan_finalization`.
+
+## Spawn Identity and Status Ownership
+
+*From `work:v010-followups` D45–D53 (2026-10-15/16): #616's run model, the
+owner's questions that stopped it, and the lock probe.*
+
+### A name with two meanings generates bugs
+
+#616 kept `--continue pN` on the same spawn by making each launch a row: `pN`
+for run 1, `pN.2` and later for the rest. A bare `pN` therefore meant both
+"spawn pN" and "run 1 of pN". Every surface that forgot which one it held read
+the wrong row, and it did so plausibly, with no error. Eight review passes over
+217 files kept finding the same class:
+- casts from spawn to run 1 at four sites;
+- the Pi drain watching `pi-bash/<spawn>` while TypeScript wrote `pi-bash/<run>`
+  (HIGH);
+- children of a reopened run counted under the spawn's old parent, which needed
+  schema v9's `parent_history` to fix;
+- TypeScript/Python parser drift on bare `pN`;
+- wait JSON putting a run ID in `spawn_id`.
+
+Four follow-up issues (#617–#620) existed only because of the second identity.
+The guard rails grew with them: a `SpawnId`/`RunId` type split, a CI grep gate,
+head files with hole probing, a representative-run rule with six variants.
+
+The format came from an earlier design rule, "no data migration", which the
+project's no-backward-compatibility rule never asked for. **When a design needs
+type splits and grep gates to keep one name from meaning two things, check
+whether the second meaning is needed at all.** Here it wasn't
+([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)).
+
+### Several status writers make late writes; derive status instead
+
+The second identity existed to fence late writes: an old launch writing its
+result onto a newer one. Late writes existed because status was a mutable
+field with three writers (the runner's finalize, the reaper and cancel), and
+because no writer knew exactly whether the runner was alive. Each extra writer
+needed an arbitration rule (the authority lattice, the `mark_finalizing` CAS,
+cleanup-claim files), and each liveness guess opened a window for the rules to
+decide wrongly.
+
+Moving the boundary removes the class instead of fencing it:
+- only the process that holds the launch's lock writes its outcome, once;
+- cancel records a request and signals, and the reaper records crashes only
+  while holding the lock;
+- everyone else derives status from the outcome and the lock.
+
+A dead runner writes nothing and a live one blocks the next launch, so no late
+write exists. The owner's question that found it: "why do we record whether a
+launch is running, finished, or failed?"
+
+### Exact liveness beats guessed liveness
+
+The reaper guesses: a PID whose create time is within 30 s of the spawn's start,
+plus any activity file touched within 120 s, plus a 15 s startup grace and a 5 s
+post-exit grace. Each guard in the reaper lessons above patched one false
+answer, and each left a window where a live spawn reads dead or a dead one reads
+live. A process-held `flock` has no window: the kernel releases it when the
+holder dies, however it dies.
+
+*Who* holds the lock decides whether it tells the truth. The lock probe
+(`spawn:p8181`, `spawn:p8182`) tried two placements on real harnesses:
+- **Harness-inherited (M1): unreliable.** Whether it is right depends on which
+  processes each harness passes fds to. Codex's Node wrapper kept the fd and its
+  native re-exec dropped it, which reads as a false crash. A generic descendant
+  kept it after the launcher died, which reads as false "running".
+- **Runner-only (M2): exact** for the runner, because Meridian controls that
+  process's fds.
+
+M2 answers "is the runner alive", not "is everything this launch started gone".
+That second question is containment, solved separately
+([process containment](process-containment.md)).
 
 ## Repair the State Before Relaxing the Check
 
