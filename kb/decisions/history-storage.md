@@ -358,7 +358,7 @@ and 5/30 failed. With 2 spawn-start bind writers that each still hold the lock f
 
 **Revisit if:** a second rewriter of `sessions.jsonl` appears that is not an atomic
 replace (the lock-free read assumes there is none), or #418 B2 moves session
-authority to per-chat journals (index v9 makes each chat its own source, and this
+authority to per-chat journals (index v12 makes each chat its own source, and this
 lock-free projection of `sessions.jsonl` goes away).
 
 **Provenance:** `work:v010-followups` `decisions.md` D11–D16; `lock-holders-588.md`
@@ -370,17 +370,18 @@ coders `spawn:p7978`, `spawn:p7986`, `spawn:p7988`, `spawn:p7989`; `chat:c7736`.
 **Status:** decided by the tech lead after investigation (`work:resume-after-crash`
 R4, R6, R8, R11). The user's ruling was the premise, not the mechanism: an
 expected "native session is live" refusal is not an error ("why is this an
-error at all anyways...?", R3). Implemented on branch
-`fix/abandoned-session-generation`, head `933385b15`, built on #616's head
-`6d1bc3ce3`. Not merged. Its PR opens after #616 merges, rebased onto `main`.
+error at all anyways...?", R3). Shipped: ported onto `main` after #616 closed
+unmerged (R15) and merged as PR #631 on 2026-10-16, merge `8ecd44989`. The
+original `#616`-based branch `fix/abandoned-session-generation` (`933385b15`) was
+deleted unmerged.
 
 **Problem:** a Claude primary died with its pane when systemd stopped the scope
 after an OOM kill. Its launcher wrote no exit and no session stop. The user ran
 `--continue` at once, and the new launcher took the chat lock before stale-lock
 cleanup could append the old stop. Capture treated the old unstopped generation
 as a live writer, and no operation ever stopped it. A deterministic replay showed
-the refusal was permanent on `main` and on #616. #616 makes the second launch run
-`p1.2` of the same spawn, but the old run's generation stays open. Separately,
+the refusal was permanent on `main` and on #616 (which ran the second launch as
+`p1.2` of the same spawn, and still left the old generation open). Separately,
 the refusal surfaced as a traceback, and on `main` that traceback was drawn over
 the resumed TUI ([D-tui-quiet-launcher](primary-terminal-ownership.md#d-tui-quiet-launcher--launcher-output-never-reaches-a-live-tui)).
 
@@ -388,8 +389,9 @@ the resumed TUI ([D-tui-quiet-launcher](primary-terminal-ownership.md#d-tui-quie
 1. **Fix the state, in the fold.** A later accepted start of the same chat
    closes every earlier unstopped generation at its `started_at`. The premise is
    that every start writer holds the chat's exclusive lock; the reviewer
-   (`spawn:p8156`) verified it for both production writers. History index schema
-   9 → 10.
+   (`spawn:p8156`) verified it for both production writers, and the port
+   re-verified it on `main` (`spawn:p8255`). History index schema 7 → 10 on
+   `main`; 8 and 9 are skipped because unreleased #616 builds wrote them.
 2. **Liveness comes from real signals.** The guard drops "`stopped_at is None`"
    as proof of a live writer. Liveness now comes from a non-terminal row, a
    birth-validated lease, a serving scope or an observer.
@@ -434,9 +436,10 @@ Mechanism: [abandoned generations](../architecture/state-system/session-state.md
 lock, or a native writer can outlive its launcher outside a fenced process scope.
 
 **Provenance:** `work:resume-after-crash` (`decisions.md` R3, R4, R6, R8, R11,
-R12; `evidence/incident-b1.md`, `lane-b-capture-guard.md`, `lane-b-fix.md`,
-`review-lane-b.md`, `lane-b-shape-pass.md`); investigation `spawn:p8139`;
-implementation `spawn:p8150`, `spawn:p8163`; review `spawn:p8156`; `chat:c7524`.
+R12, R15, R19, R20; `evidence/incident-b1.md`, `lane-b-capture-guard.md`, `lane-b-fix.md`,
+`review-lane-b.md`, `lane-b-shape-pass.md`, `lane-b-port-main.md`); investigation `spawn:p8139`;
+implementation `spawn:p8150`, `spawn:p8163`; review `spawn:p8156`; port
+verification `spawn:p8255`; `chat:c7524`.
 
 ### D-history-index-schema-namespace: each index schema owns its own files; never migrate in place (2026-09-26) {#d-history-index-schema-namespace}
 

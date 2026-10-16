@@ -12,20 +12,18 @@ Process roles and reconciliation:
 [managed-primary-lifecycle.md](managed-primary-lifecycle.md). Scope
 containment and the launcher watchdog: [process-scope.md](process-scope.md).
 
-> **Status (2026-10-15).** Three branches are in flight:
+> **Status (2026-10-16).**
 > - The exit-text rule is merged (PR #607).
 > - The native terminal for Codex/OpenCode is PR #614, branch
 >   `feat/native-terminal-primaries`, open and not merged. Until it merges,
 >   `main` still runs Codex/OpenCode primaries through the PTY relay, and a Linux
 >   backend's parent-death link is still `PR_SET_PDEATHSIG`.
 > - The launcher-output window
->   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is PR #621,
->   branch `fix/launcher-quiet-under-tui`, open and not merged. It merges after
->   #616. Until it merges, `main` lets any launcher thread or child write over a
->   live TUI.
+>   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is merged
+>   (PR #621, merge `23eb2d6d2`, v0.10.11).
 >
-> The rest of this page describes the decided design, which those branches
-> implement.
+> The rest of this page describes the decided design. Everything except the
+> native terminal (#614) is on `main`.
 
 ---
 
@@ -175,8 +173,8 @@ itself when it exits. The relay's teardown restore sequence then sent
 jumped back to where the harness had started, so the hint was printed over the
 harness's text.
 
-An earlier fix (`95d429f10`, in PR #590, closed unmerged and replaced by #616,
-which does not carry it) added `ESC[J` to erase what
+An earlier fix (`95d429f10`, in PR #590, closed unmerged; its replacement #616
+did not carry it and was itself closed unmerged) added `ESC[J` to erase what
 was below the cursor. That hid the leftover UUID tail by erasing the harness's
 exit text along with it. The owner rejected it: "i don't want to cover the
 harness exit", "we should just append after it", "(for all harneses)".
@@ -191,13 +189,13 @@ unconditional. No `ESC[J`.
 
 ### Launcher output during the TUI goes to `launcher.log`
 
-*Branch `fix/launcher-quiet-under-tui`, PR #621, not merged.*
+*Merged in PR #621 (`23eb2d6d2`, v0.10.11).*
 
 Rule 1 was first kept only by Meridian's own code paths printing nothing, and
 that was not enough. A launcher runs threads beside the TUI. The startup
 background-repair thread, for one, logs through structlog to `sys.stderr`, and
-children inherit fd 2. On `main`, any warning from any of them lands at the TUI's
-cursor. The incident: a crashed Claude primary was resumed, the repair thread
+children inherit fd 2. Before #621, any warning from any of them landed at the
+TUI's cursor. The incident: a crashed Claude primary was resumed, the repair thread
 logged `orphan_primary_capture_failed` with a traceback, and the traceback was
 drawn across the live Claude screen. Codex panes showed the same thing.
 
@@ -233,8 +231,9 @@ to `stderr.log` would show after ordinary Codex sessions.
 harness's exit text and the `meridian --continue` hint:
 `Launcher output during the TUI was written to …/launcher.log`. It is printed
 only when the log grew during this window. "The log is non-empty" is the wrong
-test: after #616, runs of one spawn share a spawn directory, so an old run's
-output would trigger a pointer on a clean run. On a normal exit, the result
+test once a spawn directory outlives one launch (#616's run model, closed
+unmerged, and identity-v2's continue-keeps-ID both reuse `spawns/pN/`), because
+an old launch's output would trigger a pointer on a clean run. On a normal exit, the result
 renderer appends the pointer. When an exception leaves the window, the window
 prints it itself after restoring the fds. Those failed runs are the ones where
 the log matters most.
@@ -256,12 +255,12 @@ the log matters most.
 and pass `window.terminal_fds` as the TUI's `stdin`, `stdout` and `stderr`.
 Otherwise the "inherited" stdio it hands to the TUI is `/dev/null` and
 `launcher.log`. `Popen` dups the passed fds onto the child's 0, 1 and 2 even
-though the duplicates are non-inheritable. Whichever of #614 and #621 lands second
-makes this change during its rebase.
+though the duplicates are non-inheritable. #621 landed first, so #614 makes this
+change during its rebase.
 
 The invariant for code in that directory is in the colocated
 `src/meridian/lib/launch/process/AGENTS.md` ("The TUI owns the terminal
-exclusively") on the branch.
+exclusively").
 
 ### What native mode cannot clean
 
@@ -283,7 +282,7 @@ in the byte path, and it was accepted.
 - **#610**: on macOS a native TUI that exits instantly can be reported as a
   lifetime-link failure, because psutil sees a zombie with no birth time and
   watchdog registration fails closed.
-- **A Claude/Pi primary's launcher has no SIGTERM/SIGHUP handler.** This is true
+- **A Claude/Pi primary's launcher has no SIGTERM/SIGHUP handler** (#623, open). This is true
   on `main` and on #614. Claude, Pi and Cursor primaries take the black-box PTY
   path (`run_primary_process_with_capture`, bootstrap mode `SUBPROCESS_ONLY`),
   which registers no receiver. Only `PrimaryAttachLauncher`, the
@@ -300,7 +299,7 @@ in the byte path, and it was accepted.
 
 ---
 
-## Implementation map (branches `feat/native-terminal-primaries` and `fix/launcher-quiet-under-tui`)
+## Implementation map (`main`, plus branch `feat/native-terminal-primaries` for #614)
 
 | Path | Role |
 |---|---|

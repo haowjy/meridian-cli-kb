@@ -32,10 +32,12 @@ cat ~/.meridian/projects/<uuid>/spawns/p42/stderr.log
 
 **Symptom:** an interactive primary, its harness and its spawns all vanish at
 once. The primary later shows `failed` / `orphan_run`. `runner-lifecycle.jsonl`
-has no exit for it and `sessions.jsonl` has no stop for its generation. On
-`main`, resuming it with `--continue` may then draw
+has no exit for it and `sessions.jsonl` has no stop for its generation. Before
+#621 and #631, resuming it with `--continue` could draw
 `ValueError: Cannot capture an active native owner: pN` over the new TUI, and
-capture of that native session keeps failing afterwards.
+capture of that native session kept failing afterwards. Both are merged: launcher
+output during a TUI goes to `launcher.log`, and capture defers to a live owner
+instead of failing.
 
 **What happened (2026-10-15 incident, chat `c11462`):** the host ran out of
 memory. The kernel OOM-killed one process, a 1.5 GB agent-browser Chrome, inside
@@ -46,7 +48,7 @@ SIGKILLed about 90 s later. The scope had peaked at 34.3 GB of memory plus 9.2 G
 of swap. The OOM kill of one process takes down the pane.
 
 The launcher recorded nothing because a Claude/Pi primary's launcher has no
-SIGTERM/SIGHUP handler, on `main` or on #614. The default action killed it before
+SIGTERM/SIGHUP handler, on `main` or on #614 (#623, open). The default action killed it before
 its `finally` blocks wrote the runner exit and the session stop
 ([gap](../architecture/primary-terminal-ownership.md#known-gaps)). Codex/OpenCode
 managed primaries do register a receiver and can finalize on SIGTERM if they
@@ -59,20 +61,31 @@ journalctl -k -b | grep -i 'out of memory'          # which process the kernel k
 meridian spawn show pN --verbose                    # orphan_run, no runner exit
 ```
 
-**Recovery:** `meridian --continue cN` resumes the chat. On `main`, a resume
-made before stale-lock cleanup runs leaves the old generation open, and native
-capture for that session is refused on every later pass. The fix
-(`fix/abandoned-session-generation`, not merged) closes the old generation on
-replay and retries the capture when the resumed run stops
+**Recovery:** `meridian --continue cN` resumes the chat. Since #631
+(`8ecd44989`), the new start closes the old generation on replay, and capture
+of the crashed run is retried when the resumed run stops
 ([mechanism](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations)).
-On `main`, running `meridian doctor` before `--continue` lets stale-lock cleanup
-append the old generation's stop first, which avoids the race. A probe that
-waited for cleanup before continuing did not hit the bug.
+On builds before #631, a resume made before stale-lock cleanup ran left the old
+generation open and native capture was refused on every later pass; running
+`meridian doctor` before `--continue` avoided the race.
 
 **Prevention:** keep heavy children out of the pane's memory budget. Close
 agent-browser sessions when they're done
-([leftover resources](../corrections.md)). Whether to set `OOMPolicy=continue` on tmux pane scopes is open; nobody
-has decided it.
+([leftover resources](../corrections.md)). On the owner's machine (systemd 255,
+tmux 3.4, `systemd-oomd` inactive), pane scopes now get `OOMPolicy=continue`
+from a user drop-in, `~/.config/systemd/user/tmux-spawn-.scope.d/oom.conf`
+(`[Scope]` `OOMPolicy=continue`, `MemoryAccounting=yes`), installed 2026-10-16
+(`work:resume-after-crash` R18, `evidence/oompolicy-research.md`). An OOM kill
+then takes only the victim, and the rest of the pane keeps running. After
+`systemctl --user daemon-reload`, every live pane scope reported
+`OOMPolicy=continue` with the drop-in in `DropInPaths`, panes that existed before
+the reload included (24 of 24, checked 2026-10-16). Check a pane with
+`systemctl --user show <scope> -p OOMPolicy -p DropInPaths`.
+The drop-in targets tmux scopes only, not a user-wide `DefaultOOMPolicy`. It is
+machine configuration, not something Meridian sets. If `systemd-oomd` is active,
+it kills whole cgroups regardless of `OOMPolicy`. Capping the agent-browser
+Chrome's own memory is the stronger fix, filed as
+haowjy/meridian-dev-workflow#8.
 
 ---
 

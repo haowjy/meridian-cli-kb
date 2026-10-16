@@ -138,7 +138,9 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### D-spawn-run-identity: a spawn id names the conversation; each launch is a run (2026-10) {#d-spawn-run-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, not merged. On 2026-10-15 the owner agreed to combine #587 (phases 1–2: run identity in storage, surfaces that resolve spawns to runs) and #590 (phases 3–4: reopen, telemetry, hooks, vocabulary docs) into one branch, `feat/spawn-identity` (`work:v010-followups` D26). It will open as one PR that replaces both. The reasons for combining:
+**Status: superseded, never shipped.** The combined PR #616 (`feat/spawn-identity`) was closed unmerged on 2026-10-16. Its `pN`/`pN.K` run model is replaced by identity-v2 (`work:v010-followups` `design-identity-v2/`, approved by the owner in D53, being built as a 7-PR series off `main`): one ID per spawn everywhere, launches counted inside the record and never shown to users, status derived from an exact runner lock. The user's requirement below, that `--continue` keeps the spawn id, carries over. `main` still mints a new bare `pN` per launch. This record is kept for the requirement and the rejected alternatives; the run-row mechanism, reopen contract and type guard below describe #616, not current or planned code.
+
+**Original status:** decided by the user on 2026-10-14 (`work:primary-spawn-identity`, design revision 3). Built, not merged. On 2026-10-15 the owner agreed to combine #587 (phases 1–2: run identity in storage, surfaces that resolve spawns to runs) and #590 (phases 3–4: reopen, telemetry, hooks, vocabulary docs) into one branch, `feat/spawn-identity` (`work:v010-followups` D26). It will open as one PR that replaces both. The reasons for combining:
 - #587 alone had no visible value, but it carried the v8 index rebuild, a bare-`pN` directory scan and an `@latest` regression;
 - CI releases every merge;
 - the cost fixes straddled the two PRs (the latest-run pointer's writer was in #590, its reader in #587);
@@ -297,8 +299,10 @@ O(1). The canonical dataset and timing provenance are recorded in
 **Status:** accepted design, **pending the owner's formal approval; not built**. The
 owner chose option B ("redo PR 2") on 2026-10-15, and the design converged after two
 adversarial review passes (`work:v010-followups` D22, D25; design in that work item's
-`design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`). No B1 code is written
-before approval. #591 was closed as a duplicate of #418, which has owned this work
+`design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`). Update 2026-10-16: B1
+changes no storage format, so its hold was lifted, and the `memory-audit` lane is
+building it as MEM-2, stacked on #631 (`work:memory-audit` M9, M10; not merged).
+The owner's open questions concern B2 and B4. #591 was closed as a duplicate of #418, which has owned this work
 since the 2026-07 thermo-nuclear audit.
 
 **Problem.** Session state is one global `sessions.jsonl`, and per-spawn operations
@@ -336,7 +340,9 @@ in D25):
   `sessions/<chat_id>/state.json`. Every consumer of chat state reads events, so a
   state file would need a new derived schema and a read-modify-write on every
   update, to save about 1 ms.
-- **Index bumps in sequence:** the spawn-identity PR ships index v8, B2 ships v9.
+- **Index bumps in sequence:** #631 took v10 (8 and 9 were burned by unreleased
+  #616 builds), identity-v2 PR 4 ships v11, B2 ships v12. Whichever merges second
+  bumps.
 - **Pre-B builds are unsupported for reads** against a cut-over runtime; their
   writes are still absorbed. The cutover fails loudly on a read-only runtime.
 - **Corpus search cuts over other projects' runtimes** when it initializes them.
@@ -347,7 +353,7 @@ in D25):
 **PR slices**, each off `main` with its own merge approval:
 - **B1:** one read/append seam over today's log, keyed lookups, deletion of redundant
   reads, plus an old-versus-new equivalence harness. No format change.
-- **B2:** the journals, cutover, absorb and index v9.
+- **B2:** the journals, cutover, absorb and index v12.
 - **B3:** observer rows, so continue's live-observer check stops scanning every
   spawn.
 - **B4** (optional): retire the old file.

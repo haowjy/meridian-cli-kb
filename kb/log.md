@@ -3,6 +3,27 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-16 — Status sweep: #621 and #631 merged, #616 closed (`work:resume-after-crash`, `work:memory-audit`)
+
+- #621 (launcher output off live TUIs) marked shipped in v0.10.11 (`23eb2d6d2`)
+  in both primary-terminal-ownership pages, design principles and the indexes.
+  #614 now makes the `tui_terminal_window()` change during its rebase. The
+  Claude/Pi SIGTERM gap is tagged #623.
+- Lane B marked shipped as #631 (`8ecd44989`) in history-storage,
+  session-state, portable-history, native-session-binding, the lesson and
+  troubleshooting. The #616-based branch was deleted unmerged. Index schema is
+  10 on `main` (8 and 9 burned by unreleased #616 builds); identity-v2 PR 4 plans
+  v11 and #418 B2 v12 (state overview, decisions/state.md). The deferral owner
+  label is `spawn pN`; #616's `run pN.K` and `ChatBusy` text removed.
+- D-spawn-run-identity marked superseded by identity-v2 (#616 closed unmerged);
+  the record stays for the requirement and rejected alternatives.
+- Troubleshooting: the `OOMPolicy` open question is resolved by a
+  `tmux-spawn-.scope.d` drop-in (R18), verified on all 24 live pane scopes.
+- [Per-operation cost](architecture/per-operation-cost.md): new section on
+  resident memory from full scans (M1, M6). B1 is in progress as MEM-2, MEM-1 in
+  progress; neither is merged.
+
+---
 ## 2026-10-15 — Resume after crash: TUI-quiet launcher and abandoned generations (`work:resume-after-crash`)
 
 - [Primary terminal ownership](architecture/primary-terminal-ownership.md): new

@@ -59,6 +59,7 @@ the open issues and how they depend on each other:
 - [#418](https://github.com/haowjy/meridian-cli/issues/418): sessions move to per-chat
   journals. The design is accepted and pending owner approval
   ([D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals)).
+  B1, which changes no format, is being built as `memory-audit` MEM-2.
   B3 also removes continue's O(spawns) live-observer scan. #591 was closed as its
   duplicate.
 - [#612](https://github.com/haowjy/meridian-cli/issues/612): session teardown reads

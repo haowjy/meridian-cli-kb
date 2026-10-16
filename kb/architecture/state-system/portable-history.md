@@ -185,16 +185,15 @@ writers.
 
 ### Capture defers to a live owner and retries when it stops
 
-*Branch `fix/abandoned-session-generation`, built on #616's head `6d1bc3ce3`. Not
-merged; its PR opens after #616 merges. The `main` behavior is described at the
-end.*
+*Shipped in PR #631 (merge `8ecd44989`, 2026-10-16). The behavior before it is
+described at the end.*
 
 Capture refuses to seal a native transcript while a same-runtime process may
 still be writing it. That guard is correct: without it, capture can seal a
 partial transcript. Several runs can bind the same native session, for example a
-crashed primary and the `--continue` that resumed it. So the guard
+crashed primary and the `--continue` that resumed it as a new spawn. So the guard
 (`_native_session_owners` and the thin `_require_inactive_native_session`
-wrapper in `ops/session_archive.py`) checks every spawn or run record bound to
+wrapper in `ops/session_archive.py`) checks every spawn record bound to
 the native key, plus session records outside the spawn projection.
 
 **What counts as live.** One of these must hold:
@@ -212,7 +211,7 @@ have left a second permanent block: if the lease write fails after the start is
 appended, nothing would ever stop that generation.
 
 **Deferral is not an error.** A live owner raises `NativeCaptureDeferred`, which
-names the real owner: `spawn p1, run p1.2` for a run, chat and generation for a
+names the real owner: `spawn pN` for a spawn or observer, chat and generation for a
 standalone lease. Each caller treats it as "not yet":
 
 | Caller | On deferral |
@@ -237,12 +236,12 @@ blocked by another live owner defers quietly again. There is no durable
 "deferred" marker. The exiting owner is already the exact trigger, and the
 guard's query already has the retry set.
 
-**On `main` and on #616.** The guard also treats an unstopped generation as live,
-and it raises a plain `ValueError("Cannot capture an active native owner: pN")`
-that names the stale row. Startup repair logs it as `orphan_primary_capture_failed`
-with a traceback, stop maintenance returns it as a warning, and archive lists it
+**Before #631.** The guard also treated an unstopped generation as live,
+and it raised a plain `ValueError("Cannot capture an active native owner: pN")`
+that named the stale row. Startup repair logged it as `orphan_primary_capture_failed`
+with a traceback, stop maintenance returned it as a warning, and archive listed it
 under errors. After a crash followed by an immediate `--continue`, the old
-generation is never stopped, so capture of that native session fails on every
+generation was never stopped, so capture of that native session failed on every
 pass.
 
 ## Verified publication and short reclaim serialization

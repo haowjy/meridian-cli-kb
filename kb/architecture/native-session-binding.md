@@ -97,8 +97,8 @@ source; `assigned` and `observed` obey the same immutability.
 The per-event generation step is also public, as
 `project_session_generation(...)`. The metadata index persists the fold's
 working state and feeds appended events through it, so its incremental catch-up
-calls the same code instead of re-deriving it. On branch
-`fix/abandoned-session-generation` (not merged), that step also closes earlier
+calls the same code instead of re-deriving it. Since #631 (`8ecd44989`), that
+step also closes earlier
 unstopped generations when a later start of the same chat arrives
 ([rule](state-system/session-state.md#a-later-start-closes-abandoned-generations)). Search inverts the fold with
 `by_native_key` to map native keys to chats.

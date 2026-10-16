@@ -122,8 +122,8 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 ## Repair the State Before Relaxing the Check
 
-*From `work:resume-after-crash` (2026-10-15). The fix is on branch
-`fix/abandoned-session-generation`, not merged.*
+*From `work:resume-after-crash` (2026-10-15). The fix shipped in PR #631
+(`8ecd44989`, 2026-10-16).*
 
 **The situation:** native capture refused forever with "Cannot capture an active
 native owner: p12669". p12669 was long dead. Its launcher had been killed before

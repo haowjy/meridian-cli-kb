@@ -75,8 +75,9 @@ Until it lands, describe and test sessions as the global log above.
 
 Two disposable projections sit beside the journal. Neither holds a fact the journal
 lacks:
-- **Metadata index** (`history-index/history-v<N>.sqlite3`, named by schema: 7 on
-  `main`, 9 on #616's branch, 10 on `fix/abandoned-session-generation`): cross-record browse,
+- **Metadata index** (`history-index/history-v<N>.sqlite3`, named by schema: 10 on
+  `main` since #631; 8 and 9 were written only by unreleased #616 builds and are
+  skipped; identity-v2 PR 4 plans v11 and #418 B2 v12): cross-record browse,
   discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
   `sessions` table folds native keys with the authority's own step,
   `project_session_generation`, and persists the working state as `session_chats`.
@@ -116,9 +117,8 @@ Per-session files under `sessions/<chat_id>/`:
 
 ## A later start closes abandoned generations
 
-*Branch `fix/abandoned-session-generation`, built on #616's head `6d1bc3ce3`. Not
-merged. Its PR opens after #616 merges. On `main` and on #616, an abandoned
-generation stays open forever.*
+*Shipped in PR #631 (merge `8ecd44989`, 2026-10-16). Before it, an abandoned
+generation stayed open forever.*
 
 Each launch of a chat opens a **session generation**: a start event with its own
 `session_instance_id`, closed by a stop event that names the same generation.
@@ -132,7 +132,7 @@ lock and appends the stop. But it skips a chat whose lock is held. When the user
 runs `--continue` right after the crash, the new launcher takes the lock first.
 Its own stop later closes only its own generation. Neither `doctor`,
 `session archive --apply` nor another `--continue` would ever stop the old one.
-On `main`, capture treated an unstopped generation as a live writer, so that
+Before #631, capture treated an unstopped generation as a live writer, so that
 native session's history could never be captured
 ([capture side](portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops)).
 
@@ -148,9 +148,10 @@ only exist once every earlier owner of `cN` has released the chat's lock. Both
 production `SessionStartEvent` writers satisfy that:
 
 - `session_store.start_session` covers primary starts, `--continue`, forks and
-  spawns. It holds the chat's exclusive `flock` before it appends. Reopen
-  refuses with `ChatBusy` while the lease owner is alive, and any start refuses
-  while `live_observer_for_chat` finds a live external observer. The lock is a
+  spawns. It holds the chat's exclusive `flock` before it appends, and a start
+  into an existing chat refuses while `live_observer_for_chat` finds a live
+  external observer (`session_store.py`, verified on `main` by `spawn:p8255`;
+  #616's `ChatBusy` reopen refusal never shipped). The lock is a
   per-handle `flock` and the acquirer checks the inode, so neither a second
   handle in the same process nor replacing the lock file gets around it.
 - `_get_or_create_observed_chat_locked` writes a start only for a freshly
@@ -164,7 +165,7 @@ harness child that outlives its launcher is fenced by the scope's process-group
 liveness, as it already is for `cleanup_stale_sessions`.
 
 **Projection:** the rule changes replay semantics, so the history index moves
-from schema 9 to 10 and the first indexed read rebuilds `history-v10.sqlite3`
+from schema 7 to 10 on `main` and the first indexed read rebuilds `history-v10.sqlite3`
 from `sessions.jsonl`. No authority is rewritten. Existing journals heal on
 replay with no synthetic stop. Incremental catch-up rebuilds the touched chat's
 open set from its stored rows. It matched a cold rebuild over 120 random event

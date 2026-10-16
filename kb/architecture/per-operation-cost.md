@@ -1,6 +1,7 @@
 # Per-Operation Cost: the Constant-Time Bar
 
-**State as of 2026-10-15, `main` at `ea8e37e58` (v0.10.10 plus #608).**
+**State as of 2026-10-15, `main` at `ea8e37e58` (v0.10.10 plus #608).** Status
+and memory findings updated 2026-10-16 (`main` at `8ecd44989`, #631).
 
 ## The bar
 
@@ -60,8 +61,9 @@ re-read (0.46 s). Explicit-ID wait, show and cancel also replay the log, 1–11 
 per command depending on the operation and corpus.
 
 The accepted fix is per-chat journals,
-[D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals). It is
-pending the owner's approval and not built. #591 was closed as a duplicate of #418.
+[D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals). B1
+(one read seam, no format change) is being built; B2 and B3 are pending the owner's
+approval. #591 was closed as a duplicate of #418.
 
 ### 2. Launch and continue read every spawn's `state.json` (#612, #418 B3)
 
@@ -109,7 +111,35 @@ work would just move into the index (`spawn:p8095`).
   interval. #418 deliberately leaves it out (design question 10). **No issue tracks
   it yet.**
 
-### 5. The fixed floor (#595, #527)
+### 5. Resident memory: full scans kept as Pydantic objects (#627)
+
+The same full scans also set resident memory (`work:memory-audit` M1, M6;
+`spawn:p8175`, `spawn:p8256`). They are materialized as Pydantic objects, and after
+they are freed CPython keeps the memory arenas, so RSS stays at the scan's peak for
+the life of the process. It isn't SQLite, threads, polling or a leak. Measured in the
+owner's project shape (4,226 spawns, 54.5 MB `sessions.jsonl`):
+- `list_spawns` over 4,226 rows: 444 MB;
+- one full `sessions.jsonl` replay (67,400 lines): 525 MB;
+- the native-capture guard (a spawn scan plus two session replays): 537 MB still
+  resident after it returned;
+- startup repair: 373 MB after it finished;
+- a `spawn wait` on explicit ids: flat at 94 MB for 65 s.
+
+**Background runners.** On a read-only copy of real state (1,022 spawns, 37k-line
+log), a `reply OK` runner peaked at 321–325 MB, against 101 MB on an empty runtime.
+The runner-side jump is `_prepare_execution_handoff` → `get_session_active_work_id`,
+which replays every session record to read one chat's work id. Before the fork,
+first-write legacy import replays the session log twice and calls an unfiltered
+`list_spawns` through telemetry retention. Unbounded Codex/OpenCode event queues
+were suspected but not reproduced: instrumented queues never passed depth 4 or 1.8 KB.
+
+Import cost is separate: `meridian --help` is 16 MB, `import execute_bg` 92 MB.
+
+**In progress, not merged:** MEM-1 (startup repair streams `state.json` row by row,
+and single-chat reads such as `get_session_active_work_id` skip other chats' lines)
+and MEM-2 (#418 B1, stacked on #631).
+
+### 6. The fixed floor (#595, #527)
 
 These don't grow with history, but they are the next-largest cost per launch:
 - about 0.8 s of CLI imports and Pydantic model construction per command (#527);
@@ -132,8 +162,10 @@ These don't grow with history, but they are the next-largest cost per launch:
 
 ## In flight
 
-- **Spawn identity (#587 + #590, combined on `feat/spawn-identity`, not merged).**
-  Counts on that branch: direct continue is flat across 240 / 2,400 / 12,000 spawns
+- **Spawn identity.** The combined PR #616 (`feat/spawn-identity`) was closed
+  unmerged on 2026-10-16 and replaced by identity-v2
+  ([status](../decisions/state.md#d-spawn-run-identity)). Its measurements stay
+  here as evidence. Counts on that branch: direct continue is flat across 240 / 2,400 / 12,000 spawns
   × 1 / 10 / 50 runs (0 scans, 5 state reads, 1 keyed lookup, 1 `spawns_flock`
   hold). Show, `@latest`, wait, cancel and bare `pN` read the same as base or less.
   Review found three safety regressions in the cost cuts. Fix pass 2 is in
@@ -145,7 +177,9 @@ These don't grow with history, but they are the next-largest cost per launch:
 
   These are recorded as [lessons](../lessons/cost-cuts-and-safety-checks.md), not as
   shipped behavior.
-- **#418 B1 → B2 → B3:** pending the owner's approval of the design.
+- **#418 B1 → B2 → B3:** B1 is being built by the `memory-audit` lane as MEM-2,
+  stacked on #631. B2 (index v12, after identity-v2 PR 4's v11) and B3 are pending
+  the owner's approval of the design.
 
 ## How to measure
 
@@ -199,7 +233,8 @@ The harness lives in `work:v010-followups` under `launch-e2e-probe/`:
 - `investigate-launch-scan.md` (`spawn:p8095`);
 - `watchdog-finalize-report.md`.
 
-Also `chat:c7736`.
+Also `chat:c7736`. Memory: `work:memory-audit` `decisions.md` M1, M6, M8–M10
+(`evidence/memory-audit.md`, `spawn:p8175`; runner probe `spawn:p8256`).
 
 ## Related
 

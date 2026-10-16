@@ -44,10 +44,9 @@ is unreadable. Even then, append a reset; don't erase.
 
 ## D-tui-quiet-launcher — Launcher output never reaches a live TUI
 
-**Status:** decided by the user (2026-10-15). Implemented on branch
-`fix/launcher-quiet-under-tui`, PR #621, CI green, open and not merged; it
-merges after #616. On `main`, launcher threads and children still write to the
-TUI's terminal. Work-item IDs R1, R5, R7, R9.
+**Status:** decided by the user (2026-10-15). Shipped: PR #621
+(`fix/launcher-quiet-under-tui`) merged 2026-10-16 as `23eb2d6d2`, released in
+v0.10.11. Work-item IDs R1, R5, R7, R9, R17.
 
 **User rule:** "it still garbles the screen when claude hasn't redrawn --- we
 shouldn't garble the text at all". The text vanishing on the TUI's next redraw
@@ -80,9 +79,10 @@ window. The window prints it itself when an error leaves the window. Mechanism:
   barrier would also be a hidden change to signal policy, which belongs to the
   runner (on #614, to `SignalCoordinator`). A `ctypes` `fflush(None)` that
   flushed C stdio buffers nothing used was deleted with it.
-- **Deciding the pointer by "the log is non-empty".** After #616, runs of one
-  spawn share a spawn directory, so a stale log from an earlier run would print a
-  pointer on a clean run. Three error paths in `runner.py` used that test. They
+- **Deciding the pointer by "the log is non-empty".** Once a spawn directory
+  outlives one launch (#616's run model, closed unmerged, and identity-v2's
+  continue-keeps-ID both reuse it), a stale log from an earlier launch would
+  print a pointer on a clean run. Three error paths in `runner.py` used that test. They
   were deleted, and the window owns the one rule.
 
 **Accepted limits:** programs that open `/dev/tty` directly can still draw on the

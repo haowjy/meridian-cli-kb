@@ -22,7 +22,7 @@ meridian.toml
   sessions.jsonl                    — session events
   legacy-native-import-v1.json      — one-time legacy key import outcome
   history-index/                    — disposable projections, named by schema
-    history-v<N>.sqlite3            — metadata index (N = SCHEMA_VERSION; 7 on main)
+    history-v<N>.sqlite3            — metadata index (N = SCHEMA_VERSION; 10 on main)
     native-search-v1.sqlite3        — native-keyed FTS5 search projection
     pending-v<N>/                   — dirty-source intent for schema N
     history.sqlite3 · pending/      — 0.6.7's schema-2 index; left untouched
