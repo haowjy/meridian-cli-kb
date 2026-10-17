@@ -233,7 +233,7 @@ plain bool latch instead.
 
 **Status:** decided 2026-10-16 (`work:relay-signal-exit` S1, S6, S7, with the
 identity-v2 lead). Implemented in PR #658 (`fix/relay-signal-exit`, #623),
-reviewed, open and not merged.
+merged 2026-10-17 (`8055a1f77`).
 
 **Problem:** a Claude/Pi PTY primary's launcher had no SIGTERM/SIGHUP handler.
 A pane kill, terminal close or systemd scope stop killed it at the default

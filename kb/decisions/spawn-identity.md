@@ -13,10 +13,13 @@ design, but make sure u understand it and can explain it back to me again").
 The approved design is revision 3.1 (`work:v010-followups`
 `design-identity-v2/design.md`, `pr-plan.md`; decisions D45–D53, D55). It is
 being built as seven PRs off `main`, each merged with its own approval before
-the next starts. PR 1 is #633 (draft, not merged). **On `main` today:** every
-launch, `--continue` included, mints a new `pN`. Status is a stored field with
-three writers, and liveness is guessed from PIDs and heartbeats. Architecture
-pages describe that.
+the next starts. PR 1 (start gate and guardian, #633) and PR 2 (launch lock and
+containment sweep, #647) are merged. **On `main` today:** every runner holds an
+exact `launch.lock`, and a continue sweeps or refuses its source before any harness
+starts ([PR 2 as built](#pr-2-as-built-the-launch-lock-and-the-sweep)). But every
+launch, `--continue` included, still mints a new `pN`, status is still a stored
+field with three writers, and readers other than continue still guess liveness
+from PIDs and heartbeats. Architecture pages describe that.
 
 **Supersedes:**
 - [D-spawn-run-identity](#d-spawn-run-identity), #616's `pN`/`pN.K` run
@@ -137,7 +140,7 @@ Two placements were probed on real harnesses before redesigning
 
 M2 exposed a separate problem: after a runner SIGKILL, Codex's native process
 survived with PPID 1, and Claude background spawns had no death linkage at all.
-That is containment, and it exists on `main` today (#625): a `--continue` after a
+That is containment, and it was on `main` until PR 2 (#625): a `--continue` after a
 runner crash ran a second Claude beside the orphan on the same session. Per-launch
 keys (the probe's fallback "option 2") don't touch it. So the decision pairs M2
 with the gate, guardian and sweep, instead of falling back to per-launch keys.
@@ -169,22 +172,89 @@ shows them.
 
 ### The seven PRs
 
-| # | PR | Status (2026-10-16) |
+| # | PR | Status (2026-10-17) |
 |---|---|---|
-| 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | #633, draft; reviews ready after D63's fixes; Mac smoke pending |
-| 2 | Launch lock + containment sweep (fixes #625) | not started |
+| 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | merged, #633 (`e2593004c`, v0.10.13); the owner's macOS smoke is still owed |
+| 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
 | 3 | `read_derived`: exact liveness for every reader; lenient quarantine | not started |
 | 4 | Sole-writer outcome; state v4; history index **v11** | not started |
 | 5 | Cut the runtime artifact store | not started |
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
 | 7 | Continue keeps the spawn ID | not started |
 
-PR 5 is independent and must land before 6. PR 2 leaves one named residual:
-two concurrent continues of a dead source can both start, and PR 7 closes it.
+PR 5 is independent and must land before 6. PR 2's residuals are listed
+[below](#pr-2-as-built-the-launch-lock-and-the-sweep).
 
 **Index versions across lanes:** #631 took v10, identity PR 4 takes v11, and
 #418 B2 takes v12. Whoever merges second bumps
 ([D-session-per-chat-journals](state.md#d-session-per-chat-journals)).
+
+### PR 2 as built: the launch lock and the sweep
+
+PR 2 adds the lock and uses it in one place, continue. Status authority is
+unchanged until PR 4.
+
+**The lock is exact liveness.** `spawns/pN/launch.lock` is held exclusively by the
+runner from the row's staged publication to runner exit. The publishing rename
+keeps the inode, so the row is never visible unlocked. "Locked" means exactly "the
+runner is alive", with no PID guess and no heartbeat. No harness holds the
+descriptor. A `--bg` parent `dup`s the locked descriptor into its worker
+(`_MERIDIAN_LAUNCH_LOCK_FD`), which restores close-on-exec and records itself as
+the runner. The lock stayed held in 658 of 658 samples with the parent SIGKILLed
+mid-hand-off. `LaunchSlot` (unbound) binds to a frozen `LaunchHandle`; the slot is
+required on the lifecycle and service layers, so a new row creator can't publish a
+lockless row.
+
+**The sweep runs before any harness starts.** Every continue path (primary
+`--continue`, `spawn --continue` and the session browser) calls one seam,
+`launch/continue_sweep.py`:
+- **Lock held:** refuse at once, before any row is written: "pM is still running;
+  use spawn inject pM or --fork pM".
+- **Lock free:** terminate the source's unreleased, birth-verified scopes, mark them
+  released, then continue. A scope whose birth is unknown is never signalled. A
+  reused root PID proves the root dead, so that scope is released without a signal.
+- `--dry-run` touches no process and refuses nothing.
+- Lockless rows from older builds are judged by `legacy_runner_alive` and never
+  swept while it holds. A dead one gets its lock file with `O_EXCL` under the
+  mutation lock.
+
+**Continue resolves an old spawn ID to the chat's current owner.** With p1 crashed
+and continued as p2, a second `--continue p1` used to lock p1, find it free, and
+start p3 on p2's live session. `--continue c1` was already safe, because chat c1's
+record points at p2. The sweep now reads `chat_record(chat).spawn_id` (one keyed
+read, no scans) and locks that owner first:
+- owner live → refuse, naming it: "p1 was continued as p2, which is still running;
+  use spawn inject p2, --fork p2, or spawn cancel p2";
+- owner dead → sweep the owner's scopes and the named spawn's, then launch;
+- a pruned owner (no row) is ignored, rather than failing every later continue.
+
+The live successor is **never killed**. Killing it would silently stop work in
+another pane and break the rule that continue only sweeps dead launches (owner:
+"fix it"; the kill was rejected).
+
+**A `--bg` continue publishes the successor pointer before the hand-off.** It
+moves the chat's owner to the new spawn while the parent still holds the new
+spawn's lock, before handing off to the worker. Before, only the worker's
+`start_session` moved it, after the parent had returned, so a second continue in
+that window launched beside it (re-check `spawn:p8373`, reproduced with SIGSTOP).
+A racer now sees Busy.
+
+**Accepted residuals:**
+- Two **concurrent** continues of one dead source can both start (a strict xfail,
+  `test_concurrent_continue_of_dead_source`). PR 7 closes it: continue then holds
+  pN's own lock for the whole new launch.
+- A cancel during the `--bg` hand-off window can SIGTERM the parent instead of the
+  worker (`spawn:p8283` finding 4). Main's window was racy too; PR 4 moves cancel
+  onto the launch.
+- A descendant in its own session (`setsid`, `nohup … &`) survives the sweep, as
+  the residuals below say.
+- macOS was not exercised live.
+
+Verified live on real Claude haiku and Codex: an orphan group swept before the new
+harness starts, a live source refused in about 1.6 s with no new row; on a native
+tmux Codex primary (post-#646) the old group was gone 493 ms before the new backend
+appeared (`spawn:p8364`). Lessons:
+[process containment](../lessons/process-containment.md#continue-must-lock-the-chats-current-owner-not-the-named-spawn).
 
 ### Rejected
 
@@ -216,7 +286,10 @@ contract ([Rust rewrite](rust-rewrite.md)).
 **Revisit when:** a harness needs to show or act on an earlier launch, or the
 NULL-outcome backlog that maintenance drains turns out to grow without bound.
 
-**Provenance:** `work:v010-followups` D45–D63; `design-identity-v2/`
+**Provenance:** `work:v010-followups` D45–D63, PR 2 in D65–D75 (`pr-body-launch-lock.md`;
+design §5.1, §5.5; implementer `spawn:p8279`, `spawn:p8290`, `spawn:p8367`,
+`spawn:p8380`; reviewers `spawn:p8283`, `spawn:p8284`, `spawn:p8292`,
+`spawn:p8293`, `spawn:p8373`); `design-identity-v2/`
 (`redesign-brief.md`, `design.md` rev 3.1, `pr-plan.md`, reviews r1–r3); design
 lead `spawn:p8186`, `spawn:p8230`; reviewers `spawn:p8216`, `spawn:p8226`,
 `spawn:p8234`; main probes `spawn:p8231`, `spawn:p8233`; `chat:c7736`,
@@ -227,18 +300,14 @@ lead `spawn:p8186`, `spawn:p8230`; reviewers `spawn:p8216`, `spawn:p8226`,
 ## D-start-gate-guardian: one `sh` guardian per harness instead of PDEATHSIG and watchdogs (2026-10) {#d-start-gate-guardian}
 
 **Status:** decided as part of [D-spawn-identity-v2](#d-spawn-identity-v2)
-(owner answer D50 Q4, approved 2026-10-16). Implemented on
-`feat/launch-gate`, PR #633, draft and not merged. Both reviews (correctness
-and structure) say ready after D63's fixes, and the owner's Mac smoke is still
-outstanding. **On `main` today:** a Linux managed backend gets
-`PR_SET_PDEATHSIG`; on other POSIX systems a Python watchdog polls every 0.5 s,
-for detached backends only. Claude, Pi and Cursor stdio children and both primary
-launchers have no death linkage. Mechanism today:
+(owner answer D50 Q4, approved 2026-10-16). Merged in PR #633 (`e2593004c`,
+v0.10.13); the native-terminal primaries were ported onto it in #646 (v0.10.15).
+The owner's macOS smoke is still owed. Mechanism:
 [process scope](../architecture/process-scope.md#parent-death-linkage).
 
 **Supersedes** the mechanism of
 [D-launcher-watchdog](primary-terminal-ownership.md#d-launcher-watchdog--one-watchdog-per-launcher-instead-of-pdeathsig)
-(#614, open). Its diagnosis stands: PDEATHSIG reaches only the direct child, and
+(#614, closed unmerged). Its diagnosis stands: PDEATHSIG reaches only the direct child, and
 unknown birth is never "probably fine". Its Python watchdog per launcher does not.
 
 ### Problem
@@ -335,7 +404,7 @@ branch.
 - A harness on the root-only path that ignores SIGTERM keeps running until the
   next sweep.
 - A guardian that is itself killed (OOM, by hand) leaves the group to the sweep.
-- None of the POCs ran on macOS; PR 1's manual Mac smoke covers it.
+- None of the POCs ran on macOS, and the owner's manual Mac smoke is still owed.
 
 Implementation lessons: [process containment](../lessons/process-containment.md).
 

@@ -21,14 +21,13 @@ containment and the launcher watchdog: [process-scope.md](process-scope.md).
 >   PR #633, merged). PR #614 was closed unmerged.
 >   **Divergence:** the job-control diagram and the "parent watchdog" wording
 >   below still describe #614. The shipped containment is the gate and guardian;
->   [process-scope.md](process-scope.md) owns it. This page has not been
+>   [process-scope.md#parent-death-linkage](process-scope.md#parent-death-linkage) owns it. This page has not been
 >   re-verified against #646 beyond the signal sections.
 > - The launcher-output window
 >   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is merged
 >   (PR #621, merge `23eb2d6d2`, v0.10.11).
-> - SIGTERM/SIGHUP cancel for black-box (Claude/Pi PTY) primaries is PR #658
->   (`fix/relay-signal-exit`, #623), open, labelled `release:patch`, not merged.
->   Until it merges, `main` has the [gap](#known-gaps) it closes.
+> - SIGTERM/SIGHUP cancel for black-box (Claude/Pi PTY) primaries is merged
+>   (PR #658, #623, merge `8055a1f77`, 2026-10-17).
 
 ---
 
@@ -322,8 +321,9 @@ in the byte path, and it was accepted.
 - **#610**: on macOS a native TUI that exits instantly can be reported as a
   lifetime-link failure, because psutil sees a zombie with no birth time and
   watchdog registration fails closed.
-- **On `main` until PR #658 merges, a Claude/Pi primary's launcher has no
-  SIGTERM/SIGHUP handler** (#623). Claude, Pi and Cursor primaries take the
+- **Closed by PR #658 (merge `8055a1f77`): before it, a Claude/Pi primary's
+  launcher had no SIGTERM/SIGHUP handler** (#623). The rest of this entry
+  describes builds before the fix. Claude, Pi and Cursor primaries take the
   black-box PTY path (`run_primary_process_with_capture`, bootstrap mode
   `SUBPROCESS_ONLY`), which registers no receiver there. A SIGTERM to the
   launcher, for example from a systemd scope stop, kills it by default action.
@@ -357,7 +357,7 @@ in the byte path, and it was accepted.
 
 ---
 
-## Implementation map (`main`, plus PR #658)
+## Implementation map (`main`)
 
 | Path | Role |
 |---|---|

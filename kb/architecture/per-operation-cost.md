@@ -216,7 +216,7 @@ These don't grow with history, but they are the next-largest cost per launch:
 
 - **Spawn identity: identity-v2**
   ([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)),
-  seven PRs, PR 1 is #633 (draft). Its acceptance bar: continue, show, cancel,
+  seven PRs; PRs 1–2 merged (#633, #647). Its acceptance bar: continue, show, cancel,
   wait and close have equal counts and equal `state.json` bytes across 240 /
   2,400 / 12,000 spawns × 1 / 10 / 50 / 500 launches. `spawns_flock` is held only
   for allocation, publication and a bounded re-parent write. Background repair is

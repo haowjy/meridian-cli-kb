@@ -1,7 +1,8 @@
 # lessons/process-containment — Keeping Harnesses From Outliving Their Runner
 
-What building the start gate and guardian taught (identity-v2 PR 1, #633), and
-stopping a black-box primary through it on a signal (#623, PR #658). The
+What building the start gate and guardian taught (identity-v2 PR 1, #633), the
+launch lock and continue sweep (PR 2, #647), and stopping a black-box primary
+through the gate on a signal (#623, PR #658). The
 decision and mechanism are
 [D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian). These
 are the traps, most of which a passing POC missed.
@@ -164,6 +165,43 @@ not only with the signal the change was written for.
 The same fix also showed that **`termios.error` is not an `OSError`**. The first
 live pane-kill probe left a traceback that a fake-launcher test could not have
 shown ([mechanism](../architecture/primary-terminal-ownership.md#a-dead-terminal-raises-termioserror-which-is-not-an-oserror)).
+
+## Continue must lock the chat's current owner, not the named spawn
+
+PR 2's first sweep locked the spawn ID the user typed. Both reviews passed it. An
+edge-case probe the owner asked for afterwards found the hole: with p1 crashed and
+continued as p2, a second `--continue p1` found p1's lock free and started p3 on
+p2's live session. `--continue c1` was refused correctly, because chat c1's record
+pointed at p2. The bug is sequential and easy to hit: an agent reusing an old ID,
+or a user retyping one.
+
+The unit that must not run twice is the **native session**, and the chat record
+names its current owner. So the sweep resolves the named spawn to
+`chat_record(chat).spawn_id` and locks that first. A live owner is refused, never
+killed: killing it would silently stop work in another pane, and continue only
+ever sweeps dead launches. A pruned owner is ignored, or a missing row would fail
+every later continue.
+
+The fix's re-check found the same hole one level down. A `--bg` continue moved
+the chat's owner pointer only in the worker's `start_session`, after the parent
+had returned, so a second continue in that gap still saw the old owner
+(reproduced with SIGSTOP). The parent now publishes the pointer while it holds the
+new spawn's lock, before the hand-off. **A guard is only as exact as the record it
+reads: publish the record before the lock-holder lets anyone else proceed.**
+
+## A lock fd survives the hand-off; a PID record doesn't
+
+A `--bg` continue hands its runner role to a detached worker. The parent `dup`s the
+locked descriptor into the worker through `pass_fds`, and the worker's first act is
+to restore close-on-exec and record its own PID and birth time. Because the lock
+lives on the open-file description, it stays held across the hand-off: 658 of 658
+samples with the parent SIGKILLed at once. A liveness record keyed on the parent's
+PID would have shown a dead runner in that window. Two rules made it work:
+- don't use the reentrant `platform/locking.lock_file` for runner liveness: it is
+  thread-reentrant and closes inherited handles on fork;
+- set close-on-exec again immediately, so the harness never inherits the lock
+  (the [M1 probe](../decisions/spawn-identity.md#why-a-runner-only-lock) showed
+  why a harness-held lock lies).
 
 ## Related
 

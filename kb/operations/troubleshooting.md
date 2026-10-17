@@ -50,8 +50,8 @@ of swap. The OOM kill of one process takes down the pane.
 The launcher recorded nothing because a Claude/Pi primary's launcher had no
 SIGTERM/SIGHUP handler (#623). The default action killed it before its
 `finally` blocks wrote the runner exit and the session stop
-([gap](../architecture/primary-terminal-ownership.md#known-gaps)). PR #658 (open
-as of 2026-10-17) adds the receiver, so on builds with it a scope stop records
+([gap](../architecture/primary-terminal-ownership.md#known-gaps)). PR #658 (merged
+2026-10-17, `8055a1f77`) adds the receiver, so on builds with it a scope stop records
 `cancelled`/130 and a session stop, provided finalize completes before
 systemd's SIGKILL. Codex/OpenCode managed primaries already register a receiver
 and finalize under the same condition.

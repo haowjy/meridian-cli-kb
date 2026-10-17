@@ -27,22 +27,33 @@ the work was resumed with `--from` on Opus (`work:memory-audit` M8, M12).
 error, stop relaunching on that route. Pin a declared backup explicitly, and report the credential
 problem to the user. Every spawn on that route fails until the key is fixed.
 
-## A Claude-Routed Lane Can End Its Turn Before Its Gate Finishes
+## A Claude Lane's Background Gate Was Killed, and Reported Succeeded
 
-**What happened (2026-09-25):** fix lane D ran on the Claude harness (`gpt-dev -m
-opus`). It committed its fixes, started the full preflight as a background command,
-then ended its turn "waiting" for it. The spawn finished without the preflight result
-and without a report. The tech lead reviewed the commits, ran the gates and wrote the
-report.
+**What happened:** on 2026-09-25 a Claude-routed fix lane started its preflight as a
+background command, ended its turn "waiting" for it, and finished with no gate result
+and no report. The lesson recorded then was a prompting workaround: tell Claude lanes
+to run gates in the foreground. Nobody asked why the harness didn't come back. The
+same failure recurred at least four times in meridian-flow (2026-10-12 to 10-17),
+each time published `succeeded` with a report saying "the gate is still running",
+until the owner flagged it as blocking (#655).
 
-**Why:** in this run, the background command finishing did not bring the headless lane
-back for another turn. The spawn's result was whatever had been written before the turn
-ended. The exact harness behavior was not investigated further.
+**Why:** Meridian finalized a Claude child at its first `result` and killed its
+process group. Claude Code itself would have waited: raw `claude -p` holds for its
+background tasks and takes a follow-up turn. The defect was Meridian's, and months
+old. Meridian's own spawn guidance tells agents to run `meridian spawn wait` in
+native background execution, so it steered Claude agents straight into the bug the
+workaround was meant to avoid. The fix is in code:
+[D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold).
 
-**The lesson:** briefs for Claude-routed spawns should say to run gates and long tests
-in the foreground, with a timeout that fits the gate, and to write the report before
-ending the turn. When a spawn ends without a report, check its commits and rerun the
-gates before merging.
+**The lesson:** a prompting workaround for a harness defect is a deferral, not a fix.
+When an agent-behavior lesson papers over something the system does wrong, file the
+system defect at the same time. Check whether the project's own guidance contradicts
+the workaround. Until #655 merges, a Claude child that ends while its background work
+runs still reports `succeeded`: check its commits and rerun its gates before
+merging.
+
+**Provenance:** `work:claude-bg-quiescence` D1, D2 (investigator `spawn:p8374`,
+bisect `spawn:p8382`); the 2026-09-25 lane is cited below.
 
 ## A Lane Commit Can Carry Another Step's Staged Deletions
 

@@ -3,6 +3,57 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Claude children hold for their own background work: #655 (`work:claude-bg-quiescence`)
+
+- New domain page [decisions/completion-drain.md](decisions/completion-drain.md)
+  with [D-claude-native-hold](decisions/completion-drain.md#d-claude-native-hold)
+  (built on `fix/claude-bg-quiescence`, not merged): hold on Claude Code's
+  `background_tasks_changed` snapshot through the shared resident profile; native
+  holds not sticky; explicit `done` always wins; three shared Codex/OpenCode fixes;
+  rejected alternatives incl. the implementer's deadline-beats-done. Indexed in
+  `decisions.md`, `decisions/overview.md`, `index.md`.
+- [Drain plans](architecture/drain-plans.md#claude-native-holds): new mechanism
+  subsection (signal facts: `local_agent`/`local_bash`/`parent_task_id`/
+  `owned_by_subagent`, full-tree emptying, raw `claude -p` waiting forever;
+  subagent `assistant` frames with `parent_tool_use_id`; stdin nudges and
+  `control.sock` inject). [Completion drain coordination](architecture/completion-drain-coordination.md)
+  composition and invariant 9 note the evidence-only resident path.
+- **Superseded** `lessons/spawn-lane-operations.md` "A Claude-Routed Lane Can End
+  Its Turn Before Its Gate Finishes" (a prompting workaround) with a short
+  history plus the lesson: a prompting workaround for a system defect is a
+  deferral; the project's own spawn guidance steered agents into the bug.
+- `codebase/vocabulary.md`: **Native hold**. Corrections register: two `chat:c8112`
+  occurrences (reuse the resident rearm system; read the diff, not the reports).
+- Colocated docs on the branch (`lib/streaming/AGENTS.md`, `.context/CONTEXT.md`)
+  already match; no gap.
+
+---
+## 2026-10-17 — Identity-v2 PR 2 merged: launch lock and continue sweep, #647 (`work:v010-followups` D65–D75)
+
+- [D-spawn-identity-v2](decisions/spawn-identity.md#pr-2-as-built-the-launch-lock-and-the-sweep):
+  new "PR 2 as built" subsection (exact-liveness lock, `--bg` fd hand-off, sweep
+  rules, continue resolving an old ID to `chat_record(chat).spawn_id` and refusing,
+  never killing, a live owner; successor pointer published before hand-off; pruned
+  successor ignored; residuals: concurrent continue → PR 7, cancel in hand-off →
+  PR 4, `setsid` descendants, macOS). PR table and status lines updated.
+- **Stale content fixed** (#633 merged in v0.10.13 but still called draft/open):
+  D-start-gate-guardian status, `decisions.md` rows, `index.md`;
+  [process scope](architecture/process-scope.md#parent-death-linkage) parent-death
+  section rewritten to the gate as shipped, PDEATHSIG/watchdog rows and
+  `parent_death_linked` example removed, new [continue sweep](architecture/process-scope.md#continue-sweep)
+  cleanup path; `managed-primary-lifecycle.md` (#614 watchdog never shipped),
+  `reconciliation.md`, `per-operation-cost.md`, `codebase/harness-adapters.md`,
+  vocabularies. Deleted the **Parent watchdog** vocabulary term (subject gone);
+  added **Continue sweep** and **Launch lock**.
+- [Process containment lessons](lessons/process-containment.md#continue-must-lock-the-chats-current-owner-not-the-named-spawn):
+  lock the chat's current owner; a lock fd survives the hand-off.
+- [Test determinism](codebase/test-determinism.md#wait-for-the-runner-before-deleting-a-spawn-directory):
+  wait for the runner before `rmtree` (ENOTEMPTY flake).
+- [Release sequencing](lessons/release-sequencing.md): CHANGELOG rebuild is
+  unconditional after crossing a release commit, anchored on `## [Unreleased]`,
+  then the placement check (extends D66).
+
+---
 ## 2026-10-17 — Black-box primaries cancel on SIGTERM/SIGHUP: #623, PR #658 (`work:relay-signal-exit`)
 
 - [Primary terminal ownership](architecture/primary-terminal-ownership.md):

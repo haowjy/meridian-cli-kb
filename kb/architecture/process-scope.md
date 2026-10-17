@@ -87,7 +87,8 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `lib/platform/process_scope/` | **Mechanism only** — how to launch in a new scope and terminate the tree. Four sub-modules: `base.py` (shared types), `posix.py` (setsid/process-group), `windows_job.py` (Job Object), `fallback.py` (psutil tree kill) |
-| `lib/platform/detached_process.py`, `parent_watchdog.py` | **Parent-death linkage** for detached managed backends: PDEATHSIG on Linux, a polling watchdog elsewhere. See [Parent-death linkage](#parent-death-linkage). |
+| `lib/platform/launch_gate.py` | **Start gate and guardian**: no harness execs before its scope is durable; a guardian in its group kills the group when the runner dies. See [Parent-death linkage](#parent-death-linkage). |
+| `lib/state/launch_lock.py`, `lib/launch/continue_sweep.py` | **Runner-lifetime lock and the continue sweep**: before a continue, refuse a live source or kill a dead one's leftover scopes. See [Continue sweep](#continue-sweep). |
 | `lib/core/process_cleanup.py` | **Policy only** — whether to terminate a scope. Consults spawn record, session lease store, and managed-primary metadata. Never decides how. |
 | `lib/state/process_scope_projection.py` | **Persistence** — read/write process-scope sidecars at `spawns/<spawn-id>/process_scopes.json`. Operations: `record_scope`, `mark_scope_released`, `read_scopes_from_disk`, tolerant read for legacy spawns. |
 
@@ -161,7 +162,6 @@ that used to need a separate backend lifecycle sidecar now live on
       "pgid": 123,
       "job_name": null,
       "degraded_reason": null,
-      "parent_death_linked": true,
       "release_id": "backend:..."
     }
   ],
@@ -175,11 +175,9 @@ Key fields:
   mechanism was actually established.
 - **`root_created_at_epoch`** — PID-reuse guard. Before any signal, the current
   process birth time is compared against this value. Confirmed reuse skips the kill.
-- **`parent_death_linked`** — true when the launch set up a parent-death link:
-  PDEATHSIG or the backend watchdog on POSIX, a Job Object on Windows. It records that
-  a link was configured, not that it covers the harness: Codex's native process
-  outlived its runner on a scope marked `true` (`spawn:p8231`). Nothing decides on it.
-  PR #633 deletes the field.
+- **`parent_death_linked`** — no longer written since #633 and ignored on read. It
+  recorded that a link was configured, not that it covered anything: Codex's native
+  process outlived its runner on a scope marked `true` (`spawn:p8231`).
 - **`release_id`** — stable identity for one concrete scope release. Re-recording the
   same release upgrades ownership in place; distinct releases with the same label are
   preserved.
@@ -219,43 +217,29 @@ launching Meridian process group.
 
 ### Parent-death linkage
 
-A scope record lets the reaper clean up *later*. A parent-death link is meant to
-make runner death clean up *now*. On `main` only detached managed backends
-(Codex app-server, OpenCode serve) get one, from `detached_subprocess_config()`:
+A scope record lets cleanup act *later*. The start gate makes runner death clean
+up *now* ([D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian),
+#633, v0.10.13). Every harness on Linux and macOS starts as a POSIX `sh` stub
+behind a pipe handshake in `platform/launch_gate.py`:
+- the stub doesn't exec the harness until the runner has recorded its scope with a
+  verified birth time and written `go`, so no harness runs unregistered;
+- before exec, it double-forks a guardian into the harness's process group. The
+  guardian blocks on the pipe, whose only writer is the runner. EOF means the runner
+  died: SIGTERM to the group, the adapter's grace, SIGKILL.
+- a harness that must share the runner's or the shell's group gets **root-only**
+  mode: one SIGTERM to the harness PID and nothing later. That is a non-TTY primary
+  whose stdin is a TTY, and the native-terminal Codex/OpenCode TUI (#646; one
+  signal suffices for Codex because its npm wrapper forwards SIGTERM to the Rust
+  TUI).
 
-| Platform | Link | What it misses |
-|---|---|---|
-| Linux | `PR_SET_PDEATHSIG` in a pre-exec hook | Everything but the direct child. Codex's Node wrapper re-execs the native process, which survived a runner SIGKILL with PPID 1 in the backend's group (`spawn:p8231`) |
-| Other POSIX (macOS) | `parent_watchdog.py`, a Python helper per backend that polls the runner every 0.5 s and terminates the backend's scope when it disappears | About 17 MB per backend; nothing but the backend |
-| Windows (legacy, untested) | Job Object, below | — |
+Group mode covers managed stdio (Claude, Pi, Cursor), managed backends (Codex,
+OpenCode) and the PTY primary. PDEATHSIG,
+`parent_watchdog.py` and `detached_process.py` are gone.
 
-**No link at all** for managed stdio children (Claude, Pi, Cursor) or for
-either primary launcher. After a runner SIGKILL, Claude keeps running with
-PPID 1, and a `--continue` then starts a second Claude on the same session
-beside it (`spawn:p8233`, #625). Their durable scope and the reaper own the
-residue. On every path, the harness also execs *before* its scope is recorded
-(`managed_backend.py`, `managed_stdio.py`), so a runner killed in that window
-leaves an unregistered harness.
-
-**Decided replacement:**
-[D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian),
-identity-v2 PR 1 (#633, draft, not merged). Every launch path starts its
-harness as an `sh` stub that runs only after its scope is durable. The stub
-leaves a guardian in the harness's process group that kills the group on runner
-EOF. It deletes `parent_watchdog.py`, the PDEATHSIG branch and
-`parent_death_linked`. Identity-v2 PR 2 then adds a birth-checked sweep of the
-previous launch's scopes before every continue.
-
-PR #614 (`feat/native-terminal-primaries`, open) carries a different
-replacement: one Python watchdog per launcher
-([D-launcher-watchdog](../decisions/primary-terminal-ownership.md#d-launcher-watchdog--one-watchdog-per-launcher-instead-of-pdeathsig)),
-which the guardian supersedes.
-
-> [!FLAG] **Needs human review.** #614 and #633 both rewrite parent-death
-> linkage and touch the same launchers. Whichever merges second has to drop
-> #614's watchdog in favour of the gate. #614's native-inherit TUI shares the
-> shell's foreground group, so it presumably maps to the gate's root-only mode.
-> No work item records that mapping yet.
+What the guardian misses, the [continue sweep](#continue-sweep) finishes: a
+guardian that was itself killed (OOM, by hand), a scope recorded before #633, and
+a root-only harness that ignored its SIGTERM. A descendant that moved into its own
+session (`setsid`, `nohup … &`, Claude's Bash tool) escapes both.
 
 #609 tracks folding the older termination paths (`platform/terminate.py`,
 `fallback.terminate_tree`) onto one termination path.
@@ -358,7 +342,7 @@ Cleanup is side-effectful, so Meridian separates **read-time projection** from
 without writing terminal state or terminating processes. Recorded scope cleanup runs
 only from paths that intentionally repair or control lifecycle.
 
-Three sync cleanup paths exist. All route through `terminate_scope_sync()` when a
+Four sync cleanup paths exist. All route through `terminate_scope_sync()` when a
 `ProcessScopeSnapshot` is available.
 
 ### Orphan reconciliation repair
@@ -378,6 +362,18 @@ not by ordinary read-only status surfaces. Cleanup policy consults
 Raw `worker_pid` / `runner_pid` termination is a degraded fallback, not the primary
 cleanup path. The read-only projection path can still *show* a spawn as terminal for
 observation, but it does not mark scopes released or send signals.
+
+### Continue sweep
+
+`launch/continue_sweep.py:sweep_before_continue()` runs on every continue path
+before any harness starts (#647, identity-v2 PR 2). It takes the source's
+runner-held `spawns/pN/launch.lock` non-blocking. Held means the runner is alive:
+the continue is refused and nothing is signalled. Free means it is dead: each
+unreleased, birth-verified scope gets `terminate_scope_sync(reason="continue_sweep")`
+and is marked released. An unknown birth is never signalled; a reused root PID is
+released without a signal. An old spawn ID first resolves to its chat's current
+owner (`chat_record(chat).spawn_id`), which is refused if live and swept if dead.
+Rules and residuals: [PR 2 as built](../decisions/spawn-identity.md#pr-2-as-built-the-launch-lock-and-the-sweep).
 
 ### Cancel path (`signal_canceller.py`)
 

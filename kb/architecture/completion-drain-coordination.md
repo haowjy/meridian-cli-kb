@@ -151,7 +151,11 @@ attempted IDs remain eligible for an owned fallback handle.
 
 `drain_plan_factory.py` is the composition root:
 
-- a resident-capable connection gets the resident profile;
+- a resident-capable connection gets the resident profile. Pending #655, so does
+  a connection that supplies its own `completion_evidence()` (Claude's background-task
+  snapshot); its assessment carries a `completion_hold` independent of descendant
+  readiness, flagged `native_hold`
+  ([Claude native holds](drain-plans.md#claude-native-holds));
 - a spawned Pi RPC session gets the Pi profile and private-ledger wake source;
 - ordinary streaming gets `DrainPlan(coordinator=None)`.
 
@@ -183,7 +187,8 @@ reason, or cleanup-phase policy.
    on the raw frame, and terminal handling. There is no history write to gate
    delivery (PR 3 renamed `note_event_persisted` and deleted the writer;
    [emit path](attempt-facts-and-delivery.md#the-emit-path)).
-9. Pi nudges route through serialized `SpawnManager.inject()`.
+9. Pi nudges, and pending #655 Claude resident nudges, route through serialized
+   `SpawnManager.inject()`.
 10. The plain path remains `coordinator=None`.
 
 ## Provenance

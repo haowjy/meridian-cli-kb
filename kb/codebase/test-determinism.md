@@ -113,6 +113,20 @@ guarding against double notification).
 assertion is about what an API does, wait on that API's own answer. A file, a log
 line or a sibling projection can lead or lag it.
 
+## Wait for the Runner Before Deleting a Spawn Directory
+
+A spawn has three processes that can write into `spawns/pN/`: the harness, the
+worker, and the runner that finalizes. `test_continue_ignores_pruned_successor`
+(#647) waited for p2's harness and worker, then `rmtree`d `spawns/p2` to simulate
+retention. The runner was still finalizing and writing, and the fast gate failed
+with `ENOTEMPTY`. The fix waits for the runner to exit too; the file then passed
+6× clean at `-n 4`.
+
+**The rule.** Before a test deletes or rewrites a spawn's directory, wait for every
+process that writes there to exit, the runner included. "The harness is done" is
+not "nothing writes here any more". Since #647 the runner's exit is observable as
+`spawns/pN/launch.lock` becoming free.
+
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 
 Runs N worker processes under `multiprocessing.get_context("spawn")` with a ready barrier — every child arms before any is released, maximizing real contention.

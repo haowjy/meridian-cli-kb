@@ -8,9 +8,10 @@
 > holder that writes only the outcome every reader already derives, at most
 > 64 lock attempts and 32 recoveries per pass after a rotating cursor. Cleanup
 > claims, finalize evidence and the heartbeat window below go with it. Until
-> then (PR #633, open): the reaper may terminate a primary's scope only when the
+> then (since #633): the reaper may terminate a primary's scope only when the
 > runner is proven dead by the birth check, with the same ±1 s tolerance as the
-> alive check.
+> alive check. PR 2 (#647) already gives every runner the lock, but only
+> continue's [sweep](../process-scope.md#continue-sweep) reads it so far.
 
 
 Meridian no longer lets ordinary read surfaces terminate processes as a side effect.

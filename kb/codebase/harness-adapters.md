@@ -75,20 +75,16 @@ Two launch helpers consolidate process lifecycle for the two child categories:
 
 - **Managed backend** (`launch_managed_backend()`): detached resident child
   (Codex app-server, OpenCode serve) in its own session, DEVNULL stdout, scope
-  id `backend`, role `harness_backend`. Records the backend scope after exec.
-  Its parent-death link on `main` is Linux `PR_SET_PDEATHSIG`, which misses the
-  inner process behind Codex's Node wrapper, or a polling watchdog on other POSIX
-  systems, or a Job Object on Windows
+  id `backend`, role `harness_backend`. Starts behind the start gate: the scope
+  is recorded before the harness execs, and a guardian in its group kills it on
+  runner death (Job Object on Windows)
   ([parent-death linkage](../architecture/process-scope.md#parent-death-linkage)).
-  PR #633 (open) replaces both POSIX links with the start gate: the scope is
-  recorded before the harness execs, and a guardian in its group kills it on
-  runner death.
 - **Managed stdio child** (`launch_managed_stdio()`): spawn-lifetime piped
   child (Claude, Pi, Cursor) whose stdout/stderr pipes ARE the transport or
   its log — PIPE stdout, stderr into `spawns/<id>/stderr.log`, scope id
-  `stdio`, role `harness_stdio`. No parent-death link on `main`, so a runner
-  SIGKILL leaves the harness running (#625); the durable scope and the reaper own
-  residue. PR #633 gates these children too. Provides bounded current-launch stderr tails,
+  `stdio`, role `harness_stdio`. Gated the same way, so a runner SIGKILL takes
+  the harness group with it; the continue sweep catches what a lost guardian
+  leaves (#625). Provides bounded current-launch stderr tails,
   termination escalation, and provisional scope ownership across the
   registration window.
 

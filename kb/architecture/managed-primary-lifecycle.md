@@ -39,14 +39,12 @@ flowchart TD
 | `backend_pid` | Meridian-managed app-server / connection runtime launched by `launch_managed_backend()` | Maintain the remote protocol connection and event stream; expose `scope_snapshot` | Own session/pgid; registered with the launcher's watchdog, so launcher death kills it on POSIX |
 | `tui_pid` | Harness TUI process | User-facing interactive session, on the user's real terminal in the launcher's foreground group | Registered with the same watchdog as a process tree |
 
-On branch `feat/native-terminal-primaries` (#614) the launcher also runs one
-parent watchdog outside the foreground group, which terminates both registered
-scopes if the launcher dies without a graceful close. `main` still relays the TUI
-through a PTY and links only the backend
-([parent-death linkage](process-scope.md#parent-death-linkage)). Both are
-superseded by the start gate and guardian (identity-v2 PR 1, #633, open): every
-backend and TUI starts behind a gate, and a guardian in its process group kills
-it on launcher death.
+Both scopes start behind the start gate (#633, ported to the native-terminal
+launcher in #646): neither execs before its scope is durable, and each gets a
+guardian that acts when the launcher dies. The TUI shares the shell's foreground
+group, so its guardian runs in root-only mode, one SIGTERM
+([parent-death linkage](process-scope.md#parent-death-linkage)). The per-launcher
+Python watchdog #614 proposed never shipped.
 
 Claude primaries are different: Claude is a single black-box harness process.
 There is no managed backend/TUI split, and no `primary_meta.json` with

@@ -120,8 +120,19 @@ the next PR to `main` and merging `main` into it.
   first, or a release you haven't fetched slips past), and the CI
   `pr-changelog-note` job runs it on the PR's merge ref (`--base HEAD^1 --head
   HEAD`), which also covers a misfile made by the merge itself, as with #633.
-  The fix is still to rebuild by hand: take `git show origin/main:CHANGELOG.md`
-  and add your entry back under `Unreleased`. For a deliberate edit to a released
+  After **any** rebase or merge across a `release:` commit, rebuild the file
+  instead of trusting the merge:
+  1. Rebuild **unconditionally**, even when git reported no conflict. #647's
+     entry was misfiled twice by clean auto-merges, once by CI's merge ref under
+     `[0.10.17]` and once by the rebase onto it. The rebuild helper ran only on
+     conflicts, so neither time triggered it.
+  2. Take `git show origin/main:CHANGELOG.md` and insert your entry right after
+     the `## [Unreleased]` heading. Anchor on that heading, not on a sibling
+     entry: a sibling may itself have just moved under a release.
+  3. Run `scripts/check-changelog-placement.py --base origin/main --head HEAD`
+     before pushing.
+
+  A clean auto-merge is not evidence of correct placement. For a deliberate edit to a released
   section, as #636 made, set `MERIDIAN_CHANGELOG_ALLOW_RELEASED=1` for the push
   and the `changelog:edit-released` label on the PR; both turn the failure into
   a warning. The check only flags added lines under released headings, so
