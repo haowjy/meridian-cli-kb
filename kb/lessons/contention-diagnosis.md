@@ -147,6 +147,34 @@ the cold catch-up after the copy: 3 of 3 pending cold against 0 of 8 warm (D21).
 complete before you take samples. Measure the cold build separately, as its own
 number (#592).
 
+## Before and after come from one corpus under one load
+
+#656's PR body paired a 3.6 s "before" cold read with an 8.5 s "after". Both were
+cold reads under synthetic load. They came from separately prepared runs, though,
+and the 8.5 s run had much heavier load. The owner read the pair as the fix more
+than doubling cold-read time, and asked whether the fix added cost. It didn't, in
+any way that mattered. Old and new were then measured on the same 6,000-row corpus
+with no synthetic load, three runs each:
+
+| | old | new |
+|---|---|---|
+| cold index | 2.64–2.90 s → `unknown` (wrong) | 3.09–3.17 s → `blocked` (correct) |
+| warm index | 0.66–0.68 s | 0.58–0.59 s |
+
+Cold reads cost about 0.4 s more per call, but they reach the correct answer sooner.
+The old path gave up at its 2 s deadline and needed another refresh (about +0.67 s)
+to get the real answer. The warm difference is noise.
+
+**The rules.**
+- Take a before/after pair from the same corpus, under the same load, with the same
+  prober. Alternate old and new runs, and state the condition next to the numbers.
+- Report what each run answered as well as how long it took. A fast wrong answer is
+  not a baseline.
+- A stress repro shows that the failure exists. It is not a cost baseline. Give it
+  its own labeled line, and never put it in a before/after column.
+- If an incomparable number has already reached a reader, replace it where they read
+  it, such as the PR body. Don't add a correction underneath.
+
 ## Probe the whole command, not just the seams you suspect
 
 The first constant-time audit (`spawn:p7993`) timed the seams it knew about. Its

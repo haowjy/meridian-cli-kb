@@ -330,6 +330,10 @@ retried. The parts:
   Descendant evidence polls every 0.25 s with a 2 s deadline. On an absent index it
   would start and abort a cold build on every poll, holding the catch-up gate up to
   2 s each time, where `main` did one owned build.
+  *Follow-up (#656, 2026-10-16):* the build was protected, but the caller's
+  absolute deadline still ran during it. Descendant evidence then answered
+  `unknown` on a cold index. It now builds first and starts its 2 s afterward
+  ([rule](../architecture/state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock)).
 - **No-arg `spawn wait` caps discovery at `QUERY_TIMEOUT`.** Discovery used to
   receive the whole wait deadline (3000 s for Claude and Codex). One catch-up could
   then hold the exclusive gate, plus the shared mutation and database locks, for up

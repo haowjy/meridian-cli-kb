@@ -143,6 +143,49 @@ No-arg `spawn wait` caps its discovery read at `QUERY_TIMEOUT`, and reports a
 discovery-pending checkpoint when busy
 ([spawn wait](../../concepts/spawn-wait-barrier.md#no-arg-wait-by-chat-lineage)).
 
+### A caller with a deadline builds the index before starting its clock
+
+"The caller's deadline never cuts the build short" doesn't mean the build is free.
+When a caller passes `deadline=`, it is an absolute time, and `query()` keeps it
+across the cold build. The clock runs while the index builds, so a 1.85–5.7 s
+build (realistic runtimes, under load) leaves the 2 s catch-up no time. The read
+raises `HistoryIndexBusy` even though the build succeeded. A `query()` call with
+no deadline is already safe: it starts its 2 s after initialization.
+
+So a caller that passes a deadline does three things in order: `classify()`;
+`initialize()` an `absent` index under its own `INITIALIZATION_TIMEOUT` (15 s)
+deadline; only then compute `monotonic() + QUERY_TIMEOUT`. Two callers do this:
+- **Corpus search** (`session_search.py`), which also shares one cold budget
+  across roots;
+- **Descendant evidence** (`streaming/descendant_evidence.py` `_read_records`),
+  since #656 (`c5cecfd9a`, 2026-10-16). Before that it started its 2 s clock
+  first. On a cold index a parent's completion check came back `unknown`
+  (`descendant_evidence_unavailable`), when an active child should have made it
+  `blocked`. That was the shared cause of five test flakes
+  ([flake class](../../codebase/test-determinism.md#cold-index-builds-inside-a-test-deadline-a-flake-class)).
+
+Only `absent` is built ahead. Corrupt, incompatible and failed baselines still
+need an explicit rebuild. A cold-build timeout or failure still maps to the
+existing `unknown`; there is no "not ready" result. No-arg `spawn wait` discovery
+still passes a pre-started deadline. That is acceptable there, because a busy
+read becomes the retryable discovery-pending checkpoint, not a wrong answer.
+*Rejected for descendant evidence:* letting the 2 s deadline abort the build
+(the 0.25 s refresh poll would restart builds); a distinct "not ready" variant
+(new result plumbing and retry policy for no extra safety); an awaitable
+readiness signal (lifecycle machinery).
+
+The index is cold:
+- on the first indexed read of a runtime;
+- after its files are deleted;
+- at every schema-namespace bump, because a bump builds a fresh file
+  ([above](#index-files-are-named-by-schema)).
+
+The schema is v10 today. Identity-v2 PR 4 plans v11 and #418 B2 plans v12, so
+each of those upgrades starts every runtime cold. Launch, startup repair and
+`doctor` don't warm the index. `meridian session index rebuild` is the only
+explicit warm-up. The build itself still holds the catch-up gate throughout (#592,
+open).
+
 ## Bounded preview projection
 
 Previews are a selected-row acceleration path, not a new transcript format. The

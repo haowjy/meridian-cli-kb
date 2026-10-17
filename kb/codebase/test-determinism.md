@@ -263,25 +263,62 @@ constant:
 ## Cold Index Builds Inside a Test Deadline: A Flake Class
 
 A test whose first query builds the history index from cold can spend most of its
-deadline on that build. Under suite load the build alone exceeds the deadline,
-and the product correctly answers `unknown` or times out. The test passes
-serially and fails in the full suite.
+deadline on that build. Under suite load the build alone exceeds the deadline.
+The test passes serially and fails in the full suite.
 
-**Known instances:**
-- **#577, fixed by #624.** Four Pi delivery-contract tests. A cold build took
+**Known instances.** There were five, each patched test-side by warming the index:
+- **#577 → #624.** Four Pi delivery-contract tests. A cold build took
   1.09–1.94 s under load, inside the 2 s `QUERY_TIMEOUT`, while incremental
   catch-up took 0.11–0.16 s. Red baseline: 4 failures with `-n 8` beside the full
   suite at load 18–21. After warming: 30/30 per file at mean load 30, peak 46.
-- **#630, open.** `test_reconciled_descendant_evidence_is_transitive_and_reconciled`
-  returns `unknown` instead of `blocked`. It reproduces on `main`. #616 had fixed
-  the same shape on its branch by warming the index (pass 7), and the fix was lost
-  when #616 closed unmerged.
+- **#630 → #637.** `test_reconciled_descendant_evidence_is_transitive_and_reconciled`
+  returned `unknown` instead of `blocked`. #616 had fixed the same shape on its
+  branch (pass 7). That fix was lost when #616 closed unmerged.
+- **#638 → #645.** Pi quiescence disk-race tests. A cold first refresh left the
+  unbounded `wait_for_aux_wake()` pending until the xdist worker timeout.
+- **#551 → #649.** The retained-child timeout test
+  (`test_spawn_manager_child_wave_timeout_publishes_before_descendant_cancellation`).
+  `HistoryIndexBusy` left the assessment `unknown` until the hang guard fired.
+  1 failure in 4 under load before the fix; 30/30 after.
+- **#643 → #650.** The resident guardrail test
+  (`test_streaming_runner_failure_policy.py`). The cold build ran inside the test's
+  15 s wait. 1 in 10 before; 30/30 after.
 
-**Remedy:** warm the index before the measured call with `warm_history_index()`
-(`tests/support/pi.py`, from #624), so the deadline covers only the behavior
-under test. Don't widen `QUERY_TIMEOUT`; the product's bound is right. A fix
-that lives only on an unmerged branch is not a fix on `main`. When a branch
-closes, file what it fixed incidentally.
+**The shared cause was a product bug, and #656 fixed it at the source**
+(2026-10-16). Descendant evidence started its 2 s clock and then let `query()`
+build the cold index inside it. So under load the product answered `unknown` when
+it should have answered `blocked`. Now it builds first and starts the 2 s afterward
+([rule](../architecture/state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock)).
+Tests no longer need to warm the index to get a correct descendant-evidence answer.
+`test_cold_build_gets_a_separate_descendant_query_deadline`
+(`tests/integration/streaming/test_descendant_evidence.py`) pins this without
+relying on machine load. It sets the module's `QUERY_TIMEOUT` to 0.2 s, adds a
+0.4 s sleep to `HistoryIndex._rebuild_locked`, asserts the slow path ran, and
+expects `blocked`. It was red on `main` before #656.
+
+**The existing warm-ups stay.** `warm_history_index()` (`tests/support/history.py`,
+moved there by #637) is called at 9 sites in 6 files, all added by the five fixes
+above. None of them is needed for correctness anymore. They still keep the cold
+build, which is 1–2 s under suite load, out of each test's own wall-clock bounds:
+- the guardrail test's 15 s wait;
+- the Pi hang guards;
+- `wait_for_aux_wake()`, which only the worker timeout bounds (#654 tracks
+  bounding it).
+
+#656 kept every warm-up. Nobody has checked whether these tests pass cold under load
+without them. Don't delete them as dead code.
+
+**Remedy for a new instance:**
+1. If a product caller passes a deadline into an index read, fix the caller to
+   build first. That's the bug.
+2. If the test has its own wall-clock bound, warm the index with
+   `warm_history_index()` before the measured call, so the bound covers only the
+   behavior under test.
+
+Don't widen `QUERY_TIMEOUT`; the product's bound is right. A fix that lives only on
+an unmerged branch is not a fix on `main`. When a branch closes, file what it fixed
+incidentally. Five test-side patches for one cause should have sent someone to look
+at the product sooner.
 
 ## Real-Time Deadlines in Fake-Clock Tests
 

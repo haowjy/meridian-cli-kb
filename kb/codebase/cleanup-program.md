@@ -208,8 +208,9 @@ What the landing surfaced:
   through as environmental without showing it also fails on `main`.
 - **Pi streaming contract tests flaked under load** (#577), on `main` and on
   every branch alike: a cold history-index build inside the 2 s query deadline.
-  Fixed by #624, which warms the index first. The same shape is still open in
-  #630 ([flake class](test-determinism.md#cold-index-builds-inside-a-test-deadline-a-flake-class)).
+  Fixed by #624, which warms the index first. Four more tests with the same cause
+  followed (#630, #638, #551, #643). #656 fixed the shared cause in the product
+  ([flake class](test-determinism.md#cold-index-builds-inside-a-test-deadline-a-flake-class)).
   Compare against `main` before treating a load-only failure as a regression.
 - **v0.10.0 shipped a false config warning** (#580). A late commit in the stack
   generalized the unknown-key walker, and every project with `[context.*]` tables

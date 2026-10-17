@@ -3,6 +3,30 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-16 — Cold index kept out of deadline-bound queries: #656 (#644) (`work:index-cold-deadline`)
+
+- [Portable history](architecture/state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock):
+  new subsection with the deadline rule. A caller with a deadline classifies and
+  initializes an absent index before it starts its clock, because `query()` keeps
+  an absolute caller deadline across the cold build. The section names the two
+  callers that follow it (corpus search, descendant evidence), the
+  spawn-wait exception, the rejected alternatives, and when the index is cold
+  (first read, deletion, schema bump: v11 identity-v2 PR 4, v12 #418 B2).
+- [Per-operation cost](architecture/per-operation-cost.md#3-history-index-reads-pay-for-more-than-their-answer-594-600-592)
+  and [D-history-index-readers-never-wait-on-session-writers](decisions/history-storage.md#d-history-index-readers-never-wait-on-session-writers):
+  pointers to the rule. #592 stays open.
+- [Test determinism](codebase/test-determinism.md#cold-index-builds-inside-a-test-deadline-a-flake-class):
+  all five instances are recorded (#577/#624, #630/#637, #638/#645, #551/#649,
+  #643/#650); #630 was previously listed as open. The shared cause is fixed at
+  the source. The 9 `warm_history_index()` call sites stay, to keep the build out
+  of the tests' own wall-clock bounds. The helper path is corrected to
+  `tests/support/history.py`.
+- [Contention diagnosis](lessons/contention-diagnosis.md#before-and-after-come-from-one-corpus-under-one-load):
+  new lesson. A before/after pair must come from one corpus under one load; #656's
+  PR body mixed a 3.6 s run with a more heavily loaded 8.5 s run.
+- [Cleanup program](codebase/cleanup-program.md): the stale "#630 still open"
+  line is updated.
+
 ## 2026-10-16 — CHANGELOG placement check: #653 (#652) (`work:changelog-misfile-check`)
 
 - [Release sequencing](lessons/release-sequencing.md#landing-a-stacked-chain-2026-10-14):

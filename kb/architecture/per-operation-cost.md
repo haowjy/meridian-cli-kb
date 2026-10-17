@@ -118,7 +118,15 @@ work would just move into the index (`spawn:p8095`).
   the planner POCs: `records(started DESC, local_id DESC)` 4.47 → 2.41 ms and
   `session_chats(ordinal DESC)` 1.63 → 0.014 ms.
 - **#592:** a cold index build holds the catch-up gate for 2.4–5.7 s. It mostly
-  happens at upgrade or after an index bump.
+  happens at upgrade or after an index bump (v11 in identity-v2 PR 4, v12 in
+  #418 B2).
+- **Deadline rule (#656, 2026-10-16).** A caller with a deadline must build the
+  index *before* it starts its clock. `query()` keeps an absolute caller deadline
+  across a cold build, so the build otherwise uses up the 2 s. Corpus search and
+  descendant evidence follow the rule
+  ([history index](state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock)).
+  A cold build now costs time, but it no longer produces a wrong answer. #592,
+  the gate held for the whole build, stays open.
 
 ### 4. Maintenance scans (#601, no issue for the archiver)
 
