@@ -59,14 +59,13 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
    ([Claude native sessions](../architecture/claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat)).
    `spawn inject` posts one SDK stream-json user line,
    `{"type":"user","message":{"role":"user","content":…}}`, to the latest socket
-   recorded for the primary's Claude process. The inbox beats a mod on every
-   point that matters:
-   - it delivers mid-turn, between tool calls, as children get over stdin; a
-     mod's `$.prompt.submit` only queues until the turn ends;
-   - no mod has to load, and a mod that fails to load (for example under an
+   recorded for the primary's Claude process. Compared with a mod, the inbox:
+   - delivers mid-turn, between tool calls, as children get over stdin; a mod's
+     `$.prompt.submit` only queues until the turn ends;
+   - needs no mod to load, where a mod that fails to load (for example under an
      organisation's plugin policy) fails silently;
-   - no listener process;
-   - Claude's own peer framing and inbound controls apply.
+   - needs no listener process;
+   - brings Claude's own peer framing and inbound controls with it.
 3. **Meridian adds no authority of its own.**
    - It never reads or sends `CLAUDE_CODE_MESSAGING_TOKEN`. Meridian is not
      Claude's child; presenting the token claims that it is, which on macOS skips

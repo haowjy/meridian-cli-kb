@@ -195,7 +195,7 @@ final-drains and joins the pump before `conclude_native_run`. Each fact is
 acknowledged only after its publication; a later publication failure retains the
 accepted prefix cursor.
 
-**Second reader: primary inject (PR #668, open).** `meridian spawn inject` on a Claude primary
+**A second consumer: primary inject (PR #668, open).** `meridian spawn inject` on a Claude primary
 reads the same journal directly, without the drainer: it takes the latest
 `messaging_socket` recorded for the spawn's `worker_pid`. It cannot filter by
 nonce, which lives only in the launcher process; the PID filter still excludes

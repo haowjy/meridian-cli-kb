@@ -1,14 +1,19 @@
 # Claude Code: Mods Under `-p`, and the Cross-Session Inbox
 
-What Claude Code actually does when something outside a running session tries to
-give it input: through a Claude Code mod (`$.prompt.submit`, a listener process,
-hooks), or through Claude's own per-session inbox socket. Checked 2026-10-17
+How a process outside a running Claude Code session can give that session new
+input, and what each route does. Two routes were tested: a **mod** (a Claude Code
+plugin that runs JavaScript inside the session, with an API under `$`, such as
+`$.prompt.submit` to submit a prompt; [mods API](https://code.claude.com/docs/en/plugins/mods/api)),
+and Claude's own per-session **inbox socket**, a Unix socket other sessions post
+messages to ([cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket)).
+Both were tried in print mode (`claude -p`, one prompt, then exit) and in the
+interactive TUI. Checked 2026-10-17
 against Claude Code 2.1.302 with Haiku, on Linux, by live probes in a dedicated
 tmux server. Provenance: `work:claude-mod-inject` (`probe-mod-inject.md`
 `spawn:p8410`, `probe-tui-mod.md` `spawn:p8415`, `probe-inbox-socket.md`
 `spawn:p8419`, research `spawn:p8416`).
 
-**The short version.** A mod cannot keep a print-mode (`-p`) process alive for
+**The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
 input, and a mod's `$.prompt.submit` waits until the current turn ends. The inbox
 socket reaches a live interactive session with no mod at all and delivers between
 tool calls in the middle of a turn, but it answers nothing back, and its inbound
@@ -60,8 +65,8 @@ published it.
 {"type":"user","message":{"role":"user","content":"<non-empty string>"}}
 ```
 
-This is the SDK stream-json user message. The docs describe only the auth line
-and say scripts may post; the message schema was read from the 2.1.302 binary.
+This is the SDK stream-json user message. The cross-session messaging docs
+describe only the auth line and say scripts may post; the message schema was read from the 2.1.302 binary.
 On Linux a post with no auth line, from a process that is not Claude's child, was
 accepted and delivered.
 

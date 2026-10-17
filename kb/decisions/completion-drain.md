@@ -103,13 +103,15 @@ repro correctly. Why it went unfixed for weeks is a
   because Claude's own task notification drives its follow-up turn. Tightening it
   to "foreground wait only" would block the agent's turn for nothing
   (`work:claude-mod-inject` D5).
-- A mod cannot replace the stdin inject pipe: plain `claude -p` exits about 2.5 s
+- A mod cannot replace the stdin stream-json pipe Meridian injects child messages
+  through: plain `claude -p` exits about 2.5 s
   after going idle, so nothing outside can reach it, and Claude children keep
   `--input-format stream-json`. A TUI primary is injected through Claude Code's
   own inbox socket rather than a mod
   ([D-claude-primary-inbox](primary-inject.md#d-claude-primary-inbox)). A mod's
-  remaining uses for primaries, a native done/rearm tool and `$.ui.status` for
-  child status, are an optional add-on to the existing idle mod.
+  remaining uses for primaries, native `done`/`rearm` tools and a status line
+  showing child spawns (`$.ui.status`), are not built; they would be an add-on to
+  Meridian's bundled `meridian-idle` mod.
 
 **Revisit when:** Claude Code changes or drops `background_tasks_changed`, or
 #224 gives Claude children a descendant-spawn hold, which would join this one in
