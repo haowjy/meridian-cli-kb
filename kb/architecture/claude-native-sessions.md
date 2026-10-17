@@ -170,12 +170,13 @@ flowchart LR
 **Writer.** The `meridian-session-boundary` classic command hook is stdlib-only (no
 Meridian import, no subprocess). For each `SessionStart` (`startup`, `resume`,
 `fork`, `clear`, `compact`) it appends one JSONL record holding the launch nonce,
-parent PID (the Claude process), `recorded_at` (epoch seconds), source, session ID
-and exact transcript path, plus `messaging_socket` when Claude publishes its
-inbox socket in `CLAUDE_CODE_MESSAGING_SOCKET`. The hook keeps the socket only if
-it is absolute, has no control characters, and fits a Unix socket address (107
-bytes; 103 on macOS). It never reads `CLAUDE_CODE_MESSAGING_TOKEN`. The record
-stays `v: 2`; older lines without the new fields still parse. Records are bounded
+parent PID (the Claude process), source, session ID and exact transcript path.
+PR #668 (open; not on `main`) adds `recorded_at` (epoch seconds) and, when Claude
+publishes its inbox socket in `CLAUDE_CODE_MESSAGING_SOCKET`, `messaging_socket`.
+The hook keeps the socket only if it is absolute, has no control characters, and
+fits a Unix socket address (107 bytes; 103 on macOS). It never reads
+`CLAUDE_CODE_MESSAGING_TOKEN`. The record stays `v: 2`, and lines without the new
+fields still parse. Records are bounded
 (8 KiB each, 1 MiB per journal, 1 MiB of hook input), written with a single
 `O_APPEND` write to a mode-0600 file, and a leading newline isolates a torn tail.
 Once the journal is full the hook writes nothing more.
@@ -193,6 +194,17 @@ transiently rewind the pointer. Block exit, normal or exceptional, sets stop,
 final-drains and joins the pump before `conclude_native_run`. Each fact is
 acknowledged only after its publication; a later publication failure retains the
 accepted prefix cursor.
+
+**Second reader: primary inject (PR #668, open).** `meridian spawn inject` on a Claude primary
+reads the same journal directly, without the drainer: it takes the latest
+`messaging_socket` recorded for the spawn's `worker_pid`. It cannot filter by
+nonce, which lives only in the launcher process; the PID filter still excludes
+sockets from earlier launches of the same spawn. Before posting it requires that
+PID to be alive, not a zombie, and born no later than the record's `recorded_at`
+(+1 s), so a PID reused after Claude exited never receives the message. Socket
+checks run at lookup, so a bad socket field never drops a record's identity
+facts. Why the inbox and not a mod:
+[D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox).
 
 **Entry is immutable; the pointer is not.** Observations never rebind the entry.
 Only the first *eligible* establishing fact can complete it: `source` must agree with
@@ -288,7 +300,7 @@ are schema/reference checks, not native-content restoration. Native transcripts 
 never rewritten.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
-`harness/claude_sessions.py`, `harness/claude_preflight.py`,
+`harness/claude_inbox.py` (primary inject, PR #668), `harness/claude_sessions.py`, `harness/claude_preflight.py`,
 `launch/native_run.py`, `state/session_store.py` (`get_or_create_observed_chat`),
 `state/session_identity.py` (`live_observer_for_chat`), and
 `claude_runtime/meridian-session-boundary/`. Tests:

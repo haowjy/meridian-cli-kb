@@ -12,17 +12,29 @@ Items are organized by domain.
 
 **Where:** managed primary launch/attach and `spawn inject` control routing.
 
-**The issue:** OpenCode's connection adapter can project a later HTTP prompt using
-the committed native agent/model/variant, but a running native primary TUI does
-not expose a public control endpoint to `spawn inject`. A native probe therefore
-could not reach the adapter path while the primary was live; it failed after the
-primary ended. This is an endpoint/ownership gap, not evidence that model
-projection reset the native choice.
+**The issue:** a primary has no `SpawnManager`, so nothing serves the
+`control.sock` that `spawn inject` uses for children. Claude primaries now have a
+route through Claude Code's own inbox socket, behind the optional
+`HarnessBundle.primary_inbox` port
+([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
+PR #668, open). Codex, OpenCode and Pi primaries have none: with #668,
+`spawn inject` fails at once with "<harness> primaries have no inject route yet
+(see #498)"; on `main` it still waits 30 s and reports "not running". Each
+harness plugs its route into the same `primary_inbox` port. Codex and OpenCode
+primaries already run behind a Meridian-held backend connection (app-server
+WebSocket, HTTP/SSE), which a route could use; Pi has neither a connection nor a
+known inbox.
 
-**Boundary:** #498 owns any public primary control surface. Do not hide that work
-inside #497 or claim public-primary injection coverage from adapter-level tests.
-Unsent TUI-local choices remain unobservable, and GET followed by POST remains
-non-atomic against simultaneous native submission.
+For OpenCode, the connection adapter can project a later HTTP prompt using the
+committed native agent/model/variant, but a native probe could not reach that
+adapter path while the primary TUI was live; it failed after the primary ended.
+This is an endpoint/ownership gap, not evidence that model projection reset the
+native choice.
+
+**Boundary:** #498 owns primary inject for Codex, OpenCode and Pi. Do not hide
+that work inside #497 or claim public-primary injection coverage from
+adapter-level tests. Unsent TUI-local choices remain unobservable, and GET
+followed by POST remains non-atomic against simultaneous native submission.
 
 **Related:** [OpenCode managed-primary model commitment](../codebase/harness-adapters.md#opencode-managed-primary-model-commitment)
 documents the adapter-level boundary; [launch-system.md](../architecture/launch-system.md)
