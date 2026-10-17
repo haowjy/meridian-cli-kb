@@ -427,6 +427,70 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
   `run` into `env_defaults` keeps one place where adapter defaults live and one
   missing-or-blank rule in `build_harness_child_env` (`bac44c01`).
 
+## D-idle-push-in-flight — The push waits for work that will wake the session; the warning does not
+
+**Decision (Claude primaries first):** The waiting push and the cache warning are
+two independent notices with one shared stretch. When a main-loop turn ends,
+the adapter reports the work still running and core sorts it into three
+outcomes for the push:
+
+- **Hold** (no push this anchor): native subagents and workflows, background
+  shells running `meridian spawn`, and active child spawns in the spawn store.
+  Each of these wakes the session when it ends, and that turn arms again.
+  Because the user has been away through the held work, the re-arm times the
+  push from their last prompt, not from the anchor the work interrupted, so it
+  gets the 60-second long-turn delay rather than the 10-minute quick-turn one.
+- **Stretch**: any other background task. It may wake the session or run for
+  good (a dev server), so the push is delayed to at least
+  `background_push_seconds` (900) rather than held forever.
+- **Ignore**: Claude Monitor tasks, which are watchers.
+
+The cache warning arms on every turn regardless, with one exception: a
+`meridian spawn wait` shell whose yield (`wait_yield_seconds`, 50 min) lands
+before the TTL. That wait wakes the session and re-warms the cache itself, so a
+warning at TTL − 15 min would be a false alarm on every long wait.
+
+**Why:** Before this, the Claude mod skipped the whole arm while a subagent ran
+(losing the cache warning with the push), and background shells and detached
+spawns were invisible, so a primary that ran `meridian spawn --bg` plus a
+backgrounded `spawn wait` paged the user while the session was about to resume
+itself. The push means "the agent is done and waiting on you"; work that will
+wake the session makes that false. The cache cost of a cold return is real no
+matter what is running, so the warning stays.
+
+**How Claude senses it:** the only host surface that lists background work is
+the `background_tasks` of the classic `Stop` hook, which a mod hooks as
+`classic.Stop`. Probed on Claude Code 2.1.302: `Stop` fires just before the
+main loop's `turn.complete`, lists running shells (with their command line),
+subagents and workflows, and the task's completion arrives as a
+`task-notification` prompt that runs another main-loop turn with an empty list.
+The mod sorts the list (spawn shells by a `meridian … spawn` command match) and
+passes counts; core decides. Other harnesses report no counts yet and keep the
+old behaviour (#669). Core runs its own spawn-store check only for an adapter
+that reports counts: one that does not cannot tell whether anything will wake
+the session to re-arm, and a held push there would never come.
+
+**Gap:** a `meridian spawn --bg` with nothing waiting on it never wakes the
+session, so a held push only comes after the user's next prompt. Agents pair
+`--bg` with `spawn wait`, which makes this rare.
+
+## D-idle-compact-default-off — Idle compaction is opt-in
+
+**Decision:** `idle.compact` defaults to `false` on every harness. Push and
+warning are unchanged; the compaction machinery stays behind the flag.
+
+**Why:** The warning already tells the user the cache is going cold; a cold
+return costs one expensive turn, while a Meridian compaction loses transcript
+detail for good. Old context is cheaper to recover with session mining
+(`--from`) than to keep warm by compacting. Claude Code 2.1.299+ also ships its
+own idle compaction (200K+ tokens, about 54 minutes idle, `/config` → Idle
+compaction); Meridian leaves that host setting alone rather than veto it from
+the mod.
+
+**Revisit when:** compaction is turned back on by enough users to justify the
+code, or it stays off long enough to delete `worth.py`, the claim/done states
+and the mod's compact path.
+
 ## Structural debt
 
 | Debt | Tracked in |
