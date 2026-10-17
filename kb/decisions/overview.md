@@ -6,7 +6,7 @@ Decision records explain why durable architectural choices were made — what al
 
 | Page | Coverage |
 |---|---|
-| [completion-drain.md](completion-drain.md) | When a managed spawn may publish after a finished turn: Claude children hold for their own background work through the resident profile (D-claude-native-hold, #655) |
+| [completion-drain.md](completion-drain.md) | When a managed spawn may publish after a finished turn: Claude children hold for their own background work through `NativeTaskHoldProfile` (D-claude-native-hold, #655) |
 | [pi-runtime.md](pi-runtime.md) | Pi live execution ownership, exact notification delivery evidence, and bounded cross-store failure |
 | [idle-notifications.md](idle-notifications.md) | Core idle policy, stretch lifecycle, Meridian reopen as a user return, session role, adapter-hosting rationale, config namespaces, Pi primaries on long cache retention, structural-debt pointers, and verification gaps. Current mechanism: [idle-adapters.md](../architecture/idle-adapters.md). |
 | [idle-notify-channels.md](idle-notify-channels.md) | Notification leaf-package boundary, reason-first notice context and send-time cache countdowns, SMTP password handling, and deliberate spawn notifications |

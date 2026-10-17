@@ -48,9 +48,8 @@ workaround was meant to avoid. The fix is in code:
 **The lesson:** a prompting workaround for a harness defect is a deferral, not a fix.
 When an agent-behavior lesson papers over something the system does wrong, file the
 system defect at the same time. Check whether the project's own guidance contradicts
-the workaround. Until #655 merges, a Claude child that ends while its background work
-runs still reports `succeeded`: check its commits and rerun its gates before
-merging.
+the workaround. The fix shipped in v0.10.21; on an older meridian, a Claude child
+that ends while its background work runs still reports `succeeded`.
 
 **Provenance:** `work:claude-bg-quiescence` D1, D2 (investigator `spawn:p8374`,
 bisect `spawn:p8382`); the 2026-09-25 lane is cited below.

@@ -56,19 +56,25 @@ model:
    Persistent unreadability fails at the completion deadline with
    `resident_evidence_unreadable` and directs the operator to the session log.
 5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
-   correctness does not depend on the nudge succeeding. Nudges come every 270 s
-   (pending #655: capped at half the deadline).
+   correctness does not depend on the nudge succeeding. Nudges come every
+   `min(270 s, deadline / 2)`.
 
-Selection is capability-driven through `connection.resident_backend`, not harness-id
-branching. See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md)
+Selection is capability-driven, not harness-id branching, and made once in
+`build_drain_plan()`: a connection whose `completion_evidence()` is non-`None` gets
+`ResidentDrainCoordinator.for_native_evidence(...)` with `NativeTaskHoldProfile`
+(Claude, below); otherwise a `connection.resident_backend` gets
+`ResidentDrainCoordinator.for_connection(...)` with `_ResidentCompletionProfile`
+(Codex/OpenCode). Both profiles compose `RearmWindow` (`rearm_window.py`): signal
+latching, the absolute deadline, the persisted rearm budget and the nudge interval.
+See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md)
 for the connection seam.
 
 ### Claude native holds
 
-> **Built, not merged:** branch `fix/claude-bg-quiescence` (#655,
-> [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold)).
-> On `main` a Claude child gets the plain plan and is finalized at its first
-> `result`, background work killed, status `succeeded`.
+Shipped in v0.10.21 (#655, PR #659,
+[D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold)).
+Before it, a Claude child got the plain plan and was finalized at its first
+`result`, background work killed, status `succeeded`.
 
 **The signal.** Claude Code (2.1.302) emits
 `{"type":"system","subtype":"background_tasks_changed","tasks":[...]}` on
@@ -94,16 +100,19 @@ it changes. No task history is needed.
 **The hold.** `harness/claude_drain.py` (`ClaudeCompletionEvidence`) keeps only
 the latest snapshot, updates in constant time per frame, and never reads the
 filesystem. The connection exposes it as `HarnessConnection.completion_evidence()`
-(default `None`). `build_drain_plan()` picks the resident plan when a connection
-has a `resident_backend` **or** supplies completion evidence. The assessment sets
-`completion_hold` and `native_hold`:
+(default `None`); a non-`None` value selects `NativeTaskHoldProfile`. The
+assessment is `disposition="blocked"` with `DiagnosticBlocker(source="native_task")`
+entries: `code="running"` per task, or `code="awaiting_followup_result"` once the
+snapshot has emptied but Claude's closing `result` hasn't arrived. `WorkAssessment`
+carries no native-specific field.
 1. A `result` while the snapshot is non-empty is held.
 2. An empty snapshot alone does not finalize. The next `result` does.
 3. A Claude child with no background work finalizes at its first `result`, with no
    added latency.
 4. A malformed snapshot warns and holds, bounded by the deadline.
 
-**Policy under `native_hold`.** The resident deadline runs from the first held
+**`NativeTaskHoldProfile` policy** (`streaming/native_hold_profile.py`,
+straight-line, no mode checks). The deadline runs from the first held
 `result` through the follow-up; task activity never renews it.
 - Rearm only extends the deadline; natural completion still finalizes `succeeded`.
 - An explicit `done` authorizes success with tasks left over, and managed-scope
@@ -113,8 +122,8 @@ has a `resident_backend` **or** supplies completion evidence. The assessment set
 - Native nudges name the pending tasks (`description (task_type)`, plus
   `(subagent)` for entries with `parent_task_id`), say `done` stops them, and
   offer rearm only in the timeout-soon form.
-- The resident profile polls the exact `done`/`rearm` signal files itself; the
-  evidence adapter has no timers.
+- The profile polls the exact `done`/`rearm` signal files through `RearmWindow`;
+  the evidence adapter has no timers.
 
 **Delivery.** Nudges are stream-json user messages on Claude's stdin
 (`{"type":"user","message":{...}}`, `claude_ws.send_user_message`), sent through
@@ -122,9 +131,9 @@ the manager's serialized `inject()` with source `completion_nudge`. That is the
 same path `meridian spawn inject` takes: any process reaches a live runner through
 `spawns/pN/control.sock`. Cancel is SIGINT.
 
-**What changed for Codex/OpenCode:** main's behavior and test assertions are kept,
-except:
-1. stale validation is cleared for each new candidate;
+**What changed for Codex/OpenCode:** `_ResidentCompletionProfile` is main's code
+(main's resident tests pass verbatim), except:
+1. the stale `_success_validation` is reset for each new candidate;
 2. nudge urgency compares against the resolved interval, not a fixed 270 s;
 3. the shared nudge interval is `min(270, deadline / 2)`, inert at the 1800 s
    default.
@@ -171,6 +180,6 @@ resident rearms nor Pi child waves can reset it.
 ## Related pages
 
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared completion mechanism, profile policy, and evidence authority.
-- [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold) — why Claude children hold through the resident profile.
+- [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold) — why Claude children hold through the resident coordinator with their own profile.
 - [spawn-finalization.md](spawn-finalization.md) — terminal write authority and store-level finalization.
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — resident backend capability seam.

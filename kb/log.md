@@ -3,6 +3,26 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — #655 merged with the profile split: PR #659, v0.10.21 (`work:claude-bg-quiescence` D11–D14)
+
+- [D-claude-native-hold](decisions/completion-drain.md#d-claude-native-hold):
+  status now merged (`25e3ac345`, v0.10.21); decision 2 records the final shape
+  (`build_drain_plan()` selects `NativeTaskHoldProfile` on `completion_evidence()`,
+  else main's `_ResidentCompletionProfile`; both compose `RearmWindow`; native tasks
+  are `blocked` with `native_task` blockers, no `WorkAssessment` field). Rejected
+  rows added: the round-2 `native_hold` flag, a base class with abstract hooks, and
+  a Claude Code mod for child completion (D14); residual notes the TUI-primary mod
+  idea and the `work:claude-mod-inject` probe.
+- [Drain plans](architecture/drain-plans.md#claude-native-holds) and
+  [completion drain coordination](architecture/completion-drain-coordination.md):
+  dropped "built, not merged" / "pending #655" and the `native_hold` flag; describe
+  the one-time profile selection and `RearmWindow`.
+- `codebase/vocabulary.md`: **Native hold** renamed **Native task hold** and
+  redefined as the profile. `lessons/spawn-lane-operations.md`: "Until #655
+  merges" now points at v0.10.21. Index rows in `index.md`, `decisions.md`,
+  `decisions/overview.md` updated.
+
+---
 ## 2026-10-17 — Claude children hold for their own background work: #655 (`work:claude-bg-quiescence`)
 
 - New domain page [decisions/completion-drain.md](decisions/completion-drain.md)
