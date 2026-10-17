@@ -3,6 +3,32 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Black-box primaries cancel on SIGTERM/SIGHUP: #623, PR #658 (`work:relay-signal-exit`)
+
+- [Primary terminal ownership](architecture/primary-terminal-ownership.md):
+  black-box TERM/HUP cancel; the handler-context rule widened past locks we
+  write (`LaunchGate`, `Event.set()`, PTY `cancel_wait()` are not handler-safe,
+  so receivers latch and a main-thread poll acts); new subsection on
+  `termios.error` not being an `OSError`. Known gaps: the #623 entry now says
+  "on `main` until #658 merges" with the live matrix; added the finalize-window
+  seam (identity PR 4) and #657 (native black-box has no KILL, not CLI-reachable).
+- Stale content fixed on the same page: the status block said native terminal
+  was #614, open; it shipped in #646 (`bc2374b5c`, v0.10.15) and #614 closed
+  unmerged. `_TuiExitOrdering`/`RLock` never reached `main`; the cancel-by-order
+  section now describes the shipped bool latch. The job-control diagram's
+  "parent watchdog" is flagged as a divergence, not yet rewritten.
+- [D-blackbox-signal-latch](decisions/primary-terminal-ownership.md#d-blackbox-signal-latch):
+  new record (latch-only handler, gate-only stop, shared `cancelled`/130,
+  repeat escalation flipped on by review F3). D-cancel-by-order status updated.
+  `decisions.md` row added; the D-native-terminal row's #614 status corrected.
+- [Process-containment lessons](lessons/process-containment.md#moving-a-blocking-wait-onto-a-thread-moves-its-cleanup-too):
+  review F1, the cleanup a threaded wait loses.
+- [Troubleshooting](operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded)
+  and the `launch-system.md` signals line updated.
+- Colocated: `src/meridian/lib/launch/process/{AGENTS.md,.context/CONTEXT.md}` on
+  branch `fix/relay-signal-exit` (`7858f3ddd`).
+
+---
 ## 2026-10-16 — Cold index kept out of deadline-bound queries: #656 (#644) (`work:index-cold-deadline`)
 
 - [Portable history](architecture/state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock):

@@ -47,12 +47,14 @@ Claude TUI and every spawn started from that pane got SIGTERM, and leftovers wer
 SIGKILLed about 90 s later. The scope had peaked at 34.3 GB of memory plus 9.2 GB
 of swap. The OOM kill of one process takes down the pane.
 
-The launcher recorded nothing because a Claude/Pi primary's launcher has no
-SIGTERM/SIGHUP handler, on `main` or on #614 (#623, open). The default action killed it before
-its `finally` blocks wrote the runner exit and the session stop
-([gap](../architecture/primary-terminal-ownership.md#known-gaps)). Codex/OpenCode
-managed primaries do register a receiver and can finalize on SIGTERM if they
-finish before systemd's SIGKILL.
+The launcher recorded nothing because a Claude/Pi primary's launcher had no
+SIGTERM/SIGHUP handler (#623). The default action killed it before its
+`finally` blocks wrote the runner exit and the session stop
+([gap](../architecture/primary-terminal-ownership.md#known-gaps)). PR #658 (open
+as of 2026-10-17) adds the receiver, so on builds with it a scope stop records
+`cancelled`/130 and a session stop, provided finalize completes before
+systemd's SIGKILL. Codex/OpenCode managed primaries already register a receiver
+and finalize under the same condition.
 
 **Diagnosis:**
 ```bash

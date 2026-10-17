@@ -1,6 +1,7 @@
 # lessons/process-containment — Keeping Harnesses From Outliving Their Runner
 
-What building the start gate and guardian taught (identity-v2 PR 1, #633). The
+What building the start gate and guardian taught (identity-v2 PR 1, #633), and
+stopping a black-box primary through it on a signal (#623, PR #658). The
 decision and mechanism are
 [D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian). These
 are the traps, most of which a passing POC missed.
@@ -143,6 +144,26 @@ mechanism touches fds, reproduce how production allocates them and what reads
 the other end. A POC for an fd-sensitive mechanism should run through the real
 launcher, not a stand-in. PR 1's regression tests now cover both: fd 9 and fd 13,
 and pipe and real `fork`/`login_tty` PTY topologies.
+
+## Moving a blocking wait onto a thread moves its cleanup too
+
+#623's fix (PR #658) moved the black-box `running.wait()` onto a daemon thread
+so the main thread could poll a signal latch. Review (`spawn:p8399`, F1) found
+what that cost. Before, a `KeyboardInterrupt` on the main thread unwound through
+the PTY relay's `finally` blocks, restoring termios and closing the gate. After
+the move it unwound only the poll loop. The relay thread kept the outer tty raw,
+the spawn finalized as failed with the harness still alive, and the harness
+died only when process exit closed the gate's fd.
+
+When a wait moves off the main thread, the main thread's exception path has to
+do explicitly what unwinding used to do implicitly: stop the child through the
+gate, release the wait, join with a bound, then re-raise. Reproduce it with the
+exception the main thread can actually get (SIGINT is unshielded in PTY mode),
+not only with the signal the change was written for.
+
+The same fix also showed that **`termios.error` is not an `OSError`**. The first
+live pane-kill probe left a traceback that a fake-launcher test could not have
+shown ([mechanism](../architecture/primary-terminal-ownership.md#a-dead-terminal-raises-termioserror-which-is-not-an-oserror)).
 
 ## Related
 

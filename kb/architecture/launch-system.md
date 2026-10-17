@@ -633,7 +633,7 @@ launch/
   reference.py          load_reference_items(); template variable resolution
   env.py                build_env_plan(); build_harness_child_env()
   extract.py            enrich_finalize(): usage + session + report (spawn path)
-  signals.py            SignalForwarder, SignalCoordinator; SIGINT/SIGTERM forwarding
+  signals.py            SignalForwarder, SignalCoordinator, SignalCallbackReceiver; forwarding and primary TERM/HUP cancel
 
 catalog/
   catalog_session.py    CatalogSession — operation-scoped catalog resolution state
