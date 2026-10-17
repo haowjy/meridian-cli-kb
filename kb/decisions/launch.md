@@ -188,13 +188,31 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 ---
 
-### D-skill-doc-suppression: Skip supplemental_documents for native-skill harnesses
+### D-skill-single-path: Loaded skills are composition documents on every harness
 
-**Decision (2026-05, PR #208):** When a harness declares `supports_native_skills=True`, composition produces empty `supplemental_documents` instead of calling `compose_skill_prompt_documents()`.
+**Status (2026-10-17):** Built on `fix/primary-skill-injection` (`bcfe1c5ff`, `ac50d7f35`). PR #661 is open with `release:patch`. Until it merges, `main` still has the split described in D-skill-doc-suppression.
 
-**Why:** All three active harnesses declare `supports_native_skills=True`. Before this change, Meridian injected skill content into `supplemental_documents` for all of them — duplicating content that Mars already delivers through native channels.
+**Decision (2026-10, PR #661):** Both composers (`_build_spawn_composed_launch_content()` and `_resolve_primary_projection()`) always add `compose_skill_prompt_documents(loaded_skills)` to `supplemental_documents`. Projection places them in the system prompt after the agent profile, grouped principle → guardrail → reference. There is no harness-capability gate and no second channel. `system-prompt.md`, which Claude reads through `--append-system-prompt-file`, is written from `run_params.appended_system_prompt`. That is the full prompt the harness receives, including additions made after projection such as the source-edit-directory instruction.
 
-**Two delivery channels:** `supplemental_documents` (suppressed for native-skill harnesses) and `compose_skill_injections()` via `--append-system-prompt` (preserved for Claude).
+**Why:** Four sites with four conditions had been adding and removing skill text. On Claude, Codex and OpenCode the only one that actually delivered skills was the bind-time re-append in `_reproject_context_env_at_bind`. It rebuilt the appended prompt from scratch, and `system-prompt.md` was written from the projected prompt, which had no skills. Claude agents got no loaded skills from 615dcb330 (2026-05-13) until this PR. A single path removes the whole class of bug where skills arrive on one surface and are missing on another.
+
+**Rejected:**
+- Keep native-skill suppression. A harness's native skill list shows only model-invocable skills, so a loaded skill that isn't model-invocable (e.g. `solo-dev`) would be unreachable.
+- Keep #661's first-draft `_inject_loaded_skills` for primaries. A dry-run probe on main showed it was a no-op: the bind re-append threw its output away.
+
+**Deleted with it:** `_inject_loaded_skills`, the bind re-append and its `loaded_skills` parameter, `compose_skill_injections`, `RunPromptPolicy.skill_injection_mode`, `HarnessCapabilities.supports_native_skills`.
+
+**Supersedes:** D-skill-doc-suppression, below.
+
+---
+
+### D-skill-doc-suppression: Skip supplemental_documents for native-skill harnesses (superseded)
+
+**Superseded (2026-10) by [D-skill-single-path](#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness).** This record stays because it explains how the split happened.
+
+**Decision (2026-05, PR #208, 615dcb330):** When a harness declared `supports_native_skills=True` (Claude, Codex, OpenCode), composition left `supplemental_documents` empty and relied on Mars-delivered native skills, plus a Claude-only `compose_skill_injections()` append channel.
+
+**Why it failed:** The goal was to stop sending skill content twice. Two mistaken assumptions undid it. First, native delivery is not equivalent to loading, because native lists cover only model-invocable skills. Second, a capability-gated second channel would stay in sync with the first. In practice the append channel was overwritten at bind, so delivery fell to an ad hoc bind re-append. The file Claude actually reads never had skills.
 
 ---
 

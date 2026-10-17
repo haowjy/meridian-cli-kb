@@ -3,6 +3,27 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — One skill delivery path: PR #661 (`work:long-view-review/skill-delivery`)
+
+- [decisions/launch.md](decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness):
+  new D-skill-single-path (PR #661 open); D-skill-doc-suppression is marked superseded
+  and kept, with why it failed (615dcb330, 2026-05-13: Claude lost loaded skills for five months).
+- `concepts/composition-pipeline.md`: "Two Channels, One Correct" is replaced by
+  "Skill Delivery: One Path". The page also fixes these older stale parts: the IR field
+  table (`skill_injection`, `inventory_prompt`, `context_prompt` no longer exist;
+  `supplemental_documents`, `available_skills`, `guidance_blocks`, `launch_preamble`
+  added), `SYSTEM_INSTRUCTION_BLOCK_ORDER`, Codex/OpenCode projection (system field,
+  not inline), G-3 (`system-prompt.md` comes from the appended prompt), and inventory
+  gating (spawn capability, not the PRIMARY surface).
+- `codebase/harness-adapters.md`: the capability matrix is rebuilt from the
+  `HarnessCapabilities` fields that exist. Removed `supports_native_skills`,
+  `supports_stream_events`, `supports_programmatic_tools` and the Direct column;
+  added Cursor.
+- `lessons/arch-refactor-pitfalls.md`: the or-chain lesson is rewritten as "A
+  Capability-Gated Second Channel Drifts From the First". Index rows are in `decisions.md`
+  and `lessons/overview.md`.
+
+---
 ## 2026-10-17 — #655 merged with the profile split: PR #659, v0.10.21 (`work:claude-bg-quiescence` D11–D14)
 
 - [D-claude-native-hold](decisions/completion-drain.md#d-claude-native-hold):

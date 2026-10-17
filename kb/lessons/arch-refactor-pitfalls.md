@@ -235,55 +235,46 @@ the full documented semantics including descendant-scoping.
 
 ---
 
----
+## A Capability-Gated Second Channel Drifts From the First (PR #208 → PR #661)
 
-## `prepare_prompt_payload()` or-Chain Silently Drops `appended_system_prompt` (PR #208)
+**The problem:** In May 2026 (615dcb330) loaded skills were dropped from composition
+on harnesses flagged `supports_native_skills`, and a Claude-only append channel
+(`compose_skill_injections()` → `--append-system-prompt`) was kept to carry them.
+Over the next five months the second channel picked up its own fixes and its own
+conditions: an or-chain in `prepare_prompt_payload()` that dropped the append when
+a projected prompt existed, then a bind-time re-append that rebuilt the appended
+prompt from scratch. In the end four sites with four conditions added or removed
+skill text. On Claude, Codex and OpenCode the only one that delivered was the bind
+re-append.
 
-**The problem:** `prepare_prompt_payload(projected_content=X, appended_system_prompt=Y)`
-returns a payload where `appended_system_prompt` is empty when `X` has a non-empty
-`system_prompt` field. The implementation uses an or-chain:
+**The symptom:** Claude agents had no loaded skills at all. Claude reads its
+system prompt from `system-prompt.md` (`--append-system-prompt-file`), and that file
+was written from the projected prompt, which the suppression had emptied of
+skills. The bind re-append put skills into the run params, but those never
+reached the file. Tests and the projection manifest looked fine because they
+checked intermediates. PR #661's first fix (`_inject_loaded_skills` for primaries)
+was a no-op for the same reason: the bind re-append threw its output away.
 
-```python
-PreparedPromptPayload(
-    system_prompt=projected_system_prompt or appended_system_prompt,
-    ...
-)
-```
+**The fix:** One path. Composition always includes the skill documents, and
+`system-prompt.md` is written from the full appended prompt. Every capability gate,
+second channel and re-append was deleted
+([D-skill-single-path](../decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness)).
 
-When `projected_system_prompt` is truthy, `appended_system_prompt` is never evaluated —
-it disappears silently. No error, no warning.
+**The rules:**
+- Content that must reach every harness goes through the one composition path.
+  If you're about to add "and also deliver it here when capability X", stop: that
+  second channel will drift from the first, and each later fix will patch only
+  one of them.
+- Verify delivery at the artifact the harness actually reads (`system-prompt.md`
+  for Claude, the developer instructions in Codex params), not at an intermediate
+  such as `projected.system_prompt` or `run_params`. Count occurrences: exactly
+  once.
+- Check a fix with a dry-run probe on the real launch path before trusting it.
+  The no-op primary injection passed review and unit tests.
 
-**The symptom:** After adding skill document suppression (`supports_native_skills=True`
-stops populating `supplemental_documents`), skill content that should arrive via
-`--append-system-prompt` in Claude spawns was not reaching the harness. The regression
-was discovered in smoke testing — skill documents simply weren't present in Claude
-spawn system prompts.
-
-**Root cause:** The Claude skill injection path calls `prepare_prompt_payload()` with
-both `projected_content` (from content composition) and `appended_system_prompt`
-(from `compose_skill_injections()`). The or-chain preferred the projected system prompt
-and dropped the appended skills.
-
-**The fix:** Directly construct `PreparedPromptPayload` with both fields populated
-independently, bypassing the or-chain:
-
-```python
-PreparedPromptPayload(
-    system_prompt=projected_system_prompt,
-    appended_system_prompt=appended_system_prompt,  # set independently
-    user_turn_content=projected_user_turn_content,
-)
-```
-
-**The rule:** Any callsite that needs *both* a projected system prompt *and* an
-independently appended system prompt must construct `PreparedPromptPayload` directly.
-`prepare_prompt_payload()` is a convenience helper that assumes at most one source
-of system prompt content; it is not safe for the two-channel case.
-
-**Why it wasn't caught earlier:** The two delivery channels coexisted undetected —
-before skill document suppression, skill content arrived via *both* channels. After
-suppression, only `--append-system-prompt` remained, and the or-chain drop became
-the only path. The bug was latent but inactive.
+`prepare_prompt_payload()` still prefers projected content over
+`appended_system_prompt` (`projected or appended`). No caller passes both now. If
+one starts to, that's a sign a second channel is coming back.
 
 ---
 

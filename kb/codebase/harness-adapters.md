@@ -188,20 +188,24 @@ See [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md#spawn-capabi
 
 ## Capability Matrix
 
-| Capability | Claude | Codex | OpenCode | Pi | Direct |
+`HarnessCapabilities` in `harness/adapter.py`, as each adapter declares it:
+
+| Capability | Claude | Codex | OpenCode | Pi | Cursor |
 |------------|--------|-------|----------|----|--------|
-| `supports_stream_events` | ✓ | ✓ | ✓ | ✓ | ✗ |
-| `supports_session_resume` | ✓ | ✓ | ✓ | ✓ | ✗ |
-| `supports_session_fork` | ✓ | ✓ | ✓ | ✓ | ✗ |
-| `supports_native_skills` | ✓ | ✓ | ✓ | ✗ | ✗ |
-| `supports_native_agents` | ✓ | ✗ | ✗ | ✗ | ✗ |
-| `supports_programmatic_tools` | ✗ | ✗ | ✗ | ✗ | ✓ |
+| `supports_stdin_prompt` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `supports_session_resume` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `supports_session_fork` | ✓ | ✓ | ✗ | ✓ | ✗ |
+| `supports_native_agents` | ✓ | ✓ | ✗ | ✗ | ✗ |
 | `supports_primary_launch` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `supports_named_primary_resume` | ✓ | ✓ | ✓ | ✓ | ✗ |
+| `requires_initial_prompt` | ✗ | ✓ | ✗ | ✗ | ✗ |
 | `supports_native_file_injection` | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `captures_blackbox_output` | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `terminal_surface_mode` | PTY-mediated | native inherit | native inherit | PTY-mediated | PTY-mediated |
 
 `supports_native_file_injection` is `False` for all current harnesses. References are routed as `"inline"` (rendered into prompt text) or `"omitted"` (empty-body files skipped).
 
-`supports_native_skills` is `False` for Pi — Pi has a native skills system but Meridian skill projection into Pi is deferred. Skills are currently delivered via the system prompt channel.
+No capability gates skill delivery. Loaded skills reach every harness as composition documents in the system prompt, after the agent profile. Mars still writes skills into each harness's native skill directory, but Meridian doesn't rely on that for loaded skills. See [D-skill-single-path](../decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness).
 
 ## Claude Native Agent Routing
 

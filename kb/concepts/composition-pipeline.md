@@ -2,8 +2,8 @@
 
 Every spawn involves assembling content — skills, agent profile, user prompt,
 reference files, prior output — and delivering it to the harness in the right
-form. Different harnesses have different channel capabilities: Claude has a
-separate system prompt channel; Codex and OpenCode do not.
+form. Each harness has its own channels: Claude reads an appended system prompt
+file, Codex takes developer instructions, and OpenCode takes an instruction file.
 
 The **Semantic IR + Adapter Projection** pattern is how Meridian handles this
 without coupling content assembly to harness-specific logic.
@@ -48,26 +48,28 @@ Fields in the IR:
 
 | Field | Category | Meaning |
 |-------|----------|---------|
-| `skill_injection` | SYSTEM_INSTRUCTION | Composed skill content |
+| `launch_preamble` | SYSTEM_INSTRUCTION | Launch-mode-specific framing |
 | `agent_profile_body` | SYSTEM_INSTRUCTION | Agent profile body text |
-| `report_instruction` | SYSTEM_INSTRUCTION | "Write a report at the end" directive |
-| `inventory_prompt` | SYSTEM_INSTRUCTION | Installed agent catalog (primary only) |
-| `context_prompt` | SYSTEM_INSTRUCTION | Named context paths surfaced to the agent |
 | `completion_contract` | SYSTEM_INSTRUCTION | Bounded goal contract from `--goal TEXT`; empty when no goal given |
+| `supplemental_documents` | SYSTEM_INSTRUCTION | Typed `PromptDocument`s: loaded skills (full bodies), then bootstrap docs |
+| `available_skills` | SYSTEM_INSTRUCTION | On-demand skills, listed by name only |
+| `guidance_blocks` | SYSTEM_INSTRUCTION | `CompositionBlock`s sorted by phase then priority: agent inventory, spawn prompting and spawn contract (only for agents with spawn capability), work/task-dir/session discovery, then the context-env block |
+| `report_instruction` | SYSTEM_INSTRUCTION | "Write a report at the end" directive |
 | `passthrough_system_fragments` | SYSTEM_INSTRUCTION | Explicit `--append-system-prompt` args |
 | `user_task_prompt` | USER_TASK_PROMPT | Raw user request (template-substituted) |
 | `reference_items` | TASK_CONTEXT | Structured reference file/dir objects |
 | `prior_output` | TASK_CONTEXT | Sanitized output from a prior spawn |
 
-The `SYSTEM_INSTRUCTION` blocks are assembled in a fixed order (`SYSTEM_INSTRUCTION_BLOCK_ORDER` in `composition.py`). Ordering matters because system prompts are read top-to-bottom: `agent_profile_body` orients the agent, `context_prompt` provides location knowledge, `completion_contract` (if present) follows with the bounded goal, and `passthrough_system_fragments` comes last so explicit user-supplied fragments can override or append:
+The `SYSTEM_INSTRUCTION` blocks are assembled in a fixed order (`SYSTEM_INSTRUCTION_BLOCK_ORDER` in `composition.py`, rendered by `render_system_instruction_blocks()`). Order matters because a system prompt is read top to bottom. The profile orients the agent and the goal follows it. Loaded skills come after both, grouped principle → guardrail → reference under type headers. Passthrough fragments come last so explicit user-supplied text can override or append:
 
 ```
-supplemental_documents → agent_profile_body → report_instruction
-    → inventory_prompt → context_prompt → completion_contract → passthrough_system_fragments
+launch_preamble → agent_profile_body → completion_contract
+    → supplemental_documents (skills, then bootstrap) → available_skills listing
+    → guidance_blocks → report_instruction → passthrough_system_fragments
 ```
 
 The key constraint: **no cross-category concatenation before projection**. You
-can't join `skill_injection + user_task_prompt` into a single blob and call it
+can't join skill documents and `user_task_prompt` into a single blob and call it
 `user_task_prompt`. The semantic classification must survive intact until
 `project_content()` is called.
 
@@ -77,7 +79,7 @@ can't join `skill_injection + user_task_prompt` into a single blob and call it
 semantic category to its harness-specific channel. The output is
 `ProjectedContent`:
 
-- `system_prompt: str` — content for the `--append-system-prompt` channel
+- `system_prompt: str` — content for the harness's system-instruction channel
   (empty = omit)
 - `user_turn_content: str` — content for user-turn or inline prompt channel
 - `reference_routing` — per-reference decisions (`"inline"`, `"omitted"`)
@@ -93,8 +95,10 @@ semantic category to its harness-specific channel. The output is
   empty-body files
 
 **Codex and OpenCode:**
-- No separate system-prompt channel; everything goes inline
-- Canonical order: SYSTEM_INSTRUCTION → TASK_CONTEXT → USER_TASK_PROMPT
+- SYSTEM_INSTRUCTION → a system field (`channels.system_instruction =
+  "system-field"`): Codex developer instructions; OpenCode a materialized
+  instruction file
+- TASK_CONTEXT + USER_TASK_PROMPT → user turn, context first
 - References: `"inline"` or `"omitted"`; no native injection
 
 ---
@@ -119,7 +123,7 @@ The correct approach keeps categories distinct until `project_content()`:
 ```python
 # DO THIS — preserve semantic categories
 content = ComposedLaunchContent(
-    skill_injection=skills,
+    supplemental_documents=compose_skill_prompt_documents(loaded_skills),
     agent_profile_body=body,
     user_task_prompt=user_task,
     reference_items=refs,
@@ -149,14 +153,17 @@ composed = ComposedLaunchContent(user_task_prompt=full_prompt, ...)
 ```
 *Fix: keep categories in their respective fields.*
 
-**G-3: Writing artifacts from intermediates, not ProjectedContent**
+**G-3: Writing artifacts from anything but what the harness receives**
 ```python
-# WRONG: bypasses the authority rule for projection artifacts
-atomic_write_text(log_dir / "system-prompt.md", raw_skills_text)
+# WRONG: an intermediate, or the projected prompt before post-projection additions
+atomic_write_text(log_dir / "system-prompt.md", projected.system_prompt)
 ```
-*Fix: write artifacts from `ProjectedContent` fields after `project_content()`
-is called. The authority rule: when `launch_context.projected_content` is set,
-read artifacts from it — not from composition intermediates.*
+*Fix: `write_projection_artifacts()` writes `system-prompt.md` from
+`run_params.appended_system_prompt`. That is the prompt the harness receives,
+and Claude reads this exact file through `--append-system-prompt-file`. It
+extends the projected system prompt with additions made after projection, such
+as the source-edit-directory instruction. `starting-prompt.md` comes from
+`projected.user_turn_content` when projection ran.*
 
 ---
 
@@ -167,7 +174,7 @@ log directory. These are useful for debugging what the harness actually received
 
 | File | Content |
 |------|---------|
-| `system-prompt.md` | The composed system prompt (if any) |
+| `system-prompt.md` | The full appended system prompt the harness receives (Claude reads it directly) |
 | `starting-prompt.md` | The user-turn content |
 | `references.json` | Per-reference routing decisions |
 | `projection-manifest.json` | Harness + surface + channel routing summary |
@@ -197,9 +204,9 @@ The composition pipeline runs for two surfaces:
 - **`SPAWN_PREPARE`** (subagent spawns) — runs full composition: skill
   injection, reference loading, template variable substitution, prior-output
   inclusion
-- **`PRIMARY`** (interactive primary launch) — same pipeline, plus:
-  `inventory_prompt` (agent catalog) and `passthrough_system_fragments`
-  (explicit system prompt passthrough args)
+- **`PRIMARY`** (interactive primary launch) — same pipeline, plus
+  `passthrough_system_fragments` (explicit system prompt passthrough args) and
+  request-supplied supplemental documents after the loaded skills
 
 The **`DIRECT`** surface is test-only (`tests/support/launch.py`): it skips
 policy resolution and trusts a pre-resolved request. Production policy
@@ -207,46 +214,46 @@ resolution rejects it.
 
 ---
 
-## Skill Delivery: Two Channels, One Correct
+## Skill Delivery: One Path
 
-Skill content can reach a spawned agent through two injection paths. They are
-independent; which path fires depends on harness capabilities, not on the content.
+Loaded skills reach the agent the same way on every harness and both surfaces
+(primary and spawn). `_build_spawn_composed_launch_content()` and
+`_resolve_primary_projection()` always set `supplemental_documents` from
+`compose_skill_prompt_documents(loaded_skills)`. Projection then renders them
+into the system prompt after the agent profile. Bind-time re-projection
+(`_reproject_context_env_at_bind`) rebuilds from the same composed content, so
+skills survive bind without special handling. On replay, loaded skills come from
+the launch policy snapshot's `loaded_skills`.
 
-| Channel | Mechanism | When active |
-|---|---|---|
-| `supplemental_documents` | Rendered as system instruction blocks via `compose_skill_prompt_documents()` | Only when `supports_native_skills=False` (no active harness) |
-| `--append-system-prompt` | `compose_skill_injections()` → explicit CLI flag | Claude spawn surface only (`skill_injection_mode == "append-system-prompt"`) |
+**Don't add a second channel keyed on a harness capability.** Mars also writes
+skills into each harness's native skill directory, but a native skill list shows
+only model-invocable skills. A loaded skill that isn't model-invocable reaches
+the agent only through composition. An earlier split did exactly this: it
+suppressed composition on "native-skill" harnesses and added a Claude-only append
+channel. It left Claude with no loaded skills for five months.
 
-**Native-skill harnesses suppress `supplemental_documents`:** When `harness.capabilities.supports_native_skills=True`,
-`_resolve_spawn_prepare_projection()` and `_resolve_primary_projection()` produce
-`supplemental_documents=()`. All three active harnesses (Claude, Codex, OpenCode)
-declare this capability. Mars delivers skill content through native channels (Claude
-projects, Codex/OpenCode native dirs).
+To check delivery, read `system-prompt.md` (Claude) or the Codex developer
+instructions in the spawn params, and confirm that each loaded skill appears
+exactly once. `tests/e2e/spawn/skill-injection.md` is the scenario.
 
-**Claude's `--append-system-prompt` channel is preserved:** This is the intended
-delivery mechanism for Claude spawns. Suppressing `supplemental_documents` does not
-affect it. Claude continues to receive skill content via `--append-system-prompt`
-after the suppression.
-
-**`snapshot_from_resolved_policy()` follows the same gate** (in `chat/policy.py`):
-skill document snapshotting is also conditioned on `supports_native_skills`.
-
-See [decisions/launch.md](../decisions/launch.md#d-skill-doc-suppression-skip-supplemental_documents-for-native-skill-harnesses)
+See [D-skill-single-path](../decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness)
 for the decision rationale.
 
 ---
 
 ## Agent Inventory Prompt
 
-The `inventory_prompt` field in `ComposedLaunchContent` is populated from the Mars
+The `inventory` guidance block is populated from the Mars
 launch-bundle `prompt_surface.inventory_prompt` field. Mars owns rendering of the
 `# Meridian Agents` block, including harness-aware delegation guidance, native-agent
 sections, model metadata, and `model-invocable` filtering. Meridian does not rebuild
 or patch the inventory string in Python; `bundle_adapter.py` parses the field and
 launch composition embeds it verbatim.
 
-The inventory still appears only on the `PRIMARY` surface. `SPAWN_PREPARE` gets an
-empty inventory block so subagents are not handed the top-level delegation menu.
+`build_guidance_blocks()` (`launch/spawn_guidance.py`) adds the inventory, together
+with spawn prompting and the spawn contract, only when the agent has spawn
+capability (`has_spawn_capability(profile)`). The gate is the agent's capability,
+not the surface: a spawned agent that can spawn gets the inventory too.
 
 Catalog scanning remains neutral: `scan_agent_profiles()` and `load_agent_profile()`
 return profiles regardless of `model-invocable`. The model-facing visibility rule is
