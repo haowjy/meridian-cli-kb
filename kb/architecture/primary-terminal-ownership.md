@@ -27,7 +27,7 @@ containment and the launcher watchdog: [process-scope.md](process-scope.md).
 >   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is merged
 >   (PR #621, merge `23eb2d6d2`, v0.10.11).
 > - SIGTERM/SIGHUP cancel for black-box (Claude/Pi PTY) primaries is merged
->   (PR #658, #623, merge `8055a1f77`, 2026-10-17).
+>   (PR #658, #623, merge `8055a1f77`, v0.10.19).
 
 ---
 
