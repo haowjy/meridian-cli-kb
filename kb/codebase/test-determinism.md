@@ -109,16 +109,18 @@ last status. Rejected: reordering the product to adopt before persisting (that
 weakens failed-write semantics), and loosening the assertion (the test would stop
 guarding against double notification).
 
-#662 was the same window in the other direction: memory ahead of disk. The
-managed-bash ping-retry test waited for its failing ping callback to have run
-once, slept 60 ms, then asserted that `bash-records.json` showed the failed claim
-released (`ping_sent_at_ms: null`). The callback counts the attempt before it
-throws, and `firePing()` publishes the release later, asynchronously. One CI run
+#662 was the same window in the other direction: memory ahead of disk. Before a
+managed-bash task ping fires, the runtime claims it by setting `ping_sent_at_ms`
+in `bash-records.json`; if the ping hook throws, it releases the claim back to
+`null`. The ping-retry test made the hook throw, waited until the hook had been
+called once, slept 60 ms, then asserted the claim was released on disk. The hook
+counts its call before it throws, and `firePing()` publishes the release later,
+asynchronously. One CI run
 read the file between the two and saw the claim still set; 150 local loops
 never did. The fix (#664, test-only) polls the records file until the release
 is on disk, then keeps the 60 ms only as the window in which a broken hook would
-retry. Deleting the test was rejected: it is the only coverage of retry through
-rebound hooks.
+retry. Deleting the test was rejected: it is the only coverage of a ping retried
+after new hooks are bound to the same running shell.
 
 **The rule.** Synchronize on the condition the code under test reads. If the
 assertion is about what an API does, wait on that API's own answer; if it is
@@ -150,15 +152,17 @@ spawn" passes only because it reads within that grace. Under xdist load or a
 slow first import the row flips to `failed` and the test fails: the timing-flake
 class PR 3 exists to remove.
 
-- **A fixture that means "live" holds a `LaunchSlot`** (or a subprocess holding
-  the lock) for the duration of the test. PR 3 converted idle children, spawn
+- **A fixture that means "live" holds a `LaunchSlot`** (the runner-side holder
+  of the exclusive `launch.lock`), or a subprocess holding the lock, for the
+  duration of the test. PR 3 converted idle children, spawn
   tree, API stats, runner-history prune and the Pi drain fixtures.
 - **A lockless row is only for testing legacy behaviour.** A test of the rule
   "the reaper never finalizes a lockless row" must use a row *past* the grace;
   inside it, `read_derived` already calls the row alive, so the test passes
   whether or not the reaper skips lockless rows.
-- **A fixture that means "dead" uses a free lock**, or a reaped child's PID and
-  birth for legacy rows. Never a large constant PID such as `999_999`:
+- **A fixture that means "dead" uses a free lock**; for a legacy row, the PID
+  and birth time of a child the test started and already waited on, so the PID
+  is known dead. Never a large constant PID such as `999_999`:
   `pid_max` can exceed it, and cancel will signal whatever process owns it.
 
 ## Race Tests Must Go Red Against the Split Implementation
@@ -185,7 +189,9 @@ reports `crashed`, every time. Coupling the test to one internal call is
 justified because the property under test is "held across the read".
 
 **The rule.** A race test is evidence only after it fails against each plausible
-wrong implementation. Write the split versions, run the test against them, and
+wrong implementation. For a read that must hold a lock across it, those are
+"probe the lock, release, then read" and "read, then probe the lock". Write
+them, run the test against each, and
 record the red output with the PR. If timing can't hit the window reliably,
 inject the interleaving at the seam the property is about.
 

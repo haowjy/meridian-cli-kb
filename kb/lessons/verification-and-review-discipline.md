@@ -294,14 +294,15 @@ was not converged when its parent finished or was cancelled, and `doctor` did
 not persist a launcher-SIGKILLed primary. Neither probe ran the same scenario
 on the base commit. The investigator who did (`spawn:p8456`) found both on base
 too:
-- no parent path ever calls `cancel_descendants`; it is wired only into
-  resident-drain cleanup (filed as #671);
+- no parent path ever calls `cancel_descendants`; only the cleanup a parent's
+  drain runs after a deadline or an exit request calls it (filed as #671);
 - the probe ran plain `doctor`, and persisting outcomes needs `--kill-orphans`
   on base as well.
 
-The base comparison also found what the branch *had* changed: base's doctor
-named the dead primary in a warning (wrongly as "live"), while the branch's
-derived read dropped it from the warning entirely. That was the real
+The base comparison also found what the branch *had* changed. Plain `doctor`
+should name every spawn whose runner is dead but whose outcome isn't persisted.
+Base's doctor named the dead primary, wrongly as "live"; the branch's derived
+read dropped it from the warning entirely. That was the real
 regression, and a smaller one than either reported failure
 ([D-spawn-identity-v2, PR 3](../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
 

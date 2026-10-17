@@ -329,14 +329,16 @@ cancel-of-a-dead-spawn-with-a-report → `cancelled`, follow from the same rule 
 are stated in the PR body for the merge ask.
 
 **Residuals:**
-- **Not claimed:** consistency against racing writes. Cancel's request and the
-  managed-cancel `mark_finalizing` are still written outside the lock; PR 4 moves
+- **Not claimed:** consistency against racing writes. Cancel's request, and the
+  `finalizing` transition cancel writes for a managed primary, are still written
+  outside the lock; PR 4 moves
   every lifecycle write under it.
-- Handed to PR 4 (`pr-plan.md`, "From PR 3's gate"): cancel's
+- Handed to PR 4: cancel's
   `_has_live_execution_owner` slack gate can veto the lock; cancel of an
   already-dead launch waits out a 5 s grace; a derived terminal's `finished_at`
-  is `""`; `managed_primary.release_managed_primary_scopes` still gates on a
-  birth-checked PID.
+  is `""`; `managed_primary.release_managed_primary_scopes` still decides
+  runner death by a PID-plus-birth-time check
+  ([process scope](../architecture/process-scope.md)) instead of the lock.
 - **#671:** a parent's finish or cancel never converges its descendants;
   `cancel_descendants` runs only from resident-drain cleanup. It predates PR 3
   and needs a policy decision.

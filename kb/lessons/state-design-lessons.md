@@ -211,12 +211,14 @@ deleted it from the reaper and from `derive`, and two more copies surfaced later
   disagreed, and whichever wrote first won. On main they had agreed only because
   both carried the rule. The fix routed both through one claim
   ([D-spawn-identity-v2, PR 3](../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
-- **Test fixtures.** Two Pi drain tests staged a lockless `finalizing` child with
-  a `report.md` and relied on the reaper overlay reading it as completed to reach
-  the publication-pending path. They passed on base and failed only in the
-  extended tier of the full preflight. The product was right; the fixtures
-  encoded the deleted rule. They now stage a live child as a lock holder and an
-  undelivered result as a finished, unconsumed child.
+- **Test fixtures.** Two Pi drain tests needed a parent's drain to keep waiting:
+  one on a child still finalizing, one on a child whose result the parent had
+  not yet received. Both staged a lockless `finalizing` child with a `report.md`
+  and relied on the reaper overlay reading it as completed. They passed on base
+  and failed only in the extended tier of the full preflight. The product was
+  right; the fixtures encoded the deleted rule. They now stage the finalizing
+  child as a live lock holder, and the unreceived result as a child that
+  finished with its result not yet consumed by the parent.
 
 **When deleting a rule, search for every place that applies it, not just the
 module that named it:** other writers of the same field, and fixtures whose
@@ -227,9 +229,10 @@ writers share looks like agreement until one of them changes.
 
 PR 3's brief was "every reader moves to `read_derived`". Applied mechanically, it
 also moved code that *selects rows for a writer*: descendant cancellation,
-archive capture and doctor's warning. Derived status hides a dead launch as
-`failed` until someone persists it, so those selectors skipped exactly the rows
-they existed to handle. Three reviews found three instances (D80, D82).
+archive capture and doctor's warning. A dead launch reads `failed` while its
+stored row stays active until someone persists the outcome, so selectors on
+derived status skipped exactly the rows they existed to handle. The final
+review and the probe after it found three instances (D80, D82).
 
 The working rule: **selection for convergence or destruction uses stored status;
 liveness questions use derived status**

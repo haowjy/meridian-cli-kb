@@ -23,7 +23,7 @@ row plus the lock:
 |---|---|---|
 | terminal | any | the stored terminal |
 | active (`queued`, `running`, `finalizing`) | held | the stored active status, unchanged |
-| active | free, cancel intent stored | `cancelled` |
+| active | free, cancel intent stored (`spawn cancel` records one before it signals) | `cancelled` |
 | active | free, no cancel intent | `failed`, error `crashed` |
 | active | no lock file (row from a build before PR 2) | `legacy_runner_alive` decides |
 
@@ -121,7 +121,9 @@ and derives, and returns a typed result:
 `SpawnApplicationService.finalize_dead_launch` is the only writer of a claimed
 outcome. It runs the claim off the event loop, runs an optional
 `before_finalize` callback under the handle, and writes the derived terminal
-with the caller's origin while still holding the lock. Since the outcome it
+while still holding the lock. The caller supplies the terminal's `origin`
+(`reconciler` or `cancel`), which the
+[authority lattice](../spawn-finalization.md) uses to decide whether a later write may replace it. Since the outcome it
 writes is the one every reader was already deriving, no reader sees a change.
 
 Its callers:
@@ -130,8 +132,9 @@ Its callers:
   `reconciler`. Its `before_finalize` records the cleanup claim, and it sweeps
   the claimed scopes afterwards. It runs from `meridian doctor --kill-orphans`
   and from the background repair that primary launches schedule
-  (`ops/diag.schedule_background_repairs`), both only in root side-effect
-  processes. Plain `doctor` persists nothing.
+  (`ops/diag.schedule_background_repairs`), both only in a root process
+  (`MERIDIAN_DEPTH` absent, empty or `0`), never inside a spawn. Plain `doctor`
+  persists nothing.
 - **Cancel convergence**, `SpawnApplicationService._force_cancel_convergence`,
   with origin `cancel`.
 
@@ -207,8 +210,8 @@ applied early.
 
 ## Not yet true
 
-- Cancel's request and the managed-cancel `mark_finalizing` are still written
-  outside the launch lock. So `read_derived` is exact about the runner's
+- Cancel's request, and the `finalizing` transition cancel writes for a managed
+  primary, are still written outside the launch lock. So `read_derived` is exact about the runner's
   liveness, not about racing writes. Consistency against racing writes needs
   every lifecycle write under the exclusive lock, which PR 4 provides.
 - Cancel's `_has_live_execution_owner` gate (slack PIDs) can still veto the
