@@ -170,7 +170,12 @@ flowchart LR
 **Writer.** The `meridian-session-boundary` classic command hook is stdlib-only (no
 Meridian import, no subprocess). For each `SessionStart` (`startup`, `resume`,
 `fork`, `clear`, `compact`) it appends one JSONL record holding the launch nonce,
-parent PID, source, session ID and exact transcript path. Records are bounded
+parent PID (the Claude process), `recorded_at` (epoch seconds), source, session ID
+and exact transcript path, plus `messaging_socket` when Claude publishes its
+inbox socket in `CLAUDE_CODE_MESSAGING_SOCKET`. The hook keeps the socket only if
+it is absolute, has no control characters, and fits a Unix socket address (107
+bytes; 103 on macOS). It never reads `CLAUDE_CODE_MESSAGING_TOKEN`. The record
+stays `v: 2`; older lines without the new fields still parse. Records are bounded
 (8 KiB each, 1 MiB per journal, 1 MiB of hook input), written with a single
 `O_APPEND` write to a mode-0600 file, and a leading newline isolates a torn tail.
 Once the journal is full the hook writes nothing more.

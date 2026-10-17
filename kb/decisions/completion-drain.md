@@ -95,14 +95,21 @@ repro correctly. Why it went unfixed for weeks is a
   teardown.
 - If a Claude Code version stops emitting snapshots, Claude children fall back to
   first-result finalization, as before this decision.
-- Meridian's spawn guidance tells Claude agents to run `meridian spawn wait` with
-  `run_in_background`. With the hold (v0.10.21+) that is safe; re-read the
-  guidance against the shipped behavior.
-- Mods remain open for **TUI primaries**, where Meridian has no inject and no
-  background-task view (D14): `$.prompt.submit` for inject, `$.tool.register` for a
-  native done/rearm tool, `$.ui.status` for child status. Additive only. A
-  follow-up probe (`work:claude-mod-inject`) is checking whether a mod can replace
-  the stdin inject pipe.
+- Meridian's spawn guidance tells agents the no-arg `meridian spawn wait` may run
+  in native background execution, and forbids background-wrapping only the `--bg`
+  launch. It stays as written: with the hold, a Claude child that backgrounds its
+  wait and ends its turn is kept alive and takes the follow-up turn (`spawn:p8385`:
+  follow-up turn, `succeeded`, no nudges), and a TUI primary was never affected
+  because Claude's own task notification drives its follow-up turn. Tightening it
+  to "foreground wait only" would block the agent's turn for nothing
+  (`work:claude-mod-inject` D5).
+- A mod cannot replace the stdin inject pipe: plain `claude -p` exits about 2.5 s
+  after going idle, so nothing outside can reach it, and Claude children keep
+  `--input-format stream-json`. A TUI primary is injected through Claude Code's
+  own inbox socket rather than a mod
+  ([D-claude-primary-inbox](primary-inject.md#d-claude-primary-inbox)). A mod's
+  remaining uses for primaries, a native done/rearm tool and `$.ui.status` for
+  child status, are an optional add-on to the existing idle mod.
 
 **Revisit when:** Claude Code changes or drops `background_tasks_changed`, or
 #224 gives Claude children a descendant-spawn hold, which would join this one in
