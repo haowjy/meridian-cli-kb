@@ -6,9 +6,11 @@
 > runner-held `launch.lock`. PR 4 replaces `reconcile_active_spawn` and the
 > primary-launch repair over every row with `recover_crashed_launches`: a lock
 > holder that writes only the outcome every reader already derives, at most
-> 64 lock attempts and 32 recoveries per pass after a rotating cursor. Cleanup
-> claims, finalize evidence and the heartbeat window below go with it. Until
-> then (since #633): the reaper may terminate a primary's scope only when the
+> 64 lock attempts and 32 recoveries per pass after a rotating cursor. PR 3 is
+> built (`feat/read-derived`, #663, awaiting merge): once it merges, everything
+> on this page except the cleanup claims is replaced by
+> [derived status](derived-status.md), which also lists the deleted guesses.
+> PR 4 removes the cleanup claims. Until PR 3 merges (since #633): the reaper may terminate a primary's scope only when the
 > runner is proven dead by the birth check, with the same ±1 s tolerance as the
 > alive check. PR 2 (#647) already gives every runner the lock, but only
 > continue's [sweep](../process-scope.md#continue-sweep) reads it so far.

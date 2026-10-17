@@ -3,6 +3,29 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Derived spawn status: identity-v2 PR 3 (#663, built on `feat/read-derived`, awaiting merge) and the #662 flake (`work:v010-followups` D77–D82)
+
+- New [architecture/state-system/derived-status.md](architecture/state-system/derived-status.md):
+  the lock as the only liveness fact, `read_derived`'s three steps, stored vs
+  derived status, selection vs liveness, `claim_dead_launch`/`finalize_dead_launch`
+  and its callers, lockless legacy rows, lenient quarantine, the deleted guesses,
+  behaviour changes, what PR 4 changes. Build status at the top; linked from the
+  state-system overview and `index.md`.
+- [D-spawn-identity-v2](decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize):
+  new "PR 3 as built" section (D78–D82 decisions, rejected alternatives, owner
+  rulings, residuals, provenance); status lines, PR table and `decisions.md` row.
+- Lessons: [state design](lessons/state-design-lessons.md#a-deleted-rule-survives-in-other-writers-and-in-fixtures)
+  (a deleted rule in a second writer and in fixtures; "every reader" sweeps in
+  selectors); [test determinism](codebase/test-determinism.md#fixtures-that-mean-live-must-hold-the-lock)
+  (lock-holding "live" fixtures; race tests red against split implementations;
+  #662 as memory-ahead-of-disk); [verification](lessons/verification-and-review-discipline.md#compare-against-the-base-before-calling-a-probe-failure-a-regression)
+  (base comparison before calling a probe failure a regression).
+- Banners on [reconciliation](architecture/state-system/reconciliation.md) and
+  [spawn lifecycle](concepts/spawn-lifecycle.md) point at the new page. Pages that
+  describe `main`'s heartbeat, graces and `orphan_*` codes are left as they are
+  until PR 3 merges.
+
+---
 ## 2026-10-17 — Claude primary inject through the inbox socket: #665, PR #668 open (`work:claude-mod-inject`)
 
 - New domain page [decisions/primary-inject.md](decisions/primary-inject.md) with

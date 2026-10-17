@@ -19,7 +19,9 @@ exact `launch.lock`, and a continue sweeps or refuses its source before any harn
 starts ([PR 2 as built](#pr-2-as-built-the-launch-lock-and-the-sweep)). But every
 launch, `--continue` included, still mints a new `pN`, status is still a stored
 field with three writers, and readers other than continue still guess liveness
-from PIDs and heartbeats. Architecture pages describe that.
+from PIDs and heartbeats. Architecture pages describe that. PR 3, which moves
+every reader onto the lock, is built on `feat/read-derived` and awaits merge
+approval ([PR 3 as built](#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
 
 **Supersedes:**
 - [D-spawn-run-identity](#d-spawn-run-identity), #616's `pN`/`pN.K` run
@@ -32,7 +34,9 @@ from PIDs and heartbeats. Architecture pages describe that.
   versions are described in [reconciliation](../architecture/state-system/reconciliation.md),
   [spawn lifecycle](../concepts/spawn-lifecycle.md#crash-recovery-heartbeat-projection-repair)
   and [state decisions](state.md#mark_finalizing-cas-enables-orphan_finalization-distinction).
-  PRs 3 and 4 delete them.
+  PR 3 deletes the liveness guesses and the heartbeat
+  ([derived status](../architecture/state-system/derived-status.md#deleted-mechanisms-do-not-bring-back));
+  PR 4 deletes stored status and the CAS.
 
 ### The owner's questions
 
@@ -176,14 +180,15 @@ shows them.
 |---|---|---|
 | 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | merged, #633 (`e2593004c`, v0.10.13); the owner's macOS smoke is still owed |
 | 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
-| 3 | `read_derived`: exact liveness for every reader; lenient quarantine | not started |
+| 3 | `read_derived`: exact liveness for every reader; lenient quarantine | built on `feat/read-derived` (issue #663); awaiting merge approval |
 | 4 | Sole-writer outcome; state v4; history index **v11** | not started |
 | 5 | Cut the runtime artifact store | not started |
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
 | 7 | Continue keeps the spawn ID | not started |
 
 PR 5 is independent and must land before 6. PR 2's residuals are listed
-[below](#pr-2-as-built-the-launch-lock-and-the-sweep).
+[below](#pr-2-as-built-the-launch-lock-and-the-sweep), and PR 3's
+[after them](#pr-3-as-built-read_derived-and-one-dead-launch-finalize).
 
 **Index versions across lanes:** #631 took v10, identity PR 4 takes v11, and
 #418 B2 takes v12. Whoever merges second bumps
@@ -255,6 +260,101 @@ harness starts, a live source refused in about 1.6 s with no new row; on a nativ
 tmux Codex primary (post-#646) the old group was gone 493 ms before the new backend
 appeared (`spawn:p8364`). Lessons:
 [process containment](../lessons/process-containment.md#continue-must-lock-the-chats-current-owner-not-the-named-spawn).
+
+### PR 3 as built: `read_derived` and one dead-launch finalize
+
+PR 3 makes the lock the only liveness fact for every reader and for the writers
+that persist a dead launch's outcome. Stored status stays in state v3 until
+PR 4. The mechanism, the tables and the list of deleted guesses are in
+[derived status](../architecture/state-system/derived-status.md); this section
+records what was decided while building it and why.
+
+**Liveness lives in the state layer.** `read_derived` and its helpers are in
+`state/spawn_status.py`, and `legacy_runner_alive` moved there from
+`launch/continue_sweep.py`. Leaving it in the launch layer would have made every
+reader import launch code.
+
+**The shared lock is held across the row read.** PR 2's `shared_try` released
+the lock before returning, so the design's read protocol couldn't be built on
+it. PR 3 adds `shared_hold` and re-expresses `shared_try` through it. Rejected:
+probe-then-read, which the design review had already ruled out as non-atomic.
+
+**A held lock keeps the stored active status.** The plan said a held lock means
+`running`; PR 3 reads that as "active" and returns `queued`/`running`/`finalizing`
+as stored. PR 4 deletes stored status, and with it that vocabulary, the stats
+buckets and the filters. Collapsing to `running` now would churn all three twice.
+
+**Cancel convergence and the reaper share one finalize** (D79). Building the
+reaper's write path found that `_force_cancel_convergence` wrote `succeeded`
+from a durable report whenever it saw no live owner, while the lock-holding
+reaper derived `cancelled` for the same row. Equal origins meant the first write
+won, so ordering decided the outcome. On main both used "report ⇒ succeeded" and
+agreed by accident. Decided: one state-layer `claim_dead_launch` that both use,
+writing the derived outcome under the lock, behind one service method,
+`finalize_dead_launch`. Rejected:
+- making `derive` honour reports, which contradicts the design's
+  report-through-outcome rule and the killed-while-finalizing change the owner
+  approved;
+- having the reaper skip rows with a cancel intent: reads would still say
+  `cancelled` while cancel persisted `succeeded`, so the status would flip.
+
+**Selection for convergence or destruction uses stored status; liveness
+questions use derived status** (D80). The final review found descendant
+cancellation and archive selecting by derived status, which skipped or archived
+dead rows that still needed a writer; the round-2 probe found the same in
+doctor's warning (D82). The rule and the three cases are in
+[derived status](../architecture/state-system/derived-status.md#selection-versus-liveness).
+
+**The reaper never finalizes a lockless row.** A build before PR 2
+may still be running it, and only its own reaper can know. Explicit cancel keeps
+main's lattice for lockless rows; cleanup of a lockless row that is already
+terminal is allowed once its old runner is gone, because cleanup is not
+finalization.
+
+**The heartbeat and the launch-boundary journal were deleted, not left
+unread.** Once readers used the lock, both became write-only. The structure
+review asked for the journal's module, call sites, lock class and docs to go in
+the same PR.
+
+**Owner rulings** (2026-10-17, on D78's open questions):
+- the 30 s PID-birth slack: "Readers only". PR 3 removes it from every status
+  reader and the reaper; cancel's signal targeting keeps it until PR 4 rewrites
+  cancel;
+- a managed primary crash showing `failed`/`crashed` instead of main's
+  `cancelled`/130: "Accept, state it". Since #658, SIGTERM and SIGHUP primaries
+  finalize themselves, so only SIGKILL and OOM reach it.
+
+The other two behaviour changes, killed-while-finalizing → `crashed` and
+cancel-of-a-dead-spawn-with-a-report → `cancelled`, follow from the same rule and
+are stated in the PR body for the merge ask.
+
+**Residuals:**
+- **Not claimed:** consistency against racing writes. Cancel's request and the
+  managed-cancel `mark_finalizing` are still written outside the lock; PR 4 moves
+  every lifecycle write under it.
+- Handed to PR 4 (`pr-plan.md`, "From PR 3's gate"): cancel's
+  `_has_live_execution_owner` slack gate can veto the lock; cancel of an
+  already-dead launch waits out a 5 s grace; a derived terminal's `finished_at`
+  is `""`; `managed_primary.release_managed_primary_scopes` still gates on a
+  birth-checked PID.
+- **#671:** a parent's finish or cancel never converges its descendants;
+  `cancel_descendants` runs only from resident-drain cleanup. It predates PR 3
+  and needs a policy decision.
+- Readers don't persist. A dead launch stays stored-active until
+  `doctor --kill-orphans`, the background repair, or cancel writes it; plain
+  `doctor` warns `dead_spawns_unfinalized`.
+
+Lessons: [state design](../lessons/state-design-lessons.md#a-deleted-rule-survives-in-other-writers-and-in-fixtures),
+[test determinism](../codebase/test-determinism.md#fixtures-that-mean-live-must-hold-the-lock),
+[verification](../lessons/verification-and-review-discipline.md#compare-against-the-base-before-calling-a-probe-failure-a-regression).
+
+**Provenance:** `work:v010-followups` D77–D82 (`pr-body-read-derived.md`,
+`design-identity-v2/pr3-dag.md`, `lane-b-terminal-writer-blocker.md`,
+`reviews/pr3-*.md`); reader map `spawn:p8418`; implementers `spawn:p8421`,
+`spawn:p8426`, `spawn:p8433`, `spawn:p8427`, `spawn:p8428`, `spawn:p8429`,
+`spawn:p8451`, `spawn:p8452`, `spawn:p8459`; reviewers `spawn:p8444`,
+`spawn:p8445`, `spawn:p8446`, `spawn:p8447`, `spawn:p8453`, `spawn:p8454`;
+probers `spawn:p8448`, `spawn:p8455`; investigator `spawn:p8456`.
 
 ### Rejected
 

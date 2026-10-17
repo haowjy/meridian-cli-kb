@@ -109,9 +109,21 @@ last status. Rejected: reordering the product to adopt before persisting (that
 weakens failed-write semantics), and loosening the assertion (the test would stop
 guarding against double notification).
 
+#662 was the same window in the other direction: memory ahead of disk. The
+managed-bash ping-retry test waited for its failing ping callback to have run
+once, slept 60 ms, then asserted that `bash-records.json` showed the failed claim
+released (`ping_sent_at_ms: null`). The callback counts the attempt before it
+throws, and `firePing()` publishes the release later, asynchronously. One CI run
+read the file between the two and saw the claim still set; 150 local loops
+never did. The fix (#664, test-only) polls the records file until the release
+is on disk, then keeps the 60 ms only as the window in which a broken hook would
+retry. Deleting the test was rejected: it is the only coverage of retry through
+rebound hooks.
+
 **The rule.** Synchronize on the condition the code under test reads. If the
-assertion is about what an API does, wait on that API's own answer. A file, a log
-line or a sibling projection can lead or lag it.
+assertion is about what an API does, wait on that API's own answer; if it is
+about what reached disk, wait on the file. A callback, a counter, a log line or a
+sibling projection can lead or lag it.
 
 ## Wait for the Runner Before Deleting a Spawn Directory
 
@@ -126,6 +138,56 @@ with `ENOTEMPTY`. The fix waits for the runner to exit too; the file then passed
 process that writes there to exit, the runner included. "The harness is done" is
 not "nothing writes here any more". Since #647 the runner's exit is observable as
 `spawns/pN/launch.lock` becoming free.
+
+## Fixtures That Mean "Live" Must Hold the Lock
+
+Under [derived status](../architecture/state-system/derived-status.md) (identity-v2 PR 3),
+a stored-active row reads as `running` only while something holds its
+`spawns/pN/launch.lock`. A row seeded with no lock file is a pre-PR-2 legacy
+row, and `legacy_runner_alive` keeps it alive only for 15 s after `started_at`
+when it has no runner PID. A test that seeds such a row and means "a live
+spawn" passes only because it reads within that grace. Under xdist load or a
+slow first import the row flips to `failed` and the test fails: the timing-flake
+class PR 3 exists to remove.
+
+- **A fixture that means "live" holds a `LaunchSlot`** (or a subprocess holding
+  the lock) for the duration of the test. PR 3 converted idle children, spawn
+  tree, API stats, runner-history prune and the Pi drain fixtures.
+- **A lockless row is only for testing legacy behaviour.** A test of the rule
+  "the reaper never finalizes a lockless row" must use a row *past* the grace;
+  inside it, `read_derived` already calls the row alive, so the test passes
+  whether or not the reaper skips lockless rows.
+- **A fixture that means "dead" uses a free lock**, or a reaped child's PID and
+  birth for legacy rows. Never a large constant PID such as `999_999`:
+  `pid_max` can exceed it, and cancel will signal whatever process owns it.
+
+## Race Tests Must Go Red Against the Split Implementation
+
+`read_derived` is correct only because it holds the shared lock *across* the row
+read. The first version of `test_read_derived_races` ran a real writer against a
+real reader and claimed to cover both orderings. The test-architecture review
+swapped in the two broken versions:
+
+| Implementation under test | Runs that went red |
+|---|---|
+| try the lock, release, then read the row | 0 of 20 |
+| read the row, then try the lock | 19 of 20 |
+| the real `read_derived` | 0 of 20 |
+
+The first window is a few microseconds; across about 36,000 free-running reads
+it was hit once. Black-box timing can't red-prove it.
+
+The fix made the interleaving deterministic: in that test only, a wrapper around
+`spawn_status.read_state` tells the writer to try `LOCK_EX|LOCK_NB` and publish
+an active row before the read proceeds. With the real implementation the shared
+lock blocks the writer; with the split one the writer gets in and the reader
+reports `crashed`, every time. Coupling the test to one internal call is
+justified because the property under test is "held across the read".
+
+**The rule.** A race test is evidence only after it fails against each plausible
+wrong implementation. Write the split versions, run the test against them, and
+record the red output with the PR. If timing can't hit the window reliably,
+inject the interleaving at the seam the property is about.
 
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 

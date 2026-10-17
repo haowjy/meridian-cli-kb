@@ -92,8 +92,10 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 These explain the reaper on `main`. Each guard below patched a guess, and the
 windows the guesses left are why [identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)
-replaces the reaper's liveness with an exact lock (PRs 3 and 4). See
-[exact liveness beats guessed liveness](#exact-liveness-beats-guessed-liveness).
+replaces the reaper's liveness with an exact lock. PR 3 (built, awaiting merge)
+deletes every guard below; the list of what went and why it must not come back
+is in [derived status](../architecture/state-system/derived-status.md#deleted-mechanisms-do-not-bring-back).
+See [exact liveness beats guessed liveness](#exact-liveness-beats-guessed-liveness).
 
 ### Heartbeat-Based Liveness Over PID-Only
 
@@ -196,6 +198,43 @@ holder dies, however it dies.
 M2 answers "is the runner alive", not "is everything this launch started gone".
 That second question is containment, solved separately
 ([process containment](process-containment.md)).
+
+### A deleted rule survives in other writers and in fixtures
+
+Main's reaper turned a durable `report.md` into `succeeded`. Identity-v2 drops
+that rule: a report counts only through an outcome the lock holder writes. PR 3
+deleted it from the reaper and from `derive`, and two more copies surfaced later.
+
+- **A second writer.** Cancel convergence (`_force_cancel_convergence`) applied
+  the same rule through `resolve_completion_cancel_precedence`. With the reaper
+  now deriving `cancelled` for a dead row with a cancel intent, the two writers
+  disagreed, and whichever wrote first won. On main they had agreed only because
+  both carried the rule. The fix routed both through one claim
+  ([D-spawn-identity-v2, PR 3](../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
+- **Test fixtures.** Two Pi drain tests staged a lockless `finalizing` child with
+  a `report.md` and relied on the reaper overlay reading it as completed to reach
+  the publication-pending path. They passed on base and failed only in the
+  extended tier of the full preflight. The product was right; the fixtures
+  encoded the deleted rule. They now stage a live child as a lock holder and an
+  undelivered result as a finished, unconsumed child.
+
+**When deleting a rule, search for every place that applies it, not just the
+module that named it:** other writers of the same field, and fixtures whose
+setup only reaches the state under test through the rule. A rule that two
+writers share looks like agreement until one of them changes.
+
+### "Every reader" sweeps in selectors
+
+PR 3's brief was "every reader moves to `read_derived`". Applied mechanically, it
+also moved code that *selects rows for a writer*: descendant cancellation,
+archive capture and doctor's warning. Derived status hides a dead launch as
+`failed` until someone persists it, so those selectors skipped exactly the rows
+they existed to handle. Three reviews found three instances (D80, D82).
+
+The working rule: **selection for convergence or destruction uses stored status;
+liveness questions use derived status**
+([derived status](../architecture/state-system/derived-status.md#selection-versus-liveness)).
+Before migrating a "reader", ask whether its answer feeds a write or a delete.
 
 ## Repair the State Before Relaxing the Check
 

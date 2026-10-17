@@ -30,7 +30,8 @@ authority.
 > derived: `running` while the runner holds `spawns/pN/launch.lock`, otherwise the
 > outcome the lock holder wrote once, or `failed`/`crashed` if none. `queued` and
 > `finalizing` stop being statuses. The heartbeat, the reaper's status writes and
-> the graces below are deleted (PRs 3–4).
+> the graces below are deleted (PRs 3–4). PR 3 is built and awaiting merge; its
+> mechanism is [derived status](../architecture/state-system/derived-status.md).
 
 ### Primary vs Child
 
