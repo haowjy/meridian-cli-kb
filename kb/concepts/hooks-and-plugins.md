@@ -165,17 +165,17 @@ The plugin API surface includes:
 - Git helpers: run git commands with proper error handling
 - File locking: coordinate concurrent access via the Meridian lock primitives
 - Path utilities: `generate_repo_slug()`, context root resolution
-- Notification delivery: `plugin_api.notify.deliver()` and the `Notification` type
+- Notification types: `Notification` and `NOTIFICATION_EVENTS`
 
 ---
 
 ## Notifications: the Built-In `notify` Route
 
 Idle push, the cache warning and `meridian notify "<title>" ["<body>"]` build a
-`Notice`; `lib/notify/emit.py` fires its event through `HookDispatcher`. The
-built-in `notify` hook (`lib/hooks/builtin/notify.py`) calls
-`plugin_api.notify.deliver()`, which wraps `lib/notify`'s transports (ntfy,
-SMTP/Gmail, `command`).
+`plugin_api.Notification`; `lib/notify/emit.py` fires its event through
+`HookDispatcher`. The built-in `notify` hook (`lib/hooks/builtin/notify.py`)
+calls `lib/notify`'s `send()` directly (a companion it wraps, imported lazily)
+to reach the transports: ntfy, SMTP, Gmail, `none`.
 
 ```toml
 # Cache warnings to push only, at priority 5 (replaces that event's default route)
@@ -195,12 +195,15 @@ command = "scripts/slack-notify.sh"
 
 - `channels`: `push` / `email` aliases or backend names; default both.
   `priority`: 1–5.
-- A `builtin = "notify"` row for an event, even with `enabled = false`,
-  replaces only that event's default route.
-- `emit` folds route results into one `SendReport`: the built-in route's
-  per-transport results (from its stdout, under `notify_report`) and
-  `hook:<name>` for command hooks. Idle marks a stage failed only when some
-  route ran and all failed; no route at all is ok with a warning.
+- The default routes are a `default` source below `user`, one row named
+  `notify` per event. An unnamed `builtin = "notify"` row is named `notify`,
+  so a row for an event, even with `enabled = false`, replaces only that
+  event's default through the ordinary `(name, event)` override.
+- `emit` makes one `SendResult` per route, named by the hook: delivered,
+  failed (the built-in's error names each failed transport), or `none` (a
+  skipped route, such as every backend `none`). Idle marks a stage failed only
+  when a route failed and none delivered; no route at all is ok with a
+  warning.
 
 There is no separate `[notify.channels]` or `[[notify.routes]]` table: hook
 rows are the routes and command hooks are the channels.

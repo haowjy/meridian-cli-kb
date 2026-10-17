@@ -14,17 +14,17 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
 - **`lib/notify/`** delivers notices. It builds the reason-first session
   context (terminal, actor, and explicit work/project label; see
   [D-idle-notice-context](#d-idle-notice-context--reason-first-titles-and-send-time-cache-countdown))
-  and owns the transports: `ntfy`, `smtp`, `gmail` (an SMTP preset),
-  `command`, `none`. Since
-  [D-notify-hook-events](#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)
-  nothing calls the transports directly: a notice is fired as a hook event and
-  the built-in `notify` hook reaches them through `plugin_api.notify`; new
-  channels are command hooks, not registry entries. `meridian notify` works
+  and owns the transports: `ntfy`, `smtp`, `gmail` (an SMTP preset), `none`
+  (the `command` transport went with
+  [D-notify-hook-events](#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
+  Since then nothing else calls the transports: a notification is fired as a
+  hook event and the built-in `notify` hook calls `send()`; new channels are
+  command hooks, not registry entries. `meridian notify` works
   with idle turned off. ntfy titles are RFC
   2047-encoded, because the HTTP `Title` header is Latin-1 and the label's `·`
   would otherwise arrive mangled.
 - **`lib/idle/`** holds the policy: a pure timeline, pure guards, a service
-  over the state file, and the sidecar loop. It builds `lib.notify.Notice`
+  over the state file, and the sidecar loop. It builds `plugin_api.Notification`
   values and hands them to `lib.notify.emit` (until D-notify-hook-events it
   called `lib.notify.send` directly); `lib/notify` never imports `lib/idle`.
   The service's `notify_sender` parameter is only a seam for tests.
@@ -95,27 +95,36 @@ deliver it.
 
 - **Three new observe-class events:** `session.responded` (the idle waiting
   push), `session.cache_expiring` (the cache warning) and `notify.manual`
-  (`meridian notify`). Idle push/warn and the CLI build a `Notice`;
-  `lib/notify/emit.py` fires its event through `HookDispatcher`, next to
-  `spawn.finalized` and `work.done`.
-- **Delivery is a built-in hook, `notify`** (`lib/hooks/builtin/notify.py`,
-  `plugin_api` imports only). It calls `meridian.plugin_api.notify.deliver()`,
-  which wraps `lib/notify`'s transports. Options: `channels` (the `push` /
-  `email` aliases or backend names; default both) and `priority` (1–5).
-- **Default routes.** Meridian adds a `notify` row (source `default`,
-  `auto_registered`) for every notification event that no config row routes.
-  A `builtin = "notify"` row for an event, even a disabled one, replaces that
-  event's default only. Out of the box, delivery is unchanged.
+  (`meridian notify`). Idle push/warn and the CLI build one
+  `plugin_api.Notification`, the only notification value;
+  `lib/notify/emit.py` fires it as its event through `HookDispatcher`, next
+  to `spawn.finalized` and `work.done`.
+- **Delivery is a built-in hook, `notify`** (`lib/hooks/builtin/notify.py`).
+  It calls `lib/notify`'s `send()` directly, lazily, as a companion it wraps,
+  the way `git-autosync` uses `autosync_store`. Options (a Pydantic model the
+  builtin owns): `channels` (the `push` / `email` aliases or backend names;
+  default both) and `priority` (1–5).
+- **Default routes are the lowest config layer.** Source `default`, below
+  `user`: one row named `notify` per notification event. An unnamed
+  `builtin = "notify"` row is named `notify` (the builtin's
+  `identity_options` is empty), so a row for an event, even a disabled one,
+  replaces that event's default through the ordinary `(name, event)`
+  override. Out of the box, delivery is unchanged.
+- **Email opt-out belongs to the backend.** A notification with
+  `email = false` (`--no-email`, the idle push, `warn_email = false`) skips
+  `smtp` and `gmail` however a route names them, not only via the `email`
+  alias.
 - **Extension channels are ordinary command hooks.** Their JSON stdin carries
   a `notification` object (`title`, `body`, `priority`, `email`, `label`) and
   their env `MERIDIAN_NOTIFICATION_TITLE`, `_BODY` and `_PRIORITY`. A Slack or
   desktop channel is one `[[hooks]]` row plus one script.
 - **Idle still records `push|warn: sent|failed`** (the issue's first open
-  question). `emit` folds route results into a `SendReport`: the built-in
-  route's per-transport report travels in its `HookResult` stdout under
-  `notify_report`; a command hook appears as `hook:<name>`. A stage is marked
-  failed only when some route ran and every one failed. If no route ran, the
-  result is ok with a warning.
+  question). `emit` makes one `SendResult` per route, named by its hook: the
+  built-in's failure names each failed transport in its error, and a route
+  that delivered nothing is `none`. A stage is marked failed only when a
+  route failed and none delivered. If no route ran, the result is ok with a
+  warning. The emitter reports route failures, so the dispatcher logs them at
+  info rather than printing a second warning.
 - **`meridian notify "<title>" ["<body>"]`.** `--title` is removed; the
   session headline always ends the body.
 - **Hooks fire without a runtime root.** In an ad-hoc directory nothing has
@@ -125,7 +134,18 @@ deliver it.
 - **Plugin API 2.0.0.** `lib/hooks` reuses `plugin_api`'s `HookContext`,
   `HookResult` and `HookEventName` (they were identical duplicates).
   `HookContext.runtime_root` is optional, a `notification` field is added, and
-  the hook payload is `schema_version` 2.
+  the hook payload is `schema_version` 2. `Notification` validates its own
+  title and priority.
+
+**Reshaped after a thermo-nuclear review (2026-10-17, user: "yea fix"):** the
+first cut converted `Notice` → `Notification` → `Notice`, returned the
+per-transport report as JSON in `HookResult.stdout` (so any command hook
+printing `notify_report` was read as delivery results), delivered through a
+`plugin_api.notify.deliver()` that imported `lib/notify` and `lib/config`,
+appended default routes after layering under a second override rule, kept
+the `command` transport (which re-read push/email config and ran both
+commands for a push-only route), and gated email only on the `email` alias.
+All of that is gone; the bullets above are the result.
 
 **Why:** Two systems overlapped. `lib/notify` had a fixed channel registry
 and idle called `notify.send` directly; `lib/hooks` already had events,
@@ -145,6 +165,10 @@ puts them on the one extension seam Meridian already has.
   would still live outside hooks.
 - **A fail-open hook with no recorded outcome.** Idle's `done` record would
   lose `push: failed`; folding route results keeps it.
+- **A `command` notify backend next to command hooks.** Two ways to run a
+  program on a notification; the hook is the one with routing.
+- **`plugin_api.notify.deliver()`.** One caller (the built-in), and it made
+  the plugin API depend on Meridian's internals.
 
 **Attachments (#666), same branch, asked for by the user alongside this:**
 `meridian notify --attach <path>` (repeatable). Paths resolve and must be
