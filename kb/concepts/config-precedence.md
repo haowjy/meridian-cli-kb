@@ -212,7 +212,7 @@ per-harness idle models are still separate generated model classes, built by
 name. Idle's effective-value resolver adds one feature-specific rule on top of
 ordinary file loading: compare precedence level first, then use the
 per-harness value over the global value within that level. Thus
-`MERIDIAN_HARNESS_IDLE_COMPACT_CODEX` beats `MERIDIAN_IDLE_COMPACT`, either env
+`MERIDIAN_HARNESS_IDLE_ENABLED_CODEX` beats `MERIDIAN_IDLE_ENABLED`, either env
 value beats every file, and a per-harness file key beats a global file key
 after the file layers merge. See
 [Idle Notifications](../decisions/idle-notifications.md#d-idle-config--separate-notify--idle-namespaces-standard-precedence).

@@ -2,8 +2,16 @@
 
 This page records why OpenCode 2.x needs a separate idle sensor and how its
 transport choice and long-lived primary observer were decided. The current
-event, inbox, compaction, and reconnecting-stream mechanism lives in
+event, inbox, and reconnecting-stream mechanism lives in
 [Idle Adapter Architecture](../architecture/idle-adapters.md).
+
+Meridian-initiated compaction on both dialects (the `/api/session/{id}/compact`
+and `/session/{id}/summarize` calls, the compaction waiter and its durable
+completion check) was deleted with
+[D-idle-compaction-removed](idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions). The compaction parts of this record are
+history. The V2 sensor still ignores inbox items of type `compaction`, and V1
+still classifies OpenCode's own compaction messages, so a native compaction is
+not taken for a user return.
 
 ## D-opencode-idle-v2 — OpenCode 2.x gets its own sensor, chosen by the resolved transport
 
@@ -75,9 +83,9 @@ The mode comes from the existing `_primary_observer_mode`; review rejected a
 new `EventStreamLifetime` enum as a second name for the same fact. A
 compaction missed during a reconnect is confirmed from durable data. The check
 requires the compaction message to be `completed`, not just present, because
-OpenCode writes that message at admission. The exact reconnect, timeout, and
-durable-data checks are in
-[Adapter contracts](../architecture/idle-adapters.md#adapter-contracts).
+OpenCode writes that message at admission. The reconnect rules are in
+[Adapter contracts](../architecture/idle-adapters.md#adapter-contracts); the
+durable-data check went with Meridian's compaction.
 
 Live check: a Meridian-initiated compaction came back `ok` with a native
 compaction marker, the next turn opened stretch 2, and a one-shot OpenCode
@@ -96,7 +104,7 @@ so they were not waited out.
 
 ## Related
 
-- [Idle Notifications and Idle Compaction](idle-notifications.md): shared idle policy, config, and harness-hosting rationale.
+- [Idle Notifications](idle-notifications.md): shared idle policy, config, and harness-hosting rationale.
 - [Idle Adapter Architecture](../architecture/idle-adapters.md): current OpenCode V1/V2 contracts and known fragility.
 - [Idle TTL Detection](idle-ttl-detection.md): provider-derived TTL mapping.
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md): provider retention evidence.

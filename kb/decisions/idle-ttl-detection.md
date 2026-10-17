@@ -15,6 +15,11 @@ idle notifications: Claude, Pi, and OpenCode 2.x.
 - OpenCode provider TTL (D7) shipped in v0.9.9 (PR #573). Builds up to 0.9.8
   still carry the 300 s OpenCode default.
 - The user confirmed D5 and D7 (1800 s on the ChatGPT backend) on 2026-10-14.
+- Meridian idle compaction was deleted on 2026-10-17
+  ([D-idle-compaction-removed](idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)).
+  Detection now places only the push and the warning; mentions of the compact
+  stage below record what was verified and argued at the time. The cold-cache
+  risk of a too-long estimate now falls on the warning.
 
 ## D-idle-ttl-detection — Detection reads launch records, never a cwd
 

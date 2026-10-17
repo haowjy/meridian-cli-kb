@@ -3,7 +3,7 @@
 This page owns the notification-side decisions for idle automation: the leaf
 package boundary, notice context, channel secrets, and deliberate spawn
 notifications. The idle schedule and harness mechanism remain in
-[Idle Notifications and Idle Compaction](idle-notifications.md) and
+[Idle Notifications](idle-notifications.md) and
 [Idle Adapter Architecture](../architecture/idle-adapters.md).
 
 ## D-idle-leaf-packages — `lib/notify` and `lib/idle` are leaf services
@@ -50,8 +50,9 @@ from import-time checks (G2 K3).
 **Decision:** Idle notice
 titles lead with the reason, then include the terminal and explicit work
 context when available. The shape is `[idle] a2: pi on work: "idle-cache-notify"`;
-cache warnings use `[cache warning]`, and compaction results use their result
-reason (`[compacted]`, `[compaction failed]`, or `[compaction skipped]`). The
+cache warnings use `[cache warning]`. (Compaction-result titles such as
+`[compacted]` went with Meridian's idle compaction,
+[D-idle-compaction-removed](idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).) The
 terminal prefix is the recorded tmux session when present, and is omitted
 outside tmux. A work item is labelled explicitly; when there is no work item,
 an explicitly labelled project is used when available. Custom titles supplied
@@ -62,14 +63,13 @@ Idle and cache-warning notices calculate the remaining cache lifetime **at send
 time**, from the persisted idle anchor and TTL. A known TTL is shown plainly;
 an estimated TTL is prefixed `est.`; an unknown TTL has no countdown. The
 renderer uses `<1 min until cold` below a minute and `cache cold` after the
-deadline. Compaction-result notices omit the old countdown because compaction
-may refresh the cache. `ttl_estimated` is persisted with the idle state, with
+deadline. `ttl_estimated` is persisted with the idle state, with
 old records defaulting conservatively to estimated. Claude's observed transcript
 TTL and Pi's Anthropic retention are known. Pi's `openai` and `openai-codex`
 heuristics and OpenCode's `openai` mapping are estimated, and so are explicit,
 configured and default TTLs
 ([D-idle-ttl-detection](idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)). This changes notice context only;
-the schedule and compaction guards are unchanged.
+the schedule and guards are unchanged.
 
 **Why:** A reason-first title tells the user why a notice arrived, while the
 terminal and explicit work label identify which session needs attention. Rendering
@@ -104,12 +104,12 @@ password is a full-mailbox credential.
 
 **Decision (U2):** Any agent, spawn included, may call `meridian notify`
 deliberately. A meridian-base prompt rule says when: blocked on a decision,
-long work done, or a failure; not for routine progress. Idle push, warn and
-compaction run only in primaries.
+long work done, or a failure; not for routine progress. Idle push and warn
+run only in primaries.
 
 ## Related
 
-- [Idle Notifications and Idle Compaction](idle-notifications.md): core idle policy, lifecycle, and remaining decision rationale.
+- [Idle Notifications](idle-notifications.md): core idle policy, lifecycle, and remaining decision rationale.
 - [Idle Adapter Architecture](../architecture/idle-adapters.md): current notify delivery locations and adapter mechanism.
 - [Config Precedence](../concepts/config-precedence.md): standard precedence and config-key declarations.
 - [Launch System](../architecture/launch-system.md): child-environment secret boundaries.

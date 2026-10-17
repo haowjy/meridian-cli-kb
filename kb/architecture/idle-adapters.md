@@ -10,7 +10,7 @@ record retains the rationale, rejected alternatives, and decision history in
 | Concern | Code |
 |---|---|
 | Notify delivery and CLI | `src/meridian/lib/notify/`, `src/meridian/cli/notify_cmd.py` |
-| Idle policy, sidecar, CLI, and state | `src/meridian/lib/idle/`, `src/meridian/cli/idle_cmd.py`, `src/meridian/lib/state/idle_store.py`; TTL detection reads the chat's `native_store` through `src/meridian/lib/state/session_store.py` |
+| Idle policy, sidecar, CLI, and state | `src/meridian/lib/idle/` (`timeline.py` schedule, `guards.py` fire checks, `wake.py` running-work reading, `service.py` transitions, `sidecar.py` launcher loop), `src/meridian/cli/idle_cmd.py`, `src/meridian/lib/state/idle_store.py`; TTL detection reads the chat's `native_store` through `src/meridian/lib/state/session_store.py` |
 | Harness ports and Python adapters | `src/meridian/lib/harness/idle_types.py`, `bundle.py`, `claude_idle.py`, `pi_idle.py`, `codex_idle.py`, `opencode_idle.py` (V1 and V2 sensors, provider TTL); OpenCode dialect dispatch reads `connections/opencode_connection.py` `resolved_version` |
 | In-harness adapters | `src/meridian/claude_runtime/meridian-idle/`, `src/meridian/pi_runtime/extensions/meridian-idle/` |
 | Launch hosting | `src/meridian/lib/launch/process/primary_attach.py` |
@@ -19,6 +19,9 @@ record retains the rationale, rejected alternatives, and decision history in
 
 ## Per-harness coverage
 
+Idle has two stages: the "waiting on you" push and the cache-expiry warning.
+Meridian does not compact idle sessions; each harness compacts on its own
+([D-idle-compaction-removed](../decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)).
 What each harness schedules, where its TTL comes from, and the last time the
 path was seen working outside unit tests. "Live" means a real interactive
 primary; "replay" means the installed CLI driven with recorded session facts
@@ -26,28 +29,30 @@ and scratch state.
 
 | Harness | Arms on | TTL source | Stages | Last verified |
 |---|---|---|---|---|
-| Claude | mod: `turn.complete` | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn, compact | Replay on installed 0.9.8, 2026-10-14: `ttl=3600`, all three stages for a session that had changed directory. Idle compaction fired live once, 2026-10-12 (session `c64e02c6`, `compact: ok`). |
-| Pi | extension: `agent_end` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn, compact scheduled on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise. The compact stage skips as `not-worth-it` unless `compact_min_growth_tokens` is set ([why](../decisions/idle-compaction-growth-floor.md#pi-stays-never-until-in-context-compaction-ships)) | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with all stages scheduled; `xai` push only. Meridian-initiated compaction ran live on Pi 1.2.0 under the pre-v0.10.6 floor (41.9k → 29.5k; Pi keeps the newest 20k), `work:idle-close-no-compact` `evidence/probe-pi-control-2.md`. |
-| Codex | `notify` callback on turn completion, pinned to the recorded thread | `[harness.codex.idle] ttl_seconds` default 1800, estimated | push, warn, compact | Idle compaction fired live 2026-10-14 (`spawn:p7893`, `gpt-5.6-luna`, `compacted` marker). Composer clear, popup veto, resize and unreadable-screen notice probed live on codex-cli 0.162.1, 2026-10-15. |
-| OpenCode 2.x | V2 sensor: `session.execution.{succeeded,failed,interrupted}` | provider read from `GET /api/session/{id}` at turn end; `openai` → 1800 est., everything else unknown | `openai`: push, warn, compact. Others: push only | Released in v0.9.9 (PR #573); the stream fix shipped in v0.10.5. Live with opencode 2.0.28: `openai/gpt-6-luna` → all three stages with 1800 s offsets; other providers → push only; steer and queued prompts close the stretch. Meridian-initiated compactions ran live 2026-10-14 (`spawn:p7902`, `spawn:p7914`); the break-even rule on `openai` has not fired live. Released ≤0.9.8 arms nothing on 2.x. |
+| Claude | mod: main-loop `turn.complete`, with the background tasks from the `classic.Stop` just before it | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn; the push is held or delayed by running work ([below](#running-work-and-the-push)) | TTL replay on installed 0.9.8, 2026-10-14: `ttl=3600` for a session that had changed directory. The running-work hold is covered by the mod's `register.test.ts` and core's `tests/unit/idle/test_wake.py`; no live probe is recorded here. |
+| Pi | extension: `agent_end`, once `ctx.isIdle()` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with the warning scheduled; `xai` push only. |
+| Codex | `notify` callback on turn completion, pinned to the recorded thread | `[harness.codex.idle] ttl_seconds` default 1800, estimated | push, warn | Live on installed 0.9.8: the sidecar armed with the 1800 s schedule and a real turn sent the push (`work:idle-ttl-detection` D8; probes `spawn:p7759`, `spawn:p7767`). Reopen close confirmed live (`spawn:p7893`). |
+| OpenCode 2.x | V2 sensor: `session.execution.{succeeded,failed,interrupted}` | provider read from `GET /api/session/{id}` at turn end; `openai` → 1800 est., everything else unknown | `openai`: push, warn. Others: push only | Released in v0.9.9 (PR #573); the stream fix shipped in v0.10.5. Live with opencode 2.0.28: `openai/gpt-6-luna` → push and warn with 1800 s offsets; other providers → push only; steer and queued prompts close the stretch. Released ≤0.9.8 arms nothing on 2.x. |
 | OpenCode 1.x | frozen V1 sensor: `session.idle` | none (V1 never reports a provider) | push only | Probed live on 1.18.32 when the adapter was built (2026-10-08). Not re-run in phase 2; dispatch to it is covered by unit tests. |
 | Cursor | — | — | none | No primary path. |
 
-### Hosts and actuators
+Only Claude reports running work today. Codex, OpenCode and Pi arms carry no
+background tasks, so they get the ordinary push (#669).
+
+### Hosts
 
 Why each adapter runs where it does is in
 [D-idle-adapter-hosting](../decisions/idle-notifications.md#d-idle-adapter-hosting--where-each-adapter-runs).
 
-| Harness | Adapter host | How it gets there | Compacts with |
-|---|---|---|---|
-| Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only | `$.session.compact()` |
-| Pi | bundled `meridian-idle` extension | `-e` entrypoint, interactive launch profile only | `ctx.compact()` |
-| Codex | `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only | tmux: screen-gated composer clear, `/compact`, Enter; `ok` on a new `compacted` rollout record |
-| OpenCode | task in the attach launcher | bundle hook `primary_idle_sensor`; V1 or V2 sensor from the connection's resolved version | 2.x: `POST /api/session/{id}/compact`. 1.x: `POST /session/{id}/summarize` with the session's current model |
+| Harness | Adapter host | How it gets there |
+|---|---|---|
+| Claude | mod inside Claude Code | bundled in meridian-cli, `--plugin-dir` on interactive launches only |
+| Pi | bundled `meridian-idle` extension | `-e` entrypoint, interactive launch profile only |
+| Codex | `notify` command plus a task in the attach launcher | `-c notify=[…]` on the app-server, interactive only |
+| OpenCode | task in the attach launcher | bundle hook `primary_idle_sensor`; V1 or V2 sensor from the connection's resolved version |
 
 The launcher task's lifecycle (started after the TUI, cancelled and awaited
-before the connection stops, compaction as its own task) is in
-[Launch System](launch-system.md).
+before the connection stops) is in [Launch System](launch-system.md).
 
 ## Adapter contracts
 
@@ -55,41 +60,24 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
 
 - **Claude.** A user return is `prompt.submit` or `command.run` with
   `origin.kind` `composer` or `bridge` (the phone/web client), not
-  `turn.start`. `$.session.compact()` is called only from a `$.clock.after`
-  callback. The mod can't see its own compaction turn, so it trusts the compact
-  promise's result. Between `act` and the compact call it re-checks the return
-  epoch. Unsent composer text never vetoes. Under `claude -p` (`isInteractive === false`, no surface)
-  it never calls meridian.
+  `turn.start`. Injected origins (a `task-notification`, a peer, a plugin) are
+  not returns. Only the main loop's `turn.complete` (no `agentId`) arms.
+  Under `claude -p` (`isInteractive === false`, no surface) the mod never
+  calls meridian.
 - **Pi.** A user return is `input` with `source === "interactive"`. The handler
   cancels timers synchronously and queues `idle return` behind any in-flight
   arm without awaiting the CLI. Pi awaits input handlers, so an awaited CLI
-  call cost every prompt about 0.5 s (G2 P1). After `act`, the extension
-  re-checks the return revision, `isIdle()` and pending messages, and reports
-  `vetoed` if any changed. Unsent composer text never vetoes. Pi's `ctx.compact()` aborts the running
-  turn, so compacting over a just-sent prompt would destroy it (G2 P2). Pi
-  doesn't expose `compaction.enabled` to extensions, so that guard stays
-  unknown for Pi.
+  call cost every prompt about 0.5 s (G2 P1). `agent_end` arms on the next
+  event-loop turn and only when `ctx.isIdle()`, passing `--provider` for TTL
+  detection.
 - **Codex.** `notify` fires on the app-server/TUI path and is pinned to
   meridian's recorded `harness_session_id`; threads with no stored state are
   dropped. `input-messages` is cumulative, so a return is a growth in its
-  length, not a non-empty list. Push and warn are skipped while the pane shows
-  Codex working, because Codex has no return signal until the turn ends
-  (G2 K2). The actuator (`codex_idle.py`) requires the focused-composer layout
-  of codex-cli 0.162.1, read bottom-up from the pane: two blank rows above a
-  column-zero `›` prompt, indented continuation rows, a blank bottom margin, a
-  non-empty indented status row, and a footer ending `… for shortcuts` (empty
-  composer) or blank (draft). A slash popup takes the blank rows; modals, the
-  agents overview and transcript views replace the footer; so none of them
-  match. It rejects `Working (`, types the primer `ix` and verifies the text
-  is exactly the old text plus `ix`, re-checks busy and liveness, sends Ctrl+C
-  to clear the composer, confirms it is empty, types `/compact`, verifies it,
-  presses Enter, and reports `ok` only when a newly appended `compacted`
-  rollout record is observed. An unrecognized screen is re-read for about 10 s,
-  then vetoed as `screen-not-recognized` without sending a key. Why the clear
-  is gated this way is in
-  [D-idle-compact-over-drafts](../decisions/idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text).
-  An empty composer appears as soon as any turn starts and is no evidence of
-  completion (G2 K1).
+  length, not a non-empty list; it reaches core as an arm with
+  `--implies-return`. Codex has no return signal until a turn ends, so the
+  sidecar asks the sensor's `busy()` before firing each stage and skips push
+  and warn while the tmux pane shows `Working (` (G2 K2). Only sensors marked
+  `external_events` (Codex) get that check.
 - **OpenCode 2.x** (PR #573, v0.9.9; probed on 2.0.28). Events reach the
   sensor through the V2 transport's normalizer, which flattens `data` and keeps
   the envelope `id` as the turn ID. Only events for the launched parent
@@ -102,57 +90,61 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
     `.interrupted`; `session.execution.started` marks busy. V2 emits neither
     `session.status` nor `session.idle`.
   - *User return* fires on `session.inbox.enqueued` for an item of type `user`,
-    and again on `session.inbox.delivered` for that ID unless Meridian is
-    compacting. Enqueue covers a prompt steered into the running execution,
-    which never starts a new one. Delivery covers a queued prompt that runs
-    after another execution has already armed a stretch. `session.inbox.cancelled`
-    drops the ID. Inbox items of type `synthetic`, `compaction` and `move` never
-    count as a return.
-  - *Compaction* is `POST /api/session/{id}/compact` with `{}`. V2 acknowledges
-    admission at once and returns a `compaction` inbox item, so the result
-    waits on the stream: `session.compaction.started` for that inbox ID, then
-    `session.compaction.ended`, then `session.execution.succeeded`. A
-    `.failed` or `.interrupted` terminal after the start resolves as `failed`
-    at once. If the waiter times out (300 s), the sensor checks durable data
-    before reporting `failed`: a compaction message for the admitted inbox ID
-    with `status == "completed"`, and the session idle with a successful
-    outcome at or after admission.
-  - Provider, message excerpts and context size are fetched concurrently at
-    turn end from `GET /api/session/{id}` (`data.model.providerID`) and
+    and again on `session.inbox.delivered` for that ID. Enqueue covers a prompt
+    steered into the running execution, which never starts a new one. Delivery
+    covers a queued prompt that runs after another execution has already armed
+    a stretch. `session.inbox.cancelled` drops the ID. Inbox items of type
+    `synthetic`, `compaction` and `move` never count as a return, so
+    OpenCode's own compaction does not close the stretch.
+  - Provider and message excerpts are fetched concurrently at turn end from
+    `GET /api/session/{id}` (`data.model.providerID`) and
     `/api/session/{id}/message?limit=20&order=desc`. A failed provider read
-    leaves the TTL unknown: push only. Context is re-read at fire (see
-    [Compaction worth](#compaction-worth)).
-- **OpenCode 1.x** (frozen). Summarize keeps the session model when the current
-  provider and model are supplied. The session GET times out at 10 s and the
-  summarize POST at 300 s. The sensor marks its own compaction before the POST;
-  the first matching `session.idle` ends compaction classification
-  independently of POST response ordering, and failed or cancelled requests
-  clear it in `finally`. Messages tied to the compaction part stay classified
-  as synthetic.
+    leaves the TTL unknown: push only.
+- **OpenCode 1.x** (frozen). A user return is a new user message created after
+  the last anchor, classified once `session.status` goes busy. OpenCode's own
+  compaction (native `/compact` or autocompaction) posts a user message with a
+  `compaction` part; the sensor records those message IDs and does not report
+  them as returns. A turn end is `session.idle` after a busy status. Message
+  excerpts come from `GET /session/{id}/message?limit=20`.
 
-## Compaction worth
+## Running work and the push
 
-The "not worth it" guard compares growth since a persisted baseline with a
-per-harness break-even (v0.10.6). Rationale, constants and the baseline
-lifecycle are in
-[D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even).
-Where it lives:
+A turn can end while work it started is still running. Whether the push
+should fire depends on whether that work will wake the session; the rationale
+is
+[D-idle-push-in-flight](../decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not).
+The split is the usual one: the adapter reports facts in the host's terms,
+and core alone interprets them.
 
-| Concern | Code |
-|---|---|
-| Formula, fixed r = 0.5, fire `detail` text | `lib/idle/worth.py` |
-| Baseline state: frozen `ContextBaseline` at `IdleState.context`, with `observe()` and `after_compaction()`; stretch-scoped `compact_eval` | `lib/state/idle_store.py`, transitions in `lib/idle/service.py` |
-| `CompactCosts`, `CompactEval`, `IdleEvent.context_tokens`, `NativeIdleHook.observe(payload, reader, env)` | `lib/harness/idle_types.py` |
-| `compact_costs` bundle port: Claude (keyed by TTL), Codex (assumes OpenAI), OpenCode (2.x `openai`; V1 never reaches it). Pi leaves it unset, so `basis: never` | `claude_idle.py`, `codex_idle.py`, `opencode_idle.py`, registrations in `claude.py`, `codex.py`, `opencode.py` |
-| Context readers | Claude/Pi `--context-tokens` on arm and fire; Codex `codex_rollout.latest_context_tokens`; OpenCode V2 message parse in `opencode_idle.py`; none for OpenCode V1 |
+**Claude reports it.** The only Claude Code surface that lists background work
+is the `background_tasks` of the classic `Stop` hook, which fires just before
+the main loop's `turn.complete`. The mod hooks it as `classic.Stop`, keeps the
+list (cleared on `turn.start`), and forwards it on the arm as
+`meridian idle arm --background-tasks=<json>`. Each entry is a kind plus, for a
+shell, its command line: `subagent` and `workflow` → `agent`, `shell` →
+`shell`, `monitor` → `watcher`, anything else → `other`. A turn with no `Stop`
+forwards nothing and gets the ordinary push. `session_crons` are not forwarded.
+When a task finishes, Claude Code delivers a `task-notification` prompt; that
+is not a user origin, so it does not close the stretch, and its main-loop turn
+arms again.
 
-Every reader must report main-thread context only. A spuriously small value
-lowers the baseline and makes Meridian over-compact. Each reader returns
-`None` at a compaction boundary instead of reading past it: Codex at a
-`compacted` record or `input_tokens == 0`, OpenCode at a compaction message
-(checked before its usage). Claude has no such check in its reader. Core
-covers it by skipping the first arm after a closed stretch whose compaction
-was claimed or succeeded.
+**Core reads it.** `BackgroundTask` (`lib/harness/idle_types.py`) is the wire
+shape. `lib/idle/wake.py` reduces the list to one `ExpectedWake`:
+
+| Running work | Reading | Effect in `timeline.schedule` |
+|---|---|---|
+| any `agent` | certain wake | no push this anchor; the response stays owed (`push_owed_since_ms`), so the wake turn's push gets the long-turn delay |
+| a `shell` running `meridian … spawn …` | certain wake | same as an agent |
+| a `shell` running `meridian … spawn wait` | certain wake, plus a known wake time: its `--yield-after-secs`, else the harness's wait-yield default | the warning is dropped if that time lands before the cache expires |
+| any other `shell` or `other` | maybe | the push waits at least `quick_turn_push_seconds` |
+| `watcher` | ignored | none |
+
+`wake.py` parses shell lines with `shlex`, splits on shell punctuation, finds
+a `meridian` token through any wrapper, and skips Meridian's global options
+(`-C`, `--directory`, `--config`, `--format`, `--mode` take a value) before
+looking for `spawn`. Meridian's CLI grammar is parsed only here; an adapter
+must not classify spawn commands itself. The arm reply carries `push_held`
+with the reason, which the Claude mod writes to its log.
 
 ## Close and reopen
 
@@ -178,23 +170,17 @@ No launcher runs for a Claude TUI started outside Meridian or for an in-TUI
 ## Known fragility
 
 **Known fragility:** each adapter embeds harness behaviour that can change
-upstream. Most drift fails closed: returns go unseen or compaction is skipped.
+upstream. Most drift fails closed: returns go unseen or a stage is skipped.
 These cases fail open or fail silently:
 
 - **Codex busy text `Working (`.** If it changes, `busy` is always false and
-  the actuator could clear the composer and type `/compact` into a working
-  session. This fails open.
-- **Codex Ctrl+C semantics.** The composer clear relies on codex-cli 0.162.1
-  clearing a non-empty composer on Ctrl+C. If a release changes what Ctrl+C
-  does with text present, the key can interrupt or quit Codex. This fails
-  open. A change to the composer layout instead fails closed and loud: every
-  compaction vetoes as `screen-not-recognized` with one push per stretch.
-- **OpenCode 2.x durable completion check.** It depends on the compaction
-  message's `status` and the session's `time.idle` and outcome fields. A rename
-  turns stream-gap completions into `failed`, which fails closed.
-- **Claude `$.config.list()` key `autoCompact`.** If it is renamed, the mod
-  compacts for a user who turned auto-compact off in settings. This fails open;
-  core still honours `DISABLE_AUTO_COMPACT`.
+  the push or warning can fire while Codex is still working. This fails open,
+  at the cost of a wrong notice.
+- **Claude `classic.Stop` `background_tasks`.** If the hook stops firing
+  before `turn.complete`, or the field is renamed, the mod forwards nothing
+  and every turn gets the ordinary push while subagents or spawns run. If a
+  task `type` is renamed, the mod maps it to `other` and the push is delayed
+  rather than held. Both fail silently back to the pre-hold behaviour.
 - **Return-signal renames** (Claude `origin.kind`, Pi `input.source`, Codex
   cumulative `input-messages`, OpenCode 2.x `session.inbox.*`). Stretches stop
   closing, so notifications stop after the first stretch. This fails silently.
@@ -203,6 +189,9 @@ These cases fail open or fail silently:
   The #550 review filed this as "fails closed"; for idle, closed and silent are
   the same thing. OpenCode 2.x did exactly this for every release from 0.9.3 to
   0.9.8 ([lesson](../lessons/harness-integration.md#a-dialect-switch-must-move-every-consumer-of-the-stream)).
+- **OpenCode 1.x `compaction` part type.** If OpenCode renames it, its own
+  compaction message counts as a user return and closes the stretch, so the
+  pending push and warning never fire. This fails silently.
 - **Reopen close placement** (PR #578). The `close_on_launch` call must stay
   before exec in `run_harness_process`. Moved after the harness starts, Claude
   `recover()` and Pi `restore()` can re-adopt the old stretch first. The call
@@ -210,13 +199,11 @@ These cases fail open or fail silently:
   `child_env`'s user home; both must match what the harness's own
   `meridian idle` calls use (`claude`, `pi`, `codex`, `opencode`). A mismatch
   closes nothing: a reopened Claude or Pi primary re-adopts the old stretch and
-  can compact on its schedule, with no error. This fails silently.
-- The Codex tmux actuator narrows the race with a returning user but can't
-  close it.
+  can push or warn on its old schedule, with no error. This fails silently.
 - **TTL keyed by provider, not model** (Pi `openai-codex`, OpenCode `openai`).
   The 1800 s estimate assumes GPT-5.6 or later; an older model on those routes
-  inherits it, so warn and compaction can land on a cold cache. This fails
-  silently; a configured `ttl_seconds` overrides it
+  inherits it, so the warning can land after the cache is already cold. This
+  fails silently; a configured `ttl_seconds` overrides it
   ([limitation](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)).
 
 ## Related

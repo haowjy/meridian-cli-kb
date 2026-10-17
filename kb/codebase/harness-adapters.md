@@ -28,20 +28,18 @@ boundary so child assistant text cannot become the parent `report.md`.
 ### Idle bundle ports
 
 Idle policy does not add harness cases to shared launch code. `HarnessBundle`
-has five optional idle ports: `primary_idle_sensor`, `native_idle_hook`,
-`autocompact_off` (an env reader that returns whether the harness's own
-auto-compaction is off, registered by Claude and OpenCode), `detect_ttl`, and
-`compact_costs` (the compaction break-even constants, registered by Claude,
-Codex and OpenCode; Pi leaves it unset, so its compactions never pay;
-[D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
+has three optional idle ports: `primary_idle_sensor`, `native_idle_hook` and
+`detect_ttl`. The `autocompact_off` and `compact_costs` ports were deleted with
+Meridian's idle compaction
+([D-idle-compaction-removed](../decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)).
 Core passes `detect_ttl` the chat's launch-recorded `native_store`, read through
 `MERIDIAN_CHAT_ID`, never a cwd, plus any `provider` the sensor attached to the
 turn-end `IdleEvent` (OpenCode 2.x, PR #573). OpenCode's `primary_idle_sensor`
 picks the V1 or V2 sensor from the connection's `resolved_version`.
 `native_idle_hook` groups native observation with downstream delegation; the
 idle service delegates in `finally`, even when observation rejects or fails.
-Native parsing, cache and context facts, busy observation, and compaction actuators
-live in the harness's idle module; `lib/idle` owns the schedule, guards, state,
+Native parsing, cache facts and busy observation live in the harness's idle
+module; `lib/idle` owns the schedule, guards, state,
 and notification decisions. A native hook receives its state reader from the
 caller. No module under `lib/harness` imports `lib/idle`, even inside a function;
 `tests/unit/harness/test_layering.py` enforces that boundary. See

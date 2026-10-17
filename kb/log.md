@@ -3,6 +3,26 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Idle compaction removed; running work shapes the push (`claude/notify-bash-events-gguu11`)
+
+- [architecture/idle-adapters.md](architecture/idle-adapters.md) now describes
+  push and warn only: the compaction actuator column, `Compaction worth`
+  section, actuator contracts and compaction fragility rows are gone; new
+  [Running work and the push](architecture/idle-adapters.md#running-work-and-the-push)
+  covers Claude's `classic.Stop` → `idle arm --background-tasks` and core's
+  `wake.py`. `Hosts and actuators` is now `Hosts`.
+- [idle-compaction-actuator](decisions/idle-compaction-actuator.md) and
+  [idle-compaction-growth-floor](decisions/idle-compaction-growth-floor.md)
+  carry superseded banners pointing to
+  [D-idle-compaction-removed](decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).
+- Current-tense compaction claims fixed in `idle-notifications.md` (problem,
+  invariants, guard list, config, revisit), `idle-notify-channels.md`,
+  `idle-opencode-v2.md`, `idle-ttl-detection.md`, `codebase/harness-adapters.md`,
+  `architecture/launch-system.md`, `concepts/config-precedence.md`,
+  `codebase/test-determinism.md`, `research/prompt-cache-retention.md`, and the
+  index rows.
+
+---
 ## 2026-10-17 — Claude primary inject through the inbox socket: #665, PR #668 open (`work:claude-mod-inject`)
 
 - New domain page [decisions/primary-inject.md](decisions/primary-inject.md) with
@@ -408,7 +428,7 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   [idle-opencode-v2](decisions/idle-opencode-v2.md), and
   [idle-compaction-actuator](decisions/idle-compaction-actuator.md). The
   per-harness hosting table moved to
-  [Idle adapters](architecture/idle-adapters.md#hosts-and-actuators), which owns
+  [Idle adapters](architecture/idle-adapters.md#hosts), which owns
   the mechanism; the decision pages keep the rationale and rejected options.
 
 ## 2026-10-15 — History-index readers stop waiting on session writers (`work:v010-followups`, PR #588 landing, #586)
