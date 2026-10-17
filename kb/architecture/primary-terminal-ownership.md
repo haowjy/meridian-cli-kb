@@ -12,21 +12,23 @@ Process roles and reconciliation:
 [managed-primary-lifecycle.md](managed-primary-lifecycle.md). Scope
 containment and the launcher watchdog: [process-scope.md](process-scope.md).
 
-> **Status (2026-10-16).**
+> **Status (2026-10-17).**
 > - The exit-text rule is merged (PR #607).
-> - The native terminal for Codex/OpenCode is PR #614, branch
->   `feat/native-terminal-primaries`, open and not merged. Until it merges,
->   `main` still runs Codex/OpenCode primaries through the PTY relay, and a Linux
->   backend's parent-death link is still `PR_SET_PDEATHSIG`.
->   The parent watchdog this page shows for #614 is superseded by the start gate
->   and guardian ([D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian),
->   PR #633, open). Whichever of #614 and #633 merges second reconciles them.
+> - The native terminal for Codex/OpenCode shipped in PR #646
+>   (`feat/native-terminal-gate`, merge `bc2374b5c`, 2026-10-16, v0.10.15), built
+>   on the start gate and guardian
+>   ([D-start-gate-guardian](../decisions/spawn-identity.md#d-start-gate-guardian),
+>   PR #633, merged). PR #614 was closed unmerged.
+>   **Divergence:** the job-control diagram and the "parent watchdog" wording
+>   below still describe #614. The shipped containment is the gate and guardian;
+>   [process-scope.md](process-scope.md) owns it. This page has not been
+>   re-verified against #646 beyond the signal sections.
 > - The launcher-output window
 >   ([below](#launcher-output-during-the-tui-goes-to-launcherlog)) is merged
 >   (PR #621, merge `23eb2d6d2`, v0.10.11).
->
-> The rest of this page describes the decided design. Everything except the
-> native terminal (#614) is on `main`.
+> - SIGTERM/SIGHUP cancel for black-box (Claude/Pi PTY) primaries is PR #658
+>   (`fix/relay-signal-exit`, #623), open, labelled `release:patch`, not merged.
+>   Until it merges, `main` has the [gap](#known-gaps) it closes.
 
 ---
 
@@ -120,14 +122,47 @@ flowchart LR
   unblocks the TUI wait, stops the backend, and finalizes. A signal that lands
   before the TUI exists is latched and honored once it starts.
 
+The black-box path (Claude/Pi PTY relay, and native only as OpenCode's
+managed-attach fallback) gets the same outcome from PR #658: a SIGTERM/SIGHUP
+receiver around `run_primary_process_with_capture()`, `cancelled` carried to
+finalize, exit 130, and `escalate_on_repeat` with the same 1 s grace, so a
+terminal-close burst (HUP, HUP, TERM within milliseconds) cancels once and a
+deliberate later repeat force-quits. The child is stopped only through the
+start gate: group TERM then the guardian's KILL for PTY, one root TERM for
+native ([gap #657](#known-gaps)).
+
 ### Signal handlers run inside the main thread
 
 `SignalCoordinator` installs handlers with `signal.signal`. Python runs those
 handlers on the main thread, between bytecodes of whatever the main thread was
 doing. A handler that takes a `threading.Lock` the main thread already holds
 deadlocks the launcher against itself. Anything a coordinator receiver touches
-must be lock-free or use an `RLock`. The TUI-exit ordering recorder below hit
-exactly this in review and moved to an `RLock`.
+must be lock-free or use an `RLock`. A TUI-exit ordering recorder on the closed
+PR #614 hit exactly this in review.
+
+The trap is wider than locks you write. `LaunchGate.terminate()`/`close()` take
+a plain `Lock`, and `threading.Event.set()` takes the Event's internal
+`Condition`, so the PTY launcher's `cancel_wait()` is not handler-safe. The
+black-box receiver therefore **only latches a bool**. `running.wait()` runs on
+a daemon thread; the main thread polls it every 100 ms and, outside handler
+context, calls `terminate()` and `cancel_wait()` once each. The poll loop's
+`except BaseException` path does the same before re-raising, so a
+`KeyboardInterrupt` cannot leave the relay thread holding the tty in raw mode
+with the harness alive. Managed attach calls `cancel_wait()` directly from its
+handler and is safe only because the native launcher's `cancel_wait()` sets a
+plain attribute. A new receiver that needs the gate or an Event uses the latch
+and a main-thread poll.
+
+### A dead terminal raises `termios.error`, which is not an `OSError`
+
+After SIGHUP or a pane kill, the outer tty may already be gone when the PTY
+relay restores it. `termios.tcgetattr`/`tcsetattr` then raise `termios.error`,
+which does **not** subclass `OSError`, so cleanup that catches only `OSError`
+escapes with a traceback and skips the rest of teardown. The first pane-kill
+probe for #623 hit exactly this. Dead-tty paths in `_copy_primary_pty_output`
+catch both. A `select` failure drops stdin and keeps draining the master rather
+than breaking out, because a child blocked on a full pty would hang the
+following `waitpid`.
 
 ---
 
@@ -136,9 +171,11 @@ exactly this in review and moved to an `RLock`.
 A run counts as **cancelled (exit 130)** if the launcher received SIGHUP or
 SIGTERM **before it observed the TUI's exit**, whatever exit code the TUI
 reported. If the launcher saw the TUI exit first, the TUI's real result stands.
-A small recorder (`_TuiExitOrdering`) notes "signal seen" only if the exit has
-not been recorded yet; the wait thread records the exit before publishing the
-result.
+Shipped code needs no separate recorder. Managed attach reads its latch once, when
+the main task resumes from the TUI wait. The black-box receiver (PR #658) latches
+only while the wait thread has not yet marked the wait complete. A signal in the
+microseconds between the child's exit and that mark turns a clean exit into
+cancelled, which was accepted.
 
 The exit code can't decide this, because a pane close sends SIGHUP to the TUI
 as well as the launcher, and harnesses react differently. OpenCode treats SIGHUP
@@ -285,24 +322,42 @@ in the byte path, and it was accepted.
 - **#610**: on macOS a native TUI that exits instantly can be reported as a
   lifetime-link failure, because psutil sees a zombie with no birth time and
   watchdog registration fails closed.
-- **A Claude/Pi primary's launcher has no SIGTERM/SIGHUP handler** (#623, open). This is true
-  on `main` and on #614. Claude, Pi and Cursor primaries take the black-box PTY
-  path (`run_primary_process_with_capture`, bootstrap mode `SUBPROCESS_ONLY`),
-  which registers no receiver. Only `PrimaryAttachLauncher`, the
-  Codex/OpenCode managed attach, has one, and it has it on both branches. So a
-  SIGTERM to a Claude primary's launcher, for example from a systemd scope stop,
-  kills it by default action. No runner exit is recorded and no session stop is
-  appended. Reconciliation later records the run as `orphan_run`, and the session
-  generation stays unstopped
+- **On `main` until PR #658 merges, a Claude/Pi primary's launcher has no
+  SIGTERM/SIGHUP handler** (#623). Claude, Pi and Cursor primaries take the
+  black-box PTY path (`run_primary_process_with_capture`, bootstrap mode
+  `SUBPROCESS_ONLY`), which registers no receiver there. A SIGTERM to the
+  launcher, for example from a systemd scope stop, kills it by default action.
+  No runner exit is recorded and no session stop is appended; the harness and
+  its guardian are orphaned under PID 1. Reconciliation later records the run as
+  `orphan_run`, and the session generation stays unstopped
   ([what that does to capture](state-system/session-state.md#a-later-start-closes-abandoned-generations);
   [incident](../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded)).
+  PR #658 was live-verified on PTY Claude for TERM, HUP, rapid HUP+TERM, `tmux
+  kill-pane` and `systemctl --user stop` of a scope: each gives `cancelled`, 130,
+  one session stop, no orphan.
+- **A signal during finalize still kills the launcher** (both paths, after
+  #658). Each receiver is unregistered before `_finalize_lifecycle()`, so a TERM
+  or HUP that lands in finalize hits the default disposition and the run stays
+  active. Both paths also replace the child's raw exit code with 130 at the
+  process layer. Both are acceptance criteria for identity-v2 PR 4 (sole-writer
+  outcome, [D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)):
+  hold a latch-only receiver across the one outcome write, and carry the raw
+  code plus `cancelled` to the writer, mapping to 130 there.
+- **#657: native black-box cancel has no KILL.** When the black-box path runs a
+  native launcher, `terminate()` releases the root-only gate and the guardian
+  sends one TERM. A TUI that ignores or slowly handles TERM can keep the shell's
+  terminal after Meridian has finalized. Managed attach is unaffected: its
+  lifecycle owner escalates to a birth-checked KILL. This path is not
+  live-verified, because the CLI cannot select it: Claude is always PTY, Codex
+  raises on attach failure, and OpenCode reaches it only through the
+  managed-attach fallback. Only the fake-launcher seam test covers it.
 - **OpenCode mid-turn Ctrl+C ends the session.** That is OpenCode's own key
   binding (`app_exit=ctrl+c`, `session_interrupt=escape`) and also happens on
   `main`. It is not a Meridian bug.
 
 ---
 
-## Implementation map (`main`, plus branch `feat/native-terminal-primaries` for #614)
+## Implementation map (`main`, plus PR #658)
 
 | Path | Role |
 |---|---|
@@ -311,8 +366,9 @@ in the byte path, and it was accepted.
 | `lib/harness/{codex,opencode,claude,pi}.py` | Capability declarations: supported modes and default |
 | `lib/launch/process/selector.py` | `select_process_backend()`: capture → PTY/pipe; else mode → native/PTY/fallback |
 | `lib/launch/process/native_launcher.py` | Inherited-stdio `Popen`, no pgid change, registers the TUI scope with the watchdog |
-| `lib/launch/process/primary_attach.py` | Signal receivers, SIGINT window, `_TuiExitOrdering`, teardown order |
-| `lib/launch/process/pty_launcher.py` | Claude/Pi relay; alternate-screen tracking and conditional `ESC[?1049l` |
+| `lib/launch/process/primary_attach.py` | Signal receivers, SIGINT window, cancel latch, teardown order |
+| `lib/launch/process/runner.py` | `run_primary_process_with_capture()`: black-box TERM/HUP latch, wait thread, 100 ms poll (PR #658) |
+| `lib/launch/process/pty_launcher.py` | Claude/Pi relay; alternate-screen tracking and conditional `ESC[?1049l`; dead-tty tolerance |
 | `lib/launch/signals.py` | `SignalCoordinator`: one process-global seam for handler install/restore |
 
 Provenance: `work:native-terminal-primaries` (`decisions.md` D1–D9;
@@ -321,6 +377,9 @@ Provenance: `work:native-terminal-primaries` (`decisions.md` D1–D9;
 Launcher-output window: `work:resume-after-crash` (`decisions.md` R1, R5, R7,
 R9, R10; `evidence/incident-b1.md`, `lane-a-live-terminal-ownership.md`,
 `review-lane-a.md`; `spawn:p8138`, `spawn:p8161`, `spawn:p8162`).
+Black-box signal cancel: `work:relay-signal-exit` (`decisions.md` S1–S7;
+`spawn:p8396` coder and live probes, `spawn:p8399` review F1–F6,
+`spawn:p8400` fixes).
 
 ## Related
 

@@ -206,7 +206,9 @@ path), #610 (macOS instant-exit TUI reported as a link failure).
 
 ## D-cancel-by-order — Cancellation is decided by which came first
 
-**Status:** decided 2026-10-15 (work-item D9). On the native-terminal branch.
+**Status:** decided 2026-10-15 (work-item D9). Shipped for managed attach with
+the native terminal (PR #646); extended to black-box primaries by PR #658
+(open), see [D-blackbox-signal-latch](#d-blackbox-signal-latch).
 
 **Decision:** a native primary run is cancelled (exit 130) if the launcher
 received SIGHUP/SIGTERM before it observed the TUI's exit; if the TUI's exit
@@ -219,7 +221,58 @@ closed pane as `succeeded 0`, a regression from `main`'s cancelled 130.
 Harnesses don't agree on SIGHUP exit codes. The order in which the launcher saw
 the two events is the only fact that means the same thing everywhere.
 
-**Constraint:** the ordering recorder is touched from a signal handler, which
-runs on the main thread. A plain `Lock` could deadlock the launcher against
-itself, so it uses an `RLock`. Any state a `SignalCoordinator` receiver touches
-must be lock-free or reentrant.
+**Constraint:** whatever records the order is touched from a signal handler,
+which runs on the main thread. A plain `Lock` could deadlock the launcher
+against itself. Any state a `SignalCoordinator` receiver touches must be
+lock-free or reentrant. #614's recorder used an `RLock`; shipped code reads a
+plain bool latch instead.
+
+---
+
+## D-blackbox-signal-latch — Black-box primaries cancel on SIGTERM/SIGHUP through a latch {#d-blackbox-signal-latch}
+
+**Status:** decided 2026-10-16 (`work:relay-signal-exit` S1, S6, S7, with the
+identity-v2 lead). Implemented in PR #658 (`fix/relay-signal-exit`, #623),
+reviewed, open and not merged.
+
+**Problem:** a Claude/Pi PTY primary's launcher had no SIGTERM/SIGHUP handler.
+A pane kill, terminal close or systemd scope stop killed it at the default
+disposition, so it never recorded an exit, concluded the native run or stopped
+its session, and the harness was orphaned. Under identity-v2's derived status
+that run would read as crashed forever.
+
+**Decision:**
+1. **The handler only latches.** `run_primary_process_with_capture()` moves
+   `running.wait()` to a daemon thread, and the main thread polls every 100 ms.
+   It calls `terminate()` and `cancel_wait()` once each, outside handler
+   context. Rejected: calling the gate or `cancel_wait()` from the handler,
+   because `LaunchGate` and `threading.Event.set()` take non-reentrant locks the
+   interrupted main thread may hold
+   ([mechanism](../architecture/primary-terminal-ownership.md#signal-handlers-run-inside-the-main-thread)).
+2. **No new kill path and no state written in the handler.** The child stops
+   through the start gate, and exit, native-run conclusion, lifecycle finalize
+   and session stop each run once on the normal return path. That keeps one
+   call for identity PR 4 to reroute. Rejected: `os.kill`/`killpg` of the
+   child, or an exit record written from the handler.
+3. **Same outcome as managed attach.** `PrimaryProcessResult` gains
+   `cancelled`, and `PrimaryExecutionResult.managed_cancelled` becomes
+   `cancelled` for both paths; exit is 130
+   ([D-cancel-by-order](#d-cancel-by-order--cancellation-is-decided-by-which-came-first)).
+4. **Repeat escalation on.** The coder first shipped without it, reasoning that
+   a `SIG_DFL` re-raise skips finalize. Review (F3) showed the cost: if the wait
+   wedges (the relay blocked in `waitpid`, a child ignoring TERM), only SIGKILL
+   could end the launcher. The 1 s grace already routes a terminal-close burst
+   (HUP, HUP, TERM) to the latch, so a later repeat can safely mean "force".
+   The rapid HUP+TERM probe still recorded one cancel and one session stop.
+
+**Accepted:** a signal before `start()` still launches the harness and cancels
+it within one poll; a signal in the microseconds after the child exits turns a
+clean exit into cancelled.
+
+**Handed on:** native black-box has no KILL after its one TERM (#657). The
+receiver is unregistered before finalize, and 130 replaces the raw exit code at
+the process layer. Both are identity-v2 PR 4 acceptance criteria
+([gaps](../architecture/primary-terminal-ownership.md#known-gaps)).
+
+**Revisit if** identity PR 4 moves the outcome write: the receiver should then
+span that write, not just the wait.
