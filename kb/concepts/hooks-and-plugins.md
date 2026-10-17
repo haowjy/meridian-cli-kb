@@ -1,9 +1,9 @@
 # Hooks and Plugins
 
-Hooks are user-defined callbacks that fire at spawn and work lifecycle events.
-They're the extension point for automation that should happen around agent
-activity — syncing state to a remote repo, sending notifications, triggering
-downstream pipelines.
+Hooks are callbacks that fire at spawn and work lifecycle events and at
+notification events. They're the extension point for automation that should
+happen around agent activity — syncing state to a remote repo, sending
+notifications, triggering downstream pipelines.
 
 The plugin API is what hooks (including built-in hooks) use to interact with
 Meridian's state. It's a stable, narrow boundary that built-in hooks are
@@ -20,11 +20,13 @@ They're not for modifying agent behavior — the agent is already running when
 hooks fire. They're for **side effects** triggered by lifecycle events:
 syncing, notifying, logging, triggering external systems.
 
-Hooks see spawn and work events, not turns inside a harness session. They
-can't tell when a primary went idle or when its prompt cache is about to
-expire. That job belongs to the idle adapters and `meridian notify`
-([Idle Notifications](../decisions/idle-notifications.md)). The idle adapters
-are harness mods and launcher tasks, not Meridian hooks.
+Hooks don't watch turns inside a harness session. Deciding when a primary
+went idle or when its prompt cache is about to expire belongs to the idle
+adapters and core idle policy
+([Idle Notifications](../decisions/idle-notifications.md)); the adapters are
+harness mods and launcher tasks, not Meridian hooks. Once idle decides to
+notify, though, the notice is a hook event, and hooks deliver it (see
+[Notifications](#notifications-the-built-in-notify-route)).
 
 ---
 
@@ -37,7 +39,15 @@ graph TD
 
     WORK_START["work.start\n(also: work.started)\nWork item opened"]
     WORK_DONE["work.done\nWork item marked done"]
+
+    RESPONDED["session.responded\nIdle push: agent waiting on you"]
+    CACHE["session.cache_expiring\nIdle cache warning"]
+    MANUAL["notify.manual\nmeridian notify"]
 ```
+
+The three notification events are observe-class: each carries a
+`notification` payload, and the routes on that event deliver it
+([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 
 The aliases (`spawn.start`, `work.started`) exist for backward compatibility and
 are treated identically to their canonical forms.
@@ -96,7 +106,9 @@ local config (meridian.local.toml)  (highest priority)
 ```
 
 A hook row in a higher-priority source with the same `(name, event)` key
-replaces the lower-priority row entirely. This lets teams set project-wide
+replaces the lower-priority row entirely. Below all of these, Meridian adds a
+default `notify` route (source `default`) for each notification event no
+`builtin = "notify"` row covers. This lets teams set project-wide
 defaults and individual machines override them locally without committing
 machine-specific config.
 
@@ -115,12 +127,22 @@ When a hook fires, it receives context about the triggering event:
 | `spawn_cost_usd` | Spend for this spawn |
 | `work_id` | Active work item |
 | `work_dir` | Path to work scratch directory |
-| `repo_root` | Project root |
+| `project_root` | Project root |
+| `runtime_root` | Project state root; absent in an ad-hoc directory nothing has initialized |
+| `notification` | Notification events only: `title`, `body`, `priority`, `email`, `label` |
 
 **Command hooks** receive context as `MERIDIAN_*` environment variables and as
-JSON on stdin.
+JSON on stdin (payload `schema_version` 2). Notification events add
+`MERIDIAN_NOTIFICATION_TITLE`, `MERIDIAN_NOTIFICATION_BODY` and
+`MERIDIAN_NOTIFICATION_PRIORITY`.
 
-**Built-in hooks** receive a typed `HookContext` object directly.
+**Built-in hooks** receive the typed `plugin_api.HookContext` directly; `lib/hooks`
+uses the same `HookContext`, `HookResult` and `HookEventName` types (plugin API
+2.0.0).
+
+Hooks run even without a runtime root; only interval-throttled hooks skip
+there, having nowhere to keep their state. `MERIDIAN_HOOKS_ENABLED=false`
+turns off all hooks, notifications included.
 
 ---
 
@@ -143,6 +165,45 @@ The plugin API surface includes:
 - Git helpers: run git commands with proper error handling
 - File locking: coordinate concurrent access via the Meridian lock primitives
 - Path utilities: `generate_repo_slug()`, context root resolution
+- Notification delivery: `plugin_api.notify.deliver()` and the `Notification` type
+
+---
+
+## Notifications: the Built-In `notify` Route
+
+Idle push, the cache warning and `meridian notify "<title>" ["<body>"]` build a
+`Notice`; `lib/notify/emit.py` fires its event through `HookDispatcher`. The
+built-in `notify` hook (`lib/hooks/builtin/notify.py`) calls
+`plugin_api.notify.deliver()`, which wraps `lib/notify`'s transports (ntfy,
+SMTP/Gmail, `command`).
+
+```toml
+# Cache warnings to push only, at priority 5 (replaces that event's default route)
+[[hooks]]
+builtin = "notify"
+event   = "session.cache_expiring"
+[hooks.options]
+channels = ["push"]
+priority = 5
+
+# A Slack channel is a command hook on the same event
+[[hooks]]
+name    = "slack"
+event   = "session.cache_expiring"
+command = "scripts/slack-notify.sh"
+```
+
+- `channels`: `push` / `email` aliases or backend names; default both.
+  `priority`: 1–5.
+- A `builtin = "notify"` row for an event, even with `enabled = false`,
+  replaces only that event's default route.
+- `emit` folds route results into one `SendReport`: the built-in route's
+  per-transport results (from its stdout, under `notify_report`) and
+  `hook:<name>` for command hooks. Idle marks a stage failed only when some
+  route ran and all failed; no route at all is ok with a warning.
+
+There is no separate `[notify.channels]` or `[[notify.routes]]` table: hook
+rows are the routes and command hooks are the channels.
 
 ---
 
@@ -154,7 +215,8 @@ configured sync root — KB, work, strategy, or other contexts — and does not
 require an active work item.
 
 **Default events**: `spawn.start`, `spawn.finalized`, `work.start`, `work.done`
-— all four fire by default when no `event` is specified.
+— all four fire by default when no `event` is specified. It skips when there
+is no runtime root.
 
 ### What It Does
 
@@ -298,6 +360,15 @@ variables:
 echo "Spawn $MERIDIAN_SPAWN_ID finished: $MERIDIAN_SPAWN_STATUS"
 echo "Cost: \$${MERIDIAN_SPAWN_COST_USD}"
 echo "Agent: $MERIDIAN_SPAWN_AGENT"
+```
+
+A notification channel reads the `notification` object on stdin or the env:
+
+```bash
+#!/bin/bash
+# scripts/slack-notify.sh — fires on a notification event
+curl -s -X POST "$SLACK_WEBHOOK" \
+  --data "$(jq -n --arg t "$MERIDIAN_NOTIFICATION_TITLE" --arg b "$MERIDIAN_NOTIFICATION_BODY" '{text: ($t + "\n" + $b)}')"
 ```
 
 Set `failure_policy = "warn"` to log failures without blocking the lifecycle.

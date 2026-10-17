@@ -3,6 +3,22 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Notifications as hook events, #670 (`claude/notify-bash-events-gguu11`)
+
+- New [D-notify-hook-events](decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)
+  in `idle-notify-channels.md`, indexed in [decisions.md](decisions.md) and
+  [decisions/overview.md](decisions/overview.md). D-idle-leaf-packages and
+  D-idle-notice-context no longer describe a channel registry, direct
+  `notify.send` calls or `--title`.
+- [concepts/hooks-and-plugins.md](concepts/hooks-and-plugins.md): the three
+  notification events, default `notify` routes, the `notification` context and
+  env, a new section on the built-in `notify` route and command-hook channels,
+  hooks without a runtime root, plugin API 2.0.0.
+- Plugin API version and notify code locations updated in
+  `codebase/guide.md`, `codebase/vocabulary.md` and
+  `architecture/idle-adapters.md`.
+
+---
 ## 2026-10-17 — Idle compaction removed; running work shapes the push (`claude/notify-bash-events-gguu11`)
 
 - [architecture/idle-adapters.md](architecture/idle-adapters.md) now describes

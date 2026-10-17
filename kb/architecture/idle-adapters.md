@@ -9,7 +9,7 @@ record retains the rationale, rejected alternatives, and decision history in
 
 | Concern | Code |
 |---|---|
-| Notify delivery and CLI | `src/meridian/lib/notify/`, `src/meridian/cli/notify_cmd.py` |
+| Notify delivery and CLI | `src/meridian/lib/notify/` (`emit.py` fires a notice as its hook event), `src/meridian/lib/hooks/builtin/notify.py` (the built-in `notify` route), `src/meridian/plugin_api/notify.py`, `src/meridian/cli/notify_cmd.py`; see [D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes) |
 | Idle policy, sidecar, CLI, and state | `src/meridian/lib/idle/` (`timeline.py` schedule, `guards.py` fire checks, `wake.py` running-work reading, `service.py` transitions, `sidecar.py` launcher loop), `src/meridian/cli/idle_cmd.py`, `src/meridian/lib/state/idle_store.py`; TTL detection reads the chat's `native_store` through `src/meridian/lib/state/session_store.py` |
 | Harness ports and Python adapters | `src/meridian/lib/harness/idle_types.py`, `bundle.py`, `claude_idle.py`, `pi_idle.py`, `codex_idle.py`, `opencode_idle.py` (V1 and V2 sensors, provider TTL); OpenCode dialect dispatch reads `connections/opencode_connection.py` `resolved_version` |
 | In-harness adapters | `src/meridian/claude_runtime/meridian-idle/`, `src/meridian/pi_runtime/extensions/meridian-idle/` |

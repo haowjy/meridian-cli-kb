@@ -1,8 +1,8 @@
 # Decision: Idle Notification Channels
 
 This page owns the notification-side decisions for idle automation: the leaf
-package boundary, notice context, channel secrets, and deliberate spawn
-notifications. The idle schedule and harness mechanism remain in
+package boundary, notification routing through hook events, notice context,
+channel secrets, and deliberate spawn notifications. The idle schedule and harness mechanism remain in
 [Idle Notifications](idle-notifications.md) and
 [Idle Adapter Architecture](../architecture/idle-adapters.md).
 
@@ -14,16 +14,20 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
 - **`lib/notify/`** delivers notices. It builds the reason-first session
   context (terminal, actor, and explicit work/project label; see
   [D-idle-notice-context](#d-idle-notice-context--reason-first-titles-and-send-time-cache-countdown))
-  and fans out to a channel registry: `ntfy`, `smtp`, `gmail` (an SMTP
-  preset), `command`, `none`. A new channel is one module plus one registry
-  entry. `meridian notify` works with idle turned off. ntfy titles are RFC
+  and owns the transports: `ntfy`, `smtp`, `gmail` (an SMTP preset),
+  `command`, `none`. Since
+  [D-notify-hook-events](#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)
+  nothing calls the transports directly: a notice is fired as a hook event and
+  the built-in `notify` hook reaches them through `plugin_api.notify`; new
+  channels are command hooks, not registry entries. `meridian notify` works
+  with idle turned off. ntfy titles are RFC
   2047-encoded, because the HTTP `Title` header is Latin-1 and the label's `·`
   would otherwise arrive mangled.
 - **`lib/idle/`** holds the policy: a pure timeline, pure guards, a service
   over the state file, and the sidecar loop. It builds `lib.notify.Notice`
-  values and calls `lib.notify.send` directly; `lib/notify` never imports
-  `lib/idle`. The service's `notify_sender` parameter is only a seam for
-  tests.
+  values and hands them to `lib.notify.emit` (until D-notify-hook-events it
+  called `lib.notify.send` directly); `lib/notify` never imports `lib/idle`.
+  The service's `notify_sender` parameter is only a seam for tests.
 - **`lib/state/idle_store.py`** owns the state file, because `lib/state/`
   owns all disk I/O.
 
@@ -55,9 +59,10 @@ cache warnings use `[cache warning]`. (Compaction-result titles such as
 [D-idle-compaction-removed](idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).) The
 terminal prefix is the recorded tmux session when present, and is omitted
 outside tmux. A work item is labelled explicitly; when there is no work item,
-an explicitly labelled project is used when available. Custom titles supplied
-to `meridian notify` retain the terminal/actor/work context in the body rather
-than dropping it. There is no duplicated tmux footer.
+an explicitly labelled project is used when available. `meridian notify`
+takes the title from the caller (`meridian notify "<title>" ["<body>"]`) and
+always ends the body with the session headline, so the terminal/actor/work
+context is never dropped. There is no duplicated tmux footer.
 
 Idle and cache-warning notices calculate the remaining cache lifetime **at send
 time**, from the persisted idle anchor and TTL. A known TTL is shown plainly;
@@ -76,6 +81,91 @@ terminal and explicit work label identify which session needs attention. Renderi
 from persisted state at send time avoids publishing a stale precomputed deadline.
 The confidence marker prevents a provider heuristic or configured fallback from
 looking like a provider guarantee.
+
+## D-notify-hook-events — Notifications are hook events delivered by routes
+
+**Status:** Decided by the user, 2026-10-17, on
+`claude/notify-bash-events-gguu11` (uncommitted when recorded); implements
+[#670](https://github.com/haowjy/meridian-cli/issues/670). The user chose
+"Full #670" over a lighter "events + named channels" option, and a positional
+`meridian notify "<title>" ["<body>"]`.
+
+**Decision:** A notification is a hook event, and the hook rows on that event
+deliver it.
+
+- **Three new observe-class events:** `session.responded` (the idle waiting
+  push), `session.cache_expiring` (the cache warning) and `notify.manual`
+  (`meridian notify`). Idle push/warn and the CLI build a `Notice`;
+  `lib/notify/emit.py` fires its event through `HookDispatcher`, next to
+  `spawn.finalized` and `work.done`.
+- **Delivery is a built-in hook, `notify`** (`lib/hooks/builtin/notify.py`,
+  `plugin_api` imports only). It calls `meridian.plugin_api.notify.deliver()`,
+  which wraps `lib/notify`'s transports. Options: `channels` (the `push` /
+  `email` aliases or backend names; default both) and `priority` (1–5).
+- **Default routes.** Meridian adds a `notify` row (source `default`,
+  `auto_registered`) for every notification event that no config row routes.
+  A `builtin = "notify"` row for an event, even a disabled one, replaces that
+  event's default only. Out of the box, delivery is unchanged.
+- **Extension channels are ordinary command hooks.** Their JSON stdin carries
+  a `notification` object (`title`, `body`, `priority`, `email`, `label`) and
+  their env `MERIDIAN_NOTIFICATION_TITLE`, `_BODY` and `_PRIORITY`. A Slack or
+  desktop channel is one `[[hooks]]` row plus one script.
+- **Idle still records `push|warn: sent|failed`** (the issue's first open
+  question). `emit` folds route results into a `SendReport`: the built-in
+  route's per-transport report travels in its `HookResult` stdout under
+  `notify_report`; a command hook appears as `hook:<name>`. A stage is marked
+  failed only when some route ran and every one failed. If no route ran, the
+  result is ok with a warning.
+- **`meridian notify "<title>" ["<body>"]`.** `--title` is removed; the
+  session headline always ends the body.
+- **Hooks fire without a runtime root.** In an ad-hoc directory nothing has
+  initialized, hooks now run; only interval-throttled hooks skip, having
+  nowhere to keep their state. `git-autosync` skips there itself.
+  `MERIDIAN_HOOKS_ENABLED=false` now also silences notifications.
+- **Plugin API 2.0.0.** `lib/hooks` reuses `plugin_api`'s `HookContext`,
+  `HookResult` and `HookEventName` (they were identical duplicates).
+  `HookContext.runtime_root` is optional, a `notification` field is added, and
+  the hook payload is `schema_version` 2.
+
+**Why:** Two systems overlapped. `lib/notify` had a fixed channel registry
+and idle called `notify.send` directly; `lib/hooks` already had events,
+source layering, `when` filters, interval throttling and external commands.
+"Push me when spawn X finishes", "warnings to Slack, responses to ntfy" or a
+new desktop channel each needed core changes. Making notifications events
+puts them on the one extension seam Meridian already has.
+
+**Rejected:**
+
+- **`[notify.channels.<name>]` and `[[notify.routes]]`** (the issue's
+  proposal). Hook rows already are routes (`event`, `when.agent`, `interval`,
+  `enabled`) and command hooks already are channels. A second table would be
+  a second config system with its own layering for the same thing.
+- **Events plus named channels only** (the lighter option). It would have
+  kept idle calling transports directly, so routing and failure reporting
+  would still live outside hooks.
+- **A fail-open hook with no recorded outcome.** Idle's `done` record would
+  lose `push: failed`; folding route results keeps it.
+
+**Attachments (#666), same branch, asked for by the user alongside this:**
+`meridian notify --attach <path>` (repeatable). Paths resolve and must be
+readable files when the notice is made, so a bad path fails with exit 2
+before any route runs. `Notification.attachments` carries the absolute paths
+to every route. Email attaches all of them to the one message, with the type
+guessed from the extension. ntfy carries one file per message, so it sends
+the text first and then each file as its own message (`PUT` with
+`Filename`), rather than moving the body into a header. Meridian sets no size
+limit: a server that rejects a file (ntfy.sh's cap, a self-hosted limit)
+fails that backend only, naming the file. Text attachments are not also
+inlined into the body; one behavior.
+
+**Not done:** structured excerpts as separate fields; a resume /
+`tmux attach` hint in the notice; a Python channel entry point in
+`plugin_api`. Open: whether channels should see `spawn.finalized` for a
+session's own children by default (the issue's second open question).
+
+**Revisit if:** command-hook channels need per-channel state or retries that
+hook rows can't express, or a Python channel plugin lands and needs its own
+registration.
 
 ## D-notify-smtp-password-file — SMTP password from a file, env as leaky fallback
 
@@ -111,6 +201,7 @@ run only in primaries.
 
 - [Idle Notifications](idle-notifications.md): core idle policy, lifecycle, and remaining decision rationale.
 - [Idle Adapter Architecture](../architecture/idle-adapters.md): current notify delivery locations and adapter mechanism.
+- [Hooks and Plugins](../concepts/hooks-and-plugins.md): hook events, the built-in `notify` route and command-hook channels.
 - [Config Precedence](../concepts/config-precedence.md): standard precedence and config-key declarations.
 - [Launch System](../architecture/launch-system.md): child-environment secret boundaries.
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md): cache facts behind notice countdowns.
