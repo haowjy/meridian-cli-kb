@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-16 — CHANGELOG placement check: #653 (#652) (`work:changelog-misfile-check`)
+
+- [Release sequencing](lessons/release-sequencing.md#landing-a-stacked-chain-2026-10-14):
+  the CHANGELOG misfile is now caught by `scripts/check-changelog-placement.py`
+  in the pre-push hook and the CI `pr-changelog-note` job (on the merge ref). It
+  replaces the manual `git diff` check. Escape hatches:
+  `MERIDIAN_CHANGELOG_ALLOW_RELEASED=1` and the `changelog:edit-released` label.
+  The manual rebuild stays the fix.
+- [Probe runtime placement](lessons/probe-runtime-placement.md#a-throwaway-worktree-shares-the-main-repos-config):
+  new section on `git config` in a worktree writing the main repo's shared
+  config (C3). Smokes use a `git clone` or `git -c user.name=… commit`.
+
 ## 2026-10-16 — Memory program shipped: #634 (MEM-1) and #651 (#418 B1) (`work:memory-audit`)
 
 - New decision [D-session-read-seam](decisions/state.md#d-session-read-seam): the

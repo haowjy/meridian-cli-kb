@@ -113,11 +113,21 @@ the next PR to `main` and merging `main` into it.
   look at. On 2026-10-16 it happened four times in one day. Rebases put MEM-1's
   (#634) entries under `[0.10.12]` and B1's (#651) under `[0.10.14]`
   (`work:memory-audit` M13, M17), and #633's entries reached `main` under
-  `[0.10.12]`, which #636 had to fix. After every merge
-  or rebase that crosses a release, run `git diff origin/main -- CHANGELOG.md`
-  and check that the branch's bullets sit under `Unreleased`. When a parent PR ships,
-  re-home its bullets under the version that actually carried them (phase 1's
-  bullets moved from 0.9.10 to 0.9.11).
+  `[0.10.12]`, which #636 had to fix. Since #653 (#652), a check catches the
+  misfile mechanically: `scripts/check-changelog-placement.py` fails when an
+  added CHANGELOG line sits under a `## [X.Y.Z]` heading that already exists on
+  the base. The pre-push hook runs it against your local `origin/main` (fetch
+  first, or a release you haven't fetched slips past), and the CI
+  `pr-changelog-note` job runs it on the PR's merge ref (`--base HEAD^1 --head
+  HEAD`), which also covers a misfile made by the merge itself, as with #633.
+  The fix is still to rebuild by hand: take `git show origin/main:CHANGELOG.md`
+  and add your entry back under `Unreleased`. For a deliberate edit to a released
+  section, as #636 made, set `MERIDIAN_CHANGELOG_ALLOW_RELEASED=1` for the push
+  and the `changelog:edit-released` label on the PR; both turn the failure into
+  a warning. The check only flags added lines under released headings, so
+  re-homing is still manual: when a parent PR ships, move its bullets under the
+  version that actually carried them (phase 1's bullets moved from 0.9.10 to
+  0.9.11).
 - **`git merge-tree --write-tree` prints a tree id even on conflict.** A
   dry-run script that read only the first line reported a conflicting chain as
   clean. Check the exit code (1 means conflicts), per

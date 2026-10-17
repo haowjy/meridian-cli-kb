@@ -1,4 +1,4 @@
-# Lessons: Probe Runtimes Live Under /tmp, Never in a Work Directory, and Never Touch Shared Installs
+# Lessons: Probe Runtimes Live Under /tmp, Never in a Work Directory, and Never Touch Shared Installs or Config
 
 **The rule:** a probe, POC or live check that needs a scratch `HOME`,
 `MERIDIAN_HOME`, `_MERIDIAN_RUNTIME_DIR`, `CODEX_HOME`, XDG roots, copied
@@ -61,6 +61,25 @@ afterwards and restore it before reporting.
 
 Source: `work:resume-after-crash` `decisions.md` R9; `evidence/lane-a-live-terminal-ownership.md`
 ("Review-finding recheck"); `spawn:p8162`.
+
+## A throwaway worktree shares the main repo's config
+
+**2026-10-16, a fake identity for every checkout.** For #652, the smoke script
+of `spawn:p8356` built a throwaway *worktree* and ran
+`git config user.name/email 'Meridian Verification'` in it. A `git worktree`
+has no config of its own: plain `git config` writes to the main repo's
+`.git/config`. The identity landed in `~/gitrepos/meridian-cli/.git/config`,
+so every worktree of that repo picked it up, and it authored the coder's commit.
+The lead unset both keys and re-authored the commit. No other commit had used
+the identity.
+
+**The rule:** a smoke that needs a disposable repo with its own settings uses a
+`git clone` (into `/tmp`, like any other probe runtime), not a worktree. If it
+only needs an identity to commit, pass it per command with
+`git -c user.name=… -c user.email=… commit` and leave the config untouched.
+A probe brief that asks for a throwaway repo should say which of these to use.
+
+Source: `work:changelog-misfile-check` `decisions.md` C3.
 
 ## What is in place, and what isn't
 
