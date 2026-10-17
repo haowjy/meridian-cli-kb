@@ -3,6 +3,30 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Claude primary inject through the inbox socket: #665, PR #668 open (`work:claude-mod-inject`)
+
+- New domain page [decisions/primary-inject.md](decisions/primary-inject.md) with
+  [D-claude-primary-inbox](decisions/primary-inject.md#d-claude-primary-inbox),
+  flagged for owner review: the owner's direction was a mod replacing child stdin,
+  and the inbox route and children-keep-stdin are tech-lead decisions on probe
+  evidence. Rows in `decisions.md`, `decisions/overview.md`, `index.md`.
+- New [research/claude-code-mods-and-inbox.md](research/claude-code-mods-and-inbox.md):
+  Claude Code 2.1.302 mod behaviour under `-p` and in a TUI, and the inbox socket's
+  wire format, timing and inbound controls.
+- [D-claude-native-hold](decisions/completion-drain.md#d-claude-native-hold)
+  residuals resolved: spawn guidance stays as written (D5); a mod cannot replace the
+  stdin pipe, and primaries use the inbox.
+- [Claude native sessions](architecture/claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat):
+  journal record gains `recorded_at` and `messaging_socket` (no token); the inject
+  reader and its PID-born-by guard.
+- [#498 future work](open-questions/future-work.md#live-primary-injection-control-endpoint-498)
+  narrowed to Codex/OpenCode/Pi; [harness abstraction](concepts/harness-abstraction.md)
+  records the weaker "posted" contract of `primary_inbox`;
+  [primary terminal ownership](architecture/primary-terminal-ownership.md) notes the
+  relay is not an inject path.
+- `corrections.md`: one occurrence ("gh says 655 is still open") and one candidate.
+
+---
 ## 2026-10-17 — One skill delivery path: PR #661 (`work:long-view-review/skill-delivery`)
 
 - [decisions/launch.md](decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness):

@@ -87,6 +87,15 @@ must carry the best available exit/error evidence, and a successful injection
 result must mean the harness acknowledged or durably accepted the input. Fakes
 must model these contracts rather than returning universal success.
 
+No primary has a `SpawnManager` serving a control socket, and a Claude or Pi
+primary has no Meridian connection at all, so injection into a primary goes
+through a separate optional bundle port, `primary_inbox`. Its contract
+is weaker on purpose: Claude's inbox socket returns no acknowledgement, so a
+successful post means only that the whole message was written, and its result
+text must say "posted", never "delivered"
+([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
+PR #668, open).
+
 ## Adding a Harness
 
 1. Define the typed launch spec and adapter contract.

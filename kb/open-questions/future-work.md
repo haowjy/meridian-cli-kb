@@ -22,8 +22,7 @@ PR #668, open). Codex, OpenCode and Pi primaries have none: with #668,
 (see #498)"; on `main` it still waits 30 s and reports "not running". Each
 harness plugs its route into the same `primary_inbox` port. Codex and OpenCode
 primaries already run behind a Meridian-held backend connection (app-server
-WebSocket, HTTP/SSE), which a route could use; Pi has neither a connection nor a
-known inbox.
+WebSocket, HTTP/SSE), which a route could use.
 
 For OpenCode, the connection adapter can project a later HTTP prompt using the
 committed native agent/model/variant, but a native probe could not reach that

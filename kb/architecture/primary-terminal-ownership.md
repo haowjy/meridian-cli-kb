@@ -70,7 +70,11 @@ never captured (capture happens only with `--print`). Claude's session id comes
 from the launch itself (`--session-id` plus the `SessionStart` boundary
 journal; see [native-session-binding.md](native-session-binding.md)). Idle
 sensing reads Claude's transcript or Pi's extension, not the screen. Any page
-that says Claude "needs the PTY to observe" its session is out of date.
+that says Claude "needs the PTY to observe" its session is out of date. Nor is
+the relay an input path: `spawn inject` never types into a primary's PTY. A
+Claude primary is injected through Claude Code's own inbox socket
+([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
+PR #668, open); other primaries have no inject route yet (#498).
 
 The relay stays because the owner chose it: Claude and Pi resize fine through
 the relay ("i didn't really have any problems resizing claude and pi so its
