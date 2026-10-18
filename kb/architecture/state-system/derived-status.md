@@ -44,7 +44,7 @@ launch's `state.json` stays stored-active until a writer persists the outcome
 flowchart TD
     A["read_derived(pN)"] --> B["shared_hold(launch.lock):<br/>open read-only, try LOCK_SH non-blocking"]
     B -->|"no lock file"| L["read row; if active,<br/>legacy_runner_alive decides"]
-    B -->|"shared lock acquired<br/>(runner gone)"| F["read row while holding it;<br/>derive(row, lock_free=True)"]
+    B -->|"shared lock acquired<br/>(runner gone)"| F["read row while holding it;<br/>derive(row)"]
     B -->|"exclusive holder exists<br/>(runner alive)"| H["read row; return as stored"]
 ```
 
@@ -77,7 +77,7 @@ Helpers built on it:
 | `read_derived(root, id)` | One row, lock-consistent. Quarantine propagates as `SpawnStateQuarantined` |
 | `overlay_derived(root, rows)` | Rows from a scan or the history index. Re-reads only stored-active rows; a row whose directory vanished keeps its scanned value |
 | `is_live(root, id)` | "Is it still running?" as a boolean |
-| `derive(row, lock_free)` | The pure rule, for a caller that already holds or observed the lock |
+| `derive(row)` | The pure rule, for a row read while its launch lock was free (the caller holds or observed it free) |
 | `quarantine_may_observe(root, report, chat)` | The lenient quarantine check below |
 
 ## Selection versus liveness
