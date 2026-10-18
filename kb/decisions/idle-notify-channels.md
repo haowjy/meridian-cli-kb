@@ -17,7 +17,7 @@ feature whose CLI is its only entry point), not on `lib/ops/`.
   and owns the transports: `ntfy`, `smtp`, `gmail` (an SMTP preset), `none`
   (the `command` transport went with
   [D-notify-hook-events](#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
-  Since then nothing else calls the transports: a notification is fired as a
+  Since v0.10.28 nothing else calls the transports: a notification is fired as a
   hook event and the built-in `notify` hook calls `send()`; new channels are
   command hooks, not registry entries. `meridian notify` works
   with idle turned off. ntfy titles are RFC
@@ -154,11 +154,13 @@ layering and the default routes applied, plus one error per invalid row;
 longer validates hook rows. The second path (`validate_hooks`,
 `load_config_without_hooks`) is deleted. With two owners, `idle event` died on
 a bad row shape that the notification path tolerated. `meridian hooks check`
-exits 1 and names every invalid row. `meridian config show` lists hooks by
-name (one line per hook, not per expanded event row) and counts the invalid
-rows. Unparsable TOML is still a whole-config failure.
+exits 1 and names every invalid row. `meridian config show` reports hooks as
+one summary value: the count and names of configured hooks (each name once,
+however many event rows it expands into; the default `notify` routes are left
+out, `meridian hooks list` shows them) and the number of invalid rows.
+Unparsable TOML is still a whole-config failure.
 
-**A broken hook row cannot silence notifications.** On main, a broken hook
+**A broken hook row cannot silence notifications.** Before v0.10.28, a broken hook
 config could not affect notifications, because idle called the transports
 directly. Now that delivery is a hook, `emit` loads hook rows through the
 report. It drops only the invalid rows, keeps every valid one, and adds
@@ -234,9 +236,9 @@ are put before the body. Agents on meridian-base's older skill pass
 `"$(cat summary.md)"` as the first argument, and before the split every
 transport rejected the newline (ntfy's `Title` header, SMTP's `Subject`) and
 nothing was delivered. Exiting 2 on a multi-line title was rejected, since it
-breaks every agent still on the old skill. The CLI and the meridian-base
-notify skill should still release together: the old skill's `--title` is a
-usage error on the new CLI.
+breaks every agent still on the old skill. The old skill's `--title` is
+still a usage error on the new CLI, so the CLI (v0.10.28) and the
+meridian-base notify skill (v0.11.7) were released together.
 
 **Reshaped after a thermo-nuclear review (2026-10-17; user's "yea fix" is
 session-record):** the first cut converted `Notice` → `Notification` →
@@ -301,8 +303,8 @@ registration.
 
 ## D-notify-smtp-password-file — SMTP password from a file, env as leaky fallback
 
-**Decision (U3):** `[notify] smtp_password_file` (a path to a 0600 file)
-is the primary mechanism. `MERIDIAN_NOTIFY_SMTP_PASSWORD` is accepted only when
+**Decision (U3):** `[notify] smtp_password_file` (a path to a file no group
+or other user can read, such as mode 0600) is the primary mechanism. `MERIDIAN_NOTIFY_SMTP_PASSWORD` is accepted only when
 no file is set, and is documented as leaky.
 
 **Why:** `meridian notify` runs inside the harness process (called by the

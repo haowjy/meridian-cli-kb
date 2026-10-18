@@ -41,7 +41,7 @@ src/meridian/
     artifact/     Static artifact serving over Tailscale
     utils/        Additional utilities beyond core/ (json_shapes TypeIs helpers)
     ignores.py    Shared gitignore-style pattern loader (pathspec)
-  plugin_api/     Stable plugin API 2.0: Hook/HookContext types, notify delivery, state/git/config/fs helpers
+  plugin_api/     Stable plugin API 2.0: Hook/HookContext and Notification types, state/git/config/fs helpers
   dev/            Token-efficient pytest wrapper, preflight gates
   pi_runtime/     Meridian-owned TypeScript extensions loaded into Pi
   claude_runtime/ Bundled Claude Code mods (idle, session boundary)

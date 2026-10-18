@@ -197,9 +197,12 @@ These cases fail open or fail silently:
   rather than held. Both fail silently back to the pre-hold behaviour.
 - **A Claude subagent waiting on a permission prompt holds the push** for as
   long as the prompt waits, because it is still a running agent. The human
-  is needed and gets no page. Before #673 the mod skipped the whole arm while
-  any subagent ran, so no push came then either. The fix is a stateless ping on Claude's own
-  `permission_prompt` Notification (#684), not prompt tracking in the mod.
+  is needed and gets no page. Before v0.10.27 the mod skipped the whole arm
+  while any subagent ran, so no push came then either. Nothing in the mod
+  handles permission prompts today. The planned fix (#684, open) is a
+  stateless ping on Claude's own `permission_prompt` Notification; prompt
+  tracking in the mod was built and withdrawn
+  ([D-idle-push-in-flight](../decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)).
 - **The Claude mod fires a due push without asking whether the session is
   busy.** When finishing background work starts a new main-loop turn, the
   previous anchor's push timer can fire mid-turn. The launcher sidecar
