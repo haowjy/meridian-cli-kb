@@ -20,7 +20,7 @@ graph TD
 
     OPS --> LAUNCH["lib/launch/\nprepare/bind composition\nexecution"]
     OPS --> STATE["lib/state/\nper-spawn state.json\nwork items"]
-    OPS --> CATALOG["lib/catalog/\nmodel resolution\nagent/skill loading"]
+    OPS --> CATALOG["lib/catalog/\nmodel resolution\nagent profile loading"]
     OPS --> CONFIG["lib/config/\nsettings precedence\nworkspace config"]
 
     LAUNCH --> HARNESS["lib/harness/\nadapters\nClaude · Codex · OpenCode · Cursor · Pi"]

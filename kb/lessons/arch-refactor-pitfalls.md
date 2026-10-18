@@ -289,6 +289,18 @@ second channel and re-append was deleted
 `appended_system_prompt` (`projected or appended`). No caller passes both now. If
 one starts to, that's a sign a second channel is coming back.
 
+**The same split on the resolution side (2026-10).** The investigation behind
+#661 found a second skill resolver as well. Mars resolved profile skills when it
+built the launch bundle, while Meridian kept its own profile parse and a
+filesystem `SkillRegistry` with a model-variant lookup. Meridian's parser
+predated the `{load, available}` mapping and read it as no skills; the registry
+followed a variant rule Mars had dropped. Neither changed what a current launch
+received, which is why nobody noticed, but either could have taken the next skill
+fix. Meridian's copy was deleted rather than taught the mapping
+([D-mars-sole-skill-resolver](../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
+When a second copy of a resolver turns out to be wrong but harmless, delete it:
+fixing it keeps two resolvers that will drift again.
+
 ---
 
 ## Worktree Repo Detection Uses `cwd`, Not `MERIDIAN_PROJECT_DIR` (PR #266)

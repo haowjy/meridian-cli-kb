@@ -16,10 +16,9 @@ supports `--fallback-root` ([Mars user scope](../../architecture/mars-user-scope
 1. Reads all `.md` files in each root's `.mars/agents/`; the primary root's
    profile shadows a user profile of the same name
 2. Parses YAML frontmatter + body for each file
-3. Duplicate names: identical-content duplicates are silently deduped; conflicting
-   duplicates log a warning and first-seen wins
+3. Duplicate names: the first profile seen for a name wins, without a warning
 
-Source: `src/meridian/lib/catalog/agent.py:425-463`
+Source: `scan_agent_profiles()` in `src/meridian/lib/catalog/agent.py`
 
 `load_agent_profile_with_fallback()` selects a profile via:
 

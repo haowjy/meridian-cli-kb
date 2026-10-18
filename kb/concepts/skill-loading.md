@@ -78,8 +78,11 @@ Mars, the package manager, resolves the profile and any `--skills` names into
 the launch bundle that Meridian launches from. For
 each loaded skill it reads `.mars/skills/<name>/`, picks the harness variant
 body if there is one ([variants](skill-schema.md#skill-variants)), and returns
-the body without frontmatter. Meridian never reads `.mars/skills/` on the live
-launch path. It turns each loaded body into a skill document, renders the
+the body without frontmatter. Mars is the only skill resolver: Meridian never
+parses the profile's `skills` or reads `.mars/skills/`, and an exact continue
+reuses the bodies saved in its launch snapshot
+([D-mars-sole-skill-resolver](../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
+Meridian turns each loaded body into a skill document, renders the
 available listing, and hands both to the harness adapter, which places them in
 the system prompt. Unknown names come back as `missing` and produce a warning,
 not a failed launch: the bundle lists them under `missing` and Meridian adds a
@@ -126,8 +129,11 @@ group under a one-line header such as "Override other guidance when loaded."
   empty there. Loaded skills still arrive through composition. An `available`
   skill is listed by name with no native tool to load it; whether agents recover
   by reading `.mars/skills/<name>/SKILL.md` is unverified.
-- **Model-specific variants are not selected.** The launch bundle picks only
-  `variants/<harness>/SKILL.md`. See [skill variants](skill-schema.md#skill-variants).
+- **An exact continue keeps the available listing but not the files.** The
+  launch snapshot stores the rendered "Available Skills" text, not the entries,
+  so a continued session lists those skills without projecting them into the
+  workspace. Loaded skills replay in full. Tracked in
+  `src/meridian/lib/launch/.context/FUTURE` in meridian-cli.
 
 ## Related
 

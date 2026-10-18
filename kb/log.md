@@ -3,6 +3,30 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — Mars is the only skill resolver; D60 narrowed to harness variants (`refactor/mars-owns-profile-skills`, `work:long-view-review`)
+
+- New decision [D-mars-sole-skill-resolver](decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)
+  and index row: Meridian doesn't parse profile `skills` or read `.mars/skills/`;
+  it passes only `--skills` extras; replay uses only the snapshot's `loaded_skills`.
+- [D60](decisions/package-management.md#d60-skill-variants-are-selected-by-harness-only)
+  rewritten and renamed: harness-only selection; model-level variants not
+  supported. The owner flag from the previous entry is resolved, and Mars gap 8
+  (model variants) is deleted. Mars's leftover model-dir indexing is flagged.
+- Removed `SkillRegistry`, `resolve_skills_from_profile()`, `AgentProfile.skills`
+  and the legacy replay fallback from [skill-schema](concepts/skill-schema.md)
+  (the four-step ladder diagram and table are gone),
+  [skill-loading](concepts/skill-loading.md),
+  [model-resolution overview](concepts/model-resolution/overview.md),
+  [agent-profiles](concepts/model-resolution/agent-profiles.md) (also: duplicate
+  profiles never warned), the model-resolution and root vocabularies,
+  [launch-system](architecture/launch-system.md),
+  [mars-user-scope](architecture/mars-user-scope.md),
+  [composition-pipeline](concepts/composition-pipeline.md), package-management
+  concept pages, system overview and codebase guide.
+- Lesson: the resolution-side twin of the second-channel drift, in
+  [arch refactor pitfalls](lessons/arch-refactor-pitfalls.md#a-capability-gated-second-channel-drifts-from-the-first-pr-208--pr-661).
+
+---
 ## 2026-10-17 — How skills reach an agent: loaded vs available vs model-invocable (PR #661 follow-up, `work:long-view-review`)
 
 - New [concepts/skill-loading.md](concepts/skill-loading.md): a loaded skill (profile
