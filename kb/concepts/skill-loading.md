@@ -129,10 +129,11 @@ group under a one-line header such as "Override other guidance when loaded."
   empty there. Loaded skills still arrive through composition. An `available`
   skill is listed by name with no native tool to load it; whether agents recover
   by reading `.mars/skills/<name>/SKILL.md` is unverified.
-- **An exact continue keeps the available listing but not the files.** The
-  launch snapshot stores the rendered "Available Skills" text, not the entries,
-  so a continued session lists those skills without projecting them into the
-  workspace. Loaded skills replay in full. Tracked in
+- **An exact continue lists available skills without their directories.** A
+  continued session replays from its launch snapshot, which stores the rendered
+  "Available Skills" text but not the skill entries, so those skill directories
+  are not projected into the continued session's workspace. Loaded skills replay
+  in full. Tracked in
   `src/meridian/lib/launch/.context/FUTURE` in meridian-cli.
 
 ## Related

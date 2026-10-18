@@ -50,8 +50,9 @@ flowchart LR
 
 - **Meridian's own catalog** (`catalog/agent.py`) reads `.mars/agents` from
   `mars_content_roots(roots)`: primary then user, or primary alone when Mars
-  lacks `--fallback-root`. Meridian has no skill catalog; skills come only from
-  the launch bundle, so the fallback root reaches skills through Mars.
+  lacks `--fallback-root`. Meridian does not look up skills. Mars searches the
+  primary root and then the `--fallback-root` it is given, and returns the
+  selected skill bodies in the launch bundle.
 - **Mars calls** get `mars_fallback_args(roots, …)`: `--fallback-root <user>` on
   `build launch-bundle`, `agents show/list` (used by `spawn subagents`, which
   prints `root` or `fallback` per agent) and the read-only passthrough

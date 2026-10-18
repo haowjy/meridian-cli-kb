@@ -290,16 +290,18 @@ second channel and re-append was deleted
 one starts to, that's a sign a second channel is coming back.
 
 **The same split on the resolution side (2026-10).** The investigation behind
-#661 found a second skill resolver as well. Mars resolved profile skills when it
-built the launch bundle, while Meridian kept its own profile parse and a
-filesystem `SkillRegistry` with a model-variant lookup. Meridian's parser
-predated the `{load, available}` mapping and read it as no skills; the registry
-followed a variant rule Mars had dropped. Neither changed what a current launch
-received, which is why nobody noticed, but either could have taken the next skill
-fix. Meridian's copy was deleted rather than taught the mapping
+PR #661 also found two skill resolvers. Mars resolved profile skills when it
+built the launch bundle. Meridian kept its own profile parse and a filesystem
+lookup for replaying old snapshots. Meridian's parser predated the
+`{load, available}` profile form and read it as no skills, and its lookup chose
+bodies by model identity where Mars chose by harness only. Neither changed what
+a current launch received, because Mars read the profile itself and only old
+snapshots reached the lookup, so no test or launch failed. Any later skill
+change, though, could land in Meridian's copy and diverge further. Meridian's
+copy was deleted rather than taught the mapping
 ([D-mars-sole-skill-resolver](../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
-When a second copy of a resolver turns out to be wrong but harmless, delete it:
-fixing it keeps two resolvers that will drift again.
+When a duplicate of an authority is found out of date, delete it rather than
+bringing it up to date: the fix keeps two authorities that will drift again.
 
 ---
 
