@@ -2,7 +2,9 @@
 
 > **Status:** The event-name contract, git-autosync defaults and plugin API
 > version below include the unmerged `fix/hook-event-names` branch for #687,
-> based on v0.10.28.
+> while `session.needs_permission` includes the unmerged
+> `feat/permission-prompt-ping` branch for #684. Both are based on v0.10.28;
+> their plugin API versions must be reconciled at merge.
 
 Hooks are callbacks that fire at spawn and work lifecycle events and at
 notification events. They're the extension point for automation that should
@@ -46,10 +48,11 @@ graph TD
 
     RESPONDED["session.responded\nIdle push: agent waiting on you"]
     CACHE["session.cache_expiring\nIdle cache warning"]
+    PERMISSION["session.needs_permission\nClaude permission prompt still waiting"]
     MANUAL["notify.manual\nmeridian notify"]
 ```
 
-The three notification events are observe-class: each carries a
+The four notification events are observe-class: each carries a
 `notification` payload, and the routes on that event deliver it
 ([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 

@@ -95,14 +95,17 @@ transcript is not readable from here. Per that record, the user chose "Full
 `meridian notify "<title>" ["<body>"]`, and approved the reshape proposed by a
 thermo-nuclear review (a strict maintainability review) with "yea fix". A second session took the branch over (`work:notify-hook-events`) and
 fixed review findings in four rounds. The bullets below describe the result.
+Issue #684 adds `session.needs_permission` on the unmerged
+`feat/permission-prompt-ping` branch; it uses the same routing contract.
 
 **Decision:** A notification is a hook event, and the hook rows on that event
 deliver it.
 
-- **Three new observe-class events** (fail-open: a failing route never stops
-  the caller): `session.responded` (the idle waiting
-  push), `session.cache_expiring` (the cache warning) and `notify.manual`
-  (`meridian notify`). Idle push/warn and the CLI build one
+- **Four observe-class notification events** (fail-open: a failing route never
+  stops the caller): `session.responded` (the idle waiting push),
+  `session.cache_expiring` (the cache warning), `session.needs_permission`
+  (Claude's still-waiting permission signal), and `notify.manual` (`meridian
+  notify`). The notification producers build one
   `plugin_api.Notification`, the only notification value;
   `lib/notify/emit.py` fires it as its event through `HookDispatcher`, next
   to `spawn.finalized` and `work.done`.
@@ -141,11 +144,14 @@ deliver it.
   initialized, hooks now run; only interval-throttled hooks skip, having
   nowhere to keep their state. `git-autosync` skips there itself.
   `MERIDIAN_HOOKS_ENABLED=false` now also silences notifications.
-- **Plugin API 2.0.0.** `lib/hooks` reuses `plugin_api`'s `HookContext`,
+- **Plugin API versioning.** Version 2.0.0 introduced this payload and made
+  `lib/hooks` reuse `plugin_api`'s `HookContext`,
   `HookResult` and `HookEventName` (they were identical duplicates).
   `HookContext.runtime_root` is optional, a `notification` field is added, and
   the hook payload is `schema_version` 2. `Notification` validates its own
-  title (non-empty, no control characters) and priority.
+  title (non-empty, no control characters) and priority. #684's additive event
+  bumps its branch to 2.1.0; merge must reconcile that with #687's pending
+  3.0.0 removal release rather than lowering the version.
 
 **One owner for `[[hooks]]` row validation.** `lib/hooks/config.py` owns every
 check on a hook row. `load_hooks_config_report` returns the valid rows, with

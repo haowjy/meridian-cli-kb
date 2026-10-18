@@ -1,5 +1,8 @@
 # architecture/idle-adapters — Idle Adapter Architecture
 
+> **Status:** Permission-prompt forwarding below is implemented on the
+> unmerged `feat/permission-prompt-ping` branch for #684, based on v0.10.28.
+
 This page owns the current idle adapter mechanism: where it lives, what each
 harness schedules, the runtime contracts, and the known fragility. The decision
 record retains the rationale, rejected alternatives, and decision history in
@@ -20,8 +23,10 @@ record retains the rationale, rejected alternatives, and decision history in
 
 ## Per-harness coverage
 
-Idle has two stages: the "waiting on you" push and the cache-expiry warning.
-Meridian does not compact idle sessions; each harness compacts on its own
+The idle timeline has two stages: the "waiting on you" push and the cache-expiry
+warning. Claude additionally forwards a stateless still-waiting permission
+signal outside that timeline. Meridian does not compact idle sessions; each
+harness compacts on its own
 ([D-idle-compaction-removed](../decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)).
 What each harness schedules, where its TTL comes from, and the last time the
 path was seen working outside unit tests. "Live" means a real interactive
@@ -39,6 +44,15 @@ and scratch state.
 
 Only Claude reports running work today. Codex, OpenCode and Pi arms carry no
 background tasks, so they get the ordinary push (#669).
+
+Only Claude produces `session.needs_permission`. Its mod forwards
+`classic.Notification` when, and only when, `notification_type` is
+`permission_prompt`, through `meridian idle needs-permission`. Core emits the
+notice through the ordinary notification hook routes without reading or
+writing idle state. This signal neither releases the held waiting push nor
+tracks the eventual answer. The decision and the rejected correlated designs
+are in
+[D-idle-permission-ping](../decisions/idle-notifications.md#d-idle-permission-ping--forward-claudes-still-waiting-signal-without-rebuilding-prompt-state).
 
 ### Hosts
 
@@ -63,6 +77,11 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   `origin.kind` `composer` or `bridge` (the phone/web client), not
   `turn.start`. Injected origins (a `task-notification`, a peer, a plugin) are
   not returns. Only the main loop's `turn.complete` (no `agentId`) arms.
+  `classic.Notification` with `notification_type=permission_prompt` forwards
+  Claude's message independently of the arm/return queue; every other
+  notification type is ignored. The handler always calls `next(e)`, and its
+  Meridian CLI task contains lookup and delivery failures rather than failing
+  Claude's turn.
   Under `claude -p` (`isInteractive === false`, no surface) the mod never
   calls meridian.
 - **Pi.** A user return is `input` with `source === "interactive"`. The handler
@@ -195,14 +214,14 @@ These cases fail open or fail silently:
   and every turn gets the ordinary push while subagents or spawns run. If a
   task `type` is renamed, the mod maps it to `other` and the push is delayed
   rather than held. Both fail silently back to the pre-hold behaviour.
-- **A Claude subagent waiting on a permission prompt holds the push** for as
-  long as the prompt waits, because it is still a running agent. The human
-  is needed and gets no page. Before v0.10.27 the mod skipped the whole arm
-  while any subagent ran, so no push came then either. Nothing in the mod
-  handles permission prompts today. The planned fix (#684, open) is a
-  stateless ping on Claude's own `permission_prompt` Notification; prompt
-  tracking in the mod was built and withdrawn
-  ([D-idle-push-in-flight](../decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)).
+- **Claude's permission notification is an upstream dependency.** A subagent
+  waiting on a permission prompt still holds the ordinary push because it is
+  a running agent; `session.needs_permission` is the separate page. If Claude
+  renames or stops emitting `classic.Notification` with
+  `notification_type=permission_prompt`, Meridian silently stops paging for
+  this case. Meridian intentionally does not recover by correlating
+  `PermissionRequest` and `tool.call`
+  ([D-idle-permission-ping](../decisions/idle-notifications.md#d-idle-permission-ping--forward-claudes-still-waiting-signal-without-rebuilding-prompt-state)).
 - **The Claude mod fires a due push without asking whether the session is
   busy.** When finishing background work starts a new main-loop turn, the
   previous anchor's push timer can fire mid-turn. The launcher sidecar

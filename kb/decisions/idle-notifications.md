@@ -39,6 +39,11 @@ Which harness has which TTL is in
 each harness actually schedules today is in
 [Per-harness coverage](../architecture/idle-adapters.md#per-harness-coverage).
 
+Claude has one additional, unscheduled notice: when Claude Code reports that a
+permission prompt is still unanswered, Meridian forwards that signal as
+`session.needs_permission`. It is deliberately outside the stretch and timer
+model; see [D-idle-permission-ping](#d-idle-permission-ping--forward-claudes-still-waiting-signal-without-rebuilding-prompt-state).
+
 ## Invariants to keep
 
 - **Fire checks live only in the ordered guards.** `lib/idle/guards.py`
@@ -85,7 +90,8 @@ adapters also acted: they compacted only on `act`.)
 
 In-session TypeScript adapters (Claude, Pi) talk to core through a hidden
 `meridian idle config|status|arm|return|fire` CLI and pass `--interactive`
-on **every** call. Codex's native `notify` callback enters through
+on **every** call. Claude also uses `idle needs-permission` for its independent,
+stateless permission signal. Codex's native `notify` callback enters through
 `meridian idle event`. An absorbed arm includes its `reason` on the real wire,
 so adapters can distinguish preserved timers from a genuine reschedule.
 Adapters hosted in meridian's launcher (Codex, OpenCode) call the same service
@@ -588,10 +594,10 @@ host-internal events it does not own. Claude already computes the first
 fact: `classic.Notification` with `notification_type=permission_prompt` fires
 about 6 seconds after a prompt that is still unanswered. The tracking was
 removed before merge, so PR #685 kept the old behavior for this case. The follow-up,
-still open, is a stateless ping
-on that Notification, one per still-waiting prompt, as its own hook event on
-top of the notification events
-([#684](https://github.com/haowjy/meridian-cli/issues/684)). Two other fixes
+[#684](https://github.com/haowjy/meridian-cli/issues/684), implements the
+stateless ping described in
+[D-idle-permission-ping](#d-idle-permission-ping--forward-claudes-still-waiting-signal-without-rebuilding-prompt-state).
+Two other fixes
 were rejected. Treating agents as *maybe* would push mid-work on every long
 subagent, while the session is about to resume itself. A hard ceiling on the hold
 would still delay the page for a waiting prompt by the length of the ceiling.
@@ -600,6 +606,48 @@ would still delay the page for a waiting prompt by the length of the ceiling.
 sidecar, does not ask whether the primary is busy before firing a due push.
 When finishing background work starts a new main-loop turn, a push timer from
 the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
+
+## D-idle-permission-ping — Forward Claude's still-waiting signal without rebuilding prompt state
+
+**Status:** GitHub #684, implemented on the unmerged
+`feat/permission-prompt-ping` branch from v0.10.28 (2026-10-18).
+
+**Decision:** The Claude mod forwards only `classic.Notification` events whose
+`notification_type` is `permission_prompt`. It calls the hidden
+`meridian idle needs-permission --harness claude --session … --message …`
+adapter command and immediately continues the host event with `next(e)`.
+Core builds one priority-3, push-only notice titled `Claude needs permission`,
+appends the ordinary session headline to Claude's message, and emits it as the
+observe-class `session.needs_permission` hook event. The event has the same
+default built-in `notify` route as the idle push and cache warning, so ordinary
+hook rows can add routes or replace its default; a disabled `notify` row for
+this event silences only this notice.
+
+This path is **stateless**. It never reads or writes the idle store, changes a
+stretch, holds or releases a scheduled push, tracks an answer, or correlates a
+permission request with a tool call. Claude Code owns the hard fact Meridian
+needs: its notification fires about six seconds after a prompt remains
+unanswered and fires once for that still-waiting prompt. Reconstructing that
+fact from request/call pairs introduced rewrite-sensitive correlation,
+mistook command completion for approval, and failed when the same agent asked
+twice; the withdrawn attempts are recorded in
+[D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not).
+
+The existing idle enablement switch (`[idle].enabled`,
+`MERIDIAN_IDLE_ENABLED`, and the per-harness override) gates the signal just as
+it gates the waiting push. `MERIDIAN_HOOKS_ENABLED=false` remains the global
+delivery gate. CLI/session lookup and route failures are contained in the mod,
+so a broken Meridian call cannot block or fail Claude's turn. Claude is the
+only producer: no equivalent upstream still-waiting signal has been adopted
+for Pi, Codex, OpenCode, or Cursor.
+
+**Verified:** a real Claude Code 2.1.302 primary with Haiku, isolated under a
+scratch `MERIDIAN_HOME` and runtime directory, was left at a Bash permission
+prompt for more than ten seconds. A command hook captured exactly one
+`session.needs_permission` notice with the expected title and the body
+`Claude needs your permission` followed by the session headline. Mod and CLI
+tests also cover exact filtering, fail-open CLI errors, route silencing, and no
+idle-state write (`work:permission-ping`).
 
 ## D-idle-compaction-removed — Meridian no longer compacts idle sessions
 
