@@ -190,7 +190,7 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 ### D-skill-single-path: Loaded skills are composition documents on every harness
 
-**Status (2026-10-17):** Built on `fix/primary-skill-injection` (`bcfe1c5ff`, `ac50d7f35`). PR #661 is open with `release:patch`. Until it merges, `main` still has the split described in D-skill-doc-suppression.
+**Status:** Shipped in v0.10.23 (PR #661, merge `71bec25fe`).
 
 **Decision (2026-10, PR #661):** Both composers (`_build_spawn_composed_launch_content()` and `_resolve_primary_projection()`) always add `compose_skill_prompt_documents(loaded_skills)` to `supplemental_documents`. Projection places them in the system prompt after the agent profile, grouped principle → guardrail → reference. There is no harness-capability gate and no second channel. `system-prompt.md`, which Claude reads through `--append-system-prompt-file`, is written from `run_params.appended_system_prompt`. That is the full prompt the harness receives, including additions made after projection such as the source-edit-directory instruction.
 
@@ -210,7 +210,7 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 ### D-pi-spawn-native-discovery: Pi spawns keep native skill and context discovery
 
-**Status (2026-10-17):** Built on `fix/pi-spawn-native-discovery` (`98f36da45`); PR open. Until it merges, `main` passes `--no-skills --no-context-files --no-prompt-templates` to spawned Pi.
+**Status (2026-10-18):** PR #675 open (`release:patch`). Until it merges, `main` passes `--no-skills --no-context-files --no-prompt-templates` to spawned Pi.
 
 **Decision:** Spawned Pi (`project_pi_rpc.py`) keeps Pi's native skill, context-file and prompt-template discovery, like the Pi primary and every other harness's spawns. It still passes `--no-extensions` with explicit `-e` for Meridian's bundles, because ambient extensions run code and can conflict with the managed ones; `load_all_pi_extensions` opts in.
 
