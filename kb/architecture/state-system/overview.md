@@ -40,7 +40,7 @@ meridian.toml
       stderr.log · params.json · tokens.json
       pi-lifecycle.json · runner-lifecycle.jsonl · process_scopes.json
       attempt-N/                    — legacy retry evidence, read-only
-  artifacts/ · cache/ · .migrations.json
+  cache/ · .migrations.json
 
 <context.work root>/<slug>/         — context-resolved work state and artifacts
 ```
@@ -53,6 +53,11 @@ until `session archive --prune-runner-history` removes them
 ([prune](../../operations/session-archive-pruning.md#runner-history-prune)).
 `pi-lifecycle.json` holds the last Pi phase and cleanup status for the current turn
 ([attempt facts and delivery](../attempt-facts-and-delivery.md#pi-lifecycle-sidecar)).
+
+Older runtimes may still contain `artifacts/<id>/`, the former second copy of
+per-spawn files. Launch, finalization, and query paths never use it. Cleanup code
+recognizes it only to remove legacy bytes: runner-history pruning can delete retired
+stream files inside it, and stale-spawn pruning deletes the whole legacy directory.
 
 The project id selects the runtime directory: `[project].id` for a committed
 project, `adhoc.<slug>.<hash12>` for a marker-less directory, whose root also

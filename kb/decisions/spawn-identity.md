@@ -184,7 +184,7 @@ shows them.
 | 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
 | 3 | `read_derived`: exact liveness for every reader; lenient quarantine | merged, #672 (`ea6c8cc3f`, v0.10.24; fixes #663) |
 | 4 | Sole-writer outcome; state v4; history index **v11** | not started |
-| 5 | Cut the runtime artifact store | not started |
+| 5 | Cut the runtime artifact store | implementation complete for #677 at `463519248`; not merged |
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
 | 7 | Continue keeps the spawn ID | not started |
 
