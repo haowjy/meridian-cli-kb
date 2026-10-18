@@ -3,6 +3,85 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-18 — Idle push and notifications merged: PR #685 (#673, v0.10.27) and PR #686 (#670, #666, v0.10.28) (`work:notify-hook-events`)
+
+Status lines in `decisions.md`, D-idle-push-in-flight, D-idle-compaction-removed
+and D-notify-hook-events now say merged.
+
+---
+## 2026-10-18 — Idle push and notification branches brought to final behavior (#673, #670, #666; `work:notify-hook-events`)
+
+The cloud session's pages described the branch at its last push. A takeover
+session split the work into two stacked branches (#673 idle, then #670/#666
+notifications) and fixed review findings in four rounds; these pages now
+describe the result.
+
+- [D-idle-push-in-flight](decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not):
+  the last-command-segment certainty rule (loops, newlines, redirections,
+  comments, line continuations, `lib/cli_args.py`), `spawn wait --timeout`,
+  the owed response until a push is delivered, the mod's 16 × 512 cap,
+  permission prompts holding the push as on main, the two withdrawn
+  prompt-tracking designs, and #684. Verification gap replaced by the live
+  probe. Status and the cloud session's user quotes marked session-record.
+- [D-idle-compaction-removed](decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions):
+  status (ships with #673; user quotes session-record) and upgrade cost.
+- [D-notify-hook-events](decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes):
+  one owner for hook-row validation, fallback keeps valid rows, channel names
+  checked at load, `RouteReport` vs `SendReport`, `HookResult.details`, the
+  all-`none` note is CLI-only, `hooks run` one-action rule, #178 kept,
+  multi-line title split, ntfy partial delivery, `--attach` dedupe.
+- [architecture/idle-adapters.md](architecture/idle-adapters.md): running-work
+  table and parser, mod caps, Claude live verification, two new fragility rows
+  (permission-prompt hold, mod mid-turn push), notify skill location.
+- [concepts/hooks-and-plugins.md](concepts/hooks-and-plugins.md): layering now
+  `default < user < project < local` (the stale "context config" layer is gone),
+  validation owner, `hooks run` one-action rule, `HookResult.details` and
+  `supported_events`, route results, the companion exception to the plugin API
+  boundary, `hooks` commands under `ignore_env`.
+- New lessons:
+  [`pytest-llm` is not the full suite](lessons/verification-and-review-discipline.md#pytest-llm-is-not-the-full-suite),
+  [check a claim about main against main's code](lessons/verification-and-review-discipline.md#check-a-claim-about-main-against-mains-code),
+  [a fresh Claude config dir hides the owner's hooks](lessons/harness-integration.md#a-fresh-claude-config-dir-hides-the-owners-hooks).
+  `codebase/guide.md` no longer calls `pytest-llm` the automated suite.
+- Index rows updated in [decisions.md](decisions.md) and [index.md](index.md).
+
+---
+## 2026-10-17 — Notifications as hook events, #670 (`claude/notify-bash-events-gguu11`)
+
+- New [D-notify-hook-events](decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)
+  in `idle-notify-channels.md`, indexed in [decisions.md](decisions.md) and
+  [decisions/overview.md](decisions/overview.md). D-idle-leaf-packages and
+  D-idle-notice-context no longer describe a channel registry, direct
+  `notify.send` calls or `--title`.
+- [concepts/hooks-and-plugins.md](concepts/hooks-and-plugins.md): the three
+  notification events, default `notify` routes, the `notification` context and
+  env, a new section on the built-in `notify` route and command-hook channels,
+  hooks without a runtime root, plugin API 2.0.0.
+- Plugin API version and notify code locations updated in
+  `codebase/guide.md`, `codebase/vocabulary.md` and
+  `architecture/idle-adapters.md`.
+
+---
+## 2026-10-17 — Idle compaction removed; running work shapes the push (`claude/notify-bash-events-gguu11`)
+
+- [architecture/idle-adapters.md](architecture/idle-adapters.md) now describes
+  push and warn only: the compaction actuator column, `Compaction worth`
+  section, actuator contracts and compaction fragility rows are gone; new
+  [Running work and the push](architecture/idle-adapters.md#running-work-and-the-push)
+  covers Claude's `classic.Stop` → `idle arm --background-tasks` and core's
+  `wake.py`. `Hosts and actuators` is now `Hosts`.
+- [idle-compaction-actuator](decisions/idle-compaction-actuator.md) and
+  [idle-compaction-growth-floor](decisions/idle-compaction-growth-floor.md)
+  carry superseded banners pointing to
+  [D-idle-compaction-removed](decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).
+- Current-tense compaction claims fixed in `idle-notifications.md` (problem,
+  invariants, guard list, config, revisit), `idle-notify-channels.md`,
+  `idle-opencode-v2.md`, `idle-ttl-detection.md`, `codebase/harness-adapters.md`,
+  `architecture/launch-system.md`, `concepts/config-precedence.md`,
+  `codebase/test-determinism.md`, `research/prompt-cache-retention.md`, and the
+  index rows.
+
+---
 ## 2026-10-18 — KB brought to `main` after identity-v2 PR 3 merged (#672, v0.10.24; `work:v010-followups` D77–D86)
 
 The previous capture wrote PR 3 as awaiting merge and left pages describing the
@@ -518,7 +597,7 @@ runner as `failed`/`crashed` (or `cancelled` with a cancel request),
   [idle-opencode-v2](decisions/idle-opencode-v2.md), and
   [idle-compaction-actuator](decisions/idle-compaction-actuator.md). The
   per-harness hosting table moved to
-  [Idle adapters](architecture/idle-adapters.md#hosts-and-actuators), which owns
+  [Idle adapters](architecture/idle-adapters.md#hosts), which owns
   the mechanism; the decision pages keep the rationale and rejected options.
 
 ## 2026-10-15 — History-index readers stop waiting on session writers (`work:v010-followups`, PR #588 landing, #586)

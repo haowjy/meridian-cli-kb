@@ -411,11 +411,13 @@ suite can time out the wait while the fake-time behavior is correct.
 
 **Known instance (#632, open):**
 `tests/integration/idle/test_sidecar.py::test_sidecar_drives_idle_push_warn_compact_and_done`
-waits for `state.done["compact"] == "ok"` through `wait_until`
+waited for `state.done["compact"] == "ok"` through `wait_until`
 (`tests/support/async_determinism.py`), which has a 1 s real deadline. It failed
 twice in full-gate runs during PR 1's verification and passed alone in 0.54 s.
 Scheduler starvation is the leading hypothesis. A dropped schedule or compaction
-event has not been ruled out.
+event has not been ruled out. Idle compaction has since been deleted; the test
+is now `test_sidecar_drives_idle_push_and_warn` and waits the same way for
+`state.done["warn"] == "sent"`, so the two-clock hazard remains.
 
 **Remedy:** synchronize on the event the test is waiting for, not a wall-clock
 bound. Reproduce under full-gate ordering first, to tell starvation from a lost

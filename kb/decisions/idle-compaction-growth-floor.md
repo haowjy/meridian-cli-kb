@@ -1,4 +1,9 @@
-# Decision: Idle Compaction Only When It Pays
+# Decision: Idle Compaction Only When It Pays (superseded)
+
+**Superseded 2026-10-17 by [D-idle-compaction-removed](idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).**
+Meridian no longer compacts idle sessions: `worth.py`, the context baselines,
+the `compact_costs` port and every `compact*` key are deleted. The break-even
+reasoning and measured costs below stay as history.
 
 ## D-idle-compaction-growth-floor — Compact on growth past a per-harness break-even
 
@@ -279,7 +284,7 @@ versions against one idle directory.
 
 - [Idle Notifications](idle-notifications.md): the schedule, guard order and
   stretch rules this changes.
-- [Idle Adapter Architecture](../architecture/idle-adapters.md#compaction-worth): the
+- [Idle Adapter Architecture](../architecture/idle-adapters.md): the
   current adapter mechanism.
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md):
   the TTLs and write premiums behind w, and which compactions read the cache.

@@ -1,9 +1,12 @@
-# Decision: Idle Compaction Actuator
+# Decision: Idle Compaction Actuator (superseded)
+
+**Superseded 2026-10-17 by [D-idle-compaction-removed](idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).**
+Meridian no longer compacts idle sessions; every actuator below (the Codex tmux
+clear and `/compact`, Claude `$.session.compact()`, Pi `ctx.compact()`, the
+OpenCode compact calls) is deleted. This record stays for its history.
 
 This page records the decision that idle compaction takes precedence over
 unsent composer text, including the safety boundary for Codex's tmux actuator.
-The current adapter sequence and runtime contract live in
-[Idle Adapter Architecture](../architecture/idle-adapters.md).
 
 ## D-idle-compact-over-drafts — Compaction wins over unsent text
 

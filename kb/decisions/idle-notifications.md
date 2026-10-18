@@ -1,15 +1,19 @@
-# Decisions: Idle Notifications and Idle Compaction
+# Decisions: Idle Notifications
 
 ## The problem
 
 A primary session sits idle in tmux. When the provider's prompt cache expires,
 the next prompt writes the whole context into the cache again. The user wants
-three things:
+two things:
 
 - a phone push shortly after the session goes idle;
-- a warning before the cache goes cold;
-- if they don't come back, a compaction while the cache is still warm, so the
-  eventual return is cheap.
+- a warning before the cache goes cold.
+
+Until 2026-10-17 a third stage compacted the session while the cache was still
+warm, so the eventual return was cheap. It was deleted
+([D-idle-compaction-removed](#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)):
+old context is recovered by session mining, and each harness compacts on its
+own.
 
 Agents should also be able to ping the user directly. Prior art
 (`claude-idle-compact`, `claude-cache`, `claude-cache-keeper`) covers one
@@ -21,12 +25,14 @@ The default schedule, measured from the last cache write:
 |---|---|---|---|
 | 60 s after a turn of 120 s or more; 600 s after a quicker or unknown-length turn | "waiting on you" | yes | no |
 | TTL − 15 min | "cache cold in 15m" | yes | yes |
-| TTL − 5 min | compact if every guard passes, then report | yes | no |
 | user sends a prompt | cancel everything pending | — | — |
 
 The push delay comes from `[idle] push_seconds`, `long_turn_seconds` and
 `quick_turn_push_seconds` (since v0.9.3), so a one-line answer doesn't page the
-user a minute later. Stages that don't fit inside the TTL are dropped. With a
+user a minute later. Work still running when the turn ends can hold or delay
+the push and drop the warning
+([D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)).
+Stages that don't fit inside the TTL are dropped. With a
 5-minute cache only the push fits; with an unknown TTL there is only the push.
 Which harness has which TTL is in
 [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md); what
@@ -35,10 +41,13 @@ each harness actually schedules today is in
 
 ## Invariants to keep
 
-- **Compaction checks live only in the ordered guards.** `lib/idle/guards.py`
+- **Fire checks live only in the ordered guards.** `lib/idle/guards.py`
   is one ordered pure function that matches the guard list below line by line.
-  A new check goes there, never into an adapter. Adapters keep only their
-  last-second veto re-checks between `act` and the compact call.
+  A new check goes there, never into an adapter.
+- **Running work is read only in core.** Adapters forward the tasks a turn
+  left running as `BackgroundTask` facts; `lib/idle/wake.py` alone interprets
+  them, including Meridian's own `spawn` CLI grammar
+  ([D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)).
 - **`IdleStore.mutate(fn)` is the only write path.** It locks, reads, applies
   a pure transition and writes atomically, and it is the one seam tests
   replace. `IdleStore.write` exists only as a test convenience; don't add a
@@ -66,24 +75,23 @@ each harness actually schedules today is in
 
 ## D-idle-core-decides — Adapters report facts, core decides
 
-**Decision:** Each harness adapter only observes and acts. It reports
-facts to core (a turn finished, the user typed a prompt, a timer fired,
-whether the harness is busy, how many tokens are in context). Core owns the
-timeline, every guard, the state file, config resolution and notification
-delivery. For compaction, core replies `act` or `skip`. An adapter never reads
-meridian config, never writes idle state, never sends a notification itself,
-and never compacts without `act`.
+**Decision:** Each harness adapter only observes. It reports facts to core (a
+turn finished, the work it left running, the user typed a prompt, a timer
+fired, whether the harness is busy). Core owns the timeline, every guard, the
+state file, config resolution and notification delivery; a fired timer gets
+`act` or `skip` back. An adapter never reads meridian config, never writes
+idle state and never sends a notification itself. (While Meridian compacted,
+adapters also acted: they compacted only on `act`.)
 
 In-session TypeScript adapters (Claude, Pi) talk to core through a hidden
-`meridian idle config|status|arm|return|fire|done` CLI and pass `--interactive`
+`meridian idle config|status|arm|return|fire` CLI and pass `--interactive`
 on **every** call. Codex's native `notify` callback enters through
 `meridian idle event`. An absorbed arm includes its `reason` on the real wire,
 so adapters can distinguish preserved timers from a genuine reschedule.
 Adapters hosted in meridian's launcher (Codex, OpenCode) call the same service
 in-process. Facts visible in env reach core through
 harness bundle hooks, so the idle package never names a harness:
-`DISABLE_AUTO_COMPACT` (Claude) and `OPENCODE_DISABLE_AUTOCOMPACT` through the
-`autocompact_off` hook, and `PI_CACHE_RETENTION` through Pi's `detect_ttl`.
+`PI_CACHE_RETENTION` reaches it through Pi's `detect_ttl`.
 Facts only a sensor can see travel on the event: the OpenCode 2.x sensor sets
 `IdleEvent.provider`, and core passes it to the harness's `detect_ttl` without
 interpreting the provider name.
@@ -99,24 +107,15 @@ returning mid-compaction) are solved once.
 
 ## D-idle-stretch-at-most-once — Each stage fires at most once per stretch
 
-**Decision:** A *stretch* runs from one user prompt to the next. Push, warn
-and compact each happen at most once per stretch. A compaction counts once it
-is attempted, whatever the result. Each finished turn inside the stretch
-re-anchors the schedule, because the cache was just refreshed. Re-anchoring
-moves pending stages later, but never re-enables a stage that already ran. An
-arm on a closed stretch always opens the next one, even after a successful
-compaction.
+**Decision:** A *stretch* runs from one user prompt to the next. Push and
+warn each happen at most once per stretch. Each finished turn inside the
+stretch re-anchors the schedule, because the cache was just refreshed.
+Re-anchoring moves pending stages later, but never re-enables a stage that
+already ran. An arm on a closed stretch always opens the next one. A user
+return is always honoured: a positively identified prompt, or an arm that
+carries `--implies-return` (Codex's only return signal).
 
-From the moment core says `act`, plain turn-finished reports are ignored so the
-compaction's own turn can't restart the timeline. Only `done ok` extends that
-*compaction window* by 30 seconds. `done failed|vetoed` clears the window and
-the expected-compaction-turn marker, so the next real arm is not swallowed. A
-user return is always honoured, even inside the window. That covers a
-positively identified prompt and an arm that carries `--implies-return`
-(Codex's only return signal, because Codex's own compaction fires no notify).
-
-The guard order puts the cheap checks first and the compaction-only checks
-last:
+The guard order puts the cheap checks first:
 
 1. not a primary
 2. idle disabled for this harness
@@ -127,26 +126,13 @@ last:
 7. timer fired early
 8. timer fired late (machine slept)
 
-Compaction only, after those:
-
-9. compaction disabled for this harness
-10. cache already cold
-11. harness busy
-12. agents running in the harness
-13. child spawns still active
-14. compaction not worth it: growth below the per-harness break-even, or
-    context or baseline unknown
-    ([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even))
-15. harness's own auto-compaction off
-
-There is no draft guard: unsent composer text never blocks compaction
-([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
-
-**Unknown facts:** an unknown context or baseline fails closed
-(`skipped:context-unknown`, `skipped:baseline-unknown`). The original rule (D6)
-let unknown context compact, on the assumption that compacting a small context
-costs little. Measured costs showed that a compaction can cost more than it
-saves, so v0.10.6 made unknown skip.
+Seven compaction-only guards followed these (compaction disabled, cache
+already cold, harness busy, agents running, child spawns active, not worth it,
+harness auto-compaction off); they were deleted with
+[D-idle-compaction-removed](#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions).
+Running work now shapes the schedule at arm time instead of vetoing at fire
+time. The Codex sidecar still skips a fire while the pane shows Codex working
+([adapter contracts](../architecture/idle-adapters.md#adapter-contracts)).
 
 **State:** one JSON file per harness session at
 `~/.meridian/idle/<harness>-<native_session_id>.json`, written atomically and
@@ -154,13 +140,10 @@ read truncation-tolerantly, with lazy deletion after 7 days. Timers live in
 memory wherever the adapter runs and are re-derived from the file after a reload.
 
 **Why:** A Claude mod hot reload and a Pi `/reload` both wipe in-memory state;
-without a durable marker a reload re-sends the push and can compact twice.
+without a durable marker a reload re-sends the push (and, while Meridian
+compacted, could compact twice).
 The file is the only record (files as authority); timers are disposable
 (crash-only).
-
-**Compaction size check:** growth since a baseline against a per-harness
-break-even, not total context
-([D-idle-compaction-growth-floor](idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even)).
 
 ## D-idle-reopen-return — A Meridian reopen is a user return
 
@@ -183,8 +166,8 @@ id before exec. So a reopen is treated as what it is, a user return. In
 starts, the launcher calls `close_on_launch(harness, session, env)`
 (`lib/idle/service.py`). If that session has an open stretch, it applies the
 same close transform as `meridian idle return` (`_close_open_stretch`:
-`stretch_open = false`, `returned_at_ms = now`, compaction window and
-expected-compaction flag cleared). Claude and Pi then find nothing open to
+`stretch_open = false`; at the time it also cleared the compaction window and
+expected-compaction flag, which no longer exist). Claude and Pi then find nothing open to
 re-adopt, and the first finished turn opens a fresh stretch.
 
 - No new state, guard, or arm/fire branch. The store schema is unchanged.
@@ -273,8 +256,8 @@ know the role. All five harnesses pass through the one bind seam, primary and
 spawn alike, so a single variable covers them; a per-harness marker would mean
 one branch per harness in `launch/`. It is public rather than `_MERIDIAN_*`
 because TypeScript adapters, agents and user scripts all read it. The flag is
-per call, not only on `config`: core checks the role on every `arm`, `fire` and
-`done`. When only `config` carried it, an outside-meridian Claude session read
+per call, not only on `config`: core checks the role on every `arm` and `fire`
+(and `done`, while it existed). When only `config` carried it, an outside-meridian Claude session read
 `enabled: true` and then had every arm declined (G2 C1).
 
 **Caveat:** an agent inside a primary that runs a bare `claude` inherits
@@ -295,15 +278,17 @@ managed-attach primaries: a meridian process already lives for the whole
 session, runs an event loop and holds the backend connection. OpenCode needs no
 plugin at all: meridian already consumes its raw live events and can POST to
 its server. In the current Codex attach path, the TUI/observer arrangement
-leaves Meridian dependent on `notify` for the turn sensor, and production's
-compaction actuator remains tmux-based. (User decision U5 / design Q4.)
+leaves Meridian dependent on `notify` for the turn sensor; the tmux pane now
+serves only the busy probe. (User decision U5 / design Q4.)
 
-**Bounded Codex backend probe (not a production change):** On `codex-cli
+**Bounded Codex backend probe (history; the tmux compaction actuator it was
+weighed against was deleted with
+[D-idle-compaction-removed](#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)):** On `codex-cli
 0.162.1`, a second initialized WebSocket client resumed a thread while the
 native TUI was attached and successfully called `thread/compact/start`. Both
 WebSocket clients and the TUI remained usable, and the TUI rendered the
 completion. This corrects any categorical claim that backend compaction is
-impossible, but production still compacts through tmux: approval routing was
+impossible, but production kept compacting through tmux: approval routing was
 not exercised, and the actuator was never switched. A backend actuator would
 remove the screen-gated composer clear
 ([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)),
@@ -340,19 +325,20 @@ this when it removed `--cwd`; see
 **Decision:** New tables `[notify]`, `[idle]` and `[harness.<h>.idle]`. Env
 names are spelled out per field: `MERIDIAN_NOTIFY_<KEY>`, `MERIDIAN_IDLE_<KEY>`
 and `MERIDIAN_HARNESS_IDLE_<KEY>_<H>`. Keys are named so the key matches the
-env suffix (`push_seconds`, `warn_minutes`, `compact_minutes`), not the
+env suffix (`push_seconds`, `warn_minutes`), not the
 planning sketch's longer names (D3).
 
 Precedence compares levels first, then specificity (D4): a per-harness env var
 beats the global env var, which beats any file key, per-harness or global, which
-beats the default. So `MERIDIAN_IDLE_COMPACT=0|1` exported in one tmux session
+beats the default. So `MERIDIAN_IDLE_ENABLED=0|1` exported in one tmux session
 always wins over a config file in either direction. There are no CLI flags.
 `meridian idle config --harness <h>` takes precedence over `_MERIDIAN_HARNESS`
 when choosing which harness's settings to resolve.
 
-Idle compaction is **not** tied to `primary.autocompact`. That setting is a
-context-size threshold with no "off" value. Idle compaction has its own switch
-and also respects the harness's own auto-compaction-off setting.
+Idle has no relation to `primary.autocompact`, a context-size threshold for
+the harness's own compaction. Meridian's idle compaction, which had its own
+`compact*` keys, was deleted
+([D-idle-compaction-removed](#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)).
 
 Per-harness idle settings are one generated model per harness
 (`harness_idle_model("codex")`), not one shared annotated sub-model. A shared
@@ -403,7 +389,7 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
 
 - **Pi `openai-codex`** is not changed by the retention default. Pi 1.1.0's
   `openai-codex-responses.js` sends only `prompt_cache_key` and never applies
-  `PI_CACHE_RETENTION`. Idle on that provider still schedules warn and compact,
+  `PI_CACHE_RETENTION`. Idle on that provider still schedules the warning,
   from an estimated 1800 s
   ([D-idle-ttl-detection](idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)).
   *Superseded (2026-10-13):* this page used to keep `openai-codex` push-only,
@@ -414,7 +400,7 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
   because Pi does not extend retention there.
 - **OpenCode** has no retention switch Meridian can set; its 5-minute
   Anthropic cache is hard-coded. Its `anthropic` sessions stay push-only. Its
-  `openai` sessions schedule warn and compact from an estimated 1800 s
+  `openai` sessions schedule the warning from an estimated 1800 s
   ([OpenCode provider TTL](idle-ttl-detection.md#opencode-provider-ttl)).
 
 **Rejected:**
@@ -426,6 +412,234 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
   (`2c7c7f78`): review rejected it as a second seam for one concept. Folding
   `run` into `env_defaults` keeps one place where adapter defaults live and one
   missing-or-blank rule in `build_harness_child_env` (`bac44c01`).
+
+## D-idle-push-in-flight — The push waits for work that will wake the session; the warning does not
+
+**Status:** GitHub #673, merged as PR #685 (v0.10.27); the notification PR
+#686, which carries
+[D-notify-hook-events](idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes),
+was built on it.
+Claude primaries only; other harnesses are #669. The first cut and its
+thermo-nuclear review (a strict maintainability review) were made in a cloud session whose transcript is not readable from
+here; that the user approved them is session-record (the session's own KB
+entry), not independently confirmed.
+
+**Decision:** The waiting push and the cache warning are
+two independent notices with one shared stretch. When a main-loop turn ends,
+the adapter forwards the work still running as facts in the host's own terms,
+mapped to a kind (`agent`, `shell` with its command line, `watcher`, `other`).
+Core alone reads them (`lib/idle/wake.py`), reduces them to one expected wake,
+and `schedule()` places both stages from it:
+
+- **Certain wake → no push this anchor.** Subagents and workflows (`agent`) end
+  and wake the session; so does a background shell whose command is certain
+  to end in a Meridian spawn (the rule is below). That turn arms again. The
+  response stays owed: the stretch keeps `push_owed_since_ms` (set when the
+  user last spoke), so the push on the wake turn gets the 60-second long-turn
+  delay rather than the 10-minute quick-turn one.
+- **Known wake time → the warning only if the cache goes cold first.** A
+  `meridian spawn wait` returns by a known time: its `--timeout` (minutes) when
+  one is given, since an explicit timeout turns yielding off in the real CLI;
+  else its `--yield-after-secs`; else the harness's wait-yield default (3000 s
+  for Claude). If that lands before the cache expires, the wake keeps the
+  cache warm and the warning is dropped; a later wake keeps it.
+- **Maybe → the push is delayed, not held.** Any other background task may wake
+  the session or run for good (a dev server), so the push waits at least
+  `quick_turn_push_seconds` (600 s).
+- **Watchers are ignored**: they may stand forever and wake only on events.
+
+Otherwise the warning arms on every turn, held push or not.
+
+**Which shells are certain.** A shell is a certain wake only when the **last
+command segment** of its line runs Meridian's `spawn` and no segment starts
+with a loop keyword (`while`, `until`, `for`, `select`). The command word must
+be `meridian` (any path, after any `VAR=value` assignments), or a later
+`meridian` token behind `uv run` / `uvx`. Meridian's global options are
+skipped using `TOP_LEVEL_VALUE_FLAGS` in `lib/cli_args.py`, the one table
+shared with `cli/bootstrap.py`. Then:
+
+- `spawn wait` is certain. A `--timeout` or `--yield-after-secs` with an
+  unreadable value makes the shell *maybe*.
+- spawn creation is certain only in the foreground: `spawn` followed by an
+  option (`spawn -a coder -p …`) with no `--bg` / `--background`.
+- `spawn` followed by any other word (`list`, `show`, `cancel`, a subcommand
+  added later) is a management command and reads as *maybe*.
+
+Everything before the last segment is setup: `cd x && meridian spawn wait p1`
+is certain, while `meridian spawn wait p1 && npm run dev` and
+`while true; do meridian spawn list; sleep 60; done` are *maybe*. The shell's
+own lexing rules decide where segments end. `;`, `&&`, `||`, `|`, `&`,
+parentheses and unquoted newlines end a segment. Redirections (`2>&1`,
+`>/dev/null`, `> out`) stay with their command. A `#` comment is blanked to
+the end of its line. A backslash-newline is deleted, joining the words around
+it, as the shell does. A line `shlex` cannot read (unbalanced quotes, stray
+punctuation) is *maybe*.
+
+The Claude mod forwards at most 16 tasks and 512 characters per command. A
+cut command gets `\n;:` appended, so its last segment is the no-op `:` and it
+reads *maybe* even when an option such as `--bg` fell past the cut. Claude
+itself caps a shell command at 1000 characters. An unknown task type maps to
+`other`.
+
+**Why this rule.** A correctness review of the first build found that "any
+`meridian … spawn` segment anywhere in the line" held the push forever for
+`while true; do meridian spawn list; …; done`, for `watch … meridian spawn
+list`, and for `meridian spawn wait p1 && npm run dev`. The push held means
+the human gets nothing for that stretch unless they come back on their own,
+so the reading has to be certain. A wrong *maybe* only delays the push. Two
+stricter or looser rules were rejected:
+
+- **Only when `meridian spawn` is the shell's only command:** too strict for
+  `cd x && meridian spawn wait`, which agents write constantly.
+- **A denylist of management subcommands plus a copy of `uv`'s option table:**
+  both drift. A new `spawn` subcommand would have read as creation and held
+  the push. Creation is recognized by its leading option instead, and behind
+  `uv run` / `uvx` any later `meridian` token followed by `spawn` counts.
+
+A later review found that a newline did not end a segment (a two-line
+command held the push) and that a redirect read as *maybe*, which would have
+brought back the page this decision exists to stop: a push while the session
+is about to resume itself. The review after that found
+that a `#` comment could hide live syntax from `shlex`. All three are in the
+rules above.
+
+**The response stays owed until a push is delivered.** `push_owed_since_ms` is
+cleared when a push is *sent* successfully (or the user returns, which resets
+it to now), not when one is scheduled. Clearing it at scheduling meant: the
+user waits ten minutes, the turn ends with `npm test` running (push scheduled
+at +600 s), `npm test` wakes the session first, and that turn's push got the
+quick-turn delay although no push had answered the user. Idle before #673
+behaved the same way (`select_push_delay`); the fix matches the field's documented meaning. The idle state file
+moved to `v: 2`. Files from older builds fail validation and read as absent,
+so a stretch open across the upgrade loses its pending push and owed time.
+
+**Why:** Before this, the Claude mod skipped the whole arm while a subagent ran
+(losing the cache warning with the push), and background shells were
+invisible, so a primary that ran `meridian spawn --bg` plus a backgrounded
+`spawn wait` paged the user while the session was about to resume itself. The
+push means "the agent is done and waiting on you"; work that will wake the
+session makes that false. The cache cost of a cold return is real no matter
+what is running, so the warning stays unless a known wake beats expiry.
+
+**Why the adapter forwards the raw list (thermo review, 2026-10-17):** a first
+cut had the mod sort tasks into four counts with its own `meridian spawn` regex.
+Review found that copy already disagreed with Pi's spawn-watch regex
+(`meridian -C dir spawn wait`), that a count cannot carry a per-call
+`--yield-after-secs` (a 7200 s wait wrongly dropped the warning), and that
+`--agents-running` doubled as an "adapter senses work" flag. Meridian's own CLI
+grammar is parsed once, in core. The same review deleted a spawn-store check
+that held the push while child spawns were active: a detached `spawn --bg` with
+nothing waiting never wakes the session, so it held the push until the user's
+next prompt, and a stale active record held every push. It also replaced a
+persisted `push_held` reason plus a previous-anchor override with the single
+`push_owed_since_ms` timestamp.
+
+**How Claude senses it:** the only host surface that lists background work is
+the `background_tasks` of the classic `Stop` hook, which a mod hooks as
+`classic.Stop`. Probed on Claude Code 2.1.302: `Stop` fires just before the
+main loop's `turn.complete`, lists running shells (with their command line),
+subagents and workflows, and the task's completion arrives as a
+`task-notification` prompt that runs another main-loop turn with an empty list.
+The mod forwards that list with `idle arm --background-tasks`; a turn with no
+`Stop` forwards nothing and gets the ordinary push. Other harnesses report no
+tasks yet and keep the ordinary push (#669). `session_crons` are not forwarded.
+
+**Gap:** a `meridian spawn --bg` with nothing waiting on it is invisible (its
+shell exits at once), so the push fires normally. Agents pair `--bg` with
+`spawn wait`, which is visible.
+
+**A subagent waiting on a permission prompt holds the push, as on main.** A
+background subagent that stops on a permission prompt is still a running
+`agent`, so the push stays held for as long as the prompt waits. A live probe
+on Claude Code 2.1.302 showed no push for the whole 20-second prompt; the
+push came only after approval and the subagent's completion. This is not a
+regression. On main the Claude mod skipped the whole arm while any subagent
+ran (`register.ts` `armTask`), so main sent no push either. The first
+correctness review called it a regression, and a fix was built on that
+premise before anyone read main's mod.
+
+The fix was built twice and withdrawn both times:
+
+1. *Release the held push when a prompt appears.* The mod forwarded
+   `classic.PermissionRequest` as `meridian idle human-needed`, and core
+   scheduled the held push. Review found that approving within
+   `push_seconds` sent a stray push mid-work while the real completion got
+   none, that a later arm re-held the released push, and that a prompt raised
+   before the main turn ended was dropped.
+2. *Track the prompt until it is answered, and treat the answer as a user
+   return.* The user's framing: answering a prompt is, in meaning, another
+   user message. A probe found that `classic.PermissionRequest` fires before
+   the prompt is shown, and that its `next(e)` resolves to `{}` at once. The
+   answer is visible only as the resolution of the `tool.call` that raised
+   it: a normal result on approve, `isError: true` on deny. No
+   `PermissionDenied` event fires. The request carries no `tool_use_id`, so
+   the mod matched request to call by agent, tool and canonical input.
+   Review then found three more failures. A user `PreToolUse` hook that
+   rewrites Bash input (the owner runs one) broke the match, so the answer
+   was never reported. An approved command is visible only when it
+   *finishes*, so a long approved command still got a push mid-work. And
+   because the answer closed the stretch, a second prompt from the same
+   agent paged nobody.
+
+Three rounds of findings on one seam shared one cause: Meridian was
+rebuilding "the human is needed" and "the human answered" by correlating
+host-internal events it does not own. Claude already computes the first
+fact: `classic.Notification` with `notification_type=permission_prompt` fires
+about 6 seconds after a prompt that is still unanswered. The tracking was
+removed, and #673 ships main's behavior. The follow-up is a stateless ping
+on that Notification, one per still-waiting prompt, as its own hook event on
+top of the notification events
+([#684](https://github.com/haowjy/meridian-cli/issues/684)). Two other fixes
+were rejected. Treating agents as *maybe* would push mid-work on every long
+subagent, while the session is about to resume itself. A hard ceiling on the hold
+would still delay the page for a waiting prompt by the length of the ceiling.
+
+**Known adjacent issue (pre-existing):** the Claude mod, unlike the launcher
+sidecar, does not ask whether the primary is busy before firing a due push.
+When finishing background work starts a new main-loop turn, a push timer from
+the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
+
+## D-idle-compaction-removed — Meridian no longer compacts idle sessions
+
+**Status:** ships with
+[D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)
+(GitHub #673, PR #685, v0.10.27); no issue of its own. The
+user's words ("NOT do auto compaction") and approval of the deletion after the
+thermo review are session-record: the cloud session that made the change
+wrote them into this KB, and its transcript is not readable from here.
+
+**Decision:** Idle compaction is deleted end to end: the compact stage and its
+timeline slot, the guards and break-even (`worth.py`), the claim/done states,
+context baselines, `idle done`, the compaction notices, the Claude mod's
+`$.session.compact()` path, the Pi extension's `ctx.compact()` path, the Codex
+tmux actuator, both OpenCode compaction calls, the `compact_costs` and
+`autocompact_off` bundle ports, and every `compact*` config key and env var.
+Idle is the push and the warning. Supersedes D-idle-compact-default-off (made
+the same day: opt-in behind `idle.compact = false`) and, for Meridian's own
+compaction, D-idle-compaction-growth-floor and D-idle-compact-over-drafts.
+
+**Why:** The warning already tells the user the cache is going cold; a cold
+return costs one expensive turn, while a Meridian compaction loses transcript
+detail for good. Old context is cheaper to recover with session mining
+(`--from`) than to keep warm by compacting. Claude Code 2.1.299+ ships its own
+idle compaction (200K+ tokens, about 54 minutes idle, `/config` → Idle
+compaction), and every harness compacts on its own; Meridian leaves those
+settings alone. Keeping roughly 1.3k production lines behind a default-off
+flag meant every arm still branched on compaction states, and a disabled
+compaction still placed a timer and spawned a CLI call per stretch only to be
+rejected by its guard (thermo review, 2026-10-17).
+
+**Kept:** OpenCode 1.x still classifies its own compaction messages so a native
+`/summarize` or autocompaction is not mistaken for a user return. Sensors
+expose `busy()`; the sidecar consults it for external-event sensors (Codex) to
+skip a push or warning while the TUI is mid-turn.
+
+**Upgrade cost:** old `idle.compact*` keys warn as unknown and load; the
+compaction env vars are ignored silently. `meridian idle done` is gone and
+`idle fire` takes only `push` or `warn`. Idle state files written by an older
+build fail validation (`v: 2`, `extra="forbid"`) and read as absent. A stretch
+open across the upgrade starts fresh and may lose its pending push or warning
+(`docs/upgrading.md` § Idle compaction removed).
 
 ## Structural debt
 
@@ -471,11 +685,17 @@ To close the gap, the user sets up an app password and sends one test notice:
 5. Run `meridian notify "test" --json`. The report's `gmail` result should
    carry no `error`, and the message should arrive in the inbox.
 
-**A failed compaction on OpenCode 2.x has not been captured live.** Successful
-Meridian-initiated 2.x compactions have run live: two on 2026-10-14
-(`spawn:p7902`), then one through the reconnecting stream (`spawn:p7914`). A
-compaction gated by the break-even rule on the `openai` route has not fired
-live yet.
+**The Claude running-work hold was probed live once** (Claude Code 2.1.302,
+`claude-haiku-4-5`, a fake ntfy server, `work:notify-hook-events`, 2026-10-18).
+An ordinary turn pushed once after the delay. A background `meridian spawn
+wait` held the push until the child finished, then the wake turn pushed. A
+background `while true; do meridian spawn list; sleep 30; done` only delayed
+it. A return before the push cancelled it. A background subagent on a
+permission prompt held the push for the whole prompt. The probes ran with a
+fresh `CLAUDE_CONFIG_DIR`, so they saw none of the owner's own Claude hooks
+([lesson](../lessons/harness-integration.md#a-fresh-claude-config-dir-hides-the-owners-hooks)).
+The shell grammar is covered by `tests/unit/idle/test_wake.py`, the mapping by
+the mod's `register.test.ts`.
 
 ## Related
 
@@ -497,8 +717,7 @@ live yet.
 
 ## Revisit when
 
-- A harness update invalidates one of the runtime-probed event or compaction
-  contracts in [Idle Adapter Architecture](../architecture/idle-adapters.md#adapter-contracts), especially a fail-open one. Re-run the turn-end probe on
+- A harness update invalidates one of the runtime-probed event contracts in [Idle Adapter Architecture](../architecture/idle-adapters.md#adapter-contracts), especially a fail-open one. Re-run the turn-end probe on
   every harness major version: a renamed turn-end event fails silently.
 - Meridian drops OpenCode 1.x: delete the V1 sensor and its dispatch branch.
 - A provider changes its default cache retention or the price of long cache
@@ -518,8 +737,9 @@ live yet.
 - Claude files a `/clear` successor outside the launch store, or Meridian stops
   recording `native_store` on the chat; Claude TTL detection would then return
   unknown.
-- A harness gains a native idle or compaction hook that would replace a
-  launcher task or the tmux actuator.
+- A harness gains a native idle hook that would replace a launcher task, or
+  Claude Code exposes background work somewhere other than the classic `Stop`
+  hook's `background_tasks`.
 - The `arm` contract changes next (this also breaks idle in sessions already
   running when the upgrade lands), or a fifth adapter is about to be written.
   Do #549 first (pending stages from `arm` and `status`), plus the Codex
@@ -530,11 +750,9 @@ live yet.
   launcher runs there, so a reopen can still adopt the old stretch
   ([D-idle-reopen-return](#d-idle-reopen-return--a-meridian-reopen-is-a-user-return)
   gaps). The fix belongs in the Claude mod.
-- Codex changes its composer layout, its Ctrl+C clear behaviour or its quit
-  confirmation. A layout change makes every Codex compaction veto with
-  `screen-not-recognized` (loud, one notice per stretch); a Ctrl+C change can
-  quit or interrupt Codex
-  ([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)).
+- Codex changes its `Working (` busy text: the sidecar's busy probe would
+  read false and push or warn while Codex works
+  ([known fragility](../architecture/idle-adapters.md#known-fragility)).
 
 ## Sources
 

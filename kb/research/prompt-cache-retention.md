@@ -151,7 +151,10 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md#harness-aware-yield-defaults).
 - **When idle compaction pays.** The write premiums above set the cold
   re-read cost w in the compaction break-even, and whether the compaction
-  request itself reads the cache sets c (below). See
+  request itself reads the cache sets c (below). Meridian used this for its own
+  idle compaction until it was deleted
+  ([D-idle-compaction-removed](../decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions));
+  the superseded break-even is
   [D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even).
 
 ## Does the compaction request read the cache?
