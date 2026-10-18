@@ -13,7 +13,7 @@ questions, and confusing them is how agents lose skills:
 `user-invocable` decides whether a human can trigger the skill with `/name`.
 It plays no part in what an agent receives.
 
-## The Rule Authors Rely On
+## The Loading Rule
 
 **A loaded skill's full text is composed into the agent's system prompt on every
 harness, whatever its `model-invocable` setting.** This holds for skills under
@@ -26,9 +26,11 @@ one agent its role-specific method (a solo-developer workflow, a review
 checklist) without spending a description line on every other agent's turn, and
 without other agents loading it because its description looked relevant.
 
-The harness's native skill list is not a delivery channel for loaded skills.
-`mars sync` writes every skill into each harness's native skill directory, but
-the harness shows the model only the model-invocable ones. A loaded skill that
+The harness's native skill list (the skills a harness such as Claude Code or
+Codex advertises to its model, each with a description line, for the model to
+load on its own) is not a delivery channel for loaded skills. `mars sync` writes
+every skill into each harness's native skill directory, but the harness lists
+only the model-invocable ones. A loaded skill that
 isn't model-invocable is missing from that list and present in the prompt. A
 model-invocable loaded skill shows up in both places.
 
@@ -72,14 +74,16 @@ flowchart LR
     LIST --> AGENT
 ```
 
-Mars resolves the profile and any `--skills` names into the launch bundle. For
+Mars, the package manager, resolves the profile and any `--skills` names into
+the launch bundle that Meridian launches from. For
 each loaded skill it reads `.mars/skills/<name>/`, picks the harness variant
 body if there is one ([variants](skill-schema.md#skill-variants)), and returns
 the body without frontmatter. Meridian never reads `.mars/skills/` on the live
 launch path. It turns each loaded body into a skill document, renders the
 available listing, and hands both to the harness adapter, which places them in
 the system prompt. Unknown names come back as `missing` and produce a warning,
-not a failed launch.
+not a failed launch: the bundle lists them under `missing` and Meridian adds a
+launch warning.
 
 The native skill directories are a separate pipeline. They serve the harness's
 own discovery and slash commands, and Meridian does not depend on them for
@@ -97,15 +101,16 @@ text. Its files are in `.mars/skills/solo-dev/`; open the resources it names
 from there.
 ```
 
-The header exists because agents told by their body to follow `/solo-dev` looked
-for it in the harness skill list, didn't find it, and concluded it was
-unavailable. An agent whose body names a skill its profile loads can rely on
-that skill being in context even though its harness's skill list omits it.
+The header names the skill so the agent can match it to a `/solo-dev` in its
+instructions. Without it, an agent that checks the harness skill list, which
+omits non-invocable skills, concludes the skill is unavailable and skips it. An
+agent whose body names a skill its profile loads can rely on that skill being in
+context even though its harness's skill list omits it.
 
 Loaded skills are grouped by `type` (principle, guardrail, then the rest), each
 group under a one-line header such as "Override other guidance when loaded."
 
-## Where This Doesn't Hold Yet
+## Known Exceptions
 
 > [!FLAG] **Needs human review.** The rule above is the intended behaviour on
 > every harness. These gaps were found on 2026-10-17 and are not fixed.

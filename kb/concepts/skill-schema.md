@@ -160,8 +160,8 @@ differences. Always-refresh makes sync idempotent and trustworthy.
 ## Skill Variants
 
 A skill package may ship multiple variants of the same skill — alternate
-versions tuned for specific harnesses (and, by design, models; see the flag
-below). Variants let one package
+versions tuned for specific harnesses. Model-specific variants are designed but
+not selected; see [Selection as Built](#selection-as-built-harness-variant-or-base). Variants let one package
 serve different runtime contexts without requiring the user to select the
 right file manually.
 

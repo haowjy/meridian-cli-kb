@@ -82,7 +82,7 @@ Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test file
 
 ### D58: Universal skill frontmatter schema (name, description, model-invocable, user-invocable, allowed-tools, license, metadata)
 
-**Decision:** The canonical SKILL.md frontmatter has six fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
+**Decision:** The canonical SKILL.md frontmatter has seven fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
 
 A `compatibility` field was rejected — would require Mars to understand harness semantics. `metadata` is pass-through for tooling use.
 
