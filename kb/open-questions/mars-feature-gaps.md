@@ -179,6 +179,17 @@ desired flags before spawn, or set `MARS_OFFLINE=1` for air-gapped behavior.
 
 ---
 
+## 8. Model-Level Skill Variants Are Not Selected
+
+**The gap (2026-10):** The launch bundle selects only `variants/<harness>/SKILL.md`.
+It receives the model token and canonical model ID and discards them, so
+`variants/<harness>/<model>/SKILL.md` directories are indexed and never used.
+The designed four-step ladder is
+[D60](../decisions/package-management.md#d60-skill-variant-specificity-ladder-model-tokenharness--canonical-idharness--harness--base);
+whether to build steps 1–2 or drop them is an open owner decision.
+
+---
+
 ## Priority Order
 
 If resources allow only a few of these to be built, the likely priority:

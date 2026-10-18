@@ -38,9 +38,9 @@ name: coder
 description: "Implements code changes"
 model: sonnet            # alias or concrete model ID
 harness: claude          # optional; overrides model-derived harness
-skills:
-  - meridian-spawn
-  - kb-conventions
+skills:                  # or a flat list, meaning all load
+  load: [meridian-spawn, kb-conventions]
+  available: [diagnose]
 approval: auto           # default | confirm | auto | yolo
 effort: high             # low | medium | high
 mode: subagent           # primary | subagent
@@ -145,21 +145,24 @@ interactive launches (not subagent spawns). It defaults to
 
 ## Skill Attachment
 
-Skills listed in the profile's `skills:` field are loaded at spawn time from
-`.mars/skills/*/SKILL.md`. They're re-injected fresh on each launch, so they
-survive session compaction.
+A profile's `skills:` is a flat list (every name loaded) or a mapping with
+`load` and `available` lists. Mars reads it from the profile file, adds any
+`--skills` names to `load`, and returns the launch bundle's `skills.loaded`
+(body with the harness variant applied), `skills.available` (name, type, description) and
+`skills.missing`. Meridian composes the loaded bodies into the system prompt on
+every launch, so they survive session compaction. Missing skills produce a
+warning, not a launch failure.
 
-`resolve_skills_from_profile()`:
-1. Builds a `SkillRegistry` from the project's `.mars/skills/` directory
-2. Resolves variant selection for each skill based on resolved harness and model token
-3. Returns `skill_names`, `loaded_skills`, and `missing_skills`
+A loaded skill arrives in full even when it is `model-invocable: false`. See
+[skill-loading.md](../skill-loading.md) for what load, available and
+`model-invocable` each control, and
+[composition-pipeline.md](../composition-pipeline.md) for where skill documents
+sit in the prompt.
 
-Missing skills produce a warning, not a launch failure.
-Source: `src/meridian/lib/launch/resolve.py:71-109`
-
-See [concepts/skill-schema.md](../skill-schema.md) for how variants are selected,
-and [concepts/composition-pipeline.md](../composition-pipeline.md) for how skill
-content gets routed into the prompt.
+Meridian's own `AgentProfile.skills` parser reads only the flat form; launch
+doesn't depend on it because Mars reads the profile itself.
+`resolve_skills_from_profile()` and its variant ladder survive only for replaying
+old snapshots that lack `loaded_skills`.
 
 ## Related
 
@@ -167,6 +170,7 @@ content gets routed into the prompt.
 - [aliases-and-routing.md](aliases-and-routing.md) — how the profile's model
   name is resolved to a concrete model ID and harness
 - [model-policies.md](model-policies.md) — `model-policies` rule semantics
-- [concepts/skill-schema.md](../skill-schema.md) — skill variant selection ladder
+- [concepts/skill-loading.md](../skill-loading.md) — load, available and `model-invocable`
+- [concepts/skill-schema.md](../skill-schema.md) — skill frontmatter and variant selection
 - [architecture/launch-system.md](../../architecture/launch-system.md) — where
   profile loading sits in the launch factory

@@ -271,6 +271,19 @@ second channel and re-append was deleted
   once.
 - Check a fix with a dry-run probe on the real launch path before trusting it.
   The no-op primary injection passed review and unit tests.
+- An observability file becomes a delivery channel the moment a harness reads
+  it. `system-prompt.md` was introduced as a launch artifact that "does not change
+  routing", but Claude's `--append-system-prompt-file` reads that same file, so
+  its writer decides what Claude sees. A later change made the writer prefer the
+  projected prompt, framed as an artifact cleanup; once skills left the projected
+  prompt, Claude lost them while tests stayed green.
+- Don't carry a rule from one surface to another because they share a field
+  name. PR #208 filtered `model-invocable: false` agents out of the spawn
+  inventory, which was right, and in the same commit suppressed composed skills,
+  on the theory that the harness's skill list already covered them. Agent
+  visibility and skill loading are different questions: `model-invocable` hides
+  a skill from discovery but must never stop a skill an agent loads
+  ([D-load-ignores-invocability](../decisions/package-management.md#d-load-ignores-invocability-model-invocable-gates-discovery-not-an-explicit-load)).
 
 `prepare_prompt_payload()` still prefers projected content over
 `appended_system_prompt` (`projected or appended`). No caller passes both now. If

@@ -202,6 +202,8 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 **Deleted with it:** `_inject_loaded_skills`, the bind re-append and its `loaded_skills` parameter, `compose_skill_injections`, `RunPromptPolicy.skill_injection_mode`, `HarnessCapabilities.supports_native_skills`.
 
+**Divergence:** composition is not delivery everywhere. OpenCode v2 and the `opencode run` path never pass the composed system prompt to the model, so agents there get no loaded skills; this predates #661 and is tracked as a separate fix ([per-harness channels](../codebase/harness-adapters.md#skill-delivery)).
+
 **Supersedes:** D-skill-doc-suppression, below.
 
 ---
@@ -211,6 +213,8 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 **Superseded (2026-10) by [D-skill-single-path](#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness).** This record stays because it explains how the split happened.
 
 **Decision (2026-05, PR #208, 615dcb330):** When a harness declared `supports_native_skills=True` (Claude, Codex, OpenCode), composition left `supplemental_documents` empty and relied on Mars-delivered native skills, plus a Claude-only `compose_skill_injections()` append channel.
+
+**How the split came about:** In March 2026 Claude Code's `--agent` did not preload a profile's `skills:` (anthropics/claude-code#29902), so `00453e433` added a Claude-only append channel (`compose_skill_injections()` → `--append-system-prompt`). Five days later `2b23522bc` removed the injection to fix duplicate skills, with a comment that Claude loads skills natively through `--agent`; the upstream issue had been bot-closed as a duplicate, not fixed. In April `8f47d2eab` unified delivery: composition always included loaded skills for every harness. PR #208 then re-split it, in the same commit that filtered `model-invocable: false` agents out of the spawn inventory, reasoning that native skill directories already delivered skills and composition duplicated them.
 
 **Why it failed:** The goal was to stop sending skill content twice. Two mistaken assumptions undid it. First, native delivery is not equivalent to loading, because native lists cover only model-invocable skills. Second, a capability-gated second channel would stay in sync with the first. In practice the append channel was overwritten at bind, so delivery fell to an ad hoc bind re-append. The file Claude actually reads never had skills.
 

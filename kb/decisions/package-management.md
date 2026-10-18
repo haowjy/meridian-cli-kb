@@ -96,7 +96,19 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 **Why two booleans:** The old enum collapsed two orthogonal dimensions. `invocation: explicit` only ever controlled model-invocability — user-invocability was unmodeled. Hard errors (no deprecation) because no consumer reads `invocation` at runtime; migration is find-and-replace. Presence is determined by the agent profile's `skills:` list, not skill metadata.
 
-**Compilation:** Claude Code supports both natively. Codex supports `model-invocable` only. OpenCode drops both. Pi/Cursor support `model-invocable` via `disable-model-invocation`.
+**Compilation:** Claude Code supports both natively. Codex supports `model-invocable` only, through a sibling `openai.yaml` (`policy.allow_implicit_invocation: false`) written only when the source explicitly sets `false`. OpenCode drops both. Pi uses `disable-model-invocation`. Cursor has no such field: `model-invocable: false` becomes a Manual rule (`alwaysApply: false` with the description stripped).
+
+---
+
+### D-load-ignores-invocability: `model-invocable` gates discovery, not an explicit load
+
+**Decision:** `model-invocable` decides only whether a model can find a skill by itself in its harness's skill list. A skill that an agent profile lists under `skills.load`, or that a caller attaches with `--skills`, is loaded in full whatever its `model-invocable` value. A skill under `skills.available` is listed by name whatever its value, but the harness's own skill tool won't load a non-invocable one, so that pairing is a contradiction for package review to catch.
+
+**Why:** Authors need a way to give one agent a skill no other agent sees. `model-invocable: false` plus `load` does that: the owning agent always has the text, and no other agent pays a description line for it or loads it because the description looked relevant. If invocability also gated explicit loads, that role-specific skill would have to be model-invocable, and every agent would carry its description on every turn.
+
+**Where it lives:** Mars builds the launch bundle's `skills.loaded` and `skills.available` without reading invocability (`src/build/prompt.rs`, "model-invocable gates global discovery, not explicit profile references"). Meridian composes every bundle-loaded skill ([D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness)). The load/available split arrived in mars-agents `d1d48d1` (2026-05-30); the owner restated the rule as something authors rely on on 2026-10-17. See [how skills reach an agent](../concepts/skill-loading.md).
+
+**Revisit if:** a harness starts honoring its native invocability flag for content Meridian composes into the prompt, or Meridian ever routes loaded skills through a native skill list again.
 
 ---
 
@@ -119,6 +131,12 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 Exact match only — no glob or fuzzy matching.
 
 **Why exact match:** Fuzzy matching would be non-deterministic with multiple globs. Two model-identity levels exist because authors may write either form (`variants/claude/sonnet/` or `variants/claude/claude-sonnet-4-5/`).
+
+**Built: steps 3 and 4 only.** Variant selection moved into the Mars launch bundle, which picks `variants/<harness>/SKILL.md` or the base and discards the model token and canonical ID it is passed (`src/build/prompt.rs`, since mars-agents `ecbcff4`, 2026-05-17). `mars sync` does the same for native projections. Model-level variant directories are indexed and validated but never selected. Meridian's `SkillRegistry` still implements all four steps, but only the legacy snapshot-replay path calls it.
+
+> [!FLAG] **Needs human review.** Decide whether model-level variants are still
+> wanted. If yes, the launch bundle needs steps 1–2; if no, this record should be
+> narrowed to harness variants and Meridian's unused ladder deleted.
 
 ---
 

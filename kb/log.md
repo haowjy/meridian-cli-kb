@@ -3,6 +3,32 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-17 — How skills reach an agent: loaded vs available vs model-invocable (PR #661 follow-up, `work:long-view-review`)
+
+- New [concepts/skill-loading.md](concepts/skill-loading.md): a loaded skill (profile
+  `load` or `--skills`) is composed in full on every harness whatever its
+  `model-invocable`; `available` lists names; native skill lists show only
+  model-invocable skills; the named skill header; gaps (OpenCode v2 and
+  `opencode run` get no composed prompt, Pi RPC `--no-skills`, model variants).
+- New decision [D-load-ignores-invocability](decisions/package-management.md#d-load-ignores-invocability-model-invocable-gates-discovery-not-an-explicit-load)
+  and index row. D60 marked: only harness-level variant selection is built
+  (flagged for the owner). D71 compilation line corrected (Codex `openai.yaml`,
+  Cursor Manual rule).
+- [skill-schema.md](concepts/skill-schema.md): `model-invocable` scope, lowering
+  matrix for Codex and Cursor, variant selection as built, variant example that
+  relied on variant frontmatter.
+- [agent-profiles.md](concepts/model-resolution/agent-profiles.md): `skills:`
+  flat or `{load, available}`, bundle-based attachment (the `SkillRegistry`
+  description was the legacy replay path).
+- D-skill-doc-suppression gained how the split came about (#29902 workaround,
+  its removal, the April unification, PR #208). Lessons: closed upstream issue ≠
+  fixed bug ([harness integration](lessons/harness-integration.md#a-closed-upstream-issue-is-not-a-fixed-harness-bug-29902));
+  an observability file a harness reads is a delivery channel, and don't carry
+  `model-invocable` from agents to skills ([arch refactor pitfalls](lessons/arch-refactor-pitfalls.md#a-capability-gated-second-channel-drifts-from-the-first-pr-208--pr-661)).
+- Per-harness system-prompt channel table in [harness adapters](codebase/harness-adapters.md#skill-delivery);
+  launch-bundle `skills` fields; vocabulary entries; Mars gap 8 (model variants).
+
+---
 ## 2026-10-17 — Derived spawn status: identity-v2 PR 3 (#663, built on `feat/read-derived`, awaiting merge) and the #662 flake (`work:v010-followups` D77–D82)
 
 - New [architecture/state-system/derived-status.md](architecture/state-system/derived-status.md):

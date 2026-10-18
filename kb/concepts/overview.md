@@ -13,7 +13,8 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 - [composition-pipeline.md](composition-pipeline.md) — Semantic IR to harness-specific argv/env projection.
 - [hooks-and-plugins.md](hooks-and-plugins.md) — Lifecycle hooks, built-in hooks, shell hooks, and plugin boundary.
 - [extension-system.md](extension-system.md) — Unified command definition, extension registry, surfaces, and dispatcher.
-- [skill-schema.md](skill-schema.md) — Universal SKILL.md frontmatter, per-harness lowering, skill variants, and exact-match selection.
+- [skill-schema.md](skill-schema.md) — Universal SKILL.md frontmatter, per-harness lowering, and skill variants (harness-level selection as built).
+- [skill-loading.md](skill-loading.md) — Loaded vs available vs `model-invocable`: which skills an agent receives and through which channel.
 - [native-config.md](native-config.md) — Native config passthrough escape hatch, shape validation, harness scoping, and per-harness projection.
 - [bootstrap-docs.md](bootstrap-docs.md) — Two-tier bootstrap document discovery and `meridian bootstrap` launch behavior.
 - [config-precedence.md](config-precedence.md) — Config file merge order and runtime override chain.

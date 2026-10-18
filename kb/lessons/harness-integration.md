@@ -458,6 +458,25 @@ the first place.
 
 ---
 
+## A Closed Upstream Issue Is Not a Fixed Harness Bug (#29902)
+
+**The problem:** In March 2026 Claude Code's `--agent` did not preload the
+profile's `skills:` (anthropics/claude-code#29902, and #29441 for teammates).
+Meridian worked around it with an explicit skill injection. Five days later the
+workaround was removed with a comment that Claude loads skills natively. Both
+upstream issues were later closed by bots, one as a duplicate and one as stale.
+Neither was closed as fixed, and no probe showed preloading worked. Two months
+later the same belief, that native mechanisms already deliver skills, justified
+suppressing composed skills on Claude, Codex and OpenCode
+([D-skill-doc-suppression](../decisions/launch.md#d-skill-doc-suppression-skip-supplemental_documents-for-native-skill-harnesses-superseded)).
+
+**The rule:** Before deleting a workaround for a harness bug, reproduce the
+original failure on the current harness version and see it gone. An issue's
+closed state says nothing about the binary; read why it closed. Record the probe
+next to the deletion so the next person can rerun it.
+
+---
+
 ## Cross-References
 
 - [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism

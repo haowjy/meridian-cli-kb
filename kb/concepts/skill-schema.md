@@ -6,8 +6,11 @@ This page covers three related concepts:
    independent of harness
 2. **Per-harness lowering** — how the universal schema is projected to each
    harness's native format on sync
-3. **Skill variants** — how a single skill name can have harness- or model-
-   specific override versions selected at launch time
+3. **Skill variants** — how a single skill name can have harness-specific
+   override versions selected at launch time
+
+Which skills an agent actually receives, and what `model-invocable` does and
+doesn't control there, is on [skill-loading.md](skill-loading.md).
 
 ---
 
@@ -42,7 +45,7 @@ Skill body content here...
 |---|---|---|---|
 | `name` | Yes | — | Canonical identifier; must be unique in the package |
 | `description` | Yes | — | Short description for catalogs and help text |
-| `model-invocable` | No | `true` | Whether the model can see this skill and decide to load it |
+| `model-invocable` | No | `true` | Whether the model can find this skill in its harness's skill list and load it by itself. Does not affect a skill an agent profile loads |
 | `user-invocable` | No | `true` | Whether the user can trigger it with `/name` |
 | `allowed-tools` | No | — | Tool names Meridian injects as allowed when loading this skill |
 | `license` | No | — | SPDX license identifier; propagated to skill catalogs |
@@ -55,16 +58,15 @@ model-invocability and user-invocability. The two-boolean representation matches
 what harnesses actually support. See [decisions.md](../decisions.md) — D71.
 
 **Both default to `true`.** A skill without these fields is fully invocable.
-To restrict a skill to explicit use only, set `model-invocable: false`; to
-prevent slash-command triggering, set `user-invocable: false`. Both false is
-valid: the skill is present (loadable by the agent profile) but neither dimension
-can trigger it autonomously — useful for skills injected by `skills:` that the
-agent should only use when directed.
+Set `model-invocable: false` to keep the skill out of every model's skill list;
+set `user-invocable: false` to prevent slash-command triggering. Both false is
+valid: no model or human can trigger the skill, and it reaches an agent only
+because that agent's profile loads it or a caller attaches it with `--skills`.
 
-**Presence is not a skill property.** Whether a skill is loaded at boot is
-determined by the agent profile's `skills:` list, not by skill-level metadata.
-A skill in the `skills:` array is loaded at boot; one not listed is discoverable
-on-demand (subject to the two invocability booleans).
+**Presence is not a skill property.** Whether a skill is loaded is decided by
+the agent profile's `skills:` (`load` or a flat list) and by `--skills`, never by
+skill metadata. A loaded skill arrives in full even when `model-invocable` is
+false. See [skill-loading.md](skill-loading.md).
 
 **Legacy fields are hard errors.** The old `invocation:`, `disable-model-invocation`,
 and `allow_implicit_invocation` fields emit a `RemovedField` error diagnostic and
@@ -107,13 +109,17 @@ to each harness's expected format.
 
 | Source field | Claude | Codex | OpenCode | Pi | Cursor |
 |---|---|---|---|---|---|
-| `model-invocable: false` | `disable-model-invocation: true` | `allow_implicit_invocation: false` | dropped (lossiness) | `disable-model-invocation: true` | `disable-model-invocation: true` |
-| `model-invocable: true` | (omit) | (omit or emit when explicit†) | (omit) | (omit) | (omit) |
+| `model-invocable: false` | `disable-model-invocation: true` | sibling `openai.yaml`: `policy.allow_implicit_invocation: false`† | dropped silently | `disable-model-invocation: true` | `alwaysApply: false`, description stripped (Manual rule)‡ |
+| `model-invocable: true` | (omit) | (omit) | (omit) | (omit) | `alwaysApply: false`, description kept |
 | `user-invocable: false` | `user-invocable: false` | dropped (lossiness) | dropped (lossiness) | dropped (lossiness) | dropped (lossiness) |
 | `user-invocable: true` | (omit) | (omit) | (omit) | (omit) | (omit) |
 
-† Codex emits `allow_implicit_invocation` only when the source frontmatter
-explicitly set `model-invocable` (tracked by `had_model_invocable_field`).
+† Codex gets the sibling file only when the source explicitly sets
+`model-invocable: false`; absent or `true` writes nothing, since Codex defaults
+to allowing implicit invocation.
+
+‡ Cursor rules have no invocation flag. Without a description, Cursor's agent
+can't auto-select the rule, which is the closest equivalent.
 
 **Lossiness model:** When a harness has no native equivalent for a field (e.g.,
 Codex has no `user-invocable`), the lowering records a `Dropped` lossiness entry.
@@ -154,7 +160,8 @@ differences. Always-refresh makes sync idempotent and trustworthy.
 ## Skill Variants
 
 A skill package may ship multiple variants of the same skill — alternate
-versions tuned for specific harnesses or models. Variants let one package
+versions tuned for specific harnesses (and, by design, models; see the flag
+below). Variants let one package
 serve different runtime contexts without requiring the user to select the
 right file manually.
 
@@ -180,11 +187,26 @@ The base `SKILL.md` is always required. Variants live under
 `variants/<harness>/SKILL.md`; a model-specific override is
 `variants/<harness>/<model-token>/SKILL.md`.
 
-### Specificity Ladder (4 steps)
+### Selection as Built: Harness Variant or Base
 
-At launch time, Meridian selects the most-specific variant that matches the
-resolved harness and model. Selection is **exact match only** — no fuzzy
-matching or glob:
+Mars selects the variant when it builds the launch bundle: the body of
+`variants/<harness>/SKILL.md` if that file exists, otherwise the base body. The
+base frontmatter supplies metadata such as `type` either way, and variant
+frontmatter is ignored. `mars sync` makes the same choice when it writes each
+harness's native skill directory. Meridian receives the selected body and does
+no variant selection on the live launch path.
+
+> [!FLAG] **Needs human review.** The launch bundle is passed the model token
+> and canonical model ID but discards them, so model-level variant directories
+> are indexed and never selected. Whether to build steps 1–2 below or narrow
+> the design to harness variants is open; see
+> [D60](../decisions/package-management.md#d60-skill-variant-specificity-ladder-model-tokenharness--canonical-idharness--harness--base).
+
+### Specificity Ladder as Designed (4 steps; steps 1–2 not built)
+
+The designed rule selects the most-specific variant that matches the resolved
+harness and model. Selection is **exact match only** — no fuzzy matching or
+glob:
 
 ```mermaid
 graph TD
@@ -221,9 +243,10 @@ match makes the selected variant predictable and auditable.
 ### When to Use Variants
 
 Use variants when a skill's behavior must differ across runtimes:
-- Claude version uses `allowed-tools: [Bash]`; Codex version omits it because
-  Codex has different tool semantics
+- The Claude body names Claude's tools; the Codex body names Codex's. Only
+  bodies vary: tool grants and other frontmatter come from the base skill
 - Sonnet variant uses a longer context strategy; Haiku variant is condensed
+  (model-level; not selected today, see the flag above)
 - A skill works only on Claude; the base SKILL.md has a stub explaining this
 
 Don't use variants for minor wording tweaks. Variants add maintenance cost;
@@ -247,6 +270,7 @@ sync runs (e.g., from manual edits). `mars check` validates the invariant.
 
 ## Related Pages
 
+- [skill-loading.md](skill-loading.md) — load vs available vs `model-invocable`: which skills an agent receives
 - [package-management/overview.md](package-management/overview.md) — what mars manages, sync workflow
 - [bootstrap-docs.md](bootstrap-docs.md) — two-tier bootstrap doc discovery and `meridian bootstrap`
 - [../architecture/mars-targeting.md](../architecture/mars-targeting.md) — why skills are emitted to each harness's native dir
