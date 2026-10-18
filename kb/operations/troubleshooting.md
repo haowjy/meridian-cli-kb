@@ -4,34 +4,58 @@ This page covers what goes wrong, why, and how to recover. Each pattern includes
 
 ## Spawn Failure Patterns
 
-### Orphan Run (`orphan_run`)
+### Crashed Spawn (`crashed`)
 
-**Symptom:** `meridian spawn show <id>` shows `status: failed`, `error: orphan_run`. The harness produced no `report.md`.
+**Symptom:** `meridian spawn show <id>` shows `status: failed`, `error: crashed`
+(or `Failure: crashed`).
 
-**What happened:** The runner process (PID recorded in the spawn row) died during normal execution — hard kill, OOM, host reboot. The heartbeat file went stale (no update within 120s window), the reaper confirmed the PID is dead, and finalized the spawn as failed.
+**What happened:** The runner died without writing an outcome: hard kill, OOM,
+host reboot, or a crash while extracting the report. Every runner holds
+`spawns/<id>/launch.lock` for its life, and the kernel freed it when the runner
+died, so every reader shows `crashed` on the next read. If a cancel had been
+requested, the spawn shows `cancelled` instead. `report.md` or a recorded
+successful runner exit doesn't turn it into `succeeded`: only an outcome the
+runner itself wrote counts
+([derived status](../architecture/state-system/derived-status.md)).
 
-**Likelihood of work product:** Low. The harness was killed mid-execution. Whatever the harness wrote before the kill is in its native transcript. The runner's in-memory attempt facts are lost, so the spawn is finalized from `report.md` and lifecycle facts only.
+Until something persists it, `state.json` still says `running` (or `queued`,
+`finalizing`); readers show the derived `crashed`. Plain `meridian doctor` lists
+such spawns as `dead_spawns_unfinalized`. `meridian doctor --kill-orphans`, the
+background repair of the next fresh primary launch, or `spawn cancel` writes the
+outcome and cleans up recorded process scopes.
+
+Rows from older builds may carry `orphan_run`, `orphan_finalization`,
+`missing_runner_pid` or `orphan_primary`. Those were the pre-identity-v2-PR-3
+reaper's guesses at the same event; read them as `crashed`.
+
+**Likelihood of work product:** It depends on when the runner died. A runner
+killed mid-turn leaves only the harness's native transcript; one killed while
+finalizing may leave a complete or partial `report.md`. The runner's in-memory
+attempt facts are lost either way.
 
 **Diagnosis:**
 ```bash
-# Check what the spawn produced
 meridian spawn show p42
 meridian session log p42 --tail 30   # the chat's native transcript, labeled as the entry-based view
-
-# Inspect raw runner stderr
+cat ~/.meridian/projects/<uuid>/spawns/p42/report.md    # may be partial
 cat ~/.meridian/projects/<uuid>/spawns/p42/stderr.log
+meridian doctor                        # dead_spawns_unfinalized lists unpersisted crashes
 ```
 
 `session log p42` never reads runner `history.jsonl`. If the chat was never bound to a native session, it reports `unbound`, and there is no transcript to recover ([native-only history](../decisions/native-only-history.md)).
 
-**Recovery:** Relaunch the spawn, or continue its chat with `--continue cN` when the chat is bound. Pass the relevant part of the native transcript as context if needed.
+**Recovery:** Salvage `report.md` if present. Relaunch the spawn, or continue its
+chat with `--continue cN` when the chat is bound; the continue sweeps any
+processes the dead runner left. Run `meridian doctor --kill-orphans` to persist
+the outcomes of dead spawns and reap their leftover process groups.
 
 ---
 
 ### Primary Crashed With No Exit or Stop Recorded
 
 **Symptom:** an interactive primary, its harness and its spawns all vanish at
-once. The primary later shows `failed` / `orphan_run`. `runner-lifecycle.jsonl`
+once. The primary later shows `failed` / `crashed` (`orphan_run` on builds before
+identity-v2 PR 3). `runner-lifecycle.jsonl`
 has no exit for it and `sessions.jsonl` has no stop for its generation. Before
 #621 and #631, resuming it with `--continue` could draw
 `ValueError: Cannot capture an active native owner: pN` over the new TUI, and
@@ -60,7 +84,7 @@ and finalize under the same condition.
 ```bash
 journalctl --user -b | grep -iE 'oom|tmux-spawn'   # scope stop, OOM kill, leftover SIGKILLs
 journalctl -k -b | grep -i 'out of memory'          # which process the kernel killed
-meridian spawn show pN --verbose                    # orphan_run, no runner exit
+meridian spawn show pN --verbose                    # crashed, no runner exit
 ```
 
 **Recovery:** `meridian --continue cN` resumes the chat. Since #631
@@ -91,60 +115,18 @@ haowjy/meridian-dev-workflow#8.
 
 ---
 
-### Orphan Finalization (`orphan_finalization`)
+### Managed Primary Launcher Died
 
-**Symptom:** `status: failed`, `error: orphan_finalization`. Spawn was in `finalizing` state when the reaper acted.
+**Symptom:** a `kind: primary` Codex or OpenCode spawn shows `status: failed`,
+`error: crashed`, and the TUI may show remote app-server connection errors.
 
-**What happened:** The runner explicitly entered controlled drain (`finalizing` status) — meaning harness process exited, runner was in the report-extraction/finalization phase — then crashed or was killed before completing finalization. The heartbeat went stale while in `finalizing`.
-
-**Likelihood of work product:** Higher than `orphan_run`. The harness finished executing; `report.md` may be partially written. Check before relaunching.
-
-**Diagnosis:**
-```bash
-meridian spawn show p42
-cat ~/.meridian/projects/<uuid>/spawns/p42/report.md    # may be partial but useful
-meridian session log p42 --last 50
-```
-
-**Recovery:** Read the partial `report.md` for salvageable output. Relaunch with the prior session context if the work is incomplete.
-
----
-
-### Missing Runner PID (`missing_runner_pid`)
-
-**Symptom:** `status: failed`, `error: missing_runner_pid`. No active spawns visible.
-
-**What happened:** The spawn started but the PID was never committed to the event stream. Spawn started but either the harness failed to launch or the PID-recording step failed. The spawn was in `running` state with no PID, past the 15-second startup grace window, with no heartbeat activity.
-
-**Diagnosis:**
-```bash
-meridian spawn show p42
-cat ~/.meridian/projects/<uuid>/spawns/p42/stderr.log  # check for launch errors
-```
-
-**Recovery:** Check `stderr.log` for the launch error (bad model name, harness binary not found, permission issue). Fix the root cause and relaunch.
-
----
-
-### Managed Primary Orphan (`orphan_primary`)
-
-**Symptom:** `meridian spawn show <id>` shows `status: failed`,
-`error: orphan_primary` for a `kind: primary` Codex or OpenCode spawn. The TUI
-may also show remote app-server connection errors if the backend later exits or
-is explicitly cleaned up.
-
-**What happened:** The managed-primary launcher wrapper died or became
-unreliable. For Codex/OpenCode managed primaries, the launcher, backend, and TUI
-are separate roles. Launcher death is abnormal and should be diagnosed as a
-wrapper failure, but it does not prove the backend/TUI were already dead.
-
-**Reaper behavior:** Passive read paths may record `failed/orphan_primary`. They
-do not terminate backend/TUI processes on Skip decisions — that protects an
-interactive TUI that may still be usable. Once the reaper finalizes the row as
-failed and metadata safely identifies runtime children, it may terminate those
-tracked children as a cleanup safety net. Missing or corrupt `primary_meta.json`
-for a Codex/OpenCode primary is treated conservatively as a managed-primary
-candidate, not as a generic worker to kill.
+**What happened:** The managed-primary launcher, which is the runner, was
+SIGKILLed, OOM-killed or crashed. (SIGTERM and SIGHUP make it finalize
+`cancelled`, exit 130, itself.) On POSIX the guardians stop the backend group and
+send the TUI one SIGTERM, so normally nothing is left running. Launcher death
+before the TUI exits is the defect to diagnose; the row only records it. Builds
+before identity-v2 PR 3 recorded this as `orphan_primary`, or as `cancelled`/130
+`session_ended_without_finalize`.
 
 **Diagnosis:**
 ```bash
@@ -155,25 +137,13 @@ meridian session log p42 --last 50
 ```
 
 Check whether the launcher died from an exception, signal, OOM, or host crash.
-Launcher death before TUI exit is the primary defect; passive reconciliation is
-only recording that state.
 
-**Recovery / cleanup:** If the TUI/backend are stranded and should be stopped,
-run explicit cancel:
-
-```bash
-meridian spawn cancel p42
-```
-
-`spawn cancel` performs best-effort managed-primary cleanup even when the spawn
-is already terminal with `error: orphan_primary`.
-
-If multiple orphaned managed primaries or browser/backend child processes have
-accumulated, use:
-
-```bash
-meridian doctor --kill-orphans
-```
+**Recovery / cleanup:** `meridian doctor --kill-orphans` persists the outcome and
+terminates the recorded scopes, or the backend and TUI PIDs from
+`primary_meta.json` when no scopes were recorded. `meridian spawn cancel p42` on
+the terminal row also runs best-effort managed-primary cleanup. Both check each
+PID's birth time first. See
+[managed-primary lifecycle](../architecture/managed-primary-lifecycle.md#repair-and-cleanup-boundary).
 
 ---
 

@@ -30,6 +30,8 @@ current_status is terminal (reconciler wrote it):
 
 The authority check runs inside the locked finalize mutator, against the re-read snapshot. The earlier `terminal_policy.py` module was deleted when its sole second caller (the v1 reducer) was removed.
 
+Since identity-v2 PR 3 the reaper writes a lock-backed row's outcome only after claiming its free `launch.lock` ([dead-launch outcome](#dead-launch-outcome)), so the runner is already dead and the "runner overrides inference" row no longer fires from the runner. The lattice stays until PR 4 makes the lock holder the only writer.
+
 ---
 
 ## Durable Completion Evidence Classification
@@ -338,8 +340,11 @@ legacy files. See the legacy-upgrade decision in
 3. complete_execution(terminal_facts) → mark_finalizing() → finalize(TerminalFacts(...))
 ```
 
-Crash between 2 and 3: reaper sees `runner_exit` on a `running`/`finalizing`
-spawn and uses it. Crash before 2: reaper sees no `runner_exit` and orphan-fails.
+A crash anywhere before step 3 frees the runner's `launch.lock`, and the spawn
+reads `failed`/`crashed` (or `cancelled` with a cancel request) whether or not
+`runner_exit` was recorded. `runner_exit` is diagnostic; it carries no terminal
+weight for a dead runner. Before identity-v2 PR 3 the reaper finalized from it, so
+a runner killed between 2 and 3 ended `succeeded`.
 
 All finalization paths must persist `runner_exit` before calling
 `complete_execution()`.
@@ -354,79 +359,28 @@ contract.
 
 ### `runner_created_at_epoch`
 
-`psutil.Process(runner_pid).create_time()` captured when `runner_pid` is written. Hardens the reaper's PID-liveness check; the prior `started_at` heuristic was fragile under delayed launch.
+`psutil.Process(runner_pid).create_time()` captured when `runner_pid` is written. Status no longer reads it for lock-backed rows. It feeds the exact-birth PID checks that remain: `legacy_runner_alive` for rows with no lock file, the continue sweep's choice of refusal message, managed-primary cleanup, and cancel's signal targeting (still with a 30 s birth slack until PR 4).
 
 ---
 
-## Reaper `runner_exit` Invariant
+## Dead-launch outcome
 
-The reaper's `decide_generic_reconciliation()` pivots entirely on
-`runner_exit is not None` (the `RunnerExitFacts` sub-model). Pre-finalization
-harness-exit fields (`last_attempt_exit_code`, `last_attempt_exited_at`) carry no
-terminal weight in the reaper's decision.
+When a runner dies without finalizing, `SpawnApplicationService.finalize_dead_launch`
+writes the outcome every reader already derives: `cancelled` with the cancel
+request's exit code and error, else `failed`, exit 1, error `crashed`. It writes
+only while holding the claimed `launch.lock`, and only for a stored-active row.
+Neither `report.md` nor `runner_exit` changes the result: a report counts only
+through an outcome the runner wrote. The reaper calls it with origin
+`reconciler`, cancel convergence with origin `cancel`. Rows with no lock file are
+never finalized this way except by explicit cancel, which keeps the
+pre-identity-v2-PR-3 report/cancel lattice for them. Mechanism and callers:
+[derived status](state-system/derived-status.md#who-persists-a-dead-launchs-outcome).
 
-### When `runner_exit is not None`
-
-Runner resolved its outcome before crashing. Reaper uses
-`FinalizeFromRunnerExit(status, exit_code, error)` — passes the runner's
-decision directly to `_finalize_and_log()` without re-derivation.
-
-`_in_post_runner_exit_grace()` (keyed on `runner_exit.exited_at`) gives the
-runner a brief window to land the terminal write after persisting `runner_exit`
-before the reaper steps in.
-
-### When `runner_exit is None` and the runner is dead
-
-Always `FailOrphan`. The reaper does **not** check `durable_report` or
-`last_attempt_exit_code`. Both are pre-finalization evidence: a report can exist
-before a post-run guardrail changes the final outcome.
-
-This closes two false-success channels that existed before this work:
-- `process_exit_code == 0` → `FinalizeSucceededFromExit` (attempt exit code misread as spawn terminal exit code)
-- Stale `report.md` → `FinalizeSucceededFromReport` when the runner died before resolving its outcome
-
-### `finalizing` without `runner_exit`
-
-Invalid / orphan state. The `finalizing` branch checks `runner_exit` first:
-- Present → `FinalizeFromRunnerExit`
-- Absent → `FailOrphanFinalization` — does NOT fall back to `durable_report`
-
-Every code path that enters `finalizing` must have already persisted
-`runner_exit`. Any path that enters `finalizing` without a prior
-`record_runner_exit()` call is a calling-code bug; the reaper treats it as
-orphan finalization.
-
-### `FinalizeSucceededFromReport` — preserved paths
-
-Kept only on paths where a `report.md` is reliable terminal evidence:
-- Pre-worker stalls: still-published rows before detached-worker takeover
-- Missing-runner-pid fallback
-- `ManagedPrimaryReconciliationStrategy`
-
-These paths do not infer that a generic dead runner succeeded merely because it
-wrote a report before finalization.
-
-### Updated decision tree (sketch)
-
-```
-decide_generic_reconciliation(record, snapshot, now):
-  if status == "finalizing":
-    if recent_activity → Skip
-    if runner_exit is not None → FinalizeFromRunnerExit
-    → FailOrphanFinalization
-
-  if runner_exit is not None:
-    if post_runner_exit_grace(runner_exit.exited_at) → Skip
-    → FinalizeFromRunnerExit
-
-  # runner_exit is None — no resolved outcome persisted
-  if pre_worker_ghost → ...report fallback (single-attempt path)...
-  if no runner_pid → ...report fallback (single-attempt path)...
-  if runner_pid_alive → Skip
-  if recent_activity → Skip
-  if startup_grace → Skip
-  → FailOrphan("orphan_run", exit_code=last_attempt_exit_code or 1)
-```
+Before PR 3 the reaper ran a decision tree here (`decide_generic_reconciliation`
+in the deleted `reconciliation.py`) over `runner_exit`, recent activity, startup
+and post-exit graces, and report fallbacks. It is gone; the
+[deleted-mechanisms table](state-system/derived-status.md#deleted-mechanisms-do-not-bring-back)
+says why each piece must stay gone.
 
 ---
 
