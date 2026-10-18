@@ -28,7 +28,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, the mars package comp
 - [vocabulary.md](vocabulary.md) — Alphabetical shared terminology contract; every domain term defined in one place
 - [decisions.md](decisions.md) — Chronological index of durable architectural decisions; entries link to domain pages for full rationale
 - [corrections.md](corrections.md) — Register of the human's corrections of agents, grouped by mistake class, with what enforces each and dated occurrences
-- [AGENTS.md](AGENTS.md) — KB maintenance guide: five-layer model, writing conventions, FLAG protocol, diagram rules, validation checklist (`CLAUDE.md` is a symlink)
+- [AGENTS.md](AGENTS.md) — KB maintenance guide: five-layer model, writing conventions, FLAG protocol, diagram rules, validation checklist
 
 ---
 
