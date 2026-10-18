@@ -210,13 +210,15 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 ### D-pi-spawn-native-discovery: Pi spawns keep native skill and context discovery
 
-**Status (2026-10-18):** PR #675 open (`release:patch`). Until it merges, `main` passes `--no-skills --no-context-files --no-prompt-templates` to spawned Pi.
+**Status:** Merged in PR #675. Until it merges, `main` passes `--no-skills --no-context-files --no-prompt-templates` to spawned Pi.
 
 **Decision:** Spawned Pi (`project_pi_rpc.py`) keeps Pi's native skill, context-file and prompt-template discovery, like the Pi primary and every other harness's spawns. It still passes `--no-extensions` with explicit `-e` for Meridian's bundles, because ambient extensions run code and can conflict with the managed ones; `load_all_pi_extensions` opts in.
 
 **Why:** The flags came in with PR #225 (`ae70d398e`, 2026-05-19) under a generic integration-guide rule ("every harness has ambient discovery… for spawns, suppress all of it") that no other harness followed. With native skills off, Pi had no skill tool, so a profile's `available` skills were listed but unloadable. `--no-context-files` also hid the project `AGENTS.md`. Meridian composes loaded skills and never injects `AGENTS.md`, so enabling discovery duplicates neither: Pi's native list adds only names, descriptions and paths, and honors `disable-model-invocation`.
 
-**Rejected:** render each available skill's `source_path` in the Available Skills listing so Pi agents can read the file. It works around the suppression instead of removing it, and it costs tokens on every harness.
+**Origin, fuller:** the owner's 2026-05-16 design (work `meridian-pi-mars-support`) meant `--no-skills` and `--no-context-files` as half of "explicit injection, not discovery": suppress discovery, then pass the agent's skills with `--skill <path>`. Only the extension half (`--no-extensions` plus `-e`) was built. The design also ran spawns in a Meridian-owned agent dir, which PR #225 removed.
+
+**Rejected:** finish that design (keep `--no-skills`, pass `--skill` per available skill). It would scope Pi spawns to the agent definition while every other harness shows all model-invocable skills; per-agent skill scoping, if wanted, is a cross-harness decision. Also rejected: render each available skill's `source_path` in the Available Skills listing so Pi agents can read the file. It works around the suppression instead of removing it, and it costs tokens on every harness.
 
 ---
 
