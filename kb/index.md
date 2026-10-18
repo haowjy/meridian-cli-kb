@@ -70,6 +70,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/codebase-cleanup.md](decisions/codebase-cleanup.md) — Why the cleanup program runs phases 1–2 now and tracks 3–5 in #569, why B7 was assigned to PR #546 (superseded by #588), why the spawn-archive overlay and `auto_init_cwd` were deleted, why state#1 was accepted short of its estimate, the G2 verdict on relocated config validation, unknown-key warnings from Pydantic's `extra="allow"` traversal (#580), batch telemetry durability, and the JSONL inventory
 - [decisions/static-typing.md](decisions/static-typing.md) — Why pyright strict runs with warnings fatal and no demotions, the one allowed suppression form, where untyped data gets narrowed, and why nested CLI handlers are registered by call
 - [decisions/tui-framework.md](decisions/tui-framework.md) — prompt_toolkit full-screen Application for session browse; hand-rolled, textual, and fzf rejected on picker-specific evidence
+- [decisions/instruction-files.md](decisions/instruction-files.md) — AGENTS.md is the instruction file; no CLAUDE.md mirrors, `qi claude-md-fix` deleted
 
 ---
 

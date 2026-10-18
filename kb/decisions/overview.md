@@ -35,6 +35,7 @@ Decision records explain why durable architectural choices were made — what al
 | [codebase-cleanup.md](codebase-cleanup.md) | Cleanup program scope (phases 1–2 now, 3–5 in #569), B7 assigned to PR #546 (superseded by #588), spawn-archive overlay and `auto_init_cwd` deleted, state#1 acceptance, G2 double-validation verdict, telemetry batch durability, JSONL inventory |
 | [static-typing.md](static-typing.md) | Pyright strict gate with warnings fatal, per-rule suppressions only, boundary narrowing over casts, public cross-module names, explicit nested CLI handler registration |
 | [tui-framework.md](tui-framework.md) | Session-browse framework choice: prompt_toolkit full-screen Application (D-tui-prompt-toolkit) |
+| [instruction-files.md](instruction-files.md) | Per-directory agent instructions in `AGENTS.md`; `CLAUDE.md` only for Claude-specific lines (D-agents-md-only) |
 
 ## Naming
 
