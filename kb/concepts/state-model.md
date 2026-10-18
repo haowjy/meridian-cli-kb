@@ -71,7 +71,7 @@ store owns locking, mutation, rename intent, and archive transitions.
 
 ### Artifact Directories
 
-Prompt, transcript, report, heartbeat, and diagnostic files live beneath a
+Prompt, transcript, report, `launch.lock`, and diagnostic files live beneath a
 spawn directory. They supplement `state.json`; none is an independent spawn
 lifecycle authority.
 
@@ -83,9 +83,10 @@ paths outside deletable data and are removed only through validated exclusive
 GC. A store mutation means acquire, re-read, mutate, and publish—not “read now,
 lock later.”
 
-Ordinary list/show/wait reads may project an apparently orphaned active spawn as
-terminal without changing disk. Explicit reconciliation performs durable
-finalization and process cleanup. This keeps observation from becoming an
+Ordinary list/show/wait reads derive a dead runner's active row as terminal
+(`crashed`) from its free `launch.lock`, without changing disk. Explicit repair
+(`doctor --kill-orphans`, primary-launch background repair, cancel) performs
+durable finalization and process cleanup under that lock. This keeps observation from becoming an
 unexpected destructive action.
 
 The exact lock order, state machine, migration codec, layouts, and repair paths

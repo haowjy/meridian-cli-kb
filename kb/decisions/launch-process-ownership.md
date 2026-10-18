@@ -49,6 +49,15 @@ open or introduces competing ownership.
 
 *2026-05-06; refined 2026-05 PR #184*
 
+**Superseded by identity-v2 PR 3 (#672).** Reads no longer reconcile, and the
+reaper no longer guesses: it acts only after claiming a dead launcher's free
+`launch.lock`, writes `failed`/`crashed` (`orphan_primary` is no longer written),
+then cleans the recorded scopes or the metadata-identified backend and TUI. With
+no guess there is no Skip decision to protect, so the skip/finalize discipline
+below is history. What still holds: reads never signal, and every metadata PID is
+checked against its recorded birth before a signal. Current behaviour:
+[managed-primary lifecycle](../architecture/managed-primary-lifecycle.md#repair-and-cleanup-boundary).
+
 **Decided:** Passive reconciliation may finalize Codex/OpenCode managed
 primaries as `failed/orphan_primary`. When it finalizes (not skips), it also
 terminates tracked runtime children as a cleanup safety net via

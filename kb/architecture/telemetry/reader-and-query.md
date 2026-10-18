@@ -127,7 +127,7 @@ class TelemetryStatus:
 | Segment owner | Liveness check |
 |---|---|
 | `cli` or `chat` | `is_process_alive(pid)` — raw OS process existence |
-| Spawn ID (e.g., `p42`) | `is_spawn_genuinely_active(segment_runtime_root, spawn_id)` — spawn store + heartbeat |
+| Spawn ID (e.g., `p42`) | `is_live(segment_runtime_root, spawn_id)` — derived spawn status (runner holds `launch.lock`) |
 
 For global status, `segment_runtime_root` is derived from the segment's path (`segment.parent.parent`) so liveness is checked against the owning project's runtime state, not the current project.
 
@@ -184,11 +184,11 @@ flowchart TD
 |---|---|
 | Owner is current PID | Always live |
 | `cli` or `chat` owner | `is_process_alive(owner.pid)` |
-| Spawn ID owner, `runtime_root` known | `is_spawn_genuinely_active(runtime_root, owner.logical_owner)` |
+| Spawn ID owner, `runtime_root` known | `is_live(runtime_root, owner.logical_owner)` |
 | Spawn ID owner, no `runtime_root` | `is_process_alive(owner.pid)` (fallback) |
 | `owner is None` (legacy/unparseable) | Always orphaned (not live) |
 
-`is_spawn_genuinely_active()` in `lib/state/liveness.py` uses three signals: (1) spawn store status must be `queued`, `running`, or `finalizing`; (2) runner PID alive if present; (3) heartbeat file modified within 120 seconds. This prevents false-orphaning during the spawn's finalizing window. See [decisions/telemetry.md#d69](../../decisions/telemetry.md#d69).
+`is_live()` in `lib/state/spawn_status.py` reads the spawn's [derived status](../state-system/derived-status.md): live while the runner holds `launch.lock`, which it does through the finalizing window, so a finalizing spawn's segment isn't orphaned. See [decisions/telemetry.md#d69](../../decisions/telemetry.md#d69).
 
 ### Types
 

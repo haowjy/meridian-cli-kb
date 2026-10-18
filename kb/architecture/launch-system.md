@@ -241,9 +241,8 @@ the guard at their respective ownership boundaries.
 Codex/OpenCode managed backends launch through one helper:
 `harness/connections/managed_backend.py:launch_managed_backend()`. The helper starts
 the backend subprocess, captures birth time for PID-reuse guards, determines
-containment (`posix_pgid`, `windows_job`, or fallback), sets up its
-[parent-death link](process-scope.md#parent-death-linkage) (PDEATHSIG or a
-watchdog on POSIX, a Job Object on Windows), builds a `ProcessScopeSnapshot`, records
+containment (`posix_pgid`, `windows_job`, or fallback), starts it behind the [start gate and guardian](process-scope.md#parent-death-linkage)
+on POSIX (a Job Object on Windows), builds a `ProcessScopeSnapshot`, records
 `process_scopes.json`, and returns a `ManagedBackendHandle`.
 
 Adapters no longer own per-harness backend launch blocks. They provide command/env/cwd
@@ -386,7 +385,7 @@ Three concentric layers, each defined by function scope:
 **Resolution in the background worker:**  
 The background worker trusts the `BackgroundWorkerLaunchRequest` written by `execute_spawn_background()`. It does NOT re-resolve model or harness from the spawn record — the request is already fully resolved when persisted. Validation checks only `harness` (required) and `prompt` (required); [empty model](../decisions/model-resolution.md#model-optional-empty-model) is accepted because it means no managed model override, whether from a model-optional profile or from Mars clearing an incompatible model after a stronger harness override won.
 
-`execute_with_streaming()` in `streaming_runner.py` is the async executor: heartbeat every 30s, `mark_finalizing` CAS after harness exits, `enrich_finalize()` for usage/session/report extraction.
+`execute_with_streaming()` in `streaming_runner.py` is the async executor: `mark_finalizing` CAS after harness exits, `enrich_finalize()` for usage/session/report extraction.
 
 **Note:** `ops/spawn/prepare.py` uses `SPAWN_PREPARE` surface + `LaunchArgvIntent.REQUIRED` — it needs a real argv to populate `cli_command` for display. This is the exception; all execution paths use `SPEC_ONLY`.
 
@@ -408,11 +407,11 @@ PreparedSpawn handoff type
 **SEAM-2:** Row metadata always reflects resolved model/agent/harness.  
 **SEAM-3:** `ConnectionConfig.env_overrides` populated from `LaunchContext.env_overrides`.
 
-`run_streaming_spawn()` is a focused executor: creates `SpawnManager`, starts harness connection, starts heartbeat, awaits drain, records exited event. It does **not** call `enrich_finalize()` or `execute_with_streaming()`.
+`run_streaming_spawn()` is a focused executor: creates `SpawnManager`, starts harness connection, awaits drain, records exited event. It does **not** call `enrich_finalize()` or `execute_with_streaming()`.
 
 ### Published-Spawn Startup Boundary
 
-Harness connections, heartbeat loops, and managed-child adoption consume an
+Harness connections and managed-child adoption consume an
 already-published spawn; they do not create `spawns/<id>/`. If retention deletes
 the aggregate across an awaited startup boundary, artifact opens and guarded
 process-scope registration fail closed. A child that launched before

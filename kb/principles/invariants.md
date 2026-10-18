@@ -30,7 +30,7 @@ This page is the canonical statement of the launch composition invariants (I-1 t
 
 **I-11 — Per-adapter `SpawnParams` accounting.** Every adapter lists every `SpawnParams` field in its own `consumed_fields` or `explicitly_ignored_fields`, and no stale names. Harness bootstrap raises `ImportError` on any adapter's drift. The check is per adapter: one adapter consuming a field does not cover the others. This prevents adapter drift when `SpawnParams` gains new fields.
 
-**I-12 — Heartbeat covers full active window.** The heartbeat file is touched every 30 seconds for the full active window: both `running` and `finalizing` states. The reaper uses heartbeat recency as the primary liveness signal for `finalizing` spawns (PID probes are not consulted for `finalizing`).
+**I-12 — The runner holds `launch.lock` for its whole life.** It takes `spawns/<id>/launch.lock` exclusively before the row is published (a `--bg` launcher hands it to the worker) and holds it through `running` and `finalizing` until it exits. Every status reader derives liveness from that lock alone ([derived status](../architecture/state-system/derived-status.md)). This replaced the heartbeat in identity-v2 PR 3.
 
 **I-13 — Warnings channel.** `LaunchContext.warnings` is the sole channel for composition warnings. Adapters that silently transform inputs (dropping a skill, ignoring a reference file) must surface the drop as a `CompositionWarning` in `LaunchContext.warnings`.
 
@@ -80,7 +80,7 @@ Terminal spawn status is determined by event projection following these rules, i
 3. **Reconciler-vs-reconciler: first wins.** Two concurrent reconciler calls cannot revise each other.
 4. **Metadata merges from all events.** Cost, tokens, and duration accumulate from every finalize event regardless of authority.
 
-**Why:** The reaper may stamp an orphan before the actual runner reports back. The authority rule ensures the runner's ground truth wins over the reaper's inference.
+**Why:** Before identity-v2 PR 3 the reaper could stamp an orphan before the actual runner reported back, and the authority rule let the runner's ground truth win. Now the reaper writes only after claiming a dead runner's lock, so for lock-backed rows rule 2 no longer arises from the runner; PR 4 deletes the lattice.
 
 ### Status Transition Graph
 
@@ -90,7 +90,7 @@ running   → finalizing | succeeded | failed | cancelled
 finalizing → succeeded | failed | cancelled
 ```
 
-`queued → finalizing` is NOT allowed. `mark_finalizing()` is a CAS operation — it appends `status=finalizing` only when current status is exactly `running`. This prevents races between the runner and the reaper.
+`queued → finalizing` is NOT allowed. `mark_finalizing()` is a CAS operation — it appends `status=finalizing` only when current status is exactly `running`. It is a status marker for observers; liveness comes from the lock.
 
 ---
 
@@ -128,7 +128,7 @@ Every `SpawnParams` field must be either in the adapter's `STRATEGIES` dict or i
 
 ## Depth Gating Invariant
 
-Reaper side effects (`reconcile_spawns`) run only when `MERIDIAN_DEPTH` is absent, empty, or `0`. Non-empty, non-zero depth values (including malformed values like `"garbage"`) skip reconciliation. The gate is inside `reconcile_active_spawn`, so every call site inherits it from one place.
+Reaper side effects (`reconcile_active_spawn`: persisting a dead launch's outcome and cleaning its scopes) run only when `_MERIDIAN_DEPTH` is absent, empty, or `0`. Non-empty, non-zero depth values (including malformed values like `"garbage"`) skip them. The gate is inside `reconcile_active_spawn`, so every call site inherits it from one place. Status reads never write, at any depth.
 
 **Effect:** Nested spawns never trigger spawn state mutations in the parent's event store. The parent process owns reconciliation.
 
@@ -172,4 +172,4 @@ Built-in commands import only from `src/meridian/lib/plugin_api/`. They do not i
 - [principles/design-principles.md](design-principles.md) — the design principles these invariants enforce
 - [architecture/launch-system.md](../architecture/launch-system.md) — launch composition architecture where I-1 through I-13 apply
 - [architecture/state-system/overview.md](../architecture/state-system/overview.md) — state model where JSONL session state, per-spawn `state.json`, and projection authority invariants apply
-- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn status transitions and reaper logic
+- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — spawn status transitions and crash recovery

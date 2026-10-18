@@ -42,14 +42,14 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 *Candea & Fox: crash-only software.*
 
-**The principle:** Every write is atomic (tmp+rename). Every read tolerates truncation. There is no "graceful shutdown." If meridian is killed mid-spawn, the next `meridian status` detects and reports the orphaned state. Recovery IS startup.
+**The principle:** Every write is atomic (tmp+rename). Every read tolerates truncation. There is no "graceful shutdown." If meridian is killed mid-spawn, the kernel frees the runner's `launch.lock`, and the next read reports the spawn `crashed`. Recovery IS startup.
 
 **Why it matters:** Graceful shutdown is fragile — it requires the process to get enough time to clean up. Crash-only systems are correct under arbitrary interruption and make failure modes explicit.
 
 **In Meridian:**
 - Writes use `atomic_write_text()` (tmp + `os.replace()`)
 - JSONL rows commit at their newline: readers withhold a torn tail and skip malformed rows, the next append repairs the tail; `state.json` and sidecar writes use atomic replacement
-- The reaper runs on every read path — no separate GC process needed
+- Liveness is a kernel-held `flock` that dies with its holder; readers derive status from it, and `doctor --kill-orphans` or the next primary launch persists dead outcomes
 - Work item renames write an intent file first; leftover intent is replayed on startup
 
 ---
@@ -124,7 +124,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **Why it matters:** Idempotency makes systems safe to retry and easy to reason about. Non-idempotent operations create "did it run?" ambiguity.
 
-**In Meridian:** `reconcile_spawns` runs on every read path — safe to call repeatedly. `meridian mars sync` is convergent. `atomic_write_text` uses tmp+rename so partial writes never corrupt the target. Work-item rename intent files ensure the rename completes correctly even if replayed.
+**In Meridian:** `finalize_dead_launch` writes the outcome readers already derive, so running it again changes nothing. `meridian mars sync` is convergent. `atomic_write_text` uses tmp+rename so partial writes never corrupt the target. Work-item rename intent files ensure the rename completes correctly even if replayed.
 
 ---
 
