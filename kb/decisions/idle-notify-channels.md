@@ -101,7 +101,7 @@ Issue #684 adds `session.needs_permission` on the unmerged
 **Decision:** A notification is a hook event, and the hook rows on that event
 deliver it.
 
-- **Four observe-class notification events** (fail-open: a failing route never
+- **Every notification event is observe-class** (fail-open: a failing route never
   stops the caller): `session.responded` (the idle waiting push),
   `session.cache_expiring` (the cache warning), `session.needs_permission`
   (Claude's still-waiting permission signal), and `notify.manual` (`meridian
@@ -125,9 +125,9 @@ deliver it.
   the same push backend, the user gets two pushes. Out of the box, delivery
   is unchanged.
 - **Email opt-out belongs to the backend.** A notification with
-  `email = false` (`--no-email`, the idle push, `warn_email = false`) skips
-  `smtp` and `gmail` however a route names them, not only via the `email`
-  alias.
+  `email = false` (`--no-email`, the idle push, the permission notice,
+  `warn_email = false`) skips `smtp` and `gmail` however a route names them,
+  not only via the `email` alias.
 - **Extension channels are ordinary command hooks.** Their JSON stdin carries
   a `notification` object (`title`, `body`, `priority`, `email`, `label`,
   `attachments`) and their env `MERIDIAN_NOTIFICATION_TITLE`, `_BODY` and

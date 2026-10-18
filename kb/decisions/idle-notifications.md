@@ -614,14 +614,15 @@ the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
 
 **Decision:** The Claude mod forwards only `classic.Notification` events whose
 `notification_type` is `permission_prompt`. It calls the hidden
-`meridian idle needs-permission --harness claude --session … --message …`
+`meridian idle needs-permission --harness claude --message …`
 adapter command and immediately continues the host event with `next(e)`.
-Core builds one priority-3, push-only notice titled `Claude needs permission`,
-appends the ordinary session headline to Claude's message, and emits it as the
-observe-class `session.needs_permission` hook event. The event has the same
-default built-in `notify` route as the idle push and cache warning, so ordinary
-hook rows can add routes or replace its default; a disabled `notify` row for
-this event silences only this notice.
+Core builds one priority-3, push-only notice titled
+`[permission] {label.headline}`. Its body is the stripped harness notification
+text, or `Permission prompt waiting` when `[notify].include_messages` is false.
+Core emits it as the observe-class `session.needs_permission` hook event. The
+event has the same default built-in `notify` route as the idle push and cache
+warning, so ordinary hook rows can add routes or replace its default; a
+disabled `notify` row for this event silences only this notice.
 
 This path is **stateless**. It never reads or writes the idle store, changes a
 stretch, holds or releases a scheduled push, tracks an answer, or correlates a
@@ -644,10 +645,11 @@ for Pi, Codex, OpenCode, or Cursor.
 **Verified:** a real Claude Code 2.1.302 primary with Haiku, isolated under a
 scratch `MERIDIAN_HOME` and runtime directory, was left at a Bash permission
 prompt for more than ten seconds. A command hook captured exactly one
-`session.needs_permission` notice with the expected title and the body
-`Claude needs your permission` followed by the session headline. Mod and CLI
-tests also cover exact filtering, fail-open CLI errors, route silencing, and no
-idle-state write (`work:permission-ping`).
+`session.needs_permission` notice titled
+`[permission] claude in project: "permission-ping"` with the body
+`Claude needs your permission`. Mod and CLI tests also cover exact filtering,
+fail-open CLI errors, route silencing, and no idle-state write
+(`work:permission-ping`).
 
 ## D-idle-compaction-removed — Meridian no longer compacts idle sessions
 

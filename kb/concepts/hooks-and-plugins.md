@@ -52,7 +52,7 @@ graph TD
     MANUAL["notify.manual\nmeridian notify"]
 ```
 
-The four notification events are observe-class: each carries a
+Every notification event is observe-class and carries a
 `notification` payload, and the routes on that event deliver it
 ([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 
@@ -206,11 +206,12 @@ The plugin API surface includes:
 
 ## Notifications: the Built-In `notify` Route
 
-Idle push, the cache warning and `meridian notify "<title>" ["<body>"]` build a
-`plugin_api.Notification`; `lib/notify/emit.py` fires its event through
-`HookDispatcher`. The built-in `notify` hook (`lib/hooks/builtin/notify.py`)
-calls `lib/notify`'s `send()` directly (a companion it wraps, imported lazily)
-to reach the transports: ntfy, SMTP, Gmail, `none`.
+Idle push, the cache warning, the permission notice, and
+`meridian notify "<title>" ["<body>"]` build a `plugin_api.Notification`;
+`lib/notify/emit.py` fires its event through `HookDispatcher`. The built-in
+`notify` hook (`lib/hooks/builtin/notify.py`) calls `lib/notify`'s `send()`
+directly (a companion it wraps, imported lazily) to reach the transports: ntfy,
+SMTP, Gmail, `none`.
 
 ```toml
 # Cache warnings to push only, at priority 5 (replaces that event's default route)
