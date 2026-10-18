@@ -271,10 +271,37 @@ second channel and re-append was deleted
   once.
 - Check a fix with a dry-run probe on the real launch path before trusting it.
   The no-op primary injection passed review and unit tests.
+- An observability file becomes a delivery channel the moment a harness reads
+  it. `system-prompt.md` was introduced as a launch artifact that "does not change
+  routing", but Claude's `--append-system-prompt-file` reads that same file, so
+  its writer decides what Claude sees. A later change made the writer prefer the
+  projected prompt, framed as an artifact cleanup; once skills left the projected
+  prompt, Claude lost them while tests stayed green.
+- Don't carry a rule from one surface to another because they share a field
+  name. PR #208 filtered `model-invocable: false` agents out of the spawn
+  inventory, which was right, and in the same commit suppressed composed skills,
+  on the theory that the harness's skill list already covered them. Agent
+  visibility and skill loading are different questions: `model-invocable` hides
+  a skill from discovery but must never stop a skill an agent loads
+  ([D-load-ignores-invocability](../decisions/package-management.md#d-load-ignores-invocability-model-invocable-gates-discovery-not-an-explicit-load)).
 
 `prepare_prompt_payload()` still prefers projected content over
 `appended_system_prompt` (`projected or appended`). No caller passes both now. If
 one starts to, that's a sign a second channel is coming back.
+
+**The same split on the resolution side (2026-10).** The investigation behind
+PR #661 also found two skill resolvers. Mars resolved profile skills when it
+built the launch bundle. Meridian kept its own profile parse and a filesystem
+lookup for replaying old snapshots. Meridian's parser predated the
+`{load, available}` profile form and read it as no skills, and its lookup chose
+bodies by model identity where Mars chose by harness only. Neither changed what
+a current launch received, because Mars read the profile itself and only old
+snapshots reached the lookup, so no test or launch failed. Any later skill
+change, though, could land in Meridian's copy and diverge further. Meridian's
+copy was deleted rather than taught the mapping
+([D-mars-sole-skill-resolver](../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
+When a duplicate of an authority is found out of date, delete it rather than
+bringing it up to date: the fix keeps two authorities that will drift again.
 
 ---
 

@@ -21,7 +21,7 @@ src/meridian/
     harness/      Harness bundles: Claude, Codex, Cursor, OpenCode, Pi + connections/
     state/        Per-spawn state.json under mutate-under-lock seams, work items,
                   WorkScope (named vs ambient), path resolution, reaper, atomic writes
-    catalog/      Model resolution, agent/skill loading, default agent policy
+    catalog/      Model resolution, agent profile loading, default agent policy
     launch/       Spawn lifecycle: prepare/bind composition + three driving adapters
     config/       Settings model, precedence chain, TOML read/write, workspace config loader
     context/      Context path resolver: work/kb path resolution

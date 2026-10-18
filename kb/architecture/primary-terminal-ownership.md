@@ -332,8 +332,8 @@ in the byte path, and it was accepted.
   `SUBPROCESS_ONLY`), which registers no receiver there. A SIGTERM to the
   launcher, for example from a systemd scope stop, kills it by default action.
   No runner exit is recorded and no session stop is appended; the harness and
-  its guardian are orphaned under PID 1. Reconciliation later records the run as
-  `orphan_run`, and the session generation stays unstopped
+  its guardian are orphaned under PID 1. The run later reads `orphan_run`
+  (`crashed` since identity-v2 PR 3), and the session generation stays unstopped
   ([what that does to capture](state-system/session-state.md#a-later-start-closes-abandoned-generations);
   [incident](../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded)).
   PR #658 was live-verified on PTY Claude for TERM, HUP, rapid HUP+TERM, `tmux

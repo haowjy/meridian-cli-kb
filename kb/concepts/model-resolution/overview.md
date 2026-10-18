@@ -22,7 +22,7 @@ graph TD
     POLICY --> BUNDLE["resolve_launch_policy()\npolicies.py: _resolve_policy_from_bundle()"]
     BUNDLE --> MARS["mars build launch-bundle --json\nbundle_adapter.request_and_resolve()"]
     MARS --> PARSE["bundle_to_resolved_policy()\nbundle_adapter.py"]
-    PARSE --> SKILLS["resolve_skills_from_profile()\nresolve.py"]
+    PARSE --> SKILLS["_build_resolved_skills_from_bundle()\npolicies.py"]
     SKILLS --> PREPARED["PreparedLaunchSurface\nprepare_launch_surface()"]
     PREPARED --> BIND["bind_launch_context()\ncontext.py"]
     BIND --> LAUNCH["LaunchContext\nready to execute"]
@@ -45,8 +45,11 @@ After the bundle path runs, the pipeline has produced:
   canonical), and `harness_provenance` string
 - **Harness** — which harness process to launch, resolved by Mars and returned
   in `bundle_result.harness`
-- **Skills** — list of skill names from the profile, loaded and variant-selected
-  for the resolved harness and model token via `resolve_skills_from_profile()`
+- **Skills** — the loaded and available skills Mars returned in the bundle.
+  Mars reads the profile's `skills`, adds the caller's `--skills` extras, and
+  selects each harness variant; `_build_resolved_skills_from_bundle()` turns the
+  result into `ResolvedSkills`. Meridian does no skill lookup of its own
+  ([D-mars-sole-skill-resolver](../../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills))
 - **`ResolvedLaunchPolicy`** — model, harness, adapter, skills, execution
   policy, tools, field provenance, and warnings assembled from bundle output
 - **`LaunchContext`** — all of the above assembled with env, cwd, argv, and
@@ -67,8 +70,8 @@ for OpenCode) diverge here. See [aliases-and-routing.md](aliases-and-routing.md#
   invokes `mars build launch-bundle --json` and parses the structured response
 - `bundle_adapter.bundle_to_resolved_policy()` — maps bundle result + local
   context to `ResolvedLaunchPolicy`
-- `resolve_skills_from_profile()` — `src/meridian/lib/launch/resolve.py` —
-  skill attachment after bundle resolution
+- `_build_resolved_skills_from_bundle()` — `src/meridian/lib/launch/policies.py` —
+  builds `ResolvedSkills` from the bundle's `skills.loaded[]`
 - `prepare_launch_surface()` / `bind_launch_context()` — `src/meridian/lib/launch/context.py` —
   content projection and final environment/argv assembly
 

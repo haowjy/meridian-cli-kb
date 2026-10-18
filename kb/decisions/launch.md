@@ -190,7 +190,7 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 ### D-skill-single-path: Loaded skills are composition documents on every harness
 
-**Status (2026-10-17):** Built on `fix/primary-skill-injection` (`bcfe1c5ff`, `ac50d7f35`). PR #661 is open with `release:patch`. Until it merges, `main` still has the split described in D-skill-doc-suppression.
+**Status:** Shipped in v0.10.23 (PR #661, merge `71bec25fe`).
 
 **Decision (2026-10, PR #661):** Both composers (`_build_spawn_composed_launch_content()` and `_resolve_primary_projection()`) always add `compose_skill_prompt_documents(loaded_skills)` to `supplemental_documents`. Projection places them in the system prompt after the agent profile, grouped principle → guardrail → reference. There is no harness-capability gate and no second channel. `system-prompt.md`, which Claude reads through `--append-system-prompt-file`, is written from `run_params.appended_system_prompt`. That is the full prompt the harness receives, including additions made after projection such as the source-edit-directory instruction.
 
@@ -202,7 +202,23 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 **Deleted with it:** `_inject_loaded_skills`, the bind re-append and its `loaded_skills` parameter, `compose_skill_injections`, `RunPromptPolicy.skill_injection_mode`, `HarnessCapabilities.supports_native_skills`.
 
+**Divergence:** composition is not delivery everywhere. OpenCode v2 and the `opencode run` path never pass the composed system prompt to the model, so agents there get no loaded skills; this predates #661 and is tracked as a separate fix ([per-harness channels](../codebase/harness-adapters.md#skill-delivery)).
+
 **Supersedes:** D-skill-doc-suppression, below.
+
+---
+
+### D-pi-spawn-native-discovery: Pi spawns keep native skill and context discovery
+
+**Status:** Merged in PR #675. Until it merges, `main` passes `--no-skills --no-context-files --no-prompt-templates` to spawned Pi.
+
+**Decision:** Spawned Pi (`project_pi_rpc.py`) keeps Pi's native skill, context-file and prompt-template discovery, like the Pi primary and every other harness's spawns. It still passes `--no-extensions` with explicit `-e` for Meridian's bundles, because ambient extensions run code and can conflict with the managed ones; `load_all_pi_extensions` opts in.
+
+**Why:** The flags came in with PR #225 (`ae70d398e`, 2026-05-19) under a generic integration-guide rule ("every harness has ambient discovery… for spawns, suppress all of it") that no other harness followed. With native skills off, Pi had no skill tool, so a profile's `available` skills were listed but unloadable. `--no-context-files` also hid the project `AGENTS.md`. Meridian composes loaded skills and never injects `AGENTS.md`, so enabling discovery duplicates neither: Pi's native list adds only names, descriptions and paths, and honors `disable-model-invocation`.
+
+**Origin, fuller:** the owner's 2026-05-16 design (work `meridian-pi-mars-support`) meant `--no-skills` and `--no-context-files` as half of "explicit injection, not discovery": suppress discovery, then pass the agent's skills with `--skill <path>`. Only the extension half (`--no-extensions` plus `-e`) was built. The design also ran spawns in a Meridian-owned agent dir, which PR #225 removed.
+
+**Rejected:** finish that design (keep `--no-skills`, pass `--skill` per available skill). It would scope Pi spawns to the agent definition while every other harness shows all model-invocable skills; per-agent skill scoping, if wanted, is a cross-harness decision. Also rejected: render each available skill's `source_path` in the Available Skills listing so Pi agents can read the file. It works around the suppression instead of removing it, and it costs tokens on every harness.
 
 ---
 
@@ -211,6 +227,8 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 **Superseded (2026-10) by [D-skill-single-path](#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness).** This record stays because it explains how the split happened.
 
 **Decision (2026-05, PR #208, 615dcb330):** When a harness declared `supports_native_skills=True` (Claude, Codex, OpenCode), composition left `supplemental_documents` empty and relied on Mars-delivered native skills, plus a Claude-only `compose_skill_injections()` append channel.
+
+**How the split came about:** In March 2026 Claude Code's `--agent` did not preload a profile's `skills:` (anthropics/claude-code#29902), so `00453e433` added a Claude-only append channel (`compose_skill_injections()` → `--append-system-prompt`). Five days later `2b23522bc` removed the injection to fix duplicate skills, with a comment that Claude loads skills natively through `--agent`; the upstream issue had been bot-closed as a duplicate, not fixed. In April `8f47d2eab` unified delivery: composition always included loaded skills for every harness. PR #208 then re-split it, in the same commit that filtered `model-invocable: false` agents out of the spawn inventory, reasoning that native skill directories already delivered skills and composition duplicated them.
 
 **Why it failed:** The goal was to stop sending skill content twice. Two mistaken assumptions undid it. First, native delivery is not equivalent to loading, because native lists cover only model-invocable skills. Second, a capability-gated second channel would stay in sync with the first. In practice the append channel was overwritten at bind, so delivery fell to an ad hoc bind re-append. The file Claude actually reads never had skills.
 

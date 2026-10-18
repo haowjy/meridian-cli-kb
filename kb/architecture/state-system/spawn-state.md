@@ -47,20 +47,20 @@ stateDiagram-v2
     finalizing --> succeeded: finalize_spawn(succeeded)
     finalizing --> failed: finalize_spawn(failed)
     finalizing --> timed_out: finalize_spawn(timed_out)
-    running --> failed: orphan reap
+    running --> failed: runner died (crashed)
     running --> timed_out: timeout
     running --> cancelled: cancel()
     finalizing --> cancelled: cancel() (rare)
-    finalizing --> failed: orphan_finalization reap
+    finalizing --> failed: runner died (crashed)
 ```
 
 Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `timed_out` is a failure class distinct from generic `failed`, so user-facing filters and statistics can separate deadline failures from other errors. `SpawnStatus` is a `StrEnum` (`core/domain.py`); lifecycle sets are derived from a member→class map.
 
 Lifecycle evidence is nested into frozen sub-models (`RunnerExitFacts`, `TerminalFacts`). Top-level `status` is the sole status authority; `TerminalFacts` carries exit code, timestamps, metrics, error, and origin but does not repeat status. When `status` is terminal, `terminal` must not be `None`; active rows must not carry `terminal`. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a nested `terminal.status` or stale flat fields are quarantined. Collection reads partition valid rows from quarantine reports in immutable `SpawnScan` envelopes. See [spawn-finalization.md](../spawn-finalization.md) for the discriminated facts schema and quarantine contract.
 
-**Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. See [spawn-finalization.md](../spawn-finalization.md) for the full authority lattice.
+**Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. The status a reader shows can differ from the stored one: a stored-active row whose `launch.lock` is free reads `failed`/`crashed` ([derived status](derived-status.md)). See [spawn-finalization.md](../spawn-finalization.md) for the full authority lattice.
 
-`mark_finalizing()` is a compare-and-swap from `running` → `finalizing`. It narrows the reaper's target from the full execution window to the drain/report window, enabling `orphan_finalization` vs `orphan_run` distinction.
+`mark_finalizing()` is a compare-and-swap from `running` → `finalizing`. It tells observers the harness has exited and the runner is draining. Since identity-v2 PR 3 nothing decides liveness from it; PR 4 deletes it with stored status.
 
 ### Locked Mutation Seam
 
@@ -82,7 +82,7 @@ These seams are behavior-preserving contracts: a planned future store rewrite (t
 
 The published `state.json` row owns the lifetime of every artifact under its
 spawn directory. Once that row is gone, no signal, journal, history record,
-diagnostic, metadata file, heartbeat, connection, or process-scope registration
+diagnostic, metadata file, connection, or process-scope registration
 may recreate or change the aggregate.
 
 `spawn_aggregate.py` gives deletion and late writers one ordering boundary:
@@ -116,7 +116,7 @@ for the rejected alternatives and rationale.
 2. If no legacy `spawns.jsonl` exists → write marker and return (fresh install, nothing to migrate).
 3. Under `spawns/migration.lock`: replay legacy `spawns.jsonl`, write `state.json` + `starting-prompt.md` for every spawn, write marker, rename legacy files to `spawns.legacy-v1.jsonl`.
 
-**No quiescence gate.** The migration does not wait for active spawns to finish before migrating. Stragglers are handled by reconciliation: read surfaces can project a stale runner as terminal, and explicit repair paths can finalize it durably. The decision to drop the quiescence gate was deliberate: users always have running spawns, so a gate that requires a quiet runtime would never trigger in practice.
+**No quiescence gate.** The migration does not wait for active spawns to finish before migrating. Stragglers are handled by the normal dead-launch path: readers derive a dead runner's row from its lock, and explicit repair finalizes it durably. The decision to drop the quiescence gate was deliberate: users always have running spawns, so a gate that requires a quiet runtime would never trigger in practice.
 
 **Migration lock for process safety.** Multiple processes starting simultaneously converge: second process reads the marker after first writes it and skips migration. The `migration.lock` file prevents double-migration, not quiescence.
 

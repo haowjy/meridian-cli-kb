@@ -336,32 +336,25 @@ without protecting anything — the root is already gone.
 
 ## Cleanup Triggers
 
-Cleanup is side-effectful, so Meridian separates **read-time projection** from
-**explicit repair/control paths**. Status/list/wait/dashboard calls use
-`reconcile_spawns()` / `peek_reconciled_active_spawn()` to return a reconciled view
-without writing terminal state or terminating processes. Recorded scope cleanup runs
-only from paths that intentionally repair or control lifecycle.
+Cleanup is side-effectful, so status reads never do it. Status/list/wait/dashboard
+calls derive status from the runner-held `launch.lock`
+([derived status](state-system/derived-status.md)) without writing terminal state
+or terminating processes. Recorded scope cleanup runs only from paths that
+intentionally repair or control lifecycle.
 
 Four sync cleanup paths exist. All route through `terminate_scope_sync()` when a
 `ProcessScopeSnapshot` is available.
 
-### Orphan reconciliation repair
+### Dead-launch repair (the reaper)
 
-`state/reaper.py:reconcile_active_spawn()` is the mutating repair path. It is used by
-`meridian doctor --kill-orphans` and by the primary-launch background repair thread,
-not by ordinary read-only status surfaces. Cleanup policy consults
-`process_scopes.json` before falling back to legacy PID termination:
-
-1. Read the spawn's `process_scopes.json` cleanup sidecar.
-2. For each `spawn_owned` scope whose owner is dead: call `terminate_scope_sync()`.
-3. For `session_owned` scopes: check the lease store. Terminate only if the lease
-   is absent or stale, and the root process is dead.
-4. If scope projection is missing or corrupt: fall back to `worker_pid` / `runner_pid`
-   termination (degraded path, not primary).
-
-Raw `worker_pid` / `runner_pid` termination is a degraded fallback, not the primary
-cleanup path. The read-only projection path can still *show* a spawn as terminal for
-observation, but it does not mark scopes released or send signals.
+`state/reaper.py:reconcile_active_spawn()` runs from `meridian doctor
+--kill-orphans` and the primary-launch background repair thread. It claims the
+spawn's free `launch.lock`, records a cleanup claim of the unreleased
+`spawn_owned` scopes in `process_scopes.json`, writes the dead launch's outcome,
+then terminates each claimed scope and marks it released. With no scope records
+it falls back to a managed primary's metadata PIDs or the recorded `worker_pid`
+(degraded path). A held lock means the runner is alive, and nothing is signalled.
+Details: [cleanup claims](state-system/derived-status.md#the-reapers-cleanup-claims).
 
 ### Continue sweep
 
@@ -412,14 +405,14 @@ wrapper that forks the real `codex app-server`). A dead root PID does not mean
 the serving process is gone — the real child may be alive in the same PGID,
 reparented to PID 1.
 
-`scope_liveness(scope)` in `state/liveness.py` is the single projection for
+`scope_liveness(scope)` in `state/reaper.py` is the single projection for
 scope-health queries. It returns three signals:
 
 | Signal | Meaning |
 |---|---|
-| `root_alive` | `is_process_alive(root_pid)` with birth-time reuse guard |
+| `root_alive` | `is_process_alive(root_pid, created_after_epoch=…)`: the birth check with the 30 s slack |
 | `pgid_reachable` | `is_pgid_reachable(pgid)` — `os.killpg(pgid, 0)` probe |
-| `likely_serving` | `not root_alive and pgid_reachable` |
+| `likely_serving` | `root_alive or pgid_reachable` |
 
 `is_pgid_reachable` is deliberately named *reachable*, not *alive*. It has no
 birth-time reuse guard (the scope stores only the root's birth time), so after
@@ -428,12 +421,10 @@ Signal-0 also counts zombies. It is a diagnostic signal with documented limits,
 not a liveness authority. PGID reachability changes diagnostics only — no
 kill/finalize decisions depend on it.
 
-All three reaper consumers use `scope_liveness()`:
-- Finalize evidence (`state/reaper.py`) — records truthful
-  `root_alive`/`pgid_reachable`/`likely_serving` instead of flat "dead"
-- `worker_or_backend_alive` summary — incorporates PGID reachability
-- Managed-primary orphan diagnostics — distinguishes shim-dead-but-serving
-  from fully-dead
+Its consumers ask about scopes, not spawn status, so identity-v2 PR 3 left them
+on it: the chat-busy check before `--continue` (`live_observer_for_chat`), session
+archive, and runner-history prune. PR 4 moves the chat-busy check to
+`read_derived`. Spawn status never reads it.
 
 ---
 

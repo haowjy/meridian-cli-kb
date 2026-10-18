@@ -3,6 +3,12 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-18 — Idle push and notifications merged: PR #685 (#673, v0.10.27) and PR #686 (#670, #666, v0.10.28) (`work:notify-hook-events`)
+
+Status lines in `decisions.md`, D-idle-push-in-flight, D-idle-compaction-removed
+and D-notify-hook-events now say merged.
+
+---
 ## 2026-10-18 — Idle push and notification branches brought to final behavior (#673, #670, #666; `work:notify-hook-events`)
 
 The cloud session's pages described the branch at its last push. A takeover
@@ -74,6 +80,116 @@ describe the result.
   `architecture/launch-system.md`, `concepts/config-precedence.md`,
   `codebase/test-determinism.md`, `research/prompt-cache-retention.md`, and the
   index rows.
+
+---
+## 2026-10-18 — KB brought to `main` after identity-v2 PR 3 merged (#672, v0.10.24; `work:v010-followups` D77–D86)
+
+The previous capture wrote PR 3 as awaiting merge and left pages describing the
+guessing reaper. They now describe `main`: status from `read_derived`, a dead
+runner as `failed`/`crashed` (or `cancelled` with a cancel request),
+`finalize_dead_launch` as the one dead-launch writer, plain `doctor` warning
+`dead_spawns_unfinalized`, and `--kill-orphans` persisting.
+
+- **Retired** `architecture/state-system/reconciliation.md`: its decision tree,
+  read projection and heartbeat check are deleted. Its one live part, the
+  reaper's cleanup claims, moved to
+  [derived status](architecture/state-system/derived-status.md#the-reapers-cleanup-claims);
+  inbound links repointed there.
+- **Rewritten to `main`:** [derived status](architecture/state-system/derived-status.md)
+  (banner, continue skips the orphan pass, `cancel-all`),
+  [spawn lifecycle](concepts/spawn-lifecycle.md) (crash recovery, error codes,
+  invariants), [troubleshooting](operations/troubleshooting.md) (`crashed`
+  replaces the `orphan_*` sections), [health checks](operations/health-checks.md)
+  (plain doctor never persists), [managed-primary lifecycle](architecture/managed-primary-lifecycle.md)
+  (repair and cleanup boundary), [spawn finalization](architecture/spawn-finalization.md)
+  (dead-launch outcome replaces the reaper tree),
+  [process scope](architecture/process-scope.md) (cleanup triggers, scope
+  liveness consumers), [launch system](architecture/launch-system.md) (no
+  heartbeat, start gate), telemetry liveness (`is_live`), vocabularies,
+  [invariants](principles/invariants.md) (I-12 is now the runner lock),
+  [design principles](principles/design-principles.md),
+  [state model](concepts/state-model.md), [spawn state](architecture/state-system/spawn-state.md),
+  [sandbox projection](architecture/sandbox-projection.md).
+- **Status lines:** PR 3 merged in [spawn identity](decisions/spawn-identity.md)
+  (plus D84's continue/repair decision), `decisions.md`, `index.md`; #668 merged
+  in [primary inject](decisions/primary-inject.md).
+- **History kept as history:** [reaper lessons](lessons/state-design-lessons.md#reaper-lessons-history)
+  condensed and dated; supersession notes on D-managed-primary-reaper,
+  the `mark_finalizing` CAS decision, doctor's delegation to the reaper, and D69
+  telemetry liveness.
+
+---
+## 2026-10-17 — Mars is the only skill resolver; D60 narrowed to harness variants (`refactor/mars-owns-profile-skills`, `work:long-view-review`)
+
+- New decision [D-mars-sole-skill-resolver](decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)
+  and index row: Meridian doesn't parse profile `skills` or read `.mars/skills/`;
+  it passes only `--skills` extras; replay uses only the snapshot's `loaded_skills`.
+- [D60](decisions/package-management.md#d60-skill-variants-are-selected-by-harness-only)
+  rewritten and renamed: harness-only selection; model-level variants not
+  supported. The owner flag from the previous entry is resolved, and Mars gap 8
+  (model variants) is deleted. Mars's leftover model-dir indexing is flagged.
+- Removed `SkillRegistry`, `resolve_skills_from_profile()`, `AgentProfile.skills`
+  and the legacy replay fallback from [skill-schema](concepts/skill-schema.md)
+  (the four-step ladder diagram and table are gone),
+  [skill-loading](concepts/skill-loading.md),
+  [model-resolution overview](concepts/model-resolution/overview.md),
+  [agent-profiles](concepts/model-resolution/agent-profiles.md) (also: duplicate
+  profiles never warned), the model-resolution and root vocabularies,
+  [launch-system](architecture/launch-system.md),
+  [mars-user-scope](architecture/mars-user-scope.md),
+  [composition-pipeline](concepts/composition-pipeline.md), package-management
+  concept pages, system overview and codebase guide.
+- Lesson: the resolution-side twin of the second-channel drift, in
+  [arch refactor pitfalls](lessons/arch-refactor-pitfalls.md#a-capability-gated-second-channel-drifts-from-the-first-pr-208--pr-661).
+
+---
+## 2026-10-17 — How skills reach an agent: loaded vs available vs model-invocable (PR #661 follow-up, `work:long-view-review`)
+
+- New [concepts/skill-loading.md](concepts/skill-loading.md): a loaded skill (profile
+  `load` or `--skills`) is composed in full on every harness whatever its
+  `model-invocable`; `available` lists names; native skill lists show only
+  model-invocable skills; the named skill header; gaps (OpenCode v2 and
+  `opencode run` get no composed prompt, Pi RPC `--no-skills`, model variants).
+- New decision [D-load-ignores-invocability](decisions/package-management.md#d-load-ignores-invocability-model-invocable-gates-discovery-not-an-explicit-load)
+  and index row. D60 marked: only harness-level variant selection is built
+  (flagged for the owner). D71 compilation line corrected (Codex `openai.yaml`,
+  Cursor Manual rule).
+- [skill-schema.md](concepts/skill-schema.md): `model-invocable` scope, lowering
+  matrix for Codex and Cursor, variant selection as built, variant example that
+  relied on variant frontmatter.
+- [agent-profiles.md](concepts/model-resolution/agent-profiles.md): `skills:`
+  flat or `{load, available}`, bundle-based attachment (the `SkillRegistry`
+  description was the legacy replay path).
+- D-skill-doc-suppression gained how the split came about (#29902 workaround,
+  its removal, the April unification, PR #208). Lessons: closed upstream issue ≠
+  fixed bug ([harness integration](lessons/harness-integration.md#a-closed-upstream-issue-is-not-a-fixed-harness-bug-29902));
+  an observability file a harness reads is a delivery channel, and don't carry
+  `model-invocable` from agents to skills ([arch refactor pitfalls](lessons/arch-refactor-pitfalls.md#a-capability-gated-second-channel-drifts-from-the-first-pr-208--pr-661)).
+- Per-harness system-prompt channel table in [harness adapters](codebase/harness-adapters.md#skill-delivery);
+  launch-bundle `skills` fields; vocabulary entries; Mars gap 8 (model variants).
+
+---
+## 2026-10-17 — Derived spawn status: identity-v2 PR 3 (#663, built on `feat/read-derived`, awaiting merge) and the #662 flake (`work:v010-followups` D77–D82)
+
+- New [architecture/state-system/derived-status.md](architecture/state-system/derived-status.md):
+  the lock as the only liveness fact, `read_derived`'s three steps, stored vs
+  derived status, selection vs liveness, `claim_dead_launch`/`finalize_dead_launch`
+  and its callers, lockless legacy rows, lenient quarantine, the deleted guesses,
+  behaviour changes, what PR 4 changes. Build status at the top; linked from the
+  state-system overview and `index.md`.
+- [D-spawn-identity-v2](decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize):
+  new "PR 3 as built" section (D78–D82 decisions, rejected alternatives, owner
+  rulings, residuals, provenance); status lines, PR table and `decisions.md` row.
+- Lessons: [state design](lessons/state-design-lessons.md#a-deleted-rule-survives-in-other-writers-and-in-fixtures)
+  (a deleted rule in a second writer and in fixtures; "every reader" sweeps in
+  selectors); [test determinism](codebase/test-determinism.md#fixtures-that-mean-live-must-hold-the-lock)
+  (lock-holding "live" fixtures; race tests red against split implementations;
+  #662 as memory-ahead-of-disk); [verification](lessons/verification-and-review-discipline.md#compare-against-the-base-before-calling-a-probe-failure-a-regression)
+  (base comparison before calling a probe failure a regression).
+- Banners on `architecture/state-system/reconciliation.md` (retired since) and
+  [spawn lifecycle](concepts/spawn-lifecycle.md) point at the new page. Pages that
+  describe `main`'s heartbeat, graces and `orphan_*` codes are left as they are
+  until PR 3 merges.
 
 ---
 ## 2026-10-17 — Claude primary inject through the inbox socket: #665, PR #668 open (`work:claude-mod-inject`)

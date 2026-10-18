@@ -140,7 +140,7 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### `mark_finalizing` CAS enables `orphan_finalization` distinction
 
-**Status:** current on `main`. Decided for deletion by [D-spawn-identity-v2](spawn-identity.md#d-spawn-identity-v2) (PR 4): `finalizing` stops being a status, and the runner writes one outcome instead of `record_runner_exit` → `mark_finalizing` → `finalize`.
+**Status:** superseded in part. Identity-v2 PR 3 removed the reason below: the reaper no longer reads `finalizing`, a dead runner is `crashed` whichever window it died in, and nothing writes `orphan_finalization` or `orphan_run` ([derived status](../architecture/state-system/derived-status.md)). The CAS itself still runs on `main` as a status marker; [D-spawn-identity-v2](spawn-identity.md#d-spawn-identity-v2) PR 4 deletes it, and the runner then writes one outcome instead of `record_runner_exit` → `mark_finalizing` → `finalize`.
 
 **Decision:** After the harness process exits, `streaming_runner.py` atomically transitions the spawn from `running` to `finalizing` (compare-and-swap) before beginning drain and report extraction. The reaper uses this state to distinguish `orphan_finalization` from `orphan_run`.
 
@@ -513,7 +513,7 @@ See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-nam
 
 ### Stable lock inodes with validated-exclusive GC seam (PR #422 + PR #444, 2026-07)
 
-**Decision (PR #422):** All coordination locks live under `locks/<domain>/` (e.g. `locks/spawns/`, `locks/process-scopes/`, `locks/reaper-cleanup/`, `locks/launch-boundary/`, `locks/hooks/`) outside the directories they protect.
+**Decision (PR #422):** All coordination locks live under `locks/<domain>/` (e.g. `locks/spawns/`, `locks/process-scopes/`, `locks/reaper-cleanup/`, `locks/launch-boundary/`, `locks/hooks/`) outside the directories they protect. (`locks/launch-boundary/` went with the launch-boundary journal in identity-v2 PR 3.)
 
 **Why:** POSIX `flock` is per-open-file-description, not per-path. If one process unlinks a lock file and creates a new one while another holds the old inode, both processes believe they hold "the lock" on different inodes — split-brain. The audit reproduced this failure.
 
@@ -623,7 +623,7 @@ optionally checks a current-row predicate, and runs the artifact mutation only
 if the row is still eligible. `delete_published_spawn()` uses the same outer
 lock, so deletion and a late artifact write have a total order.
 
-Simple writers that do not need to create parents, such as heartbeats, may fail
+Simple writers that do not need to create parents, such as heartbeats (deleted in identity-v2 PR 3), may fail
 closed on `FileNotFoundError` instead of taking the aggregate seam. Connection
 startup and child-process adoption treat the published spawn directory as a
 precondition; they never manufacture it. Late diagnostics are best-effort and
@@ -650,8 +650,8 @@ mutation.
   case.
 
 The resulting lock order keeps the per-spawn lifetime lock outside specialized
-artifact locks: spawn lock before launch-boundary append lock, and spawn lock
-before process-scope projection lock.
+artifact locks: spawn lock before launch-boundary append lock (that journal was
+deleted in identity-v2 PR 3), and spawn lock before process-scope projection lock.
 
 Provenance: `work:launch-boundary-resurrection`, issue #437.
 

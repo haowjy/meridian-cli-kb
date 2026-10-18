@@ -15,7 +15,7 @@ tracked, how crashes are recovered from, and what observers can rely on.
 At its core, a spawn is:
 
 1. A **per-spawn state file** (`spawns/<id>/state.json`) — the authoritative record
-2. An **artifact directory** (`spawns/<id>/`) — prompt, output, report, heartbeat
+2. An **artifact directory** (`spawns/<id>/`) — prompt, output, report, `launch.lock`
 3. A **running harness process** (while active) — Claude, Codex, OpenCode, or Direct
 
 The state file is created before the process launches and persists after the
@@ -23,14 +23,14 @@ process exits until retention deletes the spawn aggregate. The process itself
 is ephemeral; while the aggregate is published, the spawn record is its durable
 authority.
 
-> **Decided, not built: identity-v2** ([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2),
-> approved 2026-10-16, seven PRs). This page describes `main`. Under the decision
-> a spawn keeps one ID across `--continue`, with each run a **launch** counted
-> inside the record. Status stops being a stored field with three writers. It is
-> derived: `running` while the runner holds `spawns/pN/launch.lock`, otherwise the
-> outcome the lock holder wrote once, or `failed`/`crashed` if none. `queued` and
-> `finalizing` stop being statuses. The heartbeat, the reaper's status writes and
-> the graces below are deleted (PRs 3–4).
+> **identity-v2** ([D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2),
+> seven PRs, 1–3 merged). This page describes `main`. Since PR 3 every reader
+> derives status from whether the runner holds `spawns/pN/launch.lock`
+> ([derived status](../architecture/state-system/derived-status.md)), but status
+> is still also stored in `state.json`. Still to come: PR 4 removes stored status,
+> so `queued` and `finalizing` stop being statuses and the reaper stops writing
+> outcomes; PR 7 keeps one ID across `--continue`, with each run a **launch**
+> counted inside the record.
 
 ### Primary vs Child
 
@@ -69,7 +69,7 @@ stateDiagram-v2
     running --> timed_out : runtime deadline exceeded
 
     finalizing --> succeeded : report extracted, finalized cleanly
-    finalizing --> failed : crash during drain (orphan_finalization)
+    finalizing --> failed : runner died during drain (crashed)
     finalizing --> cancelled : cancelled during drain
     finalizing --> timed_out : deadline resolved during finalization
 
@@ -84,8 +84,8 @@ stateDiagram-v2
 - **`queued`** — Spawn row exists; harness process not yet started. Occurs for
   background spawns during the setup window, or when the spawn is waiting to
   be claimed by a background worker.
-- **`running`** — Harness process is live and doing work. The runner touches
-  the `heartbeat` artifact every 30 seconds.
+- **`running`** — Harness process is live and doing work. The runner holds
+  `launch.lock` for its whole life.
 - **`finalizing`** — Harness process has exited; the runner is doing post-exit
   work (extracting the report, recording usage, finalizing the spawn row). This
   is an active state — the runner is still operating. Treat it like `running`
@@ -139,14 +139,11 @@ sequenceDiagram
     participant SpawnStore as Spawn Store
     participant Runner
     participant Harness
-    participant Reaper
 
     CLI->>SpawnStore: start event (status=running)
     CLI->>Runner: launch harness process
+    Runner->>SpawnStore: hold launch.lock until exit
     Runner->>Harness: subprocess or connection
-    loop every 30s
-        Runner->>SpawnStore: touch heartbeat artifact
-    end
     Harness-->>Runner: process exits
     Runner->>SpawnStore: exited event (informational only)
     Runner->>SpawnStore: mark_finalizing() CAS (running→finalizing)
@@ -164,8 +161,9 @@ the process exits.
 
 When the harness exits, the runner calls `mark_finalizing()` — a
 compare-and-swap that transitions `running → finalizing` only if the current
-status is exactly `running`. This atomic step tells reconciliation: "I know the
-process is done, I'm doing post-exit work, don't treat this as an orphan yet."
+status is exactly `running`. Observers see that the harness is done and the
+runner is extracting its report. Liveness doesn't depend on it: the runner still
+holds the lock. PR 4 deletes the CAS with stored status.
 
 If `mark_finalizing()` fails (the spawn was already cancelled or finalized by
 something else), the runner logs it and proceeds to `finalize_spawn()` anyway —
@@ -179,11 +177,9 @@ Background spawns use a two-phase reserve/announce pattern to close a crash wind
 2. **Prepare** — model/harness resolution, prompt composition, workspace projection, permission pipeline. If preparation fails, the reserved row is cleaned up via `spawn_store.remove_spawn_events()` — graceful prep failures are side-effect-free.
 3. **Announce** — `lifecycle.announce_started()` + subrun event emit runs only after preparation succeeds. Creates the work item, emits lifecycle/telemetry/subrun events.
 
-The detached background worker uses `Popen` with `start_new_session=True` (POSIX) / `DETACHED_PROCESS` (Windows), so it survives the launcher being killed. The irreducible window (row written, Popen not yet called) is covered by the reserved `queued` row — the existing reaper reconciles it to `failed`/`missing_runner_pid`.
+The detached background worker uses `Popen` with `start_new_session=True` (POSIX) / `DETACHED_PROCESS` (Windows), so it survives the launcher being killed. The irreducible window (row written, Popen not yet called) is covered by the launcher's `launch.lock`, which it hands to the worker: if the launcher dies first, the lock is free and the row reads `failed`/`crashed`.
 
 **Rejected: detach-first reorder.** The original implementation moved Popen before row creation (~9ms gain). This was rejected because work-item creation and start events leaked on graceful preparation failure — the earlier setup steps had already run. The two-phase split (reserve → announce) fixes both: reserve creates nothing but the row; announce emits everything only on confirmed prep success.
-
-No new states, no reaper changes, no schema changes. The existing `missing_runner_pid` path covers the reserved-but-unclaimed row.
 
 See [decisions/launch.md](../decisions/launch.md#d-reserve-before-prep-reserve-spawn-row-before-preparation-for-crash-recovery-pr-328-2026-06).
 
@@ -241,79 +237,60 @@ reference-only launches.
 
 ---
 
-## Crash Recovery: Heartbeat, Projection, Repair
+## Crash Recovery: Derived Status and Repair
 
-Meridian uses a **crash-only design**: there is no graceful shutdown path. If a
-runner process dies mid-flight, readers can recognize the stale state from disk and
-repair commands can converge it durably.
+Meridian uses a **crash-only design**: correctness never depends on a graceful
+shutdown path, even where one exists (a primary finalizes itself on SIGTERM). A
+runner holds `spawns/<id>/launch.lock` exclusively from before its row is
+published until it exits, and the kernel releases the lock however it dies. The
+held lock is the only liveness fact; no PID, heartbeat, file mtime or grace
+period decides the status of a lock-backed row.
 
-### The Heartbeat
+### Readers derive; they never write
 
-The runner touches `spawns/<id>/heartbeat` every 30 seconds while a spawn is
-active (both `running` and `finalizing`). This file's modification timestamp is
-the reconciler's primary liveness signal.
+Every status reader (`spawn show`, `list`, `wait`, stats, inject, the work views,
+telemetry) calls `read_derived`. A stored-active row whose lock is free reads as
+`cancelled` if a cancel was requested, otherwise `failed` with error `crashed`,
+on the very next read. A report or `runner_exit` record left by a runner that
+died before writing its outcome doesn't change that. The derived terminal is in
+memory only. Mechanism: [derived status](../architecture/state-system/derived-status.md).
 
-### Read-Time Projection vs Explicit Repair
+### Persisting the outcome
 
-Ordinary read surfaces — `spawn list`, `spawn show`, `spawn wait`, dashboard — call
-read-time reconciliation. They may show a stale active spawn as terminal in the
-returned view, but they do not write `state.json`, mark process scopes released, or
-send process signals.
+A dead launch's `state.json` stays stored-active until a writer claims its lock
+and writes the outcome readers already show. `finalize_dead_launch` is that one
+writer. It is called by:
 
-Durable orphan repair is explicit. `meridian doctor --kill-orphans` and the
-primary-launch background repair path call the mutating reconciliation entry point,
-which can finalize stale rows and clean recorded process scopes. Nested processes
-still fail closed: a spawn calling `meridian spawn list` cannot reap its own parent.
+- `meridian doctor --kill-orphans`, and the background repair that a primary
+  launch schedules (skipped for a primary `--continue`, whose own sweep owns the
+  source). Both run only in a root process; a spawn calling `meridian spawn list`
+  cannot reap its parent.
+- cancel convergence, after `spawn cancel` finds no live owner.
 
-Both paths use the same liveness decision rules:
+Plain `meridian doctor` persists nothing; it warns `dead_spawns_unfinalized`.
 
-**For `running` spawns:**
-1. If `runner_pid` is absent and we're outside the 15-second startup grace → orphan
-2. If `runner_pid` is alive → skip (still running)
-3. If `runner_pid` is dead and no recent artifact activity → orphan
-4. Recent activity (any artifact touched in last 120s) → skip (still running)
+Rows from builds before identity-v2 PR 2 have no lock file. Readers judge them
+by an exact-birth PID check plus a 15 s grace for a row with no runner PID yet,
+and background repair never finalizes them.
 
-**For `finalizing` spawns:**
-1. Recent heartbeat/activity (last 120s) → skip (still draining)
-2. Durable report found → prefer completion evidence
-3. Recorded `runner_exit_status` present → use the runner's terminal tuple
-4. Cancel intent without completion → finalize as cancelled
-5. None of the above → `orphan_finalization`
+### Managed primaries
 
-### Managed Primary Reconciliation
+Codex and OpenCode managed primaries have separate launcher, backend and TUI
+processes. The launcher is the runner and holds the lock. If it is SIGTERMed or
+SIGHUPed it finalizes `cancelled` (exit 130) itself. If it is SIGKILLed or
+OOM-killed, the row reads `failed`/`crashed`; the guardians stop the backend
+group and TUI, and the reaper sweeps whatever recorded scopes remain. See
+[managed-primary lifecycle](../architecture/managed-primary-lifecycle.md).
 
-Codex and OpenCode managed primaries have a different process topology from
-normal child spawns. The launcher wrapper, backend, and TUI have separate PIDs.
-For those spawns, a dead launcher means the Meridian wrapper is unhealthy, but
-it does not prove the backend or TUI are dead.
-
-The mutating repair path may finalize such a spawn as `failed` with
-`error="orphan_primary"`. The safety boundary is the **skip/finalize**
-decision:
-
-- **Skip** decisions (launcher alive, recent activity, startup grace) never send
-  signals to the managed backend or TUI.
-- **Finalize-as-failed** decisions may terminate tracked backend/TUI runtime
-  children as a cleanup safety net, using metadata and PID-reuse guards.
-
-If metadata is missing or corrupt, repair records `orphan_primary` but does not
-terminate runtime children beyond any recorded process scopes it can safely clean.
-Explicit commands such as `spawn cancel <id>` remain the cleanup path when repair
-cannot safely identify runtime-child PIDs.
-See [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md).
-
-### Failure Error Codes
+### Failure error codes
 
 | Code | Meaning |
 |------|---------|
-| `orphan_run` | Runner PID dead, no recent activity, no durable report. Hard kill or OOM. |
-| `orphan_finalization` | Spawn was finalizing; heartbeat went stale, no durable report. Crash during post-exit work. |
-| `missing_runner_pid` | No `runner_pid` recorded, outside startup grace. PID never committed. |
-| `orphan_primary` | Managed Codex/OpenCode primary launcher died or metadata was missing/corrupt for a managed-primary candidate. Explicit repair records failure; if metadata or recorded scopes safely identify runtime children, finalize-as-failed cleanup may terminate them. |
+| `crashed` | The runner died (lock free) without writing an outcome and with no cancel request. Hard kill, OOM, host reboot, or a crash mid-drain. Check `stderr.log` and `report.md`: work may exist even though the spawn failed. |
 
-`orphan_finalization` is more likely to have useful work product than
-`orphan_run` — the agent may have produced output even if the runner crashed
-during report extraction.
+`orphan_run`, `orphan_finalization`, `missing_runner_pid` and `orphan_primary`
+were written by the guessing reaper before identity-v2 PR 3. Old rows may still
+carry them; nothing writes them now.
 
 ---
 
@@ -327,9 +304,9 @@ cancel operation). Meridian resolves races by classifying writers:
 
 The first authoritative finalize wins. A later authoritative write cannot
 overwrite an earlier authoritative write. However: **authoritative always
-overrides reconciler**. If repair stamps a spawn as `orphan_run` but the
-runner then reports success (it was briefly network-partitioned), the runner's
-write wins — it is strictly more informed.
+overrides reconciler**. For lock-backed rows a reconciler now writes only
+after claiming the free lock, so the runner is already dead and can't arrive
+later to override it. The lattice remains until PR 4 deletes it.
 
 Metadata (cost, tokens) is merged from all finalize events regardless of
 authority. No writer loses its token accounting.
@@ -366,13 +343,11 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 2. For background spawns, the row is reserved (`queued`) before preparation; announcement (work item + events) only after prep succeeds. Graceful prep failures are side-effect-free.
 3. The `exited` event is informational — status transitions require `finalize`.
 4. `queued → finalizing` is not a valid transition.
-5. Mutating orphan repair only runs at root depth (`MERIDIAN_DEPTH` absent, empty, or `0`); read-time projection has no process side effects.
-6. Recent artifact activity (120s window) always suppresses reaping, regardless
-   of PID status.
+5. Status readers never write state or signal processes. A held `launch.lock` means live; a free lock on a stored-active row means dead.
+6. A lock-backed dead launch's outcome is written only by a holder of its lock, through `finalize_dead_launch`: the reaper at root depth (`_MERIDIAN_DEPTH` absent, empty, or `0`), or `spawn cancel`. Rows with no lock file are finalized only by explicit cancel, with the pre-PR-3 report/cancel rule.
 7. Runner-origin finalization supersedes reconciler-origin finalization.
-8. Reconciliation only signals managed-primary backend/TUI/runtime children from explicit repair/control paths, after a finalize-as-failed decision, and only when metadata or recorded scopes safely identify them.
-9. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.
-10. The published `state.json` row owns every spawn artifact. After retention
+8. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.
+9. The published `state.json` row owns every spawn artifact. After retention
     deletes the row, late writers fail closed and cannot recreate the spawn
     directory.
 
@@ -384,10 +359,10 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
   JSONL preserve crash tolerance through atomic writes
 - [Harness Abstraction](harness-abstraction.md) — what the harness process
   actually is
-- [architecture/state-system/overview.md](../architecture/state-system/overview.md) — implementation details of the spawn store and reaper
+- [architecture/state-system/overview.md](../architecture/state-system/overview.md) — implementation details of the spawn store; [derived-status.md](../architecture/state-system/derived-status.md) — lock-derived status and the dead-launch writer
 - [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — finalization subsystem: policy function, store-level flock, arbitration, conclude accumulator
 - [architecture/completion-drain-coordination.md](../architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary
 - [decisions/completion-drain.md](../decisions/completion-drain.md#d-claude-native-hold) — Claude children hold for their own background work through the resident completion profile
-- [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary process roles and reaper/cancel boundary
+- [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary process roles and cleanup boundary
 - [spawn-output-contract.md](spawn-output-contract.md) — what a caller sees after a spawn completes: report-first default, transcript pointer, progressive disclosure flags
 - [harness-abstraction.md](harness-abstraction.md) — terminal status semantics per harness (`succeeded` = turn-completion, not work-correctness)

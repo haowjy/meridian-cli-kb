@@ -415,9 +415,10 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
 
 ## D-idle-push-in-flight — The push waits for work that will wake the session; the warning does not
 
-**Status:** GitHub #673, branch `feat/idle-push-in-flight` (stacked under the
-notification branch, which carries
-[D-notify-hook-events](idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
+**Status:** GitHub #673, merged as PR #685 (v0.10.27); the notification PR
+#686, which carries
+[D-notify-hook-events](idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes),
+was built on it.
 Claude primaries only; other harnesses are #669. The first cut and its
 thermo-nuclear review (a strict maintainability review) were made in a cloud session whose transcript is not readable from
 here; that the user approved them is session-record (the session's own KB
@@ -602,7 +603,7 @@ the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
 
 **Status:** ships with
 [D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)
-(GitHub #673, branch `feat/idle-push-in-flight`); no issue of its own. The
+(GitHub #673, PR #685, v0.10.27); no issue of its own. The
 user's words ("NOT do auto compaction") and approval of the deletion after the
 thermo review are session-record: the cloud session that made the change
 wrote them into this KB, and its transcript is not readable from here.

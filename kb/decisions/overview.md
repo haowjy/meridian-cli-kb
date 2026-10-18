@@ -17,7 +17,7 @@ Decision records explain why durable architectural choices were made — what al
 | [idle-ttl-detection.md](idle-ttl-detection.md) | Launch-recorded native-store resolution for Claude transcript TTL detection and provider/retention mapping for Pi idle TTLs |
 | [connection-seams.md](connection-seams.md) | Harness connection seams that outlived the removed chat backend: single event-stream consumer, HITL handler protocol, managed-primary passthrough boundary, spawn `max_depth` cap (D15, D16, D23, D32) |
 | [model-resolution.md](model-resolution.md) | Model alias resolution, routing context, profile schema, resolve-once pattern, `MERIDIAN_HARNESS` spawn-local semantics, agent overlays, compiler ownership, target-constrained model-policy fallback (D52–D57, D72–D74) |
-| [package-management.md](package-management.md) | Mars compiler, skill schema, `.agents/` elimination, targeting, sync, bootstrap docs, collision resolution, convention-based discovery, engine constraints, declared-package self-sync, and user-scope packages with `--fallback-root` (D35–D40, D50–D51, D58–D63, D71, D77, D87, D93–D94, D97) |
+| [package-management.md](package-management.md) | Mars compiler, skill schema, `.agents/` elimination, targeting, sync, bootstrap docs, collision resolution, convention-based discovery, engine constraints, declared-package self-sync, and user-scope packages with `--fallback-root` (D35–D40, D50–D51, D58–D63, D71, D77, D87, D93–D94, D97, D-load-ignores-invocability, D-mars-sole-skill-resolver) |
 | [state.md](state.md) | State roots, JSONL event stores, dual-root layout, crash-only design, WorkScope model (named vs ambient), CR1 fix, state v2 migration, the single JSONL commit rule, and two-tier project identity (D-two-tier-identity), committed vs ad-hoc, with ad-hoc retention (foundational undated decisions + D-WorkScope PR #328) |
 | [history-storage.md](history-storage.md) | Transcript authority, disposable history index/preview projections, index readers that never wait on session writers, retention and restore, and post-stop native-capture decisions |
 | [native-session-identity.md](native-session-identity.md) | Immutable chat→native key, exact-target entry evidence bound before exec, one recorded source key, qualified-event identity, observed exit; native transcripts as content authority; phase state |
@@ -35,6 +35,7 @@ Decision records explain why durable architectural choices were made — what al
 | [codebase-cleanup.md](codebase-cleanup.md) | Cleanup program scope (phases 1–2 now, 3–5 in #569), B7 assigned to PR #546 (superseded by #588), spawn-archive overlay and `auto_init_cwd` deleted, state#1 acceptance, G2 double-validation verdict, telemetry batch durability, JSONL inventory |
 | [static-typing.md](static-typing.md) | Pyright strict gate with warnings fatal, per-rule suppressions only, boundary narrowing over casts, public cross-module names, explicit nested CLI handler registration |
 | [tui-framework.md](tui-framework.md) | Session-browse framework choice: prompt_toolkit full-screen Application (D-tui-prompt-toolkit) |
+| [instruction-files.md](instruction-files.md) | Per-directory agent instructions in `AGENTS.md`; `CLAUDE.md` only for Claude-specific lines (D-agents-md-only) |
 
 ## Naming
 

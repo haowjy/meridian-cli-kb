@@ -105,9 +105,9 @@ Cross-project doctor work intentionally traverses `get_user_home() / "projects"`
 
 ## Sandbox vs. Root: Detection
 
-`is_root_side_effect_process()` is the authoritative check for whether the current process may perform cross-project or global side effects. It returns false when `MERIDIAN_DEPTH > 0`. Code that gates on this function:
+`is_root_side_effect_process()` is the authoritative check for whether the current process may perform cross-project or global side effects. It returns false when `_MERIDIAN_DEPTH > 0`. Code that gates on this function:
 
-- `reconcile_spawns()` — reaper never runs in nested processes
+- `reconcile_active_spawn()` — the reaper never persists outcomes or signals from nested processes
 - `doctor_sync(global_=True)` — global maintenance rejected before user-home traversal
 
 ## What Was Not Changed

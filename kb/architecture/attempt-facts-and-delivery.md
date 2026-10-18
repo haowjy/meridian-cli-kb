@@ -37,8 +37,8 @@ The drain loop receives it as `SpawnDrainLoop(run_event_hooks=…)` and does fan
 the coordinator note and terminal classification itself
 (`streaming/spawn_drain_loop.py`). Manager-authored events go through `emit_event`:
 hooks, fan-out, then a trace. Managed primary attach
-(`launch/process/primary_attach._consume_live_events`) runs the same hooks, touches
-the heartbeat and folds attempt facts.
+(`launch/process/primary_attach._consume_live_events`) runs the same hooks and folds
+attempt facts.
 
 Nothing can fail between hooks and fan-out, so there is no outcome to match on.
 **Deleted in PR 3:** `EmitOutcome` (`NoWriter | Written | WriteFailed`), the writer
@@ -109,8 +109,8 @@ attach have no Pi branch.
 ## Other stream readers removed
 
 **Other stream readers removed:**
-- the reaper's history-mtime liveness leg. The activity artifacts are `heartbeat`,
-  `bash-records.json`, `stderr.log` and `report.md`, plus process and report evidence.
+- the reaper's history-mtime liveness leg. (Identity-v2 PR 3 later deleted the
+  reaper's activity-mtime liveness entirely; status now comes from `launch.lock`.)
 - the empty-output failure artifact written into the history path;
 - `_MERIDIAN_GUARDRAIL_OUTPUT_LOG`, replaced by `_MERIDIAN_GUARDRAIL_REPORT` and
   `_MERIDIAN_GUARDRAIL_CHAT_ID`;

@@ -82,7 +82,7 @@ Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test file
 
 ### D58: Universal skill frontmatter schema (name, description, model-invocable, user-invocable, allowed-tools, license, metadata)
 
-**Decision:** The canonical SKILL.md frontmatter has six fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
+**Decision:** The canonical SKILL.md frontmatter has seven fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
 
 A `compatibility` field was rejected — would require Mars to understand harness semantics. `metadata` is pass-through for tooling use.
 
@@ -96,7 +96,19 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 **Why two booleans:** The old enum collapsed two orthogonal dimensions. `invocation: explicit` only ever controlled model-invocability — user-invocability was unmodeled. Hard errors (no deprecation) because no consumer reads `invocation` at runtime; migration is find-and-replace. Presence is determined by the agent profile's `skills:` list, not skill metadata.
 
-**Compilation:** Claude Code supports both natively. Codex supports `model-invocable` only. OpenCode drops both. Pi/Cursor support `model-invocable` via `disable-model-invocation`.
+**Compilation:** Claude Code supports both natively. Codex supports `model-invocable` only, through a sibling `openai.yaml` (`policy.allow_implicit_invocation: false`) written only when the source explicitly sets `false`. OpenCode drops both. Pi uses `disable-model-invocation`. Cursor has no such field: `model-invocable: false` becomes a Manual rule (`alwaysApply: false` with the description stripped).
+
+---
+
+### D-load-ignores-invocability: `model-invocable` gates discovery, not an explicit load
+
+**Decision:** `model-invocable` decides only whether a model can find a skill by itself in its harness's skill list. A skill that an agent profile lists under `skills.load`, or that a caller attaches with `--skills`, is loaded in full whatever its `model-invocable` value. A skill under `skills.available` is listed by name whatever its value, but the harness's own skill tool won't load a non-invocable one, so that pairing is a contradiction for package review to catch.
+
+**Why:** Authors need a way to give one agent a skill no other agent sees. `model-invocable: false` plus `load` does that: the owning agent always has the text, and no other agent pays a description line for it or loads it because the description looked relevant. If invocability also gated explicit loads, that role-specific skill would have to be model-invocable, and every agent would carry its description on every turn.
+
+**Where it lives:** Mars builds the launch bundle's `skills.loaded` and `skills.available` without reading invocability (`src/build/prompt.rs`, "model-invocable gates global discovery, not explicit profile references"). Meridian composes every bundle-loaded skill ([D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness)). The load/available split arrived in mars-agents `d1d48d1` (2026-05-30); the owner restated the rule as something authors rely on on 2026-10-17. See [how skills reach an agent](../concepts/skill-loading.md).
+
+**Revisit if:** a harness starts honoring its native invocability flag for content Meridian composes into the prompt, or Meridian ever routes loaded skills through a native skill list again.
 
 ---
 
@@ -108,17 +120,23 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ---
 
-### D60: Skill variant specificity ladder: model-token+harness > canonical-id+harness > harness > base
+### D60: Skill variants are selected by harness only
 
-**Decision:** When multiple variant files exist for a skill, selection follows a 4-step exact-match ladder:
-1. `variants/<harness>/<requested-token>/SKILL.md`
-2. `variants/<harness>/<canonical-id>/SKILL.md`
-3. `variants/<harness>/SKILL.md`
-4. `SKILL.md`
+**Decision (narrowed 2026-10):** A skill body is selected by harness alone. Mars uses `variants/<harness>/SKILL.md` if that file exists, and the base `SKILL.md` otherwise. Model-level variants are not supported: no part of the system picks a body by model token or canonical model ID.
 
-Exact match only — no glob or fuzzy matching.
+**Superseded design.** The original record specified a four-step exact-match ladder: `variants/<harness>/<requested-token>/SKILL.md`, then `variants/<harness>/<canonical-id>/SKILL.md`, then `variants/<harness>/SKILL.md`, then `SKILL.md`. The two model-identity steps existed because authors might write either form (`variants/claude/sonnet/` or `variants/claude/claude-sonnet-4-5/`). Only the harness and base steps were ever built into the Mars launch bundle (`src/build/prompt.rs`, since mars-agents `ecbcff4`, 2026-05-17). Meridian's filesystem `SkillRegistry` kept the full ladder, but by 2026-10 only replay of old launch snapshots reached it, and it was deleted when Mars became the sole skill resolver ([D-mars-sole-skill-resolver](#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
 
-**Why exact match:** Fuzzy matching would be non-deterministic with multiple globs. Two model-identity levels exist because authors may write either form (`variants/claude/sonnet/` or `variants/claude/claude-sonnet-4-5/`).
+**Why narrowed:** No prompt package ships a `variants/` directory, and no one has asked for a model-specific skill body. Rebuilding model-level selection in Mars before anyone needs it was rejected.
+
+**Where it lives:** the launch bundle (`harness_skill_variant_path` in mars-agents `src/compiler/variants.rs`, called from `src/build/prompt.rs`) and `mars sync` for native projections. Exact match only, no glob or fuzzy matching.
+
+> [!FLAG] **Implementation lags the decision.** Mars still indexes
+> `variants/<harness>/<model>/` directories and warns when one lacks a
+> `SKILL.md`, and `compile_prompt_surface` still accepts the model token and
+> canonical ID only to discard them. Neither selects anything. Removing them is
+> Mars cleanup.
+
+**Revisit if:** a package author needs a skill body that differs by model within one harness. Build the selection in Mars's launch bundle, not in Meridian.
 
 ---
 
@@ -217,6 +235,24 @@ prompt surface, scaffold slots, tool policy). Meridian injects per-spawn dynamic
 the harness process.
 
 **Why:** Mars sees the compiled graph at build time; per-spawn content (prompts, context, history) is Meridian's runtime concern. Coupling Mars to spawn semantics was rejected — prompt files are confidential per-spawn content.
+
+---
+
+### D-mars-sole-skill-resolver: Meridian never resolves skills
+
+**Decision (2026-10):** Mars is the only skill resolver. It reads the agent profile's `skills` field (a flat list or `{load, available}`), selects the harness variant, and returns the loaded and available skills in the launch bundle. Meridian does not parse profile `skills` and does not look up or load skills from `.mars/skills/` (`meridian doctor` only warns when no skills directory exists). It passes Mars only the skills a caller added with `--skills`, then composes what the bundle returns. Replaying a launch snapshot uses only the skill content embedded in that snapshot's `loaded_skills`. A snapshot without it replays with no loaded skills.
+
+**Why:** Meridian had kept a second, older resolver, and two independent implementations had come to read the same profile and skill tree differently. Meridian's profile parser read only the flat list, so a `{load, available}` profile (the form the prompt packages use) parsed as no skills, and Meridian forwarded whatever it parsed back to Mars as extra skills that Mars had already loaded. Its filesystem `SkillRegistry`, reached only by replaying old snapshots, selected variants by a model-level rule nothing else followed ([D60](#d60-skill-variants-are-selected-by-harness-only)). Neither copy changed what a current launch received: Mars read the profile itself and dropped the duplicate names, and current snapshots never reached the fallback. But a later skill change could land in either copy and leave the other inconsistent.
+
+**Rejected:**
+- Teaching Meridian's parser the mapping form: it keeps two resolvers to drift again.
+- Keeping the filesystem fallback for snapshots without `loaded_skills`: it would select bodies by a rule nothing else follows, and the project keeps no backwards compatibility. Current snapshots always embed `loaded_skills`.
+
+**Where it lives:** `_resolve_policy_from_bundle` in `src/meridian/lib/launch/policies.py` builds `BundleRequest.extra_skills` from the caller's requested skills only. `replay_launch_policy_snapshot` in `src/meridian/lib/launch/policy_snapshot.py` builds `ResolvedSkills` from `snapshot.loaded_skills`. Deleted: `lib/catalog/skill.py` (`SkillRegistry` and variant discovery), `AgentProfile.skills`, `resolve_skills_from_profile`, the snapshot `skill_paths` field. Unknown `--skills` names still warn without failing; Mars owns the lookup, so the warning no longer names a path. Built on branch `refactor/mars-owns-profile-skills`, cut from `main` independently of PR #661. Together with [D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness) it leaves skill delivery one path: Mars resolves, Meridian composes.
+
+**Known gaps (predate this decision):** exact continue doesn't replay the available skills into the workspace, because the snapshot keeps only the rendered inventory text; and a fork passes the source spawn's resolved skill names to Mars as extra skills, which Mars dedupes. Both are tracked in `src/meridian/lib/launch/.context/FUTURE`.
+
+**Revisit if:** Meridian needs skill content Mars doesn't return. Extend the bundle rather than reading `.mars/skills/` again.
 
 ---
 

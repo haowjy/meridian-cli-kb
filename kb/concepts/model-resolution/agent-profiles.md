@@ -16,10 +16,10 @@ supports `--fallback-root` ([Mars user scope](../../architecture/mars-user-scope
 1. Reads all `.md` files in each root's `.mars/agents/`; the primary root's
    profile shadows a user profile of the same name
 2. Parses YAML frontmatter + body for each file
-3. Duplicate names: identical-content duplicates are silently deduped; conflicting
-   duplicates log a warning and first-seen wins
+3. Duplicate names: the first profile seen for a name wins (roots in the order
+   above, files in name order within a root), without a warning
 
-Source: `src/meridian/lib/catalog/agent.py:425-463`
+Source: `scan_agent_profiles()` in `src/meridian/lib/catalog/agent.py`
 
 `load_agent_profile_with_fallback()` selects a profile via:
 
@@ -38,9 +38,9 @@ name: coder
 description: "Implements code changes"
 model: sonnet            # alias or concrete model ID
 harness: claude          # optional; overrides model-derived harness
-skills:
-  - meridian-spawn
-  - kb-conventions
+skills:                  # or a flat list, meaning all load
+  load: [meridian-spawn, kb-conventions]
+  available: [diagnose]
 approval: auto           # default | confirm | auto | yolo
 effort: high             # low | medium | high
 mode: subagent           # primary | subagent
@@ -145,21 +145,25 @@ interactive launches (not subagent spawns). It defaults to
 
 ## Skill Attachment
 
-Skills listed in the profile's `skills:` field are loaded at spawn time from
-`.mars/skills/*/SKILL.md`. They're re-injected fresh on each launch, so they
-survive session compaction.
+A profile's `skills:` is a flat list (every name loaded) or a mapping with
+`load` and `available` lists. Mars reads it from the profile file, adds any
+`--skills` names to `load`, and returns the launch bundle's `skills.loaded`
+(body with the harness variant applied), `skills.available` (name, type, description) and
+`skills.missing`. Meridian composes the loaded bodies into the system prompt on
+every launch, so they survive session compaction. Missing skills produce a
+warning, not a launch failure.
 
-`resolve_skills_from_profile()`:
-1. Builds a `SkillRegistry` from the project's `.mars/skills/` directory
-2. Resolves variant selection for each skill based on resolved harness and model token
-3. Returns `skill_names`, `loaded_skills`, and `missing_skills`
+A loaded skill arrives in full even when it is `model-invocable: false`. See
+[skill-loading.md](../skill-loading.md) for what load, available and
+`model-invocable` each control, and
+[composition-pipeline.md](../composition-pipeline.md) for where skill documents
+sit in the prompt.
 
-Missing skills produce a warning, not a launch failure.
-Source: `src/meridian/lib/launch/resolve.py:71-109`
-
-See [concepts/skill-schema.md](../skill-schema.md) for how variants are selected,
-and [concepts/composition-pipeline.md](../composition-pipeline.md) for how skill
-content gets routed into the prompt.
+Mars is the only reader of a profile's `skills`. Meridian's `AgentProfile` has
+no skills field, and Meridian sends Mars only the caller's `--skills` names. An
+exact continue replays the skill bodies stored in its launch snapshot rather than
+looking skills up again; a snapshot without them replays with no loaded skills
+([D-mars-sole-skill-resolver](../../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
 
 ## Related
 
@@ -167,6 +171,7 @@ content gets routed into the prompt.
 - [aliases-and-routing.md](aliases-and-routing.md) — how the profile's model
   name is resolved to a concrete model ID and harness
 - [model-policies.md](model-policies.md) — `model-policies` rule semantics
-- [concepts/skill-schema.md](../skill-schema.md) — skill variant selection ladder
+- [concepts/skill-loading.md](../skill-loading.md) — load, available and `model-invocable`
+- [concepts/skill-schema.md](../skill-schema.md) — skill frontmatter and variant selection
 - [architecture/launch-system.md](../../architecture/launch-system.md) — where
   profile loading sits in the launch factory

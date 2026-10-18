@@ -110,9 +110,11 @@ inheritable fd.
 
 ## "Proven dead" must share the alive check's tolerance
 
-PR 1 made primary scopes real and killable. Until PR 3 replaces guessed
-liveness, a false `orphan_run` would kill a live TUI, so the reaper may terminate
-a primary's scope only when the runner is proven dead. The first version of that
+PR 1 made primary scopes real and killable. Until PR 3 replaced guessed
+liveness, a false `orphan_run` would have killed a live TUI, so the reaper could
+terminate a primary's scope only when the runner was proven dead. (PR 3 dropped
+that PID check from the reaper: claiming the free `launch.lock` is the proof.
+Cancel's cleanup of a terminal managed primary still uses it.) The first version of that
 proof compared the recorded birth time with exact float equality. psutil derives
 `create_time` from boot time, which moves when the wall clock steps, so a live
 runner could read as dead and the live-TUI kill came back (D63 N1).

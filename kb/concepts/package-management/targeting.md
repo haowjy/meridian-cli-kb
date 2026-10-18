@@ -76,10 +76,10 @@ cost is negligible (skill files are Markdown), and the architecture avoids the
 overlap problem that arose with shared skill directories. See [decisions/package-management.md](../../decisions/package-management.md)
 for why shared directories were rejected.
 
-Optional skill variants (`skills/<name>/variants/<harness>/<model>/SKILL.md`)
-provide harness- or model-specific overrides. The variant index is built during
-compilation (`src/compiler/variants.rs`) and the appropriate variant is selected
-during projection.
+Optional skill variants (`skills/<name>/variants/<harness>/SKILL.md`) provide
+harness-specific bodies. The variant index is built during compilation
+(`src/compiler/variants.rs`), and projection uses the harness variant if one
+exists. Model-level variants are not supported ([D60](../../decisions/package-management.md#d60-skill-variants-are-selected-by-harness-only)).
 
 ## Conditional Agent Emission
 

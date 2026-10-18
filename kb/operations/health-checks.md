@@ -1,18 +1,24 @@
 # operations/health-checks — Doctor, Pruning, and Background Repairs
 
-`meridian doctor` is the single-entry health-check command. It repairs orphaned state, scans for stale artifacts, and optionally deletes them. The command has two tiers: a cheap per-project default and an explicit cross-project global mode.
+`meridian doctor` is the single-entry health-check command. It repairs stale locks and metadata, reports dead spawns, scans for stale artifacts, and optionally deletes them. The command has two tiers: a cheap per-project default and an explicit cross-project global mode.
 
-## The Core Distinction: Stale vs. Live
+## The Core Distinction: Live, Dead, Terminal
 
-After reconciliation, every active spawn is in one of two states:
+Doctor selects rows by **stored** status (what `state.json` says) and, for warnings,
+classifies each stored-active row by its
+[derived status](../architecture/state-system/derived-status.md) (the runner holds
+`launch.lock` or it doesn't):
 
-| After reconcile | Artifact prunable? | Appears in warning? |
+| Spawn | Artifact prunable? | Appears in warning? |
 |---|---|---|
-| Terminal (succeeded/failed/cancelled) | Yes, subject to TTL | No |
-| Just repaired (orphan → terminal this run) | Yes (same-run prune) | No — listed in `repaired` |
-| Still live (reaper confirmed alive) | Never | Yes — `live_active_spawns_remain` |
+| Stored terminal (succeeded/failed/cancelled/timed_out) | Yes, subject to TTL | No |
+| Stored active, runner gone (derived `crashed`/`cancelled`) | No: stored-active rows stay protected until an outcome is written | `dead_spawns_unfinalized`; with `--kill-orphans` the outcome is written first and the run reports the repair category `orphan_runs` |
+| Stored active, runner holds the lock | Never | `live_active_spawns_remain` |
 
-`live_active_spawns_remain` is informational, not a failure. It means: "doctor checked, the reaper left these alive intentionally."
+`live_active_spawns_remain` is informational: these runners are alive.
+`dead_spawns_unfinalized` means readers already show the crash, but no outcome
+is persisted; `meridian doctor --kill-orphans` writes it and reaps the processes.
+Plain `doctor` never persists outcomes.
 
 ## Two-Tier Design
 
@@ -25,15 +31,15 @@ Local doctor does NOT traverse `~/.meridian/projects` for sibling projects. It d
 
 ## `meridian doctor` Flow
 
-Order matters. The authoritative active-spawn set is computed **after** reconciliation.
+Order matters. The protected active-spawn set is computed **after** any `--kill-orphans` repair.
 
 ```mermaid
 flowchart TD
     A[doctor_sync called] --> A2[migrate dogfood spawn rows\nre-arm index authority failure]
     A2 --> A3[bind late legacy native IDs\nmarker-listed exact matches]
     A3 --> B[repair stale session locks\ncurrent project only]
-    B --> C{is root process?}
-    C -- yes --> D[reconcile_spawns — reap orphans]
+    B --> C{--kill-orphans and root process?}
+    C -- yes --> D[reaper: persist dead outcomes\nunder launch.lock, reap scopes]
     D --> E[re-read spawns from store]
     C -- no --> E
     E --> F[compute active_spawn_ids from fresh snapshot]
@@ -51,13 +57,13 @@ flowchart TD
     M --> N[return DoctorOutput]
 ```
 
-**Why re-read after reconcile?** Before this pattern was established, step F used a *pre-reconcile* snapshot. Orphaned rows that were just repaired to terminal would still appear in `active_spawn_ids` — their artifact dirs were excluded from pruning and they could appear in live-session warnings, falsely implying cleanup had failed.
+**Why re-read after repair?** Before this pattern was established, step F used a *pre-repair* snapshot. Orphaned rows that were just repaired to terminal would still appear in `active_spawn_ids` — their artifact dirs were excluded from pruning and they could appear in live-session warnings, falsely implying cleanup had failed.
 
 ### No State, No Repair
 
 `doctor` is a read: it never mints an id, writes a marker, or creates a runtime
 root or the user Mars root. The per-project steps above (bindings, Pi recovery,
-reconciliation, telemetry, artifact prune) run only when the current project's
+dead-launch repair, telemetry, artifact prune) run only when the current project's
 runtime root already exists; otherwise doctor reports
 `project_state: no state here` and skips them. `--global` always runs, and its
 root deletions run last so local helpers cannot recreate a root just pruned.
@@ -77,7 +83,7 @@ Nothing prunes on its own; see
 
 ### Root-Process Gating
 
-Reconciliation (`reconcile_spawns`) runs only when `MERIDIAN_DEPTH` is absent, empty, or `0`. Nested spawns never trigger reaper side effects — the parent process owns that responsibility. When reconciliation is skipped (nested depth), all active rows remain; warnings will fire for them on the next root-depth doctor invocation.
+The reaper (`reconcile_active_spawn`) runs only when `_MERIDIAN_DEPTH` is absent, empty, or `0`. Nested spawns never trigger reaper side effects; the parent process owns that responsibility. When it is skipped (nested depth), dead rows stay stored-active and are reported as `dead_spawns_unfinalized`.
 
 Global maintenance (`--global`) requires `is_root_side_effect_process()` to return true. The guard lives in `doctor_sync()` itself, not just the CLI layer — nested callers that try to pass `global_=True` get a `RuntimeError` before any cross-project traversal begins.
 
@@ -91,7 +97,7 @@ Global maintenance (`--global`) requires `is_root_side_effect_process()` to retu
 
 **Orphan project dirs** are project-level state dirs with no active spawns and no recent activity. Each UUID corresponds to one past project. Machine-wide pruning requires `--global` to avoid accidentally walking other active projects.
 
-**Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `stderr.log`, `params.json`, `tokens.json`, `heartbeat`, `pi-lifecycle.json`, etc. Runner `history.jsonl` and `last-observed-event.json` are no longer written. Old copies are pruned by `session archive --prune-runner-history`, not by doctor ([prune operation](session-archive-pruning.md#runner-history-prune)).
+**Spawn artifact dirs** are per-spawn working dirs: `prompt.md`, `report.md`, `stderr.log`, `params.json`, `tokens.json`, `pi-lifecycle.json`, etc. Runner `history.jsonl` and `last-observed-event.json` are no longer written. Old copies are pruned by `session archive --prune-runner-history`, not by doctor ([prune operation](session-archive-pruning.md#runner-history-prune)).
 
 **Telemetry segments** are per-process JSONL event files under the current project's `telemetry/` directory. Local doctor scans them for retention cleanup: expired non-live segments are removed first, then older closed segments may be removed to enforce the total-size cap. Global orphan-project scanning is separate.
 
@@ -106,7 +112,7 @@ retention_days = 30   # -1 = never prune, 0 = prune immediately, N = days
 
 Environment override: `MERIDIAN_STATE_RETENTION_DAYS`.
 
-Staleness check uses the latest mtime across all files in the artifact tree. If any file was touched within the retention window, the directory is not stale. The TTL clock starts from the terminal transition (when `report.md` or `heartbeat` was last written), not from spawn creation.
+Staleness check uses the latest mtime across all files in the artifact tree. If any file was touched within the retention window, the directory is not stale. The TTL clock starts from the terminal transition (when `report.md` or another artifact was last written), not from spawn creation.
 
 ### Windows-Safe Deletion
 
@@ -119,7 +125,7 @@ On `PRIMARY_LAUNCH` startup paths, cheap per-project repairs run in a non-blocki
 - **Dogfood-row migration** — runs first, in its own guard. It rewrites spawn rows written by the PR 1 dogfood build (see below) and logs `dogfood_spawn_rows_failed` once per pass for rows it cannot migrate
 - **Late legacy binding** — checks only chats recorded as `no_session_id` by the one-time import and binds only exact, header-validated matches. It does not run on ordinary commands or browse/read paths.
 - **Stale session lock cleanup** — clears abandoned lock files under the current project's sessions directory
-- **Orphan run reconciliation** — detects and repairs abandoned spawn rows (same logic as `reconcile_spawns()` in the reaper)
+- **Dead-launch repair** — the reaper persists the outcome of dead lock-backed spawns and reaps their scopes, as `doctor --kill-orphans` does. Skipped when the launch is a `--continue`, whose own sweep owns the source's lock
 
 These repairs touch only the **current project's runtime root** (`~/.meridian/projects/<uuid>/`). They never enumerate sibling project directories. They run as a daemon thread and never block process exit.
 
@@ -165,7 +171,7 @@ session repair cN` for the rest. Rule and results:
 | `pruned_spawn_artifacts` | Count of artifact dirs deleted |
 | `pruned_orphan_dirs` | Count of orphan project dirs deleted |
 | `telemetry_counts` | Current-project telemetry summary, including expired segment count |
-| `warnings` | Issues surviving reconciliation and not pruned — genuine attention needed |
+| `warnings` | Issues surviving repair and not pruned — genuine attention needed |
 | `ok` | `True` iff `warnings` is empty |
 
 Warning codes emitted from `warnings` include:
@@ -174,6 +180,7 @@ Warning codes emitted from `warnings` include:
 - `stale_telemetry_segments`
 - `stale_orphan_project_dirs` (`--global` only)
 - `live_active_spawns_remain`
+- `dead_spawns_unfinalized` — payload `spawn_ids`; dead runners with no persisted outcome
 - `dogfood_spawn_rows_failed` — payload `spawn_ids` and `reasons`; each reason names the failing field, e.g. `ValidationError: run_boundary.status: …`
 - `dogfood_index_rearm_failed` — the migration could not re-arm the history index (catch-up lock timeout)
 
@@ -191,7 +198,8 @@ doctor warnings as structured categories:
 - `stale_telemetry_segments` — prunable with `meridian doctor --prune`
 - `stale_orphan_project_dirs` — committed roots, prunable with `meridian doctor --prune --global`
 - `stale_adhoc_project_dirs` — the prunable subset of the listed ad-hoc roots (payload carries ids, paths, reasons), reclaimed with `meridian doctor --prune --global`
-- `live_active_spawns_remain` — informational; active rows remained live after reconcile
+- `live_active_spawns_remain` — informational; these runners still hold their launch locks
+- `dead_spawns_unfinalized` — runners gone, outcome not persisted; run `meridian doctor --kill-orphans`
 
 `--prune` only helps for stale-state categories. If the only warning is
 `live_active_spawns_remain`, there is nothing to delete.
@@ -217,40 +225,32 @@ meridian doctor --format json
 
 ### `--kill-orphans` Flag
 
-`meridian doctor --kill-orphans` extends the normal reconcile pass with
-**explicit process termination** for spawns that the reaper marks as orphaned.
-
-Without `--kill-orphans`, the reaper finalizes generic orphaned spawn rows
-(writes `status: failed`) but does not terminate arbitrary worker processes —
-the passive reconciliation path is intentionally conservative. Managed-primary
-finalization is narrower: when metadata safely identifies backend/TUI runtime
-children, finalize-as-failed cleanup may call
-`terminate_managed_primary_processes()` as a safety net. With `--kill-orphans`,
-doctor additionally sends `SIGTERM` to the process groups of orphaned worker
-PIDs and runs managed-primary cleanup for orphaned spawns identified during that
-doctor run.
+`meridian doctor --kill-orphans` runs the reaper: for each stored-active row it
+claims the spawn's `launch.lock` non-blocking. A held lock means the runner is
+alive and the row is left alone. A free lock means it is dead: the reaper records
+a cleanup claim, writes the outcome readers already show (`failed`/`crashed`, or
+`cancelled` with a cancel request), then terminates the claimed process scopes
+(or a managed primary's metadata PIDs, or the recorded worker PID, when no scopes
+were recorded). It also finishes cleanup claims left on terminal rows by an
+earlier crashed pass, and captures native history for repaired primaries. Rows
+with no lock file (older builds) are never finalized. Details:
+[derived status](../architecture/state-system/derived-status.md#who-persists-a-dead-launchs-outcome).
 
 This flag is useful when:
-- Orphaned browser/backend child processes have accumulated after spawn cleanup
+- `meridian doctor` warns `dead_spawns_unfinalized`
 - A managed-primary launcher died and its runtime children are still running
-- `meridian doctor` reports rows repaired to `failed/orphan_*` but `ps` shows
-  related processes are still alive
+- Orphaned harness or backend processes remain after a crash
 
-**Safety:** `--kill-orphans` targets only spawns already classified as orphaned
-by the reconciler (dead runner PID, no recent activity, past startup grace
-window). Live spawns with alive runner processes are not touched.
-
-For managed primaries, `--kill-orphans` is the recommended cleanup path after
-`meridian spawn cancel <id>` if the cancel completed but runtime children
-remain. See [../architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md)
-for the explicit/passive cleanup boundary.
+For managed primaries, `meridian spawn cancel <id>` on the terminal row also runs
+best-effort cleanup. See
+[../architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md#repair-and-cleanup-boundary).
 
 ## Cross-References
 
 - [../principles/design-principles.md](../principles/design-principles.md) — crash-only design and why artifacts accumulate
 - [../architecture/state-system/spawn-state.md](../architecture/state-system/spawn-state.md) — spawn artifact directory layout
 - [../architecture/sandbox-projection.md](../architecture/sandbox-projection.md) — why `~/.meridian/` is not globally projected into sandboxes
-- [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — reaper reconciliation logic
+- [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — crash recovery and who persists a dead spawn's outcome
 - [../decisions/startup-health-sandbox.md](../decisions/startup-health-sandbox.md#doctor-and-health-checks) — doctor cache deletion rationale, tier split decision
-- [troubleshooting.md](troubleshooting.md) — recovery procedures for orphan runs
+- [troubleshooting.md](troubleshooting.md) — recovery procedures for crashed spawns
 - [../lessons/arch-refactor-pitfalls.md](../lessons/arch-refactor-pitfalls.md) — process-group cleanup and managed-primary cleanup pitfalls from PR #184

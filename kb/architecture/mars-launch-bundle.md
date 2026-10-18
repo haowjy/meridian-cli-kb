@@ -73,7 +73,7 @@ Top-level fields in the full Mars JSON schema (version 4, mars-agents pinned at
 | `prompt_surface` | object | System instruction, supplemental documents, and Mars-rendered `inventory_prompt` |
 | `scaffold_slots` | object | Placeholder positions for Meridian injection |
 | `tools` | object | Resolved portable tool policy (`allowed`, `disallowed`, `mcp`) |
-| `skills` | object | Skill loading metadata (`loaded`, `available`) |
+| `skills` | object | `loaded[]` (`name`, `skill_type`, `source_path`, `body` with the harness variant applied), `available[]` (`name`, `skill_type`, `description`, `source_path`), `missing[]` (names). Neither list is filtered by `model-invocable`; see [skill loading](../concepts/skill-loading.md) |
 | `provenance` | object | Source attribution for each resolved field |
 | `warnings` | string[] | User-visible warnings emitted during build |
 
@@ -82,7 +82,7 @@ Meridian consumes a subset of this schema. It parses:
 - `execution_policy` fields
 - `prompt_surface`
 - `tools`
-- `skills.loaded`, `skills.available`
+- `skills.loaded`, `skills.available` (it drops `description` and lists available skills by name), `skills.missing`
 - `provenance`
 - `warnings`
 

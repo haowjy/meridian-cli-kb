@@ -203,7 +203,27 @@ See [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md#spawn-capabi
 
 `supports_native_file_injection` is `False` for all current harnesses. References are routed as `"inline"` (rendered into prompt text) or `"omitted"` (empty-body files skipped).
 
-No capability gates skill delivery. Loaded skills reach every harness as composition documents in the system prompt, after the agent profile. Mars still writes skills into each harness's native skill directory, but Meridian doesn't rely on that for loaded skills. See [D-skill-single-path](../decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness).
+## Skill Delivery
+
+No capability gates skill delivery. Loaded skills reach every harness as composition documents in the system prompt, after the agent profile. Mars still writes skills into each harness's native skill directory, but Meridian doesn't rely on that for loaded skills, and no adapter passes skill names to a harness's native skill mechanism (OpenCode and Pi set `skills=()`). See [how skills reach an agent](../concepts/skill-loading.md) and [D-skill-single-path](../decisions/launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness).
+
+Where the composed system prompt lands, per harness:
+
+| Harness | Channel | Reaches the model? |
+|---|---|---|
+| Claude | `system-prompt.md` via `--append-system-prompt-file`, written from the full appended prompt | Yes |
+| Codex | `developer_instructions` | Yes |
+| OpenCode v1 streaming | message `system` field, plus a temp instructions file in `OPENCODE_CONFIG_CONTENT` | Yes |
+| OpenCode v2 streaming | temp instructions file only; the v2 message API has no `system` field | **No.** v2 loads only `AGENTS.md` files as instructions, so the file is ignored |
+| OpenCode `opencode run` subprocess | none; `appended_system_prompt` is dropped with a debug log | **No** |
+| Pi | `--append-system-prompt` | Yes. Spawns and primaries keep Pi's native skill, context-file and prompt-template discovery; only ambient extensions are suppressed on spawns |
+| Cursor | user turn (no system channel) | Yes, as user-turn text |
+
+> [!FLAG] **Needs human review.** OpenCode v2 and `opencode run` agents get no
+> loaded skills, agent profile body or Meridian guidance. This predates the
+> single-path change and is being fixed separately. Options found so far: an
+> ad hoc OpenCode agent whose `system` replaces the built-in prompt, a v2 plugin
+> `context` hook that appends, or the experimental session instruction entries API.
 
 ## Claude Native Agent Routing
 

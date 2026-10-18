@@ -4,7 +4,7 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 
 ## Pages
 
-- [spawn-lifecycle.md](spawn-lifecycle.md) — Spawn status machine, heartbeat, and reaper mechanics.
+- [spawn-lifecycle.md](spawn-lifecycle.md) — Spawn status machine, crash recovery from the runner-held launch lock, and who persists a dead spawn's outcome.
 - [spawn-wait-barrier.md](spawn-wait-barrier.md) — Chat-lineage wait sets, yield checkpoints, and barrier discipline.
 - [spawn-output-contract.md](spawn-output-contract.md) — Report-first spawn output, transcript pointer behavior, and metadata disclosure levels.
 - [state-model.md](state-model.md) — Dual-root state split, JSONL event sourcing, crash-only recovery, and UUID keying.
@@ -13,7 +13,8 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 - [composition-pipeline.md](composition-pipeline.md) — Semantic IR to harness-specific argv/env projection.
 - [hooks-and-plugins.md](hooks-and-plugins.md) — Lifecycle hooks, built-in hooks, shell hooks, and plugin boundary.
 - [extension-system.md](extension-system.md) — Unified command definition, extension registry, surfaces, and dispatcher.
-- [skill-schema.md](skill-schema.md) — Universal SKILL.md frontmatter, per-harness lowering, skill variants, and exact-match selection.
+- [skill-schema.md](skill-schema.md) — Universal SKILL.md frontmatter, per-harness lowering, and harness-level skill variants.
+- [skill-loading.md](skill-loading.md) — Loaded vs available vs `model-invocable`: which skills an agent receives and through which channel.
 - [native-config.md](native-config.md) — Native config passthrough escape hatch, shape validation, harness scoping, and per-harness projection.
 - [bootstrap-docs.md](bootstrap-docs.md) — Two-tier bootstrap document discovery and `meridian bootstrap` launch behavior.
 - [config-precedence.md](config-precedence.md) — Config file merge order and runtime override chain.

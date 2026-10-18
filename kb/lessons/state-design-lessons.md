@@ -72,7 +72,7 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 ## The Projection Authority Rule
 
-**The problem:** The reaper runs on every read path. It may stamp an orphaned spawn as `failed` with `orphan_run` before the actual runner process has a chance to report success. If the runner then reports `succeeded`, which one wins?
+**The problem (before identity-v2 PR 3):** The reaper ran on read paths and guessed liveness. It could stamp a spawn `failed` with `orphan_run` before the actual runner process had a chance to report success. If the runner then reports `succeeded`, which one wins?
 
 **The naive answer is wrong:** "Last write wins" means the reaper's `orphan_run` can never be corrected. "First write wins" means a legitimate runner success can be overridden by a reaper that jumped the gun.
 
@@ -86,44 +86,33 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 **The lesson:** When multiple processes can write terminal state for the same record, you need an explicit authority ordering — not just a timestamp or a mutex. Timestamps require clock synchronization. Mutexes block. Authority rules are append-safe and correct without coordination.
 
+**What replaced it:** an authority ordering resolves the race; exact liveness removes it. Since PR 3 the reaper writes only after claiming the dead runner's `launch.lock`, so no runner can arrive later. PR 4 makes the lock holder the only writer and deletes the lattice.
+
 ---
 
-## Reaper Lessons
+## Reaper Lessons (history)
 
-These explain the reaper on `main`. Each guard below patched a guess, and the
-windows the guesses left are why [identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)
-replaces the reaper's liveness with an exact lock (PRs 3 and 4). See
-[exact liveness beats guessed liveness](#exact-liveness-beats-guessed-liveness).
+Before identity-v2 PR 3 the reaper decided liveness by guessing, and each guard
+below patched one false answer while leaving a window of its own. PR 3 deleted
+all of them in favour of the runner-held `launch.lock`; the list of what went and
+why it must not come back is in
+[derived status](../architecture/state-system/derived-status.md#deleted-mechanisms-do-not-bring-back).
 
-### Heartbeat-Based Liveness Over PID-Only
+- **PID reuse.** A dead runner's recycled PID read as alive, so a create-time
+  check accepted only a process born within 30 s of the record. The slack
+  itself let a quickly reused PID keep a dead spawn `running`.
+- **Heartbeat recency.** A `heartbeat` file touched every 30 s, plus
+  `stderr.log`, `report.md` and `bash-records.json`, counted as proof of life
+  for 120 s. A SIGKILLed runner therefore read `running` for up to two minutes,
+  and a quiet live runner with old files could be reaped.
+- **`finalizing` rows.** The runner PID stays alive through the post-exit drain,
+  so the reaper ignored it and used only heartbeat recency, finalizing a stale
+  one as `orphan_finalization`.
+- **Startup and post-exit graces** (15 s, 5 s) excused a row with no PID yet or a
+  just-exited runner, and could still call a slow live runner dead.
 
-**Early design:** The reaper checked if the runner PID was alive. If dead, the spawn was orphaned.
-
-**The problem:** PID reuse. A process finishes, its PID is recycled to a completely different process, and the reaper sees an "alive" PID and leaves the spawn in `running` forever.
-
-**The fix:** Two guards:
-1. Create-time comparison: if the process was created more than 30 seconds after the spawn's `started_at`, it's a PID reuse
-2. Heartbeat recency: if any artifact in the spawn directory was touched within 120 seconds, the runner is considered active regardless of PID state
-
-**The lesson:** PID liveness is a necessary but not sufficient condition. The heartbeat artifact provides a ground-truth liveness signal that doesn't depend on the OS PID table.
-
-### Why Artifact-Agnostic Recency
-
-**Original design:** The reaper checked only the `heartbeat` file for recency.
-
-**The problem:** A runner that crashes while writing `stderr.log` or `history.jsonl` — just before writing the heartbeat — would be reaped immediately on the 120-second window, even though it was active a moment ago.
-
-**The fix:** The recency check applies to a set of activity artifacts, and a write to any of them resets the recency window. The set is now `{heartbeat, bash-records.json, stderr.log, report.md}`. PR 2 dropped `history.jsonl` from it, because the runner stream is no longer read for anything and PR 3 stops writing it. Managed primary attach now touches the heartbeat as well, so no attached run relied on the stream for liveness ([native-only history](../decisions/native-only-history.md)).
-
-**The lesson:** Use the broadest safe set of liveness signals. The heartbeat is the primary signal (written every 30s unconditionally), but last-gasp activity on other artifacts should prevent premature reaping.
-
-### Why PID Probes Are Skipped for `finalizing`
-
-**The `finalizing` status** means the harness process has already exited — the runner is in controlled post-exit drain (report extraction, finalization). The runner PID is still alive (it's the runner, not the harness), but the worker (harness) is done.
-
-**The problem:** PID-probing the runner during `finalizing` gives "alive" (runner hasn't exited yet), which would suppress reaping forever for a runner that crashed mid-drain.
-
-**The fix:** For `finalizing` rows, the reaper uses only heartbeat recency, not PID liveness. A stale heartbeat during `finalizing` means the runner crashed mid-drain → `orphan_finalization`.
+The lesson is the next section's: guessed liveness keeps generating guards.
+See [exact liveness beats guessed liveness](#exact-liveness-beats-guessed-liveness).
 
 ## Spawn Identity and Status Ownership
 
@@ -177,9 +166,9 @@ launch is running, finished, or failed?"
 
 ### Exact liveness beats guessed liveness
 
-The reaper guesses: a PID whose create time is within 30 s of the spawn's start,
-plus any activity file touched within 120 s, plus a 15 s startup grace and a 5 s
-post-exit grace. Each guard in the reaper lessons above patched one false
+Before PR 3 the reaper guessed: a PID whose create time is within 30 s of the
+spawn's start, plus any activity file touched within 120 s, plus a 15 s startup
+grace and a 5 s post-exit grace. Each guard in the reaper lessons above patched one false
 answer, and each left a window where a live spawn reads dead or a dead one reads
 live. A process-held `flock` has no window: the kernel releases it when the
 holder dies, however it dies.
@@ -196,6 +185,46 @@ holder dies, however it dies.
 M2 answers "is the runner alive", not "is everything this launch started gone".
 That second question is containment, solved separately
 ([process containment](process-containment.md)).
+
+### A deleted rule survives in other writers and in fixtures
+
+Main's reaper turned a durable `report.md` into `succeeded`. Identity-v2 drops
+that rule: a report counts only through an outcome the lock holder writes. PR 3
+deleted it from the reaper and from `derive`, and two more copies surfaced later.
+
+- **A second writer.** Cancel convergence (`_force_cancel_convergence`) applied
+  the same rule through `resolve_completion_cancel_precedence`. With the reaper
+  now deriving `cancelled` for a dead row with a cancel intent, the two writers
+  disagreed, and whichever wrote first won. On main they had agreed only because
+  both carried the rule. The fix routed both through one claim
+  ([D-spawn-identity-v2, PR 3](../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
+- **Test fixtures.** Two Pi drain tests needed a parent's drain to keep waiting:
+  one on a child still finalizing, one on a child whose result the parent had
+  not yet received. Both staged a lockless `finalizing` child with a `report.md`
+  and relied on the reaper overlay reading it as completed. They passed on base
+  and failed only in the extended tier of the full preflight. The product was
+  right; the fixtures encoded the deleted rule. They now stage the finalizing
+  child as a live lock holder, and the unreceived result as a child that
+  finished with its result not yet consumed by the parent.
+
+**When deleting a rule, search for every place that applies it, not just the
+module that named it:** other writers of the same field, and fixtures whose
+setup only reaches the state under test through the rule. A rule that two
+writers share looks like agreement until one of them changes.
+
+### "Every reader" sweeps in selectors
+
+PR 3's brief was "every reader moves to `read_derived`". Applied mechanically, it
+also moved code that *selects rows for a writer*: descendant cancellation,
+archive capture and doctor's warning. A dead launch reads `failed` while its
+stored row stays active until someone persists the outcome, so selectors on
+derived status skipped exactly the rows they existed to handle. The final
+review and the probe after it found three instances (D80, D82).
+
+The working rule: **selection for convergence or destruction uses stored status;
+liveness questions use derived status**
+([derived status](../architecture/state-system/derived-status.md#selection-versus-liveness)).
+Before migrating a "reader", ask whether its answer feeds a write or a delete.
 
 ## Repair the State Before Relaxing the Check
 

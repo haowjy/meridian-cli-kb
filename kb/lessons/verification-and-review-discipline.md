@@ -328,6 +328,32 @@ methods, and both found things the suite had missed:
 
    These are tracked in #582 (`spawn:p7912`, `spawn:p7913`).
 
+### Compare against the base before calling a probe failure a regression
+
+PR 3's round-2 probe reported two failures on the branch: a dead nested child
+was not converged when its parent finished or was cancelled, and `doctor` did
+not persist a launcher-SIGKILLed primary. Neither probe ran the same scenario
+on the base commit. The investigator who did (`spawn:p8456`) found both on base
+too:
+- no parent path ever calls `cancel_descendants`; only the cleanup a parent's
+  drain runs after a deadline or an exit request calls it (filed as #671);
+- the probe ran plain `doctor`, and persisting outcomes needs `--kill-orphans`
+  on base as well.
+
+The base comparison also found what the branch *had* changed. Plain `doctor`
+should name every spawn whose runner is dead but whose outcome isn't persisted.
+Base's doctor named the dead primary, wrongly as "live"; the branch's derived
+read dropped it from the warning entirely. That was the real
+regression, and a smaller one than either reported failure
+([D-spawn-identity-v2, PR 3](../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
+
+**A probe scenario is evidence of a regression only once it passes on the
+base.** Run each failing scenario on the PR's base, in the same isolated
+environment, before reporting it as introduced by the change. A failure on both
+is pre-existing and goes to its own issue; the diff between the two runs is
+what the PR owns. Probe briefs for a PR should ask for before/after pairs from
+the start, as PR 3's first probe did.
+
 ## Measurement Discipline
 
 Measurements need a recoverable provenance note: command or method, dataset,

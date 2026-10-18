@@ -222,15 +222,24 @@ Loaded skills reach the agent the same way on every harness and both surfaces
 `compose_skill_prompt_documents(loaded_skills)`. Projection then renders them
 into the system prompt after the agent profile. Bind-time re-projection
 (`_reproject_context_env_at_bind`) rebuilds from the same composed content, so
-skills survive bind without special handling. On replay, loaded skills come from
-the launch policy snapshot's `loaded_skills`.
+skills survive bind without special handling. On replay, loaded skills come only from
+the launch policy snapshot's `loaded_skills`; a snapshot without them replays
+with none, and Meridian never looks skills up again.
+
+Composition includes every loaded skill whatever its `model-invocable` value;
+[skill-loading.md](skill-loading.md) covers what load, available and
+`model-invocable` each control.
 
 **Don't add a second channel keyed on a harness capability.** Mars also writes
 skills into each harness's native skill directory, but a native skill list shows
 only model-invocable skills. A loaded skill that isn't model-invocable reaches
-the agent only through composition. An earlier split did exactly this: it
-suppressed composition on "native-skill" harnesses and added a Claude-only append
-channel. It left Claude with no loaded skills for five months.
+the agent only through composition. A capability-gated second channel drifts
+from the first; [the lesson](../lessons/arch-refactor-pitfalls.md#a-capability-gated-second-channel-drifts-from-the-first-pr-208--pr-661)
+records what that cost.
+
+Composition is not delivery: on OpenCode v2 and the `opencode run` path, the
+composed system prompt never reaches the model
+([per-harness channels](../codebase/harness-adapters.md#skill-delivery)).
 
 To check delivery, read `system-prompt.md` (Claude) or the Codex developer
 instructions in the spawn params, and confirm that each loaded skill appears

@@ -14,10 +14,9 @@ Claude Code behaviour it depends on is in
 ## D-claude-primary-inbox: a Claude primary is injected through Claude Code's own inbox socket, not a mod (2026-10) {#d-claude-primary-inbox}
 
 **Status:** decided by the tech lead on probe evidence (`work:claude-mod-inject`
-D2, D6–D9). Issue #665; PR #668 open (`release:patch`), awaiting the owner's
-approval to merge. On `main`, `spawn inject` against any primary polls 30 s for
-a control socket that never appears, then fails with
-`spawn not running: pN has no control endpoint`.
+D2, D6–D9). Issue #665; merged in PR #668 (v0.10.22). Before it, `spawn inject`
+against any primary polled 30 s for a control socket that never appeared, then
+failed with `spawn not running: pN has no control endpoint`.
 
 > [!FLAG] **Needs human review.** The owner's direction was a Claude Code mod
 > that owns inject, so that Claude children could drop the stdin input stream

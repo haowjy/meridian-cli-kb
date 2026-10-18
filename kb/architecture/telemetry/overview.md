@@ -128,5 +128,5 @@ src/meridian/lib/telemetry/
   status.py          # TelemetryStatus, compute_status()
 
 src/meridian/cli/telemetry_cmd.py    # tail, query, status CLI commands
-src/meridian/lib/state/liveness.py   # is_spawn_genuinely_active()
+src/meridian/lib/state/spawn_status.py  # is_live(): spawn-owned segment liveness
 ```

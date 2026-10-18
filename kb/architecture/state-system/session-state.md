@@ -210,4 +210,4 @@ rejected alternatives:
 - [History-storage decision](../../decisions/history-storage.md#d-abandoned-generation-closure) — why the fold closes abandoned generations before capture trusts liveness signals
 - [State-design lesson](../../lessons/state-design-lessons.md#repair-the-state-before-relaxing-the-check) — repair persisted state before relaxing a safety check
 - [Crash troubleshooting](../../operations/troubleshooting.md#primary-crashed-with-no-exit-or-stop-recorded) — the crash path that leaves a generation unstopped
-- [Reconciliation](reconciliation.md) — read-time projection and durable repair
+- [Derived status](derived-status.md) — lock-derived spawn status and the dead-launch writer

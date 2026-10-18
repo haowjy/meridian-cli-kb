@@ -20,6 +20,8 @@ See [operations/health-checks.md](../operations/health-checks.md) — `doctor_sy
 
 **Why:** Duplicating liveness classification in doctor would drift from the reaper over time and create two places to maintain Windows-safe process-liveness semantics. Single source of truth in `state/reaper.py`.
 
+**Since identity-v2 PR 3:** the principle holds and the mechanism changed. `reconcile_spawns()` is deleted. `doctor --kill-orphans` calls the reaper's `reconcile_active_spawn()`, which writes through `finalize_dead_launch` under the spawn's `launch.lock`. Plain `doctor` persists nothing and warns `dead_spawns_unfinalized`, using the same `read_derived` overlay as every other reader ([derived status](../architecture/state-system/derived-status.md)).
+
 ---
 
 ### `live_active_spawns_remain` warning replaces `active_spawns_present`

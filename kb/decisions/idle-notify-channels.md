@@ -84,8 +84,8 @@ looking like a provider guarantee.
 
 ## D-notify-hook-events — Notifications are hook events delivered by routes
 
-**Status:** branch `claude/notify-bash-events-gguu11`, stacked on the idle
-branch (#673); implements
+**Status:** merged as PR #686 (v0.10.28), built on the idle PR #685 (#673);
+implements
 [#670](https://github.com/haowjy/meridian-cli/issues/670) and
 [#666](https://github.com/haowjy/meridian-cli/issues/666). The user filed both
 issues. Everything else about the user's choices is session-record: the cloud

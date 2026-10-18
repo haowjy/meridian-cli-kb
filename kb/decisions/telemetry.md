@@ -158,13 +158,13 @@ The design constraint: fill these dead zones without duplicating data that alrea
 
 *2026-05-02*
 
-**Decided:** For segments whose `logical_owner` is a spawn ID (e.g. `p42`), retention uses `is_spawn_genuinely_active(runtime_root, spawn_id)` rather than raw process liveness (`os.kill(pid, 0)`). The function checks spawn store status (`queued/running/finalizing`) + heartbeat file freshness (< 120 s) + runner PID liveness. `cli` and `chat` segments continue to use raw process liveness.
+**Decided:** For segments whose `logical_owner` is a spawn ID (e.g. `p42`), retention asks the spawn whether it is live rather than checking raw process liveness (`os.kill(pid, 0)`). `cli` and `chat` segments continue to use raw process liveness. Since identity-v2 PR 3 the check is `spawn_status.is_live(runtime_root, spawn_id)`: the runner holds `launch.lock` through the finalizing window, so the segment stays live until the runner exits. The original check, `is_spawn_genuinely_active`, combined store status, heartbeat freshness and runner PID, and was deleted with the heartbeat.
 
 **Why not raw PID for spawns:** A spawn process exits at harness termination, but the spawn record may still show `running` during the finalizing window (report extraction, event drain). Raw PID check would orphan the segment immediately, potentially deleting events written during finalization. Spawn-store-based liveness treats the store as the authority on whether the spawn is genuinely done.
 
 **Why raw PID is fine for `cli`/`chat`:** These processes have no equivalent "finalizing" window. When the PID disappears, the process is done.
 
-**Implementation:** `is_spawn_genuinely_active()` is in `lib/state/liveness.py`. It is read-only — it never mutates spawn state.
+**Implementation:** `is_live()` in `lib/state/spawn_status.py`, used by `telemetry/retention.py` and `telemetry/status.py`. It is read-only; it never mutates spawn state.
 
 ---
 
