@@ -159,94 +159,48 @@ differences. Always-refresh makes sync idempotent and trustworthy.
 
 ## Skill Variants
 
-A skill package may ship multiple variants of the same skill — alternate
-versions tuned for specific harnesses. Model-specific variants are designed but
-not selected; see [Selection as Built](#selection-as-built-harness-variant-or-base). Variants let one package
-serve different runtime contexts without requiring the user to select the
-right file manually.
+A skill may ship an alternate body for a specific harness, so one package can
+serve Claude and Codex without the user choosing a file. Variants are selected
+by harness only; model-level variants are not supported
+([D60](../decisions/package-management.md#d60-skill-variants-are-selected-by-harness-only)).
 
 ### Variant Directory Convention
 
 ```
 skills/
   my-skill/
-    SKILL.md               # base variant (always required)
+    SKILL.md               # base body (always required)
     variants/
       claude/
-        SKILL.md                       # harness-specific override
-        claude-sonnet-4-5/
-          SKILL.md                     # canonical-model-specific override
-        sonnet/
-          SKILL.md                     # requested-token-specific override
+        SKILL.md           # Claude body
       codex/
-        SKILL.md
+        SKILL.md           # Codex body
 ```
 
-The base `SKILL.md` is always required. Variants live under
-`variants/<harness>/`. A harness-only override is
-`variants/<harness>/SKILL.md`; a model-specific override is
-`variants/<harness>/<model-token>/SKILL.md`.
+The base `SKILL.md` is always required. A harness variant is
+`variants/<harness>/SKILL.md`, where `<harness>` is one of `claude`, `codex`,
+`opencode`, `pi`, `cursor`.
 
-### Selection as Built: Harness Variant or Base
+### Selection
 
-Mars selects the variant when it builds the launch bundle: the body of
-`variants/<harness>/SKILL.md` if that file exists, otherwise the base body. The
-base frontmatter supplies metadata such as `type` either way, and variant
-frontmatter is ignored. `mars sync` makes the same choice when it writes each
-harness's native skill directory. Meridian receives the selected body and does
-no variant selection on the live launch path.
+Mars selects the body when it builds the launch bundle: the body of
+`variants/<harness>/SKILL.md` if that file exists, otherwise the base body.
+Matching is exact. The base frontmatter supplies metadata such as `type` either
+way, and variant frontmatter is ignored. `mars sync` makes the same choice when
+it writes each harness's native skill directory. Meridian receives the selected
+body in the bundle and does no variant selection, live or on replay
+([D-mars-sole-skill-resolver](../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
 
-> [!FLAG] **Needs human review.** The launch bundle is passed the model token
-> and canonical model ID but discards them, so model-level variant directories
-> are indexed and never selected. Whether to build steps 1–2 below or narrow
-> the design to harness variants is open; see
-> [D60](../decisions/package-management.md#d60-skill-variant-specificity-ladder-model-tokenharness--canonical-idharness--harness--base).
-
-### Specificity Ladder as Designed (4 steps; steps 1–2 not built)
-
-The designed rule selects the most-specific variant that matches the resolved
-harness and model. Selection is **exact match only** — no fuzzy matching or
-glob:
-
-```mermaid
-graph TD
-    S1["1. model-token + harness\nvariants/claude/sonnet/SKILL.md\n(highest specificity)"]
-    S2["2. canonical-id + harness\nvariants/claude/claude-sonnet-4-5/SKILL.md\n(if token is an alias, resolved canonical)"]
-    S3["3. harness only\nvariants/claude/SKILL.md"]
-    S4["4. base\nSKILL.md\n(always present, fallback)"]
-
-    S1 -->|"no match"| S2
-    S2 -->|"no match"| S3
-    S3 -->|"no match"| S4
-```
-
-**Step order in detail:**
-
-| Priority | File name pattern | Match condition |
-|---|---|---|
-| 1 (highest) | `variants/<harness>/<requested-token>/SKILL.md` | Harness matches AND requested model token matches exactly |
-| 2 | `variants/<harness>/<canonical-id>/SKILL.md` | Harness matches AND resolved canonical model ID matches |
-| 3 | `variants/<harness>/SKILL.md` | Harness matches, any model |
-| 4 (fallback) | `SKILL.md` | Always matches |
-
-**"Requested token" vs "canonical ID":** Priority 1 uses the token the user
-or profile originally provided (e.g., `sonnet`). Priority 2 uses the resolved
-canonical model ID (e.g., `claude-sonnet-4-5`). Both are checked because a
-variant author may write `variants/claude/sonnet/SKILL.md` (alias form) or
-`variants/claude/claude-sonnet-4-5/SKILL.md` (canonical form) — both should
-resolve.
-
-**Why exact match only:** Fuzzy matching (e.g., glob-based `claude-sonnet-*`)
-would make variant selection non-deterministic when multiple globs match. Exact
-match makes the selected variant predictable and auditable.
+A directory one level deeper, such as `variants/claude/sonnet/SKILL.md`, is
+never selected. Mars still indexes such directories and warns when one lacks a
+`SKILL.md`; that is leftover from the earlier model-level design, not a
+supported layout.
 
 ### When to Use Variants
 
-Use variants when a skill's behavior must differ across runtimes:
+Use a variant when a skill's behavior must differ across harnesses:
 - The Claude body names Claude's tools; the Codex body names Codex's. Only
   bodies vary: tool grants and other frontmatter come from the base skill
-- Sonnet variant uses a longer context strategy; Haiku variant is condensed
-  (model-level; not selected today, see the flag above)
 - A skill works only on Claude; the base SKILL.md has a stub explaining this
 
 Don't use variants for minor wording tweaks. Variants add maintenance cost;

@@ -42,7 +42,7 @@ Domain vocabulary pages cover terms specific to one subsystem. Each page has a b
 
 | Domain | File | What's covered |
 |---|---|---|
-| **Model resolution** | [concepts/model-resolution/vocabulary.md](concepts/model-resolution/vocabulary.md) | Alias entries, model policies, fanout, approval mode, skill registry, skill variants, resolved policies, prompting guidance, agent-first resolution |
+| **Model resolution** | [concepts/model-resolution/vocabulary.md](concepts/model-resolution/vocabulary.md) | Alias entries, model policies, fanout, approval mode, skill variants, resolved policies, prompting guidance, agent-first resolution |
 | **Package management** | [concepts/package-management/vocabulary.md](concepts/package-management/vocabulary.md) | Mars compiler pipeline, source resolution, targeting, sync model, lock file, MVS |
 | **Telemetry** | [architecture/telemetry/vocabulary.md](architecture/telemetry/vocabulary.md) | Telemetry sinks, envelope format, router, local persistence |
 | **Workspace** | [architecture/workspace/vocabulary.md](architecture/workspace/vocabulary.md) | Workspace entries, multi-repo projection, snapshot merging |

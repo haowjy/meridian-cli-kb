@@ -222,8 +222,9 @@ Loaded skills reach the agent the same way on every harness and both surfaces
 `compose_skill_prompt_documents(loaded_skills)`. Projection then renders them
 into the system prompt after the agent profile. Bind-time re-projection
 (`_reproject_context_env_at_bind`) rebuilds from the same composed content, so
-skills survive bind without special handling. On replay, loaded skills come from
-the launch policy snapshot's `loaded_skills`.
+skills survive bind without special handling. On replay, loaded skills come only from
+the launch policy snapshot's `loaded_skills`; a snapshot without them replays
+with none, and Meridian never looks skills up again.
 
 Composition includes every loaded skill whatever its `model-invocable` value;
 [skill-loading.md](skill-loading.md) covers what load, available and

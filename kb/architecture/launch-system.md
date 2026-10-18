@@ -629,7 +629,7 @@ launch/
   fork.py               materialize_fork() — sole callsite for adapter.fork_session()
   prompt.py             compose_run_prompt_text() — SPAWN_PREPARE path
                           build_goal_instruction() — renders completion_contract from normalized goal
-  resolve.py            dedupe_skill_names(), resolve_skills_from_profile() — skill resolution
+  resolve.py            dedupe_skill_names(), format_missing_skills_warning(); agent profile and harness checks
   reference.py          load_reference_items(); template variable resolution
   env.py                build_env_plan(); build_harness_child_env()
   extract.py            enrich_finalize(): usage + session + report (spawn path)

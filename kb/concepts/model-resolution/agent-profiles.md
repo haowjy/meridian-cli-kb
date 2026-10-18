@@ -159,10 +159,11 @@ A loaded skill arrives in full even when it is `model-invocable: false`. See
 [composition-pipeline.md](../composition-pipeline.md) for where skill documents
 sit in the prompt.
 
-Meridian's own `AgentProfile.skills` parser reads only the flat form; launch
-doesn't depend on it because Mars reads the profile itself.
-`resolve_skills_from_profile()` and its variant ladder survive only for replaying
-old snapshots that lack `loaded_skills`.
+Mars is the only reader of a profile's `skills`. Meridian's `AgentProfile` has
+no skills field, and Meridian sends Mars only the caller's `--skills` names. An
+exact continue replays the skill bodies stored in its launch snapshot rather than
+looking skills up again; a snapshot without them replays with no loaded skills
+([D-mars-sole-skill-resolver](../../decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
 
 ## Related
 

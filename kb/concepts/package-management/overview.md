@@ -17,7 +17,7 @@ mars writes to it.
 .mars/
   agents/*.md                         ← full-fidelity agent profiles
   skills/*/SKILL.md                   ← canonical skill content
-  skills/*/variants/<harness>/<model>/SKILL.md  ← harness/model skill variants
+  skills/*/variants/<harness>/SKILL.md  ← harness skill variants
   skills/*/resources/BOOTSTRAP.md     ← skill bootstrap docs
   bootstrap/*/BOOTSTRAP.md            ← package bootstrap docs
   models-merged.json                  ← merged model alias catalog

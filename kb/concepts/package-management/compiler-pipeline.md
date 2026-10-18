@@ -55,7 +55,7 @@ src/compiler/
     mod.rs             ← MCP server lowering, collision resolution
   skills/
     mod.rs             ← universal skill frontmatter parsing + lowering
-  variants.rs          ← skills/<name>/variants/<harness>/<model>/SKILL.md indexing
+  variants.rs          ← skills/<name>/variants/<harness>/SKILL.md indexing and selection
 
 src/surface_ownership/
   retention.rs         ← stale removal, evidence retention, write permits
@@ -87,8 +87,10 @@ model.
 ### Skills and Variants (`compiler/skills/`, `compiler/variants.rs`)
 
 Parses universal skill frontmatter from `.mars/skills/*/SKILL.md`. Indexes
-optional variants at `skills/<name>/variants/<harness>/<model>/SKILL.md`.
-Validates layout — variants must live under a named skill. Lowers skill metadata
+optional harness variants at `skills/<name>/variants/<harness>/SKILL.md`.
+Validates layout — variants must live under a named skill. It still indexes
+`variants/<harness>/<model>/` directories, but nothing selects them; model-level
+variants are not supported ([D60](../../decisions/package-management.md#d60-skill-variants-are-selected-by-harness-only)). Lowers skill metadata
 into per-harness projection format for target sync.
 
 ### Config Entries (`compiler/config_entries/`)

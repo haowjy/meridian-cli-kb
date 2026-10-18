@@ -86,7 +86,7 @@ Mental models for key abstractions. Read before diving into architecture or code
 - [concepts/composition-pipeline.md](concepts/composition-pipeline.md) — Semantic IR → adapter projection: how `ComposedLaunchContent` becomes harness-specific argv and env
 - [concepts/hooks-and-plugins.md](concepts/hooks-and-plugins.md) — Lifecycle hook system, built-in hooks (git-autosync), shell hooks, plugin API boundary, `ignore_env` for CWD-relative root resolution in hooks
 - [concepts/extension-system.md](concepts/extension-system.md) — Unified command definition, extension registry, surface membership (CLI/MCP/HTTP), single dispatcher
-- [concepts/skill-schema.md](concepts/skill-schema.md) — Universal SKILL.md frontmatter schema, invocability compilation matrix per harness, skill variants (harness-level selection built; model-level steps of the ladder flagged as unbuilt)
+- [concepts/skill-schema.md](concepts/skill-schema.md) — Universal SKILL.md frontmatter schema, invocability compilation matrix per harness, harness-level skill variants (model-level variants not supported)
 - [concepts/skill-loading.md](concepts/skill-loading.md) — How skills reach an agent: profile `load` and `--skills` compose full text on every harness whatever `model-invocable` says; `available` lists names; native skill lists show only model-invocable skills; per-harness gaps (OpenCode v2, Pi `--no-skills`)
 - [concepts/bootstrap-docs.md](concepts/bootstrap-docs.md) — Two-tier bootstrap doc discovery (skill resources + package-level), `meridian bootstrap` command design
 - [concepts/config-precedence.md](concepts/config-precedence.md) — File-backed settings loader vs per-spawn runtime override stack; which system handles which setting
