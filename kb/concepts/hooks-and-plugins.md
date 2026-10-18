@@ -1,5 +1,9 @@
 # Hooks and Plugins
 
+> **Status:** The event-name contract, git-autosync defaults and plugin API
+> version below include the unmerged `fix/hook-event-names` branch for #687,
+> based on v0.10.28.
+
 Hooks are callbacks that fire at spawn and work lifecycle events and at
 notification events. They're the extension point for automation that should
 happen around agent activity — syncing state to a remote repo, sending
@@ -49,11 +53,10 @@ The three notification events are observe-class: each carries a
 `notification` payload, and the routes on that event deliver it
 ([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 
-`spawn.start` and `work.start` are also accepted event names, but nothing
-dispatches them: hooks are looked up by exact event name, spawns fire
-`spawn.running` and work items fire `work.started`. A row on `spawn.start` or
-`work.start` never runs. `git-autosync` lists `spawn.start` among its default
-events, so its start-of-spawn sync never runs either.
+`spawn.start` and `work.start` were accepted through v0.10.28 even though no
+producer dispatched them. #687 removes both names rather than aliasing them.
+Hook config containing either now fails validation and points to
+`spawn.running` or `work.started`, respectively.
 
 ---
 
@@ -155,7 +158,7 @@ JSON on stdin (payload `schema_version` 2). Notification events add
 
 **Built-in hooks** receive the typed `plugin_api.HookContext` directly; `lib/hooks`
 uses the same `HookContext`, `HookResult` and `HookEventName` types (plugin API
-2.0.0). A builtin returns structured output in `HookResult.details`, a
+3.0.0). A builtin returns structured output in `HookResult.details`, a
 JSON-serializable mapping whose keys that builtin documents. The `notify`
 builtin sets `details["transports"]`. The plugin API stays neutral: no field
 on `HookResult` belongs to one builtin. A builtin declares the events it
@@ -249,10 +252,9 @@ with local Meridian state (KB, work directories, etc.). It works on any
 configured sync root — KB, work, strategy, or other contexts — and does not
 require an active work item.
 
-**Default events**: `spawn.start`, `spawn.finalized`, `work.started`, `work.done`
-when no `event` is specified. Nothing dispatches `spawn.start` (see
-[Event Taxonomy](#event-taxonomy)), so in practice it syncs on the other three. It skips when there
-is no runtime root.
+**Default events**: `spawn.running`, `spawn.finalized`, `work.started`,
+`work.done` when no `event` is specified. It skips when there is no runtime
+root.
 
 ### What It Does
 
@@ -324,8 +326,8 @@ than blocking the agent session indefinitely.
 
 ### Session-End Coverage Gap
 
-Meridian's builtin hooks fire on meridian lifecycle events: `spawn.finalized`,
-`work.started`, `work.done` (and `spawn.start`, which never fires). These cover agent activity
+Meridian's builtin hooks fire on meridian lifecycle events: `spawn.running`,
+`spawn.finalized`, `work.started`, and `work.done`. These cover agent activity
 coordinated through meridian, but miss commits created after the last such
 event — most commonly knowledge capture by an Agent-tool subagent as a
 session's final act. Those commits sit stranded locally until the next

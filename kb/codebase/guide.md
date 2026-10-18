@@ -1,5 +1,8 @@
 # Codebase Guide
 
+> **Status:** The plugin API version below includes the unmerged
+> `fix/hook-event-names` branch for #687, based on v0.10.28.
+
 How to navigate the Meridian codebase, where to start reading, and how to add new things.
 
 ## Package Structure
@@ -41,7 +44,7 @@ src/meridian/
     artifact/     Static artifact serving over Tailscale
     utils/        Additional utilities beyond core/ (json_shapes TypeIs helpers)
     ignores.py    Shared gitignore-style pattern loader (pathspec)
-  plugin_api/     Stable plugin API 2.0: Hook/HookContext and Notification types, state/git/config/fs helpers
+  plugin_api/     Stable plugin API 3.0: Hook/HookContext and Notification types, state/git/config/fs helpers
   dev/            Token-efficient pytest wrapper, preflight gates
   pi_runtime/     Meridian-owned TypeScript extensions loaded into Pi
   claude_runtime/ Bundled Claude Code mods (idle, session boundary)
