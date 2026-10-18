@@ -13,15 +13,18 @@ design, but make sure u understand it and can explain it back to me again").
 The approved design is revision 3.1 (`work:v010-followups`
 `design-identity-v2/design.md`, `pr-plan.md`; decisions D45–D53, D55). It is
 being built as seven PRs off `main`, each merged with its own approval before
-the next starts. PR 1 (start gate and guardian, #633) and PR 2 (launch lock and
-containment sweep, #647) are merged. **On `main` today:** every runner holds an
-exact `launch.lock`, and a continue sweeps or refuses its source before any harness
-starts ([PR 2 as built](#pr-2-as-built-the-launch-lock-and-the-sweep)). But every
-launch, `--continue` included, still mints a new `pN`, status is still a stored
-field with three writers, and readers other than continue still guess liveness
-from PIDs and heartbeats. Architecture pages describe that. PR 3, which moves
-every reader onto the lock, is built on `feat/read-derived` and awaits merge
-approval ([PR 3 as built](#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
+the next starts. PRs 1–3 are merged: the start gate and guardian (#633), the
+launch lock and containment sweep (#647), and `read_derived` (#672). **On `main`
+today:** every runner holds an exact `launch.lock`; a continue sweeps or refuses
+its source before any harness starts
+([PR 2 as built](#pr-2-as-built-the-launch-lock-and-the-sweep)); and every
+reader derives status from that lock, while dead-launch outcomes are written
+only under it
+([PR 3 as built](#pr-3-as-built-read_derived-and-one-dead-launch-finalize)).
+But every launch, `--continue` included, still mints a new `pN`; status is still
+stored in `state.json`, written by the runner, by cancel (outside the lock) and,
+for dead launches, by `finalize_dead_launch`; and cancel still targets signals
+with the 30 s PID-birth slack.
 
 **Supersedes:**
 - [D-spawn-run-identity](#d-spawn-run-identity), #616's `pN`/`pN.K` run
@@ -30,13 +33,12 @@ approval ([PR 3 as built](#pr-3-as-built-read_derived-and-one-dead-launch-finali
 - [D-launcher-watchdog](primary-terminal-ownership.md#d-launcher-watchdog--one-watchdog-per-launcher-instead-of-pdeathsig),
   the mechanism half, through [D-start-gate-guardian](#d-start-gate-guardian).
 - The reaper as a status writer, heartbeat liveness, the 30 s PID-birth slack,
-  the startup and post-exit graces, and the `mark_finalizing` CAS. Main's
-  versions are described in [reconciliation](../architecture/state-system/reconciliation.md),
-  [spawn lifecycle](../concepts/spawn-lifecycle.md#crash-recovery-heartbeat-projection-repair)
-  and [state decisions](state.md#mark_finalizing-cas-enables-orphan_finalization-distinction).
-  PR 3 deletes the liveness guesses and the heartbeat
+  the startup and post-exit graces, and the `mark_finalizing` CAS. PR 3 deleted
+  the liveness guesses and the heartbeat
   ([derived status](../architecture/state-system/derived-status.md#deleted-mechanisms-do-not-bring-back));
-  PR 4 deletes stored status and the CAS.
+  the old rules survive only as history in
+  [state decisions](state.md#mark_finalizing-cas-enables-orphan_finalization-distinction).
+  PR 4 deletes stored status, the CAS and the reaper's status writes.
 
 ### The owner's questions
 
@@ -180,7 +182,7 @@ shows them.
 |---|---|---|
 | 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | merged, #633 (`e2593004c`, v0.10.13); the owner's macOS smoke is still owed |
 | 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
-| 3 | `read_derived`: exact liveness for every reader; lenient quarantine | built on `feat/read-derived` (issue #663); awaiting merge approval |
+| 3 | `read_derived`: exact liveness for every reader; lenient quarantine | merged, #672 (`ea6c8cc3f`, v0.10.24; fixes #663) |
 | 4 | Sole-writer outcome; state v4; history index **v11** | not started |
 | 5 | Cut the runtime artifact store | not started |
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
@@ -288,8 +290,8 @@ buckets and the filters. Collapsing to `running` now would churn all three twice
 reaper's write path found that `_force_cancel_convergence` wrote `succeeded`
 from a durable report whenever it saw no live owner, while the lock-holding
 reaper derived `cancelled` for the same row. Equal origins meant the first write
-won, so ordering decided the outcome. On main both used "report ⇒ succeeded" and
-agreed by accident. Decided: one state-layer `claim_dead_launch` that both use,
+won, so ordering decided the outcome. Before PR 3 both used "report ⇒ succeeded"
+and agreed by accident. Decided: one state-layer `claim_dead_launch` that both use,
 writing the derived outcome under the lock, behind one service method,
 `finalize_dead_launch`. Rejected:
 - making `derive` honour reports, which contradicts the design's
@@ -307,7 +309,7 @@ doctor's warning (D82). The rule and the three cases are in
 
 **The reaper never finalizes a lockless row.** A build before PR 2
 may still be running it, and only its own reaper can know. Explicit cancel keeps
-main's lattice for lockless rows; cleanup of a lockless row that is already
+the pre-PR-3 lattice for lockless rows; cleanup of a lockless row that is already
 terminal is allowed once its old runner is gone, because cleanup is not
 finalization.
 
@@ -316,17 +318,30 @@ unread.** Once readers used the lock, both became write-only. The structure
 review asked for the journal's module, call sites, lock class and docs to go in
 the same PR.
 
+**A primary `--continue` skips the background orphan repair** (D84). CI caught
+the race: with repairers now claiming dead launches' locks, a primary
+`--continue` of a crashed spawn scheduled the repair, the repair held the
+source's lock while persisting the crash, and the continue's sweep refused with
+"still running". The continue's own sweep owns the source, so the orphan pass is
+skipped for that launch; the next launch or `doctor --kill-orphans` persists
+outcomes. When a dead source's lock is held by someone else, the refusal says
+"held by a repair or another continue; retry in a moment". Rejected: waiting
+out a non-runner holder, which let two concurrent continues both start
+successors; and a holder-marker file, which goes stale on a crash and doesn't
+serialize continues.
+
 **Owner rulings** (2026-10-17, on D78's open questions):
 - the 30 s PID-birth slack: "Readers only". PR 3 removes it from every status
   reader and the reaper; cancel's signal targeting keeps it until PR 4 rewrites
   cancel;
-- a managed primary crash showing `failed`/`crashed` instead of main's
+- a managed primary crash showing `failed`/`crashed` instead of the earlier
   `cancelled`/130: "Accept, state it". Since #658, SIGTERM and SIGHUP primaries
   finalize themselves, so only SIGKILL and OOM reach it.
 
 The other two behaviour changes, killed-while-finalizing → `crashed` and
-cancel-of-a-dead-spawn-with-a-report → `cancelled`, follow from the same rule and
-are stated in the PR body for the merge ask.
+cancel-of-a-dead-spawn-with-a-report → `cancelled`, follow from the same rule.
+They, and `cancel-all` now selecting every stored-active row, were stated in
+#672's body when the owner approved the merge (D86).
 
 **Residuals:**
 - **Not claimed:** consistency against racing writes. Cancel's request, and the
