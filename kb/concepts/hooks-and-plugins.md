@@ -255,8 +255,11 @@ with local Meridian state (KB, work directories, etc.). It works on any
 configured sync root — KB, work, strategy, or other contexts — and does not
 require an active work item.
 
-**Default events**: `spawn.running`, `spawn.finalized`, `work.started`,
-`work.done` when no `event` is specified. It skips when there is no runtime
+**Default events**: `spawn.finalized`, `work.started`, `work.done` when no
+`event` is specified. It never syncs at spawn start: through v0.10.28 the
+default listed `spawn.start`, which never fired, and #687 drops it rather than
+moving it to `spawn.running`, so as not to put a git sync in front of every
+spawn launch. It skips when there is no runtime
 root.
 
 ### What It Does
@@ -329,8 +332,8 @@ than blocking the agent session indefinitely.
 
 ### Session-End Coverage Gap
 
-Meridian's builtin hooks fire on meridian lifecycle events: `spawn.running`,
-`spawn.finalized`, `work.started`, and `work.done`. These cover agent activity
+git-autosync fires on meridian lifecycle events by default: `spawn.finalized`,
+`work.started`, and `work.done`. These cover agent activity
 coordinated through meridian, but miss commits created after the last such
 event — most commonly knowledge capture by an Agent-tool subagent as a
 session's final act. Those commits sit stranded locally until the next
