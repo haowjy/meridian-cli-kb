@@ -119,8 +119,8 @@ touching processes.
 claims the free lock and writes `failed`/`crashed` with origin `reconciler`, or
 `cancelled` if a cancel was requested. Before writing it records a cleanup claim:
 the row's recorded `process_scopes.json` scopes or, when there are none, the
-backend and TUI PIDs from `primary_meta.json`. After writing it terminates the
-claimed scopes ([cleanup claims](state-system/derived-status.md#the-reapers-cleanup-claims)).
+backend and TUI PIDs from `primary_meta.json` (checked against their recorded
+birth time when one exists). After writing it terminates the claimed scopes ([cleanup claims](state-system/derived-status.md#the-reapers-cleanup-claims)).
 A held lock means the launcher is alive, and the reaper does nothing. It has no
 activity or grace rules: the lock alone decides.
 
@@ -157,9 +157,11 @@ from the launcher PID, recent file activity and a startup grace, so it kept a
 strict skip/finalize discipline: a wrong "dead" guess followed by signals would
 have killed a TUI the user was still typing in. With the lock, a free lock is
 proof that the launcher is gone, and the guardians have already stopped the
-backend and TUI in the common case, so cleanup after a claimed outcome cannot
-hit a live session. What still needs care is PID reuse in the fallback targets,
-which is why every metadata PID is checked against its recorded birth time.
+backend and TUI in the common case, so cleanup after a claimed outcome no longer
+risks a session the user is still in. The remaining risk is PID reuse.
+`terminate_managed_primary_processes()` skips any PID whose birth doesn't match,
+but the reaper's fallback targets still signal a PID whose birth time was never
+recorded ([cleanup claims](state-system/derived-status.md#the-reapers-cleanup-claims)).
 
 A crash used to finalize `cancelled`, exit 130,
 `session_ended_without_finalize`. It now reads `failed`/`crashed` like any other

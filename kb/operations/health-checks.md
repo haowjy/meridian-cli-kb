@@ -4,14 +4,15 @@
 
 ## The Core Distinction: Live, Dead, Terminal
 
-Doctor classifies every stored-active spawn by its
+Doctor selects rows by **stored** status (what `state.json` says) and, for warnings,
+classifies each stored-active row by its
 [derived status](../architecture/state-system/derived-status.md) (the runner holds
 `launch.lock` or it doesn't):
 
 | Spawn | Artifact prunable? | Appears in warning? |
 |---|---|---|
 | Stored terminal (succeeded/failed/cancelled/timed_out) | Yes, subject to TTL | No |
-| Stored active, runner gone (derived `crashed`/`cancelled`) | No: stored-active rows stay protected until an outcome is written | `dead_spawns_unfinalized`, or listed in `repaired` as `orphan_runs` when `--kill-orphans` wrote it this run |
+| Stored active, runner gone (derived `crashed`/`cancelled`) | No: stored-active rows stay protected until an outcome is written | `dead_spawns_unfinalized`; with `--kill-orphans` the outcome is written first and the run reports the repair category `orphan_runs` |
 | Stored active, runner holds the lock | Never | `live_active_spawns_remain` |
 
 `live_active_spawns_remain` is informational: these runners are alive.
@@ -111,7 +112,7 @@ retention_days = 30   # -1 = never prune, 0 = prune immediately, N = days
 
 Environment override: `MERIDIAN_STATE_RETENTION_DAYS`.
 
-Staleness check uses the latest mtime across all files in the artifact tree. If any file was touched within the retention window, the directory is not stale. The TTL clock starts from the terminal transition (when `report.md` or `heartbeat` was last written), not from spawn creation.
+Staleness check uses the latest mtime across all files in the artifact tree. If any file was touched within the retention window, the directory is not stale. The TTL clock starts from the terminal transition (when `report.md` or another artifact was last written), not from spawn creation.
 
 ### Windows-Safe Deletion
 

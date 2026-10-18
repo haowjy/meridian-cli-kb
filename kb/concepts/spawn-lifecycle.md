@@ -239,7 +239,8 @@ reference-only launches.
 
 ## Crash Recovery: Derived Status and Repair
 
-Meridian uses a **crash-only design**: there is no graceful shutdown path. A
+Meridian uses a **crash-only design**: correctness never depends on a graceful
+shutdown path, even where one exists (a primary finalizes itself on SIGTERM). A
 runner holds `spawns/<id>/launch.lock` exclusively from before its row is
 published until it exits, and the kernel releases the lock however it dies. The
 held lock is the only liveness fact; no PID, heartbeat, file mtime or grace
@@ -343,7 +344,7 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 3. The `exited` event is informational — status transitions require `finalize`.
 4. `queued → finalizing` is not a valid transition.
 5. Status readers never write state or signal processes. A held `launch.lock` means live; a free lock on a stored-active row means dead.
-6. A dead launch's outcome is written only by a holder of its lock (`finalize_dead_launch`), and only from root depth (`_MERIDIAN_DEPTH` absent, empty, or `0`) or an explicit cancel.
+6. A lock-backed dead launch's outcome is written only by a holder of its lock, through `finalize_dead_launch`: the reaper at root depth (`_MERIDIAN_DEPTH` absent, empty, or `0`), or `spawn cancel`. Rows with no lock file are finalized only by explicit cancel, with the pre-PR-3 report/cancel rule.
 7. Runner-origin finalization supersedes reconciler-origin finalization.
 8. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.
 9. The published `state.json` row owns every spawn artifact. After retention
