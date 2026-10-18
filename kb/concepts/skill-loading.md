@@ -125,10 +125,6 @@ group under a one-line header such as "Override other guidance when loaded."
   reach the model. OpenCode v1 streaming delivers them; the `opencode run`
   subprocess path drops the system prompt on any version. The fix is a separate
   change; see [harness adapters](../codebase/harness-adapters.md#skill-delivery).
-- **Pi headless spawns run with `--no-skills`**, so Pi's native skill list is
-  empty there. Loaded skills still arrive through composition. An `available`
-  skill is listed by name with no native tool to load it; whether agents recover
-  by reading `.mars/skills/<name>/SKILL.md` is unverified.
 - **An exact continue lists available skills without their directories.** A
   continued session replays from its launch snapshot, which stores the rendered
   "Available Skills" text but not the skill entries, so those skill directories

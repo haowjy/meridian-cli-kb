@@ -218,7 +218,7 @@ Where the composed system prompt lands, per harness:
 | OpenCode v1 streaming | message `system` field, plus a temp instructions file in `OPENCODE_CONFIG_CONTENT` | Yes |
 | OpenCode v2 streaming | temp instructions file only; the v2 message API has no `system` field | **No.** v2 loads only `AGENTS.md` files as instructions, so the file is ignored |
 | OpenCode `opencode run` subprocess | none; `appended_system_prompt` is dropped with a debug log | **No** |
-| Pi | `--append-system-prompt` | Yes; headless RPC also passes `--no-skills`, so Pi's own skill list is empty |
+| Pi | `--append-system-prompt` | Yes. Spawns and primaries keep Pi's native skill, context-file and prompt-template discovery; only ambient extensions are suppressed on spawns |
 | Cursor | user turn (no system channel) | Yes, as user-turn text |
 
 > [!FLAG] **Needs human review.** OpenCode v2 and `opencode run` agents get no
