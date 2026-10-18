@@ -36,7 +36,7 @@ meridian.toml
     v2-format.json · .staging/<unique>/
     <spawn-id>/
       state.json                    — authoritative spawn row (schema v3)
-      starting-prompt.md · prompt.md · report.md · heartbeat
+      starting-prompt.md · prompt.md · report.md · launch.lock
       stderr.log · params.json · tokens.json
       pi-lifecycle.json · runner-lifecycle.jsonl · process_scopes.json
       attempt-N/                    — legacy retry evidence, read-only
@@ -72,8 +72,7 @@ See `docs/configuration.md` in meridian-cli for context-path resolution.
 - [Attempt facts and delivery](../attempt-facts-and-delivery.md) — emit path, per-harness one-turn folds, and the Pi lifecycle sidecar
 - [Portable history](portable-history.md) — transcript identity, dirty-source projection, verified ZIP retention, and inert restore
 - [Durability and locking](durability-and-locking.md) — atomic publication, lock semantics, and lock order
-- [Reconciliation](reconciliation.md) — read-time projections, explicit repair, and liveness checks (`main`)
-- [Derived status](derived-status.md) — status from the runner-held `launch.lock`: `read_derived`, stored vs derived, the one dead-launch finalize path (identity-v2 PR 3, awaiting merge)
+- [Derived status](derived-status.md) — status from the runner-held `launch.lock`: `read_derived`, stored vs derived, the one dead-launch finalize path, the reaper's cleanup claims (identity-v2 PR 3)
 - [Project identity](project-identity.md) — committed and ad-hoc tiers, `origin.json`, ad-hoc retention
 - [State roots and work items](roots-and-work-items.md) — work-item store and project/runtime root resolution
 

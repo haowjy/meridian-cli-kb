@@ -62,5 +62,5 @@ See `lib/platform/locking.py` for implementation details.
 
 - [State system overview](overview.md) — state roots and subsystem map
 - [Spawn state](spawn-state.md) — mutation and deletion seams using these primitives
-- [Reconciliation](reconciliation.md) — repair operations coordinated by spawn locks
+- [Derived status](derived-status.md) — dead-launch outcomes written under the runner's `launch.lock`
 - [State decisions](../../decisions/state.md) — rationale for locking and write policies

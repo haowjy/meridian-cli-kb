@@ -28,8 +28,8 @@ row plus the lock:
 
 A runner that dies without writing its outcome is `crashed` even if it left
 `report.md` or a `runner_exit(succeeded)` record. **A report counts only through
-an outcome the lock holder wrote.** Main finalized such a runner as `succeeded`;
-that rule is gone on purpose (see the [lessons](../../lessons/state-design-lessons.md#a-deleted-rule-survives-in-other-writers-and-in-fixtures)).
+an outcome the lock holder wrote.** Before PR 3 such a runner was finalized
+`succeeded`; that rule is gone on purpose (see the [lessons](../../lessons/state-design-lessons.md#a-deleted-rule-survives-in-other-writers-and-in-fixtures)).
 
 The derived terminal exists only in memory. Readers never write. A dead
 launch's `state.json` stays stored-active until a writer persists the outcome
@@ -132,8 +132,12 @@ Its callers:
   the claimed scopes afterwards. It runs from `meridian doctor --kill-orphans`
   and from the background repair that primary launches schedule
   (`ops/diag.schedule_background_repairs`), both only in a root process
-  (`MERIDIAN_DEPTH` absent, empty or `0`), never inside a spawn. Plain `doctor`
-  persists nothing.
+  (`_MERIDIAN_DEPTH` absent, empty or `0`), never inside a spawn. Plain `doctor`
+  persists nothing; it warns `dead_spawns_unfinalized` instead. A primary
+  `--continue` skips the background orphan pass: its own continue sweep takes
+  the source's lock, and a repair holding that lock made the continue refuse.
+  If a `doctor` or another continue does hold a dead source's lock, the refusal
+  says the lock is "held by a repair or another continue".
 - **Cancel convergence**, `SpawnApplicationService._force_cancel_convergence`,
   with origin `cancel`.
 
@@ -145,15 +149,37 @@ The reaper's cleanup of an already-terminal row also goes through the claim
 (`Settled` → clean up under the handle). Cleanup is not finalization, so a
 lockless terminal row is cleaned once `legacy_runner_alive` is false.
 
+### The reaper's cleanup claims
+
+Process cleanup is slow and can fail, so the reaper records its targets before
+it writes the outcome. Its `before_finalize` callback snapshots the row's
+unreleased `spawn_owned` scopes into `spawns/<id>/reaper_cleanup_claim.json`
+(under the spawn lock). When a row has no `process_scopes.json`, it adds fallback
+targets: a managed primary's backend and TUI PIDs from `primary_meta.json`, or
+the recorded `worker_pid`. After the outcome is written, it terminates each
+claimed scope (`terminate_scope_sync`, 5 s grace), marks it released, and keeps
+only the targets that raised for a later pass. A crash between the outcome and
+the cleanup therefore leaves a durable claim, which is why
+`iter_repair_candidates` also yields terminal rows that still have one.
+
+`locks/reaper-cleanup/<id>.lock` stops two reapers signalling the same scopes.
+A row whose terminal origin is not `reconciler`, such as a runner's own outcome,
+has its claim cleared without any signal.
+
+The fallback targets predate PR 3 and still signal a target whose birth time is
+unknown, unlike the continue sweep, which never signals an unknown birth. PR 4
+removes the claims and the cleanup lock; whether it also drops the fallbacks is
+not yet decided.
+
 ## Lockless rows from older builds
 
-Rows written by builds before PR 2 have no `launch.lock`. They keep main's
-rules:
+Rows written by builds before PR 2 have no `launch.lock`. They keep the
+pre-PR-3 rules:
 
 - readers judge them with `legacy_runner_alive`;
 - the reaper and `doctor` **never finalize** them; the old build's own reaper
   still does;
-- explicit `spawn cancel` keeps main's report/cancel lattice for them.
+- explicit `spawn cancel` keeps the pre-PR-3 report/cancel lattice for them.
 
 `legacy_runner_alive`, its 15 s grace, and the archive exclusions for
 `heartbeat`, `finalize-evidence.json` and `launch-boundary.jsonl` are removed
@@ -161,8 +187,8 @@ together once lockless rows are gone.
 
 ## Quarantine no longer blocks every resume
 
-`live_observer_for_chat` refused to resume any chat if any spawn row was
-quarantined. A single row this build can't load, such as a v4 row from a newer
+Before PR 3, `live_observer_for_chat` refused to resume any chat if any spawn
+row was quarantined. A single row this build can't load, such as a v4 row from a newer
 build, therefore blocked `--continue` everywhere. Now each quarantined row is
 read leniently for its top-level `current_chat_id`, under `shared_hold`:
 
@@ -193,19 +219,21 @@ reintroduces a false "dead" or false "running".
 The 30 s slack remains in cancel's signal targeting until PR 4 rewrites cancel
 (owner: "readers only").
 
-## Behaviour that changed
+## Behaviour that changed in PR 3
 
 - A runner SIGKILLed after `record_runner_exit(succeeded)` but before its
-  outcome shows `failed`/`crashed` (main: `succeeded`).
+  outcome shows `failed`/`crashed` (before: `succeeded`).
 - A managed primary whose launcher is SIGKILLed or OOM-killed shows
-  `failed`/`crashed` (main: `cancelled`, exit 130,
+  `failed`/`crashed` (before: `cancelled`, exit 130,
   `session_ended_without_finalize`). SIGTERM and SIGHUP still finalize
   `cancelled`.
 - Cancelling a dead spawn that left a report but no outcome gives `cancelled`
-  (main: `succeeded`).
+  (before: `succeeded`).
 
 The owner accepted all three as the design's report-through-outcome rule
-applied early.
+applied early. Separately, `spawn cancel-all` now selects every stored-active
+row (`queued`, `running`, `finalizing`), so it also cancels and persists dead,
+unfinalized and `queued` spawns.
 
 ## Not yet true
 
@@ -232,7 +260,6 @@ churns once, in PR 4.
 
 ## Related Pages
 
-- [Reconciliation](reconciliation.md): main's reaper, which this replaces
 - [Spawn state](spawn-state.md): the stored row and its writers
 - [Spawn lifecycle](../../concepts/spawn-lifecycle.md)
 - [Process scope](../process-scope.md): the continue sweep that first used the lock
