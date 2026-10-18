@@ -1,10 +1,9 @@
 # Derived Spawn Status
 
-> **Build status:** identity-v2 PR 3, issue #663, built on branch
-> `feat/read-derived` and awaiting the owner's merge approval. Until it merges,
-> `main` still guesses liveness as [reconciliation](reconciliation.md) describes.
-> PR 4 then removes stored status itself (see [what PR 4 changes](#what-pr-4-changes)).
-> Decision and rationale: [D-spawn-identity-v2, PR 3](../../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize).
+> identity-v2 PR 3 (#672, issue #663, v0.10.24). This is how `main` decides
+> spawn status. PR 4 removes stored status itself (see
+> [what PR 4 changes](#what-pr-4-changes)). Decision and rationale:
+> [D-spawn-identity-v2, PR 3](../../decisions/spawn-identity.md#pr-3-as-built-read_derived-and-one-dead-launch-finalize).
 
 A spawn's status is decided by one fact: whether its runner still holds
 `spawns/<id>/launch.lock`. The runner takes that lock exclusively before the row
