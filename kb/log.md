@@ -3,6 +3,34 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-18 — Post-merge check of the idle push and notification pages against v0.10.28 (`work:kb-pass-notify-hook-events`)
+
+The pages from KB PR #1 (`c49e51f`) were checked against the shipped code
+(v0.10.28, `d230dc400`). The decision records matched the code; the fixes are
+wording left from the branch rounds and older errors on the same pages.
+
+- [idle-adapters](architecture/idle-adapters.md): the permission-prompt
+  fragility row no longer reads as if #684 shipped.
+- [idle-notifications](decisions/idle-notifications.md): "as on main" and
+  "#673 ships" rewritten as before/after v0.10.27; OpenCode `/compact`, not
+  `/summarize`; two structural-debt rows now match their FUTURE files.
+- [idle-notify-channels](decisions/idle-notify-channels.md): `config show`
+  hook summary as shipped; CLI and skill released together (v0.10.28,
+  meridian-base v0.11.7); password-file mode check.
+- [hooks-and-plugins](concepts/hooks-and-plugins.md): `spawn.start` and
+  `work.start` are never dispatched (not aliases), so git-autosync's
+  `spawn.start` default never fires; `priority` runs higher first within a
+  source; `when.status` values; the actual plugin API surface; autosync
+  artifacts under `<runtime_root>/autosync/<hash>/`; builtins take
+  `project_root` from `HookContext`.
+- `codebase/guide.md`, `codebase/vocabulary.md`: the plugin API carries
+  notification types, not delivery.
+- Superseded compaction rows marked in [decisions.md](decisions.md); the
+  `idle-opencode-v2` index rows mark its compaction confirmation as history.
+- `AGENTS.md`: KB PRs merge without asking the owner, and a merged KB PR gets
+  one `@kb-lead` pass against the shipped code.
+
+---
 ## 2026-10-18 — Idle push and notifications merged: PR #685 (#673, v0.10.27) and PR #686 (#670, #666, v0.10.28) (`work:notify-hook-events`)
 
 Status lines in `decisions.md`, D-idle-push-in-flight, D-idle-compaction-removed

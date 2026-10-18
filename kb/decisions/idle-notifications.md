@@ -9,7 +9,7 @@ two things:
 - a phone push shortly after the session goes idle;
 - a warning before the cache goes cold.
 
-Until 2026-10-17 a third stage compacted the session while the cache was still
+Until v0.10.27 a third stage compacted the session while the cache was still
 warm, so the eventual return was cheap. It was deleted
 ([D-idle-compaction-removed](#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions)):
 old context is recovered by session mining, and each harness compacts on its
@@ -62,7 +62,7 @@ each harness actually schedules today is in
 - **Harness isolation.** `launch/` and `lib/idle` contain no `HarnessId`
   branches. Harness modules depend only on `lib/harness/idle_types.py`, never
   on `lib/idle` ([D-idle-leaf-packages](idle-notify-channels.md#d-idle-leaf-packages--libnotify-and-libidle-are-leaf-services)).
-  The branch deleted a Pi-specific role branch instead of adding a new one
+  The original idle change deleted a Pi-specific role branch instead of adding a new one
   ([D-session-role](#d-session-role--one-meridian_session_role-at-the-bind-seam)).
 - **Launcher fault containment.** The idle task is cancelled before the
   connection stops and is awaited under `suppress`, so a broken sensor cannot
@@ -100,8 +100,8 @@ interpreting the provider name.
 policy lived in the adapters, four copies of the guard list and the
 at-most-once rule would drift, and a per-tmux-session env override would need
 four readers. With one decision point, config precedence lives in one place,
-and the hard cases (late timers, reloads, a compaction's own turn, a user
-returning mid-compaction) are solved once.
+and the hard cases (late timers, reloads, and, while Meridian compacted, a
+compaction's own turn or a user returning mid-compaction) are solved once.
 
 **Rejected:** idle policy inside each adapter.
 
@@ -170,7 +170,8 @@ same close transform as `meridian idle return` (`_close_open_stretch`:
 expected-compaction flag, which no longer exist). Claude and Pi then find nothing open to
 re-adopt, and the first finished turn opens a fresh stretch.
 
-- No new state, guard, or arm/fire branch. The store schema is unchanged.
+- No new state, guard, or arm/fire branch; PR #578 left the store schema
+  as it was.
 - It never creates a row. A fresh launch also has a session id before exec
   (Claude mints one), and finds no row, so the call does nothing. An
   already-closed row is left untouched.
@@ -548,15 +549,15 @@ tasks yet and keep the ordinary push (#669). `session_crons` are not forwarded.
 shell exits at once), so the push fires normally. Agents pair `--bg` with
 `spawn wait`, which is visible.
 
-**A subagent waiting on a permission prompt holds the push, as on main.** A
+**A subagent waiting on a permission prompt holds the push, as before v0.10.27.** A
 background subagent that stops on a permission prompt is still a running
 `agent`, so the push stays held for as long as the prompt waits. A live probe
 on Claude Code 2.1.302 showed no push for the whole 20-second prompt; the
 push came only after approval and the subagent's completion. This is not a
-regression. On main the Claude mod skipped the whole arm while any subagent
+regression. Before this change the Claude mod skipped the whole arm while any subagent
 ran (`register.ts` `armTask`), so main sent no push either. The first
 correctness review called it a regression, and a fix was built on that
-premise before anyone read main's mod.
+premise before anyone read the mod on `main`.
 
 The fix was built twice and withdrawn both times:
 
@@ -586,7 +587,8 @@ rebuilding "the human is needed" and "the human answered" by correlating
 host-internal events it does not own. Claude already computes the first
 fact: `classic.Notification` with `notification_type=permission_prompt` fires
 about 6 seconds after a prompt that is still unanswered. The tracking was
-removed, and #673 ships main's behavior. The follow-up is a stateless ping
+removed before merge, so PR #685 kept the old behavior for this case. The follow-up,
+still open, is a stateless ping
 on that Notification, one per still-waiting prompt, as its own hook event on
 top of the notification events
 ([#684](https://github.com/haowjy/meridian-cli/issues/684)). Two other fixes
@@ -601,7 +603,7 @@ the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
 
 ## D-idle-compaction-removed — Meridian no longer compacts idle sessions
 
-**Status:** ships with
+**Status:** shipped with
 [D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)
 (GitHub #673, PR #685, v0.10.27); no issue of its own. The
 user's words ("NOT do auto compaction") and approval of the deletion after the
@@ -630,7 +632,7 @@ compaction still placed a timer and spawned a CLI call per stretch only to be
 rejected by its guard (thermo review, 2026-10-17).
 
 **Kept:** OpenCode 1.x still classifies its own compaction messages so a native
-`/summarize` or autocompaction is not mistaken for a user return. Sensors
+`/compact` or autocompaction is not mistaken for a user return. Sensors
 expose `busy()`; the sidecar consults it for external-event sensors (Codex) to
 skip a push or warning while the TUI is mid-turn.
 
@@ -648,10 +650,10 @@ open across the upgrade starts fresh and may lose its pending push or warning
 | Core never returns the stages still pending, so the idle protocol is written four times (sidecar, Claude mod, Pi extension, CLI). Fix: `arm` *and* `status` return them. | GitHub #549 (widened by F1) |
 | Policy assembly is resolved in `IdleService`; remaining work is grouping the loose idle capabilities and giving sidecar reporter/task lifecycle one owner. | GitHub #554 (residual grouping and sidecar ownership) |
 | State machine lift to `machine.py`; launcher-owned sensor lifecycle; split of `IdleSensor`; dedicated Codex identity pin; arm-drift diagnostic | `src/meridian/lib/idle/.context/FUTURE` |
-| `effective()` re-derives the option catalog by hand; idle/notify config models belong in their own modules | `src/meridian/lib/config/.context/FUTURE` |
+| `IdleConfig` and `NotifyConfig` could move into their own modules if either grows | `src/meridian/lib/config/.context/FUTURE` |
 | `== "idle"` literals switch the JSON error envelope in `main.py` | `src/meridian/cli/.context/FUTURE` |
 | Claude-only `claude_runtime` touches six projections; two tmux capture helpers; V2 sensor module split; `events()` drain split | `src/meridian/lib/harness/.context/FUTURE` |
-| Channels don't know whether they serve push or email | `src/meridian/lib/notify/.context/FUTURE` |
+| The built-in `notify` hook reloads `[notify]` at every send while idle builds its notices from its own config snapshot; give emission one snapshot | `src/meridian/lib/notify/.context/FUTURE` |
 
 ## Deferred adjacent issues
 

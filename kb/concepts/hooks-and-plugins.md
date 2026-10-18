@@ -34,10 +34,10 @@ notify, though, the notice is a hook event, and hooks deliver it (see
 
 ```mermaid
 graph TD
-    SPAWN_CREATED["spawn.created\nSpawn row written"] --> SPAWN_RUNNING["spawn.running\n(also: spawn.start)\nHarness process started"]
+    SPAWN_CREATED["spawn.created\nSpawn row written"] --> SPAWN_RUNNING["spawn.running\nHarness process started"]
     SPAWN_RUNNING --> SPAWN_FINALIZED["spawn.finalized\nSpawn reached terminal state"]
 
-    WORK_START["work.start\n(also: work.started)\nWork item opened"]
+    WORK_START["work.started\nWork item opened"]
     WORK_DONE["work.done\nWork item marked done"]
 
     RESPONDED["session.responded\nIdle push: agent waiting on you"]
@@ -49,8 +49,11 @@ The three notification events are observe-class: each carries a
 `notification` payload, and the routes on that event deliver it
 ([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 
-The aliases (`spawn.start`, `work.started`) exist for backward compatibility and
-are treated identically to their canonical forms.
+`spawn.start` and `work.start` are also accepted event names, but nothing
+dispatches them: hooks are looked up by exact event name, spawns fire
+`spawn.running` and work items fire `work.started`. A row on `spawn.start` or
+`work.start` never runs. `git-autosync` lists `spawn.start` among its default
+events, so its start-of-spawn sync never runs either.
 
 ---
 
@@ -83,10 +86,10 @@ Key configuration fields:
 |-------|---------|
 | `event` | Which event to fire on; omit for built-in defaults |
 | `enabled` | Default `true` |
-| `priority` | Lower runs first |
+| `priority` | Within one source, higher runs first; sources run `default`, `user`, `project`, `local` |
 | `failure_policy` | `"fail"` \| `"warn"` \| `"ignore"` |
 | `interval` | Throttle: `"30s"`, `"5m"`, etc. |
-| `when.status` | Filter by spawn outcome (e.g., only fire on `succeeded`) |
+| `when.status` | Filter by spawn outcome: `success`, `failure`, `cancelled`, `timeout`, `skipped` |
 | `when.agent` | Filter by agent profile name |
 
 ### Config Layering
@@ -184,11 +187,14 @@ This is an enforced discipline, not just a convention. The reasoning:
 > boundary.
 
 The plugin API surface includes:
-- State helpers: read spawn records, list work items, resolve paths
-- Git helpers: run git commands with proper error handling
-- File locking: coordinate concurrent access via the Meridian lock primitives
-- Path utilities: `generate_repo_slug()`, context root resolution
+- Hook types: `Hook`, `HookContext`, `HookResult`, `HookEventName`,
+  `HookOutcome`, `FailurePolicy`
 - Notification types: `Notification` and `NOTIFICATION_EVENTS`
+- State paths: `get_user_home()`, `get_project_home()`
+- Submodules, imported directly: `plugin_api.git` (`generate_repo_slug()`,
+  `normalize_repo_url()`, `resolve_clone_path()`), `plugin_api.fs`
+  (`file_lock()`), `plugin_api.config` (`get_user_config()`,
+  `get_git_overrides()`)
 
 ---
 
@@ -243,15 +249,16 @@ with local Meridian state (KB, work directories, etc.). It works on any
 configured sync root — KB, work, strategy, or other contexts — and does not
 require an active work item.
 
-**Default events**: `spawn.start`, `spawn.finalized`, `work.start`, `work.done`
-— all four fire by default when no `event` is specified. It skips when there
+**Default events**: `spawn.start`, `spawn.finalized`, `work.started`, `work.done`
+when no `event` is specified. Nothing dispatches `spawn.start` (see
+[Event Taxonomy](#event-taxonomy)), so in practice it syncs on the other three. It skips when there
 is no runtime root.
 
 ### What It Does
 
 On each event, git-autosync:
 
-1. Ensure `.git/info/exclude` contains default ignores (`.git`, `**/.git`, `.meridian/autosync/`)
+1. Ensure `.git/info/exclude` contains default ignores (`.git`, `**/.git`)
 2. Abort any in-progress merge or rebase (when `conflict_policy = "abort"`, the default)
 3. `git add -A` — stage all changes, including deletions and renames
 4. Apply exclude patterns (`git reset -- <excluded>`)
@@ -280,7 +287,7 @@ for the rationale behind that choice.
 When `git merge origin/<branch>` fails with a conflict:
 
 1. **`git merge --abort`** — restores the pre-merge state. Local changes stay as committed HEAD (local-wins). No content is lost.
-2. **Write conflict metadata** to `<sync-root>/.meridian/autosync/conflicts/<id>.json` — conflict ID, affected paths, local/remote SHAs, remote branch, trigger event. The conflict JSON is the durable signal; per-conflict rewrites of user-owned AGENTS.md were removed because no agent ingestion contract existed to consume them.
+2. **Write conflict metadata** to `conflicts/<id>.json` in the sync root's autosync state directory (below) — conflict ID, affected paths, local/remote SHAs, remote branch, trigger event. The conflict JSON is the durable signal; per-conflict rewrites of user-owned AGENTS.md were removed because no agent ingestion contract existed to consume them.
 3. **Subsequent sync cycles retry** the merge automatically. If new changes make it clean, everything pushes. If still conflicting, the existing record is reused (no re-recording).
 
 The clone is never wedged. After a conflict: clean state with local commits at HEAD, pending merge to resolve. Other machines are unaffected.
@@ -297,15 +304,16 @@ A dedicated module `hooks/builtin/autosync_store.py` owns all autosync artifact 
 - Ops modules know *which* directories are sync roots; autosync_store knows *what* artifacts live inside them
 - All sync-root mutations run inside `transaction(sync_root)`, which holds the canonical lock and yields a mutation capability
 
-Artifact locations (all local-only, excluded from staging):
-- `<sync-root>/.meridian/autosync/conflicts/<id>.json` — per-conflict metadata
-- `<sync-root>/.meridian/autosync/state.json` — last sync outcome and timestamp
+Artifact locations (project runtime state, outside the sync root, keyed by a
+hash of the sync root's resolved path):
+- `<runtime_root>/autosync/<hash>/conflicts/<id>.json` — per-conflict metadata
+- `<runtime_root>/autosync/<hash>/state.json` — last sync outcome and timestamp
 
 ### Conflict CLI
 
 - `meridian context status` — terse per-context status; one line per conflict: ID, path, type
 - `meridian sync conflict show <id>` — conflict detail: SHAs, remote branch, affected paths, merge resolution commands
-- `meridian sync conflict resolve <id>` — mark resolved, clean up metadata and AGENTS.md notice
+- `meridian sync conflict resolve <id>` — mark resolved and clean up metadata
 
 ### Clone Management
 
@@ -316,8 +324,8 @@ than blocking the agent session indefinitely.
 
 ### Session-End Coverage Gap
 
-Meridian's builtin hooks fire on meridian lifecycle events: `spawn.start`,
-`spawn.finalized`, `work.start`, `work.done`. These cover agent activity
+Meridian's builtin hooks fire on meridian lifecycle events: `spawn.finalized`,
+`work.started`, `work.done` (and `spawn.start`, which never fires). These cover agent activity
 coordinated through meridian, but miss commits created after the last such
 event — most commonly knowledge capture by an Agent-tool subagent as a
 session's final act. Those commits sit stranded locally until the next
@@ -418,7 +426,7 @@ Hook processes run inside meridian spawn processes, which inherit the spawning s
 | CLI commands run by a user | No (default) | User's session env is the right anchor |
 | `meridian hooks list/check/run` | Yes (#178) | They inspect and run the hooks of the checkout you are in; inside a spawn they can resolve a different project than `meridian notify`, which follows the inherited env |
 | Shell hooks and git hooks invoked from inside a spawn | Yes | Hooks must operate on CWD, not on the parent spawn's project |
-| Built-in hooks (git-autosync, etc.) | Yes | Same — invoked as side effects of spawn lifecycle events |
+| Built-in hooks (git-autosync, etc.) | No | They do not resolve a root; they take `project_root` from the `HookContext` the dispatcher builds |
 
 **Pattern:** Pass `ignore_env=True` whenever the caller is a subprocess that inherits a session env but needs CWD-relative resolution.
 
