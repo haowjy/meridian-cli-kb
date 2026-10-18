@@ -15,7 +15,8 @@ record retains the rationale, rejected alternatives, and decision history in
 | In-harness adapters | `src/meridian/claude_runtime/meridian-idle/`, `src/meridian/pi_runtime/extensions/meridian-idle/` |
 | Launch hosting | `src/meridian/lib/launch/process/primary_attach.py` |
 | Layering guard | `tests/unit/harness/test_layering.py` |
-| Agent notification rule | meridian-base `skills/work-artifacts/SKILL.md` |
+| Shell grammar shared with the CLI | `src/meridian/lib/cli_args.py` (`TOP_LEVEL_VALUE_FLAGS`, also read by `cli/bootstrap.py`) |
+| Agent notification rule | meridian-base `skills/notify/` |
 
 ## Per-harness coverage
 
@@ -29,7 +30,7 @@ and scratch state.
 
 | Harness | Arms on | TTL source | Stages | Last verified |
 |---|---|---|---|---|
-| Claude | mod: main-loop `turn.complete`, with the background tasks from the `classic.Stop` just before it | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn; the push is held or delayed by running work ([below](#running-work-and-the-push)) | TTL replay on installed 0.9.8, 2026-10-14: `ttl=3600` for a session that had changed directory. The running-work hold is covered by the mod's `register.test.ts` and core's `tests/unit/idle/test_wake.py`; no live probe is recorded here. |
+| Claude | mod: main-loop `turn.complete`, with the background tasks from the `classic.Stop` just before it | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn; the push is held or delayed by running work ([below](#running-work-and-the-push)) | TTL replay on installed 0.9.8, 2026-10-14: `ttl=3600` for a session that had changed directory. Running-work hold live on Claude Code 2.1.302 (`claude-haiku-4-5`), 2026-10-18: background `spawn wait` held then pushed after the wake; a `spawn list` loop only delayed; a subagent on a permission prompt held (`work:notify-hook-events`). |
 | Pi | extension: `agent_end`, once `ctx.isIdle()` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with the warning scheduled; `xai` push only. |
 | Codex | `notify` callback on turn completion, pinned to the recorded thread | `[harness.codex.idle] ttl_seconds` default 1800, estimated | push, warn | Live on installed 0.9.8: the sidecar armed with the 1800 s schedule and a real turn sent the push (`work:idle-ttl-detection` D8; probes `spawn:p7759`, `spawn:p7767`). Reopen close confirmed live (`spawn:p7893`). |
 | OpenCode 2.x | V2 sensor: `session.execution.{succeeded,failed,interrupted}` | provider read from `GET /api/session/{id}` at turn end; `openai` → 1800 est., everything else unknown | `openai`: push, warn. Others: push only | Released in v0.9.9 (PR #573); the stream fix shipped in v0.10.5. Live with opencode 2.0.28: `openai/gpt-6-luna` → push and warn with 1800 s offsets; other providers → push only; steer and queued prompts close the stretch. Released ≤0.9.8 arms nothing on 2.x. |
@@ -133,18 +134,31 @@ shape. `lib/idle/wake.py` reduces the list to one `ExpectedWake`:
 
 | Running work | Reading | Effect in `timeline.schedule` |
 |---|---|---|
-| any `agent` | certain wake | no push this anchor; the response stays owed (`push_owed_since_ms`), so the wake turn's push gets the long-turn delay |
-| a `shell` running `meridian … spawn …` | certain wake | same as an agent |
-| a `shell` running `meridian … spawn wait` | certain wake, plus a known wake time: its `--yield-after-secs`, else the harness's wait-yield default | the warning is dropped if that time lands before the cache expires |
-| any other `shell` or `other` | maybe | the push waits at least `quick_turn_push_seconds` |
+| any `agent` | certain wake | no push this anchor; the response stays owed (`push_owed_since_ms`) until a push is sent, so the wake turn's push gets the long-turn delay |
+| a `shell` whose last segment is foreground `meridian spawn` creation | certain wake | same as an agent |
+| a `shell` whose last segment is `meridian spawn wait` | certain wake, plus a known wake time: `--timeout` (minutes), else `--yield-after-secs`, else the harness's wait-yield default | the warning is dropped if that time lands before the cache expires |
+| any other `shell` (including `spawn --bg`, `spawn list`, loops, `spawn wait … && more`) or `other` | maybe | the push waits at least `quick_turn_push_seconds` |
 | `watcher` | ignored | none |
 
-`wake.py` parses shell lines with `shlex`, splits on shell punctuation, finds
-a `meridian` token through any wrapper, and skips Meridian's global options
-(`-C`, `--directory`, `--config`, `--format`, `--mode` take a value) before
-looking for `spawn`. Meridian's CLI grammar is parsed only here; an adapter
-must not classify spawn commands itself. The arm reply carries `push_held`
-with the reason, which the Claude mod writes to its log.
+`wake.py` lexes the line the way the shell would before handing it to
+`shlex`. Newlines, `;`, `&&`, `||`, `|`, `&` and parentheses end a segment.
+Redirections stay with their command. `#` comments are blanked, and a
+backslash-newline joins the words around it. Only the **last** segment
+decides, and a loop keyword in any segment makes the line *maybe*. The
+command word is `meridian` (any path, after `VAR=value` assignments) or a
+later `meridian` token behind `uv run` / `uvx`. Meridian's global options are
+skipped using `lib/cli_args.py`. Spawn creation is recognized by an option
+right after `spawn`, so a subcommand added later reads as *maybe*, never as
+creation. Meridian's CLI grammar is parsed only here; an adapter must not
+classify spawn commands itself. The rule and why it is shaped this way are in
+[D-idle-push-in-flight](../decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not).
+The arm reply carries `push_held` with the reason, which the Claude mod
+writes to its log.
+
+The Claude mod forwards at most 16 tasks and 512 characters per command, so a
+large task list cannot hit the OS argument limit on `idle arm`. A cut command
+ends in `\n;:`, which makes it read *maybe*, so a `--bg` lost past the cut
+cannot make a detached spawn look like a certain wake.
 
 ## Close and reopen
 
@@ -181,6 +195,15 @@ These cases fail open or fail silently:
   and every turn gets the ordinary push while subagents or spawns run. If a
   task `type` is renamed, the mod maps it to `other` and the push is delayed
   rather than held. Both fail silently back to the pre-hold behaviour.
+- **A Claude subagent waiting on a permission prompt holds the push** for as
+  long as the prompt waits, because it is still a running agent. The human
+  is needed and gets no page. Before #673 the mod skipped the whole arm while
+  any subagent ran, so no push came then either. The fix is a stateless ping on Claude's own
+  `permission_prompt` Notification (#684), not prompt tracking in the mod.
+- **The Claude mod fires a due push without asking whether the session is
+  busy.** When finishing background work starts a new main-loop turn, the
+  previous anchor's push timer can fire mid-turn. The launcher sidecar
+  checks `busy()`; the mod does not (`lib/idle/.context/FUTURE`).
 - **Return-signal renames** (Claude `origin.kind`, Pi `input.source`, Codex
   cumulative `input-messages`, OpenCode 2.x `session.inbox.*`). Stretches stop
   closing, so notifications stop after the first stretch. This fails silently.

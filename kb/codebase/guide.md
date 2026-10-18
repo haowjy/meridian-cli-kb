@@ -124,8 +124,11 @@ workflows and catch what isolated tests miss. Run with `uv run meridian`.
 
 **Place tests by behavioral boundary.** Unit owns pure functional cores;
 integration crosses real seams; contract owns payload/retry shapes; platform
-owns OS behavior. Run the automated suite with `uv run pytest-llm`. See
-[testing decisions](../decisions/testing.md).
+owns OS behavior. `uv run pytest-llm` is the quick loop: default test paths
+only, stopping at the first failure. `uv run pytest tests/` is the full suite;
+run it before calling a branch green
+([lesson](../lessons/verification-and-review-discipline.md#pytest-llm-is-not-the-full-suite)).
+See [testing decisions](../decisions/testing.md).
 
 **POSIX-first platform stance:** Linux/macOS are supported; native Windows is not planned. Existing `os.name` / `sys.platform` branches in `lib/platform/` are legacy, untested, best-effort — do not expand them. See root `AGENTS.md` "POSIX-first" for the full policy.
 

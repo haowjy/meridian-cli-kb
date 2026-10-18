@@ -415,29 +415,102 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
 
 ## D-idle-push-in-flight — The push waits for work that will wake the session; the warning does not
 
-**Decision (Claude primaries first):** The waiting push and the cache warning are
+**Status:** GitHub #673, branch `feat/idle-push-in-flight` (stacked under the
+notification branch, which carries
+[D-notify-hook-events](idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
+Claude primaries only; other harnesses are #669. The first cut and its
+thermo-nuclear review (a strict maintainability review) were made in a cloud session whose transcript is not readable from
+here; that the user approved them is session-record (the session's own KB
+entry), not independently confirmed.
+
+**Decision:** The waiting push and the cache warning are
 two independent notices with one shared stretch. When a main-loop turn ends,
 the adapter forwards the work still running as facts in the host's own terms,
 mapped to a kind (`agent`, `shell` with its command line, `watcher`, `other`).
 Core alone reads them (`lib/idle/wake.py`), reduces them to one expected wake,
 and `schedule()` places both stages from it:
 
-- **Certain wake → no push this anchor.** Subagents and workflows (`agent`) and
-  shells running `meridian spawn …` end and wake the session; that turn arms
-  again. The response stays owed: the stretch keeps `push_owed_since_ms` (set
-  when the user last spoke), so the push on the wake turn gets the 60-second
-  long-turn delay rather than the 10-minute quick-turn one.
+- **Certain wake → no push this anchor.** Subagents and workflows (`agent`) end
+  and wake the session; so does a background shell whose command is certain
+  to end in a Meridian spawn (the rule is below). That turn arms again. The
+  response stays owed: the stretch keeps `push_owed_since_ms` (set when the
+  user last spoke), so the push on the wake turn gets the 60-second long-turn
+  delay rather than the 10-minute quick-turn one.
 - **Known wake time → the warning only if the cache goes cold first.** A
-  `meridian spawn wait` yields by its `--yield-after-secs`, else the harness's
-  wait-yield default (3000 s for Claude). If that lands before the cache
-  expires, the wake keeps the cache warm and the warning is dropped; a longer
-  yield keeps it.
+  `meridian spawn wait` returns by a known time: its `--timeout` (minutes) when
+  one is given, since an explicit timeout turns yielding off in the real CLI;
+  else its `--yield-after-secs`; else the harness's wait-yield default (3000 s
+  for Claude). If that lands before the cache expires, the wake keeps the
+  cache warm and the warning is dropped; a later wake keeps it.
 - **Maybe → the push is delayed, not held.** Any other background task may wake
   the session or run for good (a dev server), so the push waits at least
   `quick_turn_push_seconds` (600 s).
 - **Watchers are ignored**: they may stand forever and wake only on events.
 
 Otherwise the warning arms on every turn, held push or not.
+
+**Which shells are certain.** A shell is a certain wake only when the **last
+command segment** of its line runs Meridian's `spawn` and no segment starts
+with a loop keyword (`while`, `until`, `for`, `select`). The command word must
+be `meridian` (any path, after any `VAR=value` assignments), or a later
+`meridian` token behind `uv run` / `uvx`. Meridian's global options are
+skipped using `TOP_LEVEL_VALUE_FLAGS` in `lib/cli_args.py`, the one table
+shared with `cli/bootstrap.py`. Then:
+
+- `spawn wait` is certain. A `--timeout` or `--yield-after-secs` with an
+  unreadable value makes the shell *maybe*.
+- spawn creation is certain only in the foreground: `spawn` followed by an
+  option (`spawn -a coder -p …`) with no `--bg` / `--background`.
+- `spawn` followed by any other word (`list`, `show`, `cancel`, a subcommand
+  added later) is a management command and reads as *maybe*.
+
+Everything before the last segment is setup: `cd x && meridian spawn wait p1`
+is certain, while `meridian spawn wait p1 && npm run dev` and
+`while true; do meridian spawn list; sleep 60; done` are *maybe*. The shell's
+own lexing rules decide where segments end. `;`, `&&`, `||`, `|`, `&`,
+parentheses and unquoted newlines end a segment. Redirections (`2>&1`,
+`>/dev/null`, `> out`) stay with their command. A `#` comment is blanked to
+the end of its line. A backslash-newline is deleted, joining the words around
+it, as the shell does. A line `shlex` cannot read (unbalanced quotes, stray
+punctuation) is *maybe*.
+
+The Claude mod forwards at most 16 tasks and 512 characters per command. A
+cut command gets `\n;:` appended, so its last segment is the no-op `:` and it
+reads *maybe* even when an option such as `--bg` fell past the cut. Claude
+itself caps a shell command at 1000 characters. An unknown task type maps to
+`other`.
+
+**Why this rule.** A correctness review of the first build found that "any
+`meridian … spawn` segment anywhere in the line" held the push forever for
+`while true; do meridian spawn list; …; done`, for `watch … meridian spawn
+list`, and for `meridian spawn wait p1 && npm run dev`. The push held means
+the human gets nothing for that stretch unless they come back on their own,
+so the reading has to be certain. A wrong *maybe* only delays the push. Two
+stricter or looser rules were rejected:
+
+- **Only when `meridian spawn` is the shell's only command:** too strict for
+  `cd x && meridian spawn wait`, which agents write constantly.
+- **A denylist of management subcommands plus a copy of `uv`'s option table:**
+  both drift. A new `spawn` subcommand would have read as creation and held
+  the push. Creation is recognized by its leading option instead, and behind
+  `uv run` / `uvx` any later `meridian` token followed by `spawn` counts.
+
+A later review found that a newline did not end a segment (a two-line
+command held the push) and that a redirect read as *maybe*, which would have
+brought back the page this decision exists to stop: a push while the session
+is about to resume itself. The review after that found
+that a `#` comment could hide live syntax from `shlex`. All three are in the
+rules above.
+
+**The response stays owed until a push is delivered.** `push_owed_since_ms` is
+cleared when a push is *sent* successfully (or the user returns, which resets
+it to now), not when one is scheduled. Clearing it at scheduling meant: the
+user waits ten minutes, the turn ends with `npm test` running (push scheduled
+at +600 s), `npm test` wakes the session first, and that turn's push got the
+quick-turn delay although no push had answered the user. Idle before #673
+behaved the same way (`select_push_delay`); the fix matches the field's documented meaning. The idle state file
+moved to `v: 2`. Files from older builds fail validation and read as absent,
+so a stretch open across the upgrade loses its pending push and owed time.
 
 **Why:** Before this, the Claude mod skipped the whole arm while a subagent ran
 (losing the cache warning with the push), and background shells were
@@ -474,7 +547,65 @@ tasks yet and keep the ordinary push (#669). `session_crons` are not forwarded.
 shell exits at once), so the push fires normally. Agents pair `--bg` with
 `spawn wait`, which is visible.
 
+**A subagent waiting on a permission prompt holds the push, as on main.** A
+background subagent that stops on a permission prompt is still a running
+`agent`, so the push stays held for as long as the prompt waits. A live probe
+on Claude Code 2.1.302 showed no push for the whole 20-second prompt; the
+push came only after approval and the subagent's completion. This is not a
+regression. On main the Claude mod skipped the whole arm while any subagent
+ran (`register.ts` `armTask`), so main sent no push either. The first
+correctness review called it a regression, and a fix was built on that
+premise before anyone read main's mod.
+
+The fix was built twice and withdrawn both times:
+
+1. *Release the held push when a prompt appears.* The mod forwarded
+   `classic.PermissionRequest` as `meridian idle human-needed`, and core
+   scheduled the held push. Review found that approving within
+   `push_seconds` sent a stray push mid-work while the real completion got
+   none, that a later arm re-held the released push, and that a prompt raised
+   before the main turn ended was dropped.
+2. *Track the prompt until it is answered, and treat the answer as a user
+   return.* The user's framing: answering a prompt is, in meaning, another
+   user message. A probe found that `classic.PermissionRequest` fires before
+   the prompt is shown, and that its `next(e)` resolves to `{}` at once. The
+   answer is visible only as the resolution of the `tool.call` that raised
+   it: a normal result on approve, `isError: true` on deny. No
+   `PermissionDenied` event fires. The request carries no `tool_use_id`, so
+   the mod matched request to call by agent, tool and canonical input.
+   Review then found three more failures. A user `PreToolUse` hook that
+   rewrites Bash input (the owner runs one) broke the match, so the answer
+   was never reported. An approved command is visible only when it
+   *finishes*, so a long approved command still got a push mid-work. And
+   because the answer closed the stretch, a second prompt from the same
+   agent paged nobody.
+
+Three rounds of findings on one seam shared one cause: Meridian was
+rebuilding "the human is needed" and "the human answered" by correlating
+host-internal events it does not own. Claude already computes the first
+fact: `classic.Notification` with `notification_type=permission_prompt` fires
+about 6 seconds after a prompt that is still unanswered. The tracking was
+removed, and #673 ships main's behavior. The follow-up is a stateless ping
+on that Notification, one per still-waiting prompt, as its own hook event on
+top of the notification events
+([#684](https://github.com/haowjy/meridian-cli/issues/684)). Two other fixes
+were rejected. Treating agents as *maybe* would push mid-work on every long
+subagent, while the session is about to resume itself. A hard ceiling on the hold
+would still delay the page for a waiting prompt by the length of the ceiling.
+
+**Known adjacent issue (pre-existing):** the Claude mod, unlike the launcher
+sidecar, does not ask whether the primary is busy before firing a due push.
+When finishing background work starts a new main-loop turn, a push timer from
+the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
+
 ## D-idle-compaction-removed — Meridian no longer compacts idle sessions
+
+**Status:** ships with
+[D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)
+(GitHub #673, branch `feat/idle-push-in-flight`); no issue of its own. The
+user's words ("NOT do auto compaction") and approval of the deletion after the
+thermo review are session-record: the cloud session that made the change
+wrote them into this KB, and its transcript is not readable from here.
 
 **Decision:** Idle compaction is deleted end to end: the compact stage and its
 timeline slot, the guards and break-even (`worth.py`), the claim/done states,
@@ -501,6 +632,13 @@ rejected by its guard (thermo review, 2026-10-17).
 `/summarize` or autocompaction is not mistaken for a user return. Sensors
 expose `busy()`; the sidecar consults it for external-event sensors (Codex) to
 skip a push or warning while the TUI is mid-turn.
+
+**Upgrade cost:** old `idle.compact*` keys warn as unknown and load; the
+compaction env vars are ignored silently. `meridian idle done` is gone and
+`idle fire` takes only `push` or `warn`. Idle state files written by an older
+build fail validation (`v: 2`, `extra="forbid"`) and read as absent. A stretch
+open across the upgrade starts fresh and may lose its pending push or warning
+(`docs/upgrading.md` § Idle compaction removed).
 
 ## Structural debt
 
@@ -546,9 +684,17 @@ To close the gap, the user sets up an app password and sends one test notice:
 5. Run `meridian notify "test" --json`. The report's `gmail` result should
    carry no `error`, and the message should arrive in the inbox.
 
-**The Claude running-work hold has no recorded live probe.** The
-`classic.Stop` → `idle arm --background-tasks` path is covered by the mod's
-`register.test.ts` and `tests/unit/idle/test_wake.py`.
+**The Claude running-work hold was probed live once** (Claude Code 2.1.302,
+`claude-haiku-4-5`, a fake ntfy server, `work:notify-hook-events`, 2026-10-18).
+An ordinary turn pushed once after the delay. A background `meridian spawn
+wait` held the push until the child finished, then the wake turn pushed. A
+background `while true; do meridian spawn list; sleep 30; done` only delayed
+it. A return before the push cancelled it. A background subagent on a
+permission prompt held the push for the whole prompt. The probes ran with a
+fresh `CLAUDE_CONFIG_DIR`, so they saw none of the owner's own Claude hooks
+([lesson](../lessons/harness-integration.md#a-fresh-claude-config-dir-hides-the-owners-hooks)).
+The shell grammar is covered by `tests/unit/idle/test_wake.py`, the mapping by
+the mod's `register.test.ts`.
 
 ## Related
 

@@ -3,6 +3,43 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-18 — Idle push and notification branches brought to final behavior (#673, #670, #666; `work:notify-hook-events`)
+
+The cloud session's pages described the branch at its last push. A takeover
+session split the work into two stacked branches (#673 idle, then #670/#666
+notifications) and fixed review findings in four rounds; these pages now
+describe the result.
+
+- [D-idle-push-in-flight](decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not):
+  the last-command-segment certainty rule (loops, newlines, redirections,
+  comments, line continuations, `lib/cli_args.py`), `spawn wait --timeout`,
+  the owed response until a push is delivered, the mod's 16 × 512 cap,
+  permission prompts holding the push as on main, the two withdrawn
+  prompt-tracking designs, and #684. Verification gap replaced by the live
+  probe. Status and the cloud session's user quotes marked session-record.
+- [D-idle-compaction-removed](decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions):
+  status (ships with #673; user quotes session-record) and upgrade cost.
+- [D-notify-hook-events](decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes):
+  one owner for hook-row validation, fallback keeps valid rows, channel names
+  checked at load, `RouteReport` vs `SendReport`, `HookResult.details`, the
+  all-`none` note is CLI-only, `hooks run` one-action rule, #178 kept,
+  multi-line title split, ntfy partial delivery, `--attach` dedupe.
+- [architecture/idle-adapters.md](architecture/idle-adapters.md): running-work
+  table and parser, mod caps, Claude live verification, two new fragility rows
+  (permission-prompt hold, mod mid-turn push), notify skill location.
+- [concepts/hooks-and-plugins.md](concepts/hooks-and-plugins.md): layering now
+  `default < user < project < local` (the stale "context config" layer is gone),
+  validation owner, `hooks run` one-action rule, `HookResult.details` and
+  `supported_events`, route results, the companion exception to the plugin API
+  boundary, `hooks` commands under `ignore_env`.
+- New lessons:
+  [`pytest-llm` is not the full suite](lessons/verification-and-review-discipline.md#pytest-llm-is-not-the-full-suite),
+  [check a claim about main against main's code](lessons/verification-and-review-discipline.md#check-a-claim-about-main-against-mains-code),
+  [a fresh Claude config dir hides the owner's hooks](lessons/harness-integration.md#a-fresh-claude-config-dir-hides-the-owners-hooks).
+  `codebase/guide.md` no longer calls `pytest-llm` the automated suite.
+- Index rows updated in [decisions.md](decisions.md) and [index.md](index.md).
+
+---
 ## 2026-10-17 — Notifications as hook events, #670 (`claude/notify-bash-events-gguu11`)
 
 - New [D-notify-hook-events](decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)

@@ -397,6 +397,30 @@ its upgrade note needs to tell users to restart running interactive sessions.
 
 ---
 
+## A Fresh Claude Config Dir Hides the Owner's Hooks
+
+A Claude Code probe isolates itself with a fresh `CLAUDE_CONFIG_DIR` and
+copied credentials, so the owner's real `~/.claude/settings.json` is neither
+read nor changed. That isolation also removes every user-level hook the owner
+runs. A mod that works in the probe can fail in the owner's session.
+
+The idle push branch (`work:notify-hook-events`) matched a Claude
+`classic.PermissionRequest` to the `tool.call` that raised it by agent, tool
+and canonical input, because the request carries no `tool_use_id`. Every
+probe passed. The owner runs a `PreToolUse` hook (`rtk hook claude`) that
+rewrites Bash commands before they run. A rewritten input no longer matches
+the request, so the answer was never reported. Review found it, and it was
+then confirmed live by adding a rewrite hook to the probe.
+
+When a mod reads tool input, tool results or anything another hook may
+change, probe once with the owner's hook set: copy the `hooks` block of the
+real settings into the scratch config, or add a stand-in hook that does the
+same kind of rewrite. Better still, don't depend on a value another hook may
+rewrite. The withdrawn design and its replacement are in
+[D-idle-push-in-flight](../decisions/idle-notifications.md#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not).
+
+---
+
 ## A Dialect Switch Must Move Every Consumer of the Stream
 
 **The mechanism:** OpenCode 2.x renamed its turn-end event. Meridian's V2

@@ -131,6 +131,27 @@ itself: here, that every recorded call carries the flag.
 (Provenance: `work:idle-cache-notify`, `reviews/G2-review.md` C1 and X1; spawn
 `p7466`.)
 
+### `pytest-llm` is not the full suite
+
+`uv run pytest-llm` with no arguments runs pytest's default `testpaths` and
+stops at the first failure (`--maxfail=1`). Those paths leave out most of
+`tests/integration`: `cli`, `ops`, `launch` and others. The wrapper says so
+on stderr ("default paths are not the full suite"), and that line is easy to
+miss in a spawn's output.
+
+On the notification branch (`work:notify-hook-events`), one review round
+turned a CLI-only note into a report warning. Idle logs every report warning
+on every fire, so each idle call wrote it to stderr. The idle CLI wire-contract
+test (`tests/integration/cli/test_idle_cli.py`) asserts empty stderr and
+failed. Coders and reviewers ran `pytest-llm`, saw green, and the regression
+survived two review rounds. It surfaced only when the coordinating agent ran
+`uv run pytest tests/` after a merge.
+
+Use `pytest-llm` for a quick loop, and run `uv run pytest tests/` before
+calling a branch green, after every merge between stacked branches, and in
+any brief that says "full suite". A "full suite passed" claim should name the
+command it ran.
+
 ### Record exit status and working directory
 
 A copied success-looking line is not a validation record. Capture the command,
@@ -142,6 +163,26 @@ When you detach a command from the terminal to reproduce a Git hook, use
 process-group leader, so its status says nothing about the command it launched.
 (Provenance: `work:noninteractive-prepush-pnpm`, reviewer p7327; reproduced with
 util-linux 2.39.)
+
+### Check a claim about main against main's code
+
+A finding that says "this is a regression" asserts something about main.
+Check it on main before acting on it. On the idle push branch
+(`work:notify-hook-events`), a correctness reviewer reported that a
+background Claude subagent stuck on a permission prompt now held the push
+while the human was needed, and that main never held the push for agents.
+The coordinating agent had it live-probed against the branch and built a fix: a permission
+prompt releases the held push. The fix drew new review findings, and only
+then did anyone read main's mod. Its `armTask` skipped the whole arm while
+any subagent ran, so main sent no push either. The behavior was a gap that
+already existed, not a regression. The fix was rebuilt once more, drew a
+third round of findings, and was withdrawn; the gap went to its own issue
+(#684).
+
+The probe was real, and it proved the behavior on the branch, but it could
+not show that the behavior was new. A reviewer's premise about main is a
+claim about code they may not have read. Before you build on "regression",
+run or read the same path at `origin/main`.
 
 ### A per-item bound is not an aggregate or concurrency bound
 

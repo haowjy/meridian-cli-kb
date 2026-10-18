@@ -67,9 +67,9 @@ remote  = "git@github.com:org/meridian-context.git"
 
 # Custom shell hook — fires on spawn finalized
 [[hooks]]
-name    = "notify"
+name    = "on-finish"
 event   = "spawn.finalized"
-command = "scripts/notify.sh"
+command = "scripts/on-finish.sh"
 failure_policy = "warn"
 ```
 
@@ -94,9 +94,7 @@ Key configuration fields:
 Hook configuration is layered with an override model:
 
 ```
-builtin defaults  (lowest priority)
-  ↑
-context config
+default (Meridian's `notify` routes)  (lowest priority)
   ↑
 user config (~/.meridian/config.toml)
   ↑
@@ -106,11 +104,27 @@ local config (meridian.local.toml)  (highest priority)
 ```
 
 A hook row in a higher-priority source with the same `(name, event)` key
-replaces the lower-priority row entirely. Below all of these, Meridian adds a
-default `notify` route (source `default`) for each notification event no
-`builtin = "notify"` row covers. This lets teams set project-wide
-defaults and individual machines override them locally without committing
-machine-specific config.
+replaces the lower-priority row entirely. The `default` layer holds one hook
+named `notify` per notification event, and it is overridden like any other
+layer. Layering lets teams set project-wide defaults and individual machines
+override them locally without committing machine-specific config.
+
+A builtin row with no `event` expands into one row per default event of
+that builtin, in the builtin's declared order. `meridian hooks run NAME` still treats rows under one name with the
+same builtin, command, options, timeout and failure policy as **one action**.
+Without `--event` it runs once, as the last of those events; a `git-autosync`
+row with no `event` runs as `work.done`. `--event` is required only when the rows
+differ. meridian-base's `context-autosync` hook depends on this: it calls
+`hooks run NAME` with no `--event` and ignores failures, so an error there
+silently stops KB syncing.
+
+**Validation has one owner.** `lib/hooks/config.py` validates every
+`[[hooks]]` row; the general config loader does not. `load_hooks_config_report`
+returns the valid rows plus one error per invalid row, and `load_hooks_config`
+raises on any. `meridian hooks check` exits 1 naming every invalid row.
+Notification delivery uses the report: it drops only the invalid rows and
+warns, so a typo in one row cannot silence notifications or undo another
+row's `enabled = false`.
 
 ---
 
@@ -129,7 +143,7 @@ When a hook fires, it receives context about the triggering event:
 | `work_dir` | Path to work scratch directory |
 | `project_root` | Project root |
 | `runtime_root` | Project state root; absent in an ad-hoc directory nothing has initialized |
-| `notification` | Notification events only: `title`, `body`, `priority`, `email`, `label` |
+| `notification` | Notification events only: `title`, `body`, `priority`, `email`, `label`, `attachments` |
 
 **Command hooks** receive context as `MERIDIAN_*` environment variables and as
 JSON on stdin (payload `schema_version` 2). Notification events add
@@ -138,7 +152,13 @@ JSON on stdin (payload `schema_version` 2). Notification events add
 
 **Built-in hooks** receive the typed `plugin_api.HookContext` directly; `lib/hooks`
 uses the same `HookContext`, `HookResult` and `HookEventName` types (plugin API
-2.0.0).
+2.0.0). A builtin returns structured output in `HookResult.details`, a
+JSON-serializable mapping whose keys that builtin documents. The `notify`
+builtin sets `details["transports"]`. The plugin API stays neutral: no field
+on `HookResult` belongs to one builtin. A builtin declares the events it
+accepts in `BuiltinHook.supported_events`. A row on any other event is a
+config error, and a builtin that accepts only notification events cannot be
+run by `hooks run`.
 
 Hooks run even without a runtime root; only interval-throttled hooks skip
 there, having nowhere to keep their state. `MERIDIAN_HOOKS_ENABLED=false`
@@ -148,8 +168,11 @@ turns off all hooks, notifications included.
 
 ## The Plugin API Boundary
 
-Built-in hooks (like `git-autosync`) are required to import **only** from
-`meridian.plugin_api` — zero imports from `meridian.lib.*`.
+Built-in hooks (like `git-autosync`) take general capabilities **only** from
+`meridian.plugin_api`, never from `meridian.lib.*`. The one exception is a
+tightly coupled companion a builtin wraps: `git-autosync`'s `autosync_store`,
+and the `notify` builtin's `lib/notify` transports (imported lazily). No
+external plugin should depend on those, so they stay out of the plugin API.
 
 This is an enforced discipline, not just a convention. The reasoning:
 
@@ -199,11 +222,14 @@ command = "scripts/slack-notify.sh"
   `notify` per event. An unnamed `builtin = "notify"` row is named `notify`,
   so a row for an event, even with `enabled = false`, replaces only that
   event's default through the ordinary `(name, event)` override.
-- `emit` makes one `SendResult` per route, named by the hook: delivered,
-  failed (the built-in's error names each failed transport), or `none` (a
-  skipped route, such as every backend `none`). Idle marks a stage failed only
-  when a route failed and none delivered; no route at all is ok with a
-  warning.
+- `channels` names are checked when config loads; an unknown name is a
+  config error, not a failed push later.
+- `emit` returns a `RouteReport`: one `RouteResult` per route, named by the
+  hook, with the transports that delivered. A route is `sent` (possibly
+  with a warning, such as ntfy delivering the text but rejecting a file),
+  `failed`, or `none` (skipped, or every backend `none`). `send()` keeps its
+  own per-transport `SendReport`. Idle marks a stage failed only when no route
+  delivered; no route at all is ok with a warning.
 
 There is no separate `[notify.channels]` or `[[notify.routes]]` table: hook
 rows are the routes and command hooks are the channels.
@@ -390,6 +416,7 @@ Hook processes run inside meridian spawn processes, which inherit the spawning s
 | Caller | Use `ignore_env` | Reason |
 |---|---|---|
 | CLI commands run by a user | No (default) | User's session env is the right anchor |
+| `meridian hooks list/check/run` | Yes (#178) | They inspect and run the hooks of the checkout you are in; inside a spawn they can resolve a different project than `meridian notify`, which follows the inherited env |
 | Shell hooks and git hooks invoked from inside a spawn | Yes | Hooks must operate on CWD, not on the parent spawn's project |
 | Built-in hooks (git-autosync, etc.) | Yes | Same — invoked as side effects of spawn lifecycle events |
 
