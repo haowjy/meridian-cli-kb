@@ -113,11 +113,14 @@ entries and operations guides don't need it.
 - Domain directories emerge organically. A topic earns a directory when it has
   multiple related pages. Don't create directories with a single page.
 
-## KB PRs
+## Landing KB changes
 
-KB PRs may be merged without asking the owner. After a KB PR merges, run one
-`@kb-lead` pass that checks every page the PR changed against the code as
-released, and fixes what the code contradicts.
+Edit the KB in its autosynced checkout (`$MERIDIAN_CONTEXT_KB_DIR`); the
+`git-autosync` hook commits and pushes it. Don't branch or open a PR for KB
+work. A KB branch that exists anyway (from a cloud session without autosync)
+may be merged without asking the owner. After it merges, run one `@kb-lead` pass
+that checks every page it changed against the code as released, and fixes what
+the code contradicts.
 
 ## Diagrams
 
