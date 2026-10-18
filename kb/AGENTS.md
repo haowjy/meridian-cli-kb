@@ -116,10 +116,12 @@ entries and operations guides don't need it.
 ## Landing KB changes
 
 By default, edit the KB in its autosynced checkout (`$MERIDIAN_CONTEXT_KB_DIR`);
-the `git-autosync` hook commits and pushes it. Use a branch (a worktree of the
-KB repo) only for a large update that shouldn't land yet, such as pages that
-describe code still on an unmerged branch, and for cloud sessions without
-autosync. Merge a KB branch without asking the owner once it's ready. After it
+the `git-autosync` hook commits and pushes it. That includes pages describing
+code still on an unmerged branch: edit them directly and say in the status line
+that the code is unmerged. Use a branch (a worktree of the KB repo) only for a
+large doc update you don't want landed until it's finished, and for cloud
+sessions without autosync. Merge a KB branch without asking the owner once
+it's ready. After it
 merges, run one `@kb-lead` pass that checks every page it changed against the
 code as released, and fixes what the code contradicts.
 
