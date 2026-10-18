@@ -99,9 +99,9 @@ the open issues and how they depend on each other:
 
 **Where:** `meridian doctor` warning message for `live_active_spawns_remain`
 
-**The issue:** When `is_root_side_effect_process()` is `False` (i.e., `MERIDIAN_DEPTH > 0`), reconciliation is skipped entirely. The `live_active_spawns_remain` warning message currently says "after reconciliation" even though reconciliation didn't run. This is technically correct — no reconciliation means all active rows remain — but it's confusing. A reader could infer that reconciliation ran and left these spawns alive, when actually it wasn't attempted.
+**The issue:** When `is_root_side_effect_process()` is `False` (i.e., `_MERIDIAN_DEPTH > 0`), `doctor --kill-orphans` skips the reaper entirely, yet the `live_active_spawns_remain` warning still says "after orphan-kill reconciliation". A reader could infer that the reaper ran and left these spawns alive, when it wasn't attempted.
 
-**The fix:** When `MERIDIAN_DEPTH > 0`, the warning should say "reconciliation skipped at nested depth" rather than "after reconciliation."
+**The fix:** At nested depth, the warning should say the orphan kill was skipped.
 
 **Why deferred:** Out of scope for the initial doctor bugfix. Small wording issue, no functional impact.
 

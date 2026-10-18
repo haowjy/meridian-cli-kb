@@ -3,6 +3,43 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-18 — KB brought to `main` after identity-v2 PR 3 merged (#672, v0.10.24; `work:v010-followups` D77–D86)
+
+The previous capture wrote PR 3 as awaiting merge and left pages describing the
+guessing reaper. They now describe `main`: status from `read_derived`, a dead
+runner as `failed`/`crashed` (or `cancelled` with a cancel request),
+`finalize_dead_launch` as the one dead-launch writer, plain `doctor` warning
+`dead_spawns_unfinalized`, and `--kill-orphans` persisting.
+
+- **Retired** `architecture/state-system/reconciliation.md`: its decision tree,
+  read projection and heartbeat check are deleted. Its one live part, the
+  reaper's cleanup claims, moved to
+  [derived status](architecture/state-system/derived-status.md#the-reapers-cleanup-claims);
+  inbound links repointed there.
+- **Rewritten to `main`:** [derived status](architecture/state-system/derived-status.md)
+  (banner, continue skips the orphan pass, `cancel-all`),
+  [spawn lifecycle](concepts/spawn-lifecycle.md) (crash recovery, error codes,
+  invariants), [troubleshooting](operations/troubleshooting.md) (`crashed`
+  replaces the `orphan_*` sections), [health checks](operations/health-checks.md)
+  (plain doctor never persists), [managed-primary lifecycle](architecture/managed-primary-lifecycle.md)
+  (repair and cleanup boundary), [spawn finalization](architecture/spawn-finalization.md)
+  (dead-launch outcome replaces the reaper tree),
+  [process scope](architecture/process-scope.md) (cleanup triggers, scope
+  liveness consumers), [launch system](architecture/launch-system.md) (no
+  heartbeat, start gate), telemetry liveness (`is_live`), vocabularies,
+  [invariants](principles/invariants.md) (I-12 is now the runner lock),
+  [design principles](principles/design-principles.md),
+  [state model](concepts/state-model.md), [spawn state](architecture/state-system/spawn-state.md),
+  [sandbox projection](architecture/sandbox-projection.md).
+- **Status lines:** PR 3 merged in [spawn identity](decisions/spawn-identity.md)
+  (plus D84's continue/repair decision), `decisions.md`, `index.md`; #668 merged
+  in [primary inject](decisions/primary-inject.md).
+- **History kept as history:** [reaper lessons](lessons/state-design-lessons.md#reaper-lessons-history)
+  condensed and dated; supersession notes on D-managed-primary-reaper,
+  the `mark_finalizing` CAS decision, doctor's delegation to the reaper, and D69
+  telemetry liveness.
+
+---
 ## 2026-10-17 — Mars is the only skill resolver; D60 narrowed to harness variants (`refactor/mars-owns-profile-skills`, `work:long-view-review`)
 
 - New decision [D-mars-sole-skill-resolver](decisions/package-management.md#d-mars-sole-skill-resolver-meridian-never-resolves-skills)
@@ -70,7 +107,7 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
   (lock-holding "live" fixtures; race tests red against split implementations;
   #662 as memory-ahead-of-disk); [verification](lessons/verification-and-review-discipline.md#compare-against-the-base-before-calling-a-probe-failure-a-regression)
   (base comparison before calling a probe failure a regression).
-- Banners on [reconciliation](architecture/state-system/reconciliation.md) and
+- Banners on `architecture/state-system/reconciliation.md` (retired since) and
   [spawn lifecycle](concepts/spawn-lifecycle.md) point at the new page. Pages that
   describe `main`'s heartbeat, graces and `orphan_*` codes are left as they are
   until PR 3 merges.

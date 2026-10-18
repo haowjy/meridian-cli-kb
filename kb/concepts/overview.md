@@ -4,7 +4,7 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 
 ## Pages
 
-- [spawn-lifecycle.md](spawn-lifecycle.md) — Spawn status machine, heartbeat, and reaper mechanics.
+- [spawn-lifecycle.md](spawn-lifecycle.md) — Spawn status machine, crash recovery from the runner-held launch lock, and who persists a dead spawn's outcome.
 - [spawn-wait-barrier.md](spawn-wait-barrier.md) — Chat-lineage wait sets, yield checkpoints, and barrier discipline.
 - [spawn-output-contract.md](spawn-output-contract.md) — Report-first spawn output, transcript pointer behavior, and metadata disclosure levels.
 - [state-model.md](state-model.md) — Dual-root state split, JSONL event sourcing, crash-only recovery, and UUID keying.

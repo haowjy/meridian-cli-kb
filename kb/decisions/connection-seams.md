@@ -17,7 +17,7 @@ used to hold (D20, separate semantic functions) was superseded by the single
 *2026-04-29, revised 2026-09-25 (PR 2, PR 3)*
 
 **Decided:** `SpawnManager` (`lib/streaming/spawn_manager.py`) owns the
-`HarnessConnection` lifecycle, the drain loop, heartbeat and cleanup. Nothing
+`HarnessConnection` lifecycle, the drain loop and cleanup. Nothing
 else iterates `HarnessConnection.events()`. Delivery to other parties goes
 through `SpawnManager._run_event_hooks` (inline hooks before subscriber
 fan-out), not through a second reader. See
@@ -28,8 +28,8 @@ drain loop is already that consumer. A second consumer of the same stream is not
 possible.
 
 **Rejected:** An adapter wrapping the connection directly (dual owner on a
-single-consumer stream); bypassing `SpawnManager` (loses heartbeat, completion
-and cancel integration); refactoring `HarnessConnection` into a `HarnessAdapter`
+single-consumer stream); bypassing `SpawnManager` (loses completion and cancel
+integration); refactoring `HarnessConnection` into a `HarnessAdapter`
 (invasive, high regression risk). The R4 observer seam
 (`EventObserverRegistry`) was built for this and deleted in PR 2 once it had no
 users.
