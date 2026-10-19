@@ -95,20 +95,28 @@ transcript is not readable from here. Per that record, the user chose "Full
 `meridian notify "<title>" ["<body>"]`, and approved the reshape proposed by a
 thermo-nuclear review (a strict maintainability review) with "yea fix". A second session took the branch over (`work:notify-hook-events`) and
 fixed review findings in four rounds. The bullets below describe the result.
-Issue #684 adds `session.needs_permission` on the unmerged
-`feat/permission-prompt-ping` branch; it uses the same routing contract.
+Issue #684 adds the Claude permission notice on the unmerged
+`feat/permission-prompt-ping` branch (PR #689); it uses the same routing
+contract.
+
+Event names here are the current ones from
+[D-hook-event-names](hook-event-contract.md#d-hook-event-names--nine-past-tense-moments-old-names-rejected-at-load)
+(unmerged PR #688). v0.10.28 shipped the idle push and cache warning as
+`session.responded` and `session.cache_expiring`; #689 still calls the
+permission notice `session.needs_permission` and renames it to
+`notify.needs_permission` when it rebases onto #688.
 
 **Decision:** A notification is a hook event, and the hook rows on that event
 deliver it.
 
-- **Every notification event is observe-class** (fail-open: a failing route never
-  stops the caller): `session.responded` (the idle waiting push),
-  `session.cache_expiring` (the cache warning), `session.needs_permission`
-  (Claude's still-waiting permission signal), and `notify.manual` (`meridian
-  notify`). The notification producers build one
+- **Every notification event is fail-open** (a failing route never stops the
+  caller), as every hook event now is: `notify.your_turn` (the idle waiting
+  push), `notify.cache_expiring` (the cache warning), `notify.needs_permission`
+  (Claude's still-waiting permission signal, #689), and `notify.manual`
+  (`meridian notify`). The notification producers build one
   `plugin_api.Notification`, the only notification value;
   `lib/notify/emit.py` fires it as its event through `HookDispatcher`, next
-  to `spawn.finalized` and `work.done`.
+  to `spawn.finished` and `work.done`.
 - **Delivery is a built-in hook, `notify`** (`lib/hooks/builtin/notify.py`).
   It calls `lib/notify`'s `send()` directly, lazily, as a companion it wraps,
   the way `git-autosync` uses `autosync_store`. Options (a Pydantic model the
@@ -149,9 +157,10 @@ deliver it.
   `HookResult` and `HookEventName` (they were identical duplicates).
   `HookContext.runtime_root` is optional, a `notification` field is added, and
   the hook payload is `schema_version` 2. `Notification` validates its own
-  title (non-empty, no control characters) and priority. #684's additive event
-  bumps its branch to 2.1.0; merge must reconcile that with #687's pending
-  3.0.0 removal release rather than lowering the version.
+  title (non-empty, no control characters) and priority. The event rename
+  (#687, PR #688) moves the API to 3.0.0 and the payload to `schema_version`
+  3; #684's additive event, at 2.1.0 on its branch, becomes 3.1.0 when it
+  rebases onto #688.
 
 **One owner for `[[hooks]]` row validation.** `lib/hooks/config.py` owns every
 check on a hook row. `load_hooks_config_report` returns the valid rows, with
@@ -173,7 +182,7 @@ report. It drops only the invalid rows, keeps every valid one, and adds
 `dropped invalid hook rows: …` to the report's warnings: the CLI prints it,
 `--json` includes it, and idle logs it. The first fix fell back to the
 default routes alone. That let a typo in an unrelated row undo a user's
-`enabled = false` on `session.responded`, so the fallback keeps valid rows.
+`enabled = false` on the idle push event, so the fallback keeps valid rows.
 
 **Two result levels, two types.** `send()` returns a `SendReport` of
 per-transport `SendResult`s (ntfy, smtp, gmail, none). `emit` returns a
@@ -297,7 +306,7 @@ answered in code, not on the issue.
 
 **Not done:** structured excerpts as separate fields; a resume /
 `tmux attach` hint in the notice; a Python channel entry point in
-`plugin_api`. Open: whether channels should see `spawn.finalized` for a
+`plugin_api`. Open: whether channels should see `spawn.finished` for a
 session's own children by default (the issue's second open question). The
 built-in re-reads `[notify]` from disk and `os.environ` at send time, while
 idle holds its own loaded config. In normal use both read the same config files and environment

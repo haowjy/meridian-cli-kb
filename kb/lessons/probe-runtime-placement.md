@@ -81,6 +81,26 @@ A probe brief that asks for a throwaway repo should say which of these to use.
 
 Source: `work:changelog-misfile-check` `decisions.md` C3.
 
+## A scratch home does not isolate the project
+
+**2026-10-18, a probe work item in the shared docs repo.** A review probe for
+#687 (`spawn:p8648`) set a temporary home but inherited the spawn's
+`MERIDIAN_PROJECT_DIR`, which pointed at the real meridian-cli checkout. Its
+`work start probe-item` and `work done probe-item` ran against that project.
+The project's `git-autosync` hook fired on both events and pushed two commits
+to the shared docs repo, creating and then archiving the item. The probe
+deleted it, and the deletion reached the repo with the next autosync, so the
+net change was zero. The second probe ran under `env -i` with a temporary
+`HOME` and touched nothing real.
+
+**The rule:** a probe that runs `meridian` commands which mutate project state
+(`work`, `spawn`, `hooks run`) starts from `env -i`, or unsets every inherited
+`MERIDIAN_*` variable, and points `HOME` and `MERIDIAN_HOME` at `/tmp`. A
+scratch home alone leaves the inherited project root in charge, and that
+project's hooks fire on whatever the probe does.
+
+Source: `work:hook-event-names` `decisions.md` (wave 2 notes).
+
 ## What is in place, and what isn't
 
 - **`.gitignore` backstops** in the docs repo cover the known runtime shapes:

@@ -114,7 +114,13 @@ See [../architecture/launch-system.md](../architecture/launch-system.md) — Aut
 
 ## Hook and Event Coordination
 
-`work start` fires a `work.started` lifecycle hook. `work done` fires `work.done`. These are dispatched through `lib/core/lifecycle.py`'s `get_hook_dispatcher()`. Hooks can trigger downstream automation (e.g., git-autosync after a work item closes).
+Work items fire three hook events (on the unmerged PR #688; `main` still fires `work.started` on every `work start`):
+
+- `work.created`: `work start` made a new item.
+- `work.activated`: someone chose an item. `work start` (new or existing), `work switch` (archived items included), and a primary launch attaching `--work` or `--from` work fire it, with or without a session. Child spawns inheriting work, `work rename` repointing attachments, and `work clear` do not: they write the session attachment through `session_store` directly.
+- `work.done`: the item was archived as done.
+
+`activate_work()` in `lib/ops/work_attachment.py` is the only path that fires `work.activated`; it writes the attachment when `session_store.session_exists()` finds the chat record. `publish_work_event()` beside it builds every work event's hook context, resolves `work_dir` for active or archived items, and emits the paired telemetry. A hook failure is logged and the work operation continues. The default `git-autosync` hook syncs on `work.activated` and `work.done`, so a primary launch with work waits for one sync before its harness starts. Why activation excludes maintenance writes: [D-work-activation](../decisions/hook-event-contract.md#d-work-activation--activation-means-someone-chose-the-item).
 
 `work done` emits warnings (not errors) when there are active sessions or spawns associated with the work item.
 

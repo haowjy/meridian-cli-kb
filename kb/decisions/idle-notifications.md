@@ -610,7 +610,11 @@ the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
 ## D-idle-permission-ping — Forward Claude's still-waiting signal without rebuilding prompt state
 
 **Status:** GitHub #684, implemented on the unmerged
-`feat/permission-prompt-ping` branch from v0.10.28 (2026-10-18).
+`feat/permission-prompt-ping` branch from v0.10.28 (2026-10-18). The branch
+names the event `session.needs_permission`; it becomes
+`notify.needs_permission` when it rebases onto the renamed hook contract
+([D-hook-event-names](hook-event-contract.md#d-hook-event-names--nine-past-tense-moments-old-names-rejected-at-load),
+PR #688).
 
 **Decision:** The Claude mod forwards only `classic.Notification` events whose
 `notification_type` is `permission_prompt`. It calls the hidden
@@ -619,7 +623,7 @@ adapter command and immediately continues the host event with `next(e)`.
 Core builds one priority-3, push-only notice titled
 `[permission] {label.headline}`. Its body is the stripped harness notification
 text, or `Permission prompt waiting` when `[notify].include_messages` is false.
-Core emits it as the observe-class `session.needs_permission` hook event. The
+Core emits it as the `session.needs_permission` hook event. The
 event has the same default built-in `notify` route as the idle push and cache
 warning, so ordinary hook rows can add routes or replace its default; a
 disabled `notify` row for this event silences only this notice.

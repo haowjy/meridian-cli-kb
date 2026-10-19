@@ -96,12 +96,14 @@ The telemetry stream carries only content the existing stores don't capture. See
 | Command dispatch | `chat.command.dispatched` |
 | Chat runtime shutdown | `chat.runtime.stopping`, `chat.runtime.stopped` |
 | MCP local commands | `mcp.command.invoked` |
-| Work item transitions | `work.started`, `work.updated`, `work.done`, `work.deleted`, `work.reopened`, `work.renamed` |
+| Work item transitions | `work.created`, `work.activated`, `work.updated`, `work.done`, `work.deleted`, `work.reopened`, `work.renamed` (`work.created` / `work.activated` replace `work.started` on the unmerged PR #688) |
 | Stream backpressure | `runtime.stream_event_dropped` |
 | Debug tracer self-disable | `runtime.debug_tracer_disabled` |
 
-**Sparse lifecycle correlation markers** — terminal spawn events only:
-- `spawn.succeeded`, `spawn.failed`, `spawn.cancelled`, `spawn.process_exited`
+**Sparse lifecycle correlation markers** — process exit and terminal spawn outcomes only:
+- `spawn.succeeded`, `spawn.failed`, `spawn.cancelled`, `spawn.timed_out`, `spawn.process_exited`
+
+Nonterminal moments (`spawn.created`, `spawn.started`) reach hooks and lifecycle observers but not the telemetry stream; see [event-catalog.md](event-catalog.md#spawn).
 
 **Usage foundation (v3 feedstock):**
 - `usage.command.invoked`, `usage.model.selected`, `usage.spawn.launched`

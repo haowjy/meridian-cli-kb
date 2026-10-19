@@ -2,6 +2,9 @@
 
 > **Status:** Permission-prompt forwarding below is implemented on the
 > unmerged `feat/permission-prompt-ping` branch for #684, based on v0.10.28.
+> That branch names the event `session.needs_permission`; under the renamed
+> hook contract (PR #688) it becomes `notify.needs_permission` when the branch
+> rebases.
 
 This page owns the current idle adapter mechanism: where it lives, what each
 harness schedules, the runtime contracts, and the known fragility. The decision

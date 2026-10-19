@@ -64,7 +64,7 @@ Six domains partition the event namespace:
 
 ### `spawn`
 
-Sparse lifecycle correlation markers — only terminal events. Full spawn lifecycle lives in per-spawn `state.json` plus spawn artifacts.
+Sparse lifecycle correlation markers: process exit and terminal outcomes only. Full spawn lifecycle lives in per-spawn `state.json` plus spawn artifacts.
 
 | Event | Concerns | `ids` keys |
 |---|---|---|
@@ -72,6 +72,9 @@ Sparse lifecycle correlation markers — only terminal events. Full spawn lifecy
 | `spawn.succeeded` | `operational` | `spawn_id` |
 | `spawn.failed` | `operational`, `error` | `spawn_id` |
 | `spawn.cancelled` | `operational` | `spawn_id` |
+| `spawn.timed_out` | `operational` | `spawn_id` |
+
+The core lifecycle service also emits `spawn.created` and `spawn.started` to its observers (hooks, and the debug observer under `MERIDIAN_DEBUG=1`). They are not registered here, and `SpawnTelemetryObserver` drops them (`TERMINAL_TELEMETRY_EVENTS` in `telemetry/observer.py`), so `meridian telemetry query` never shows them. Through v0.10.28 these were named `spawn.queued` and `spawn.running`; the unmerged PR #688 renames them to match the hook events.
 
 `spawn.failed` carries structured error data via `make_error_data()`: exception type, message, and stack trace.
 
@@ -99,11 +102,12 @@ MCP command lifecycle.
 
 ### `work`
 
-Work item lifecycle transitions.
+Work item lifecycle transitions. `work.created` and `work.activated` are on the unmerged PR #688, which replaces v0.10.28's `work.started`; `publish_work_event` emits them together with the hook event of the same name, so the two always agree. `work.activated` carries `chat_id` only when the choice was attached to an existing session.
 
 | Event | Concerns | `ids` keys |
 |---|---|---|
-| `work.started` | `operational`, `usage` | `work_id` |
+| `work.created` | `operational`, `usage` | `work_id` |
+| `work.activated` | `operational`, `usage` | `work_id`, `chat_id` |
 | `work.updated` | `operational` | `work_id` |
 | `work.done` | `operational`, `usage` | `work_id` |
 | `work.deleted` | `operational` | `work_id` |

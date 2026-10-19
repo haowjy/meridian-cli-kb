@@ -1,10 +1,12 @@
 # Hooks and Plugins
 
-> **Status:** The event-name contract, git-autosync defaults and plugin API
-> version below include the unmerged `fix/hook-event-names` branch for #687,
-> while `session.needs_permission` includes the unmerged
-> `feat/permission-prompt-ping` branch for #684. Both are based on v0.10.28;
-> their plugin API versions must be reconciled at merge.
+> **Status:** The event names, `when` conditions, git-autosync defaults,
+> payload schema 3 and Plugin API 3.0.0 below are on the unmerged
+> `fix/hook-event-names` branch (PR #688, #687); `main` (v0.10.28) still has
+> the old names. The permission notice is on the unmerged
+> `feat/permission-prompt-ping` branch (PR #689, #684), which still calls it
+> `session.needs_permission` at Plugin API 2.1.0 and renames it to
+> `notify.needs_permission` at 3.1.0 when it rebases onto #688.
 
 Hooks are callbacks that fire at spawn and work lifecycle events and at
 notification events. They're the extension point for automation that should
@@ -38,28 +40,46 @@ notify, though, the notice is a hook event, and hooks deliver it (see
 
 ## Event Taxonomy
 
+Events are named for the moment that just happened. Spawn events follow one
+spawn; work events follow a work item; `notify.*` events each carry a
+notification.
+
 ```mermaid
 graph TD
-    SPAWN_CREATED["spawn.created\nSpawn row written"] --> SPAWN_RUNNING["spawn.running\nHarness process started"]
-    SPAWN_RUNNING --> SPAWN_FINALIZED["spawn.finalized\nSpawn reached terminal state"]
+    SPAWN_CREATED["spawn.created\nSpawn record written"] --> SPAWN_STARTED["spawn.started\nSpawn entered running"]
+    SPAWN_STARTED --> SPAWN_FINISHED["spawn.finished\nTerminal state persisted"]
 
-    WORK_START["work.started\nWork item opened"]
-    WORK_DONE["work.done\nWork item marked done"]
+    WORK_CREATED["work.created\nwork start made a new item"]
+    WORK_ACTIVATED["work.activated\nSomeone chose the item"]
+    WORK_DONE["work.done\nItem archived as done"]
 
-    RESPONDED["session.responded\nIdle push: agent waiting on you"]
-    CACHE["session.cache_expiring\nIdle cache warning"]
-    PERMISSION["session.needs_permission\nClaude permission prompt still waiting"]
+    YOUR_TURN["notify.your_turn\nIdle push: agent waiting on you"]
+    CACHE["notify.cache_expiring\nIdle cache warning"]
+    PERMISSION["notify.needs_permission\nClaude permission prompt waiting (#689)"]
     MANUAL["notify.manual\nmeridian notify"]
 ```
 
-Every notification event is observe-class and carries a
-`notification` payload, and the routes on that event deliver it
-([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
+- `spawn.created` fires once the record is written, queued or already
+  running. `spawn.started` fires on every path into `running`, including a
+  spawn whose first persisted state is `running`. `spawn.finished` fires for
+  each persisted terminal write, so an authoritative rewrite of a reconciler's
+  terminal state fires it again with the same event ID.
+- `work start` on a new item fires `work.created`, then `work.activated`.
+  Activation means a user or agent chose the item: `work start`, `work switch`
+  (even to an archived item, even with no session), or a primary launch
+  attaching `--work` / `--from` work, which fires once before the harness
+  starts. Child work inheritance, `work rename` and `work clear` maintain the
+  attachment without firing it. Work event IDs are unique per firing.
+- Every `notify.*` event carries a `notification` payload, and the routes on
+  that event deliver it
+  ([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 
-`spawn.start` and `work.start` were accepted through v0.10.28 even though no
-producer dispatched them. #687 removes both names rather than aliasing them.
-Hook config containing either now fails validation and points to
-`spawn.running` or `work.started`, respectively.
+Every hook failure logs and continues; no hook can stop the event that fired
+it. A config row naming a removed event (`spawn.start`, `spawn.running`,
+`spawn.finalized`, `work.start`, `work.started`, `session.responded`,
+`session.cache_expiring`) fails to load and names its replacement. Why the
+names changed, why there are no aliases, and what activation excludes are in
+[The Hook Event Contract](../decisions/hook-event-contract.md).
 
 ---
 
@@ -74,12 +94,12 @@ configures one hook, identified by the combination of `(name, event)`.
 builtin = "git-autosync"
 remote  = "git@github.com:org/meridian-context.git"
 
-# Custom shell hook — fires on spawn finalized
+# Custom shell hook — fires when a child spawn finishes
 [[hooks]]
 name    = "on-finish"
-event   = "spawn.finalized"
+event   = "spawn.finished"
 command = "scripts/on-finish.sh"
-failure_policy = "warn"
+when.kind = ["child"]
 ```
 
 **Built-in vs command hooks:**
@@ -93,10 +113,19 @@ Key configuration fields:
 | `event` | Which event to fire on; omit for built-in defaults |
 | `enabled` | Default `true` |
 | `priority` | Within one source, higher runs first; sources run `default`, `user`, `project`, `local` |
-| `failure_policy` | `"fail"` \| `"warn"` \| `"ignore"` |
 | `interval` | Throttle: `"30s"`, `"5m"`, etc. |
-| `when.status` | Filter by spawn outcome: `success`, `failure`, `cancelled`, `timeout`, `skipped` |
-| `when.agent` | Filter by agent profile name |
+| `when.status` | `spawn.finished` only: `success`, `failure`, `cancelled`, `timeout` |
+| `when.agent` | Filter by agent profile name; spawn and notification events |
+| `when.kind` | Filter by spawn kind: `child`, `primary`, `streaming`; spawn and notification events |
+
+A condition the event can never supply is a load error on a row that names its
+`event`: work events reject `when.agent` and `when.kind`. An unevented builtin
+row keeps the default events its conditions can match and records the rest as
+disabled overrides, which still replace lower-layer rows of the same
+`(name, event)`. It fails only if no default can match. The `EVENTS` table in
+`lib/hooks/types.py` owns each event's default timeout (60s for
+`spawn.finished` and `work.done`, 30s otherwise) and its available `when`
+fields.
 
 ### Config Layering
 
@@ -120,7 +149,7 @@ override them locally without committing machine-specific config.
 
 A builtin row with no `event` expands into one row per default event of
 that builtin, in the builtin's declared order. `meridian hooks run NAME` still treats rows under one name with the
-same builtin, command, options, timeout and failure policy as **one action**.
+same builtin, command, options and timeout as **one action**.
 Without `--event` it runs once, as the last of those events; a `git-autosync`
 row with no `event` runs as `work.done`. `--event` is required only when the rows
 differ. meridian-base's `context-autosync` hook depends on this: it calls
@@ -131,9 +160,9 @@ silently stops KB syncing.
 `[[hooks]]` row; the general config loader does not. `load_hooks_config_report`
 returns the valid rows plus one error per invalid row, and `load_hooks_config`
 raises on any. `meridian hooks check` exits 1 naming every invalid row.
-Notification delivery uses the report: it drops only the invalid rows and
-warns, so a typo in one row cannot silence notifications or undo another
-row's `enabled = false`.
+Runtime dispatch (notifications, spawn lifecycle and work events) uses the
+report: it drops only the invalid rows and warns, so a typo in one row cannot
+silence notifications, stop spawns, or undo another row's `enabled = false`.
 
 ---
 
@@ -144,20 +173,25 @@ When a hook fires, it receives context about the triggering event:
 | Field | Meaning |
 |-------|---------|
 | `event_name` | Which event fired |
-| `spawn_id` | Spawn that triggered the event (if spawn event) |
-| `spawn_status` | Terminal status (`succeeded`, `failed`, etc.) |
+| `event_id` | Stable per spawn and event for spawn events; unique per firing otherwise |
+| `spawn_id` | Spawn that triggered the event; the notifying spawn when known |
+| `spawn_status` | `spawn.finished` only: `success`, `failure`, `cancelled`, `timeout` |
 | `spawn_agent` | Agent profile name |
-| `spawn_cost_usd` | Spend for this spawn |
-| `work_id` | Active work item |
-| `work_dir` | Path to work scratch directory |
+| `spawn_kind` | `child`, `primary` or `streaming` |
+| `spawn_cost_usd`, `spawn_duration_secs` | `spawn.finished` only |
+| `spawn_error` | `spawn.finished` only: the persisted terminal error |
+| `work_id` | The event's work item: the item for work events, the spawn's or session's work otherwise |
+| `work_dir` | That item's scratch directory, active or archived |
 | `project_root` | Project root |
 | `runtime_root` | Project state root; absent in an ad-hoc directory nothing has initialized |
 | `notification` | Notification events only: `title`, `body`, `priority`, `email`, `label`, `attachments` |
 
 **Command hooks** receive context as `MERIDIAN_*` environment variables and as
-JSON on stdin (payload `schema_version` 2). Notification events add
+JSON on stdin (payload `schema_version` 3). Notification events add
 `MERIDIAN_NOTIFICATION_TITLE`, `MERIDIAN_NOTIFICATION_BODY` and
-`MERIDIAN_NOTIFICATION_PRIORITY`.
+`MERIDIAN_NOTIFICATION_PRIORITY`. The runner first strips every hook-payload
+variable inherited from the caller, so a field absent from this event cannot
+carry a stale value from the session that fired it.
 
 **Built-in hooks** receive the typed `plugin_api.HookContext` directly; `lib/hooks`
 uses the same `HookContext`, `HookResult` and `HookEventName` types (plugin API
@@ -193,8 +227,10 @@ This is an enforced discipline, not just a convention. The reasoning:
 > boundary.
 
 The plugin API surface includes:
-- Hook types: `Hook`, `HookContext`, `HookResult`, `HookEventName`,
-  `HookOutcome`, `FailurePolicy`
+- Hook types: `Hook`, `HookContext` (built with `HookContext.from_roots`),
+  `HookResult`, `HookEventName`, `HookOutcome`, and the closed vocabularies
+  `SpawnKind` and `SpawnStatus`, which core lifecycle and spawn state import
+  rather than defining their own
 - Notification types: `Notification` and `NOTIFICATION_EVENTS`
 - State paths: `get_user_home()`, `get_project_home()`
 - Submodules, imported directly: `plugin_api.git` (`generate_repo_slug()`,
@@ -217,7 +253,7 @@ SMTP, Gmail, `none`.
 # Cache warnings to push only, at priority 5 (replaces that event's default route)
 [[hooks]]
 builtin = "notify"
-event   = "session.cache_expiring"
+event   = "notify.cache_expiring"
 [hooks.options]
 channels = ["push"]
 priority = 5
@@ -225,7 +261,7 @@ priority = 5
 # A Slack channel is a command hook on the same event
 [[hooks]]
 name    = "slack"
-event   = "session.cache_expiring"
+event   = "notify.cache_expiring"
 command = "scripts/slack-notify.sh"
 ```
 
@@ -256,12 +292,14 @@ with local Meridian state (KB, work directories, etc.). It works on any
 configured sync root — KB, work, strategy, or other contexts — and does not
 require an active work item.
 
-**Default events**: `spawn.finalized`, `work.started`, `work.done` when no
-`event` is specified. It never syncs at spawn start: through v0.10.28 the
-default listed `spawn.start`, which never fired, and #687 drops it rather than
-moving it to `spawn.running`, so as not to put a git sync in front of every
-spawn launch. It skips when there is no runtime
-root.
+**Default events**: `spawn.finished`, `work.activated`, `work.done` when no
+`event` is specified. It never syncs at spawn start, so no spawn launch waits
+on git. Because `work.activated` fires synchronously, a primary launch that
+attaches `--work` or `--from` work waits for one sync before its harness
+starts, and `work start` / `work switch` sync even from a shell with no
+session. Why these three is in
+[D-autosync-default-events](../decisions/hook-event-contract.md#d-autosync-default-events--spawnfinished-workactivated-workdone).
+It skips when there is no runtime root.
 
 ### What It Does
 
@@ -333,8 +371,8 @@ than blocking the agent session indefinitely.
 
 ### Session-End Coverage Gap
 
-git-autosync fires on meridian lifecycle events by default: `spawn.finalized`,
-`work.started`, and `work.done`. These cover agent activity
+git-autosync fires on meridian lifecycle events by default: `spawn.finished`,
+`work.activated`, and `work.done`. These cover agent activity
 coordinated through meridian, but miss commits created after the last such
 event — most commonly knowledge capture by an Agent-tool subagent as a
 session's final act. Those commits sit stranded locally until the next
@@ -383,7 +421,7 @@ exclude = ["*.log", "tmp/"]
 [[hooks]]
 builtin = "git-autosync"
 remote  = "git@github.com:org/meridian-context.git"
-event   = "spawn.finalized"
+event   = "spawn.finished"
 
 # Keep legacy "leave" behavior instead of abort-on-conflict:
 [[hooks]]
@@ -401,7 +439,7 @@ variables:
 
 ```bash
 #!/bin/bash
-# scripts/notify.sh — fires on spawn.finalized
+# scripts/notify.sh — fires on spawn.finished
 
 echo "Spawn $MERIDIAN_SPAWN_ID finished: $MERIDIAN_SPAWN_STATUS"
 echo "Cost: \$${MERIDIAN_SPAWN_COST_USD}"
@@ -417,8 +455,8 @@ curl -s -X POST "$SLACK_WEBHOOK" \
   --data "$(jq -n --arg t "$MERIDIAN_NOTIFICATION_TITLE" --arg b "$MERIDIAN_NOTIFICATION_BODY" '{text: ($t + "\n" + $b)}')"
 ```
 
-Set `failure_policy = "warn"` to log failures without blocking the lifecycle.
-Set `failure_policy = "fail"` if the hook's success is required.
+A failing hook is logged and the next hook runs. No setting makes a hook's
+success required.
 
 ---
 
