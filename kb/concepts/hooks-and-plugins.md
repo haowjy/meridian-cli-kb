@@ -395,7 +395,9 @@ unlocked for an existing hook. See
 
 ### Failure Philosophy
 
-All errors produce `skipped` (not `failure`). Sync failures are non-fatal —
+Every sync error returns a `skipped` hook result rather than `failure`. That is
+the builtin's own `HookOutcome`; it is separate from spawn status, and the
+dispatcher continues to the next hook either way. Sync failures are non-fatal —
 the agent session continues. The skip reason is recorded so it's visible in
 diagnostics, but the hook doesn't block the spawning lifecycle.
 

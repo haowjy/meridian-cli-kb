@@ -42,8 +42,10 @@ non-events: child work inheritance, `work rename` and `work clear` must not
 fire `work.activated`.
 
 **The rule:** a config value that loads successfully must change runtime
-behavior. When adding a value to a closed vocabulary, add a test that reaches
-it from the production seam, not from a hand-built context. Delete an accepted
+behavior. When adding a value to a closed vocabulary, add a test that runs the
+real code that produces it (the lifecycle service, the `work` command, the
+emitter) and checks the value arrives. A test that builds a `HookContext` by
+hand and passes it to the dispatcher proves only that the dispatcher works. Delete an accepted
 value whose behavior is gone, rather than leaving it parseable and ignored.
 
 ---

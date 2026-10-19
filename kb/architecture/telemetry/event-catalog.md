@@ -102,7 +102,7 @@ MCP command lifecycle.
 
 ### `work`
 
-Work item lifecycle transitions. `work.created` and `work.activated` are on the unmerged PR #688, which replaces v0.10.28's `work.started`; `publish_work_event` emits them together with the hook event of the same name, so the two always agree. `work.activated` carries `chat_id` only when the choice was attached to an existing session.
+Work item lifecycle transitions. `work.created` and `work.activated` are on the unmerged PR #688, which replaces v0.10.28's `work.started`; `publish_work_event` emits each one in the same call that fires the hook event of the same name; the telemetry write is best-effort, like all telemetry. `work.activated` carries `chat_id` only when the choice was attached to a Meridian chat record; a `work start` or `work switch` run from a plain shell has no chat to name.
 
 | Event | Concerns | `ids` keys |
 |---|---|---|

@@ -95,9 +95,11 @@ net change was zero. The second probe ran under `env -i` with a temporary
 
 **The rule:** a probe that runs `meridian` commands which mutate project state
 (`work`, `spawn`, `hooks run`) starts from `env -i`, or unsets every inherited
-`MERIDIAN_*` variable, and points `HOME` and `MERIDIAN_HOME` at `/tmp`. A
-scratch home alone leaves the inherited project root in charge, and that
-project's hooks fire on whatever the probe does.
+`MERIDIAN_*` variable, and points `HOME` and `MERIDIAN_HOME` at `/tmp`.
+`MERIDIAN_PROJECT_DIR` picks the project; the chat, spawn and depth variables
+attach the probe's actions to the parent's session. A scratch home alone leaves
+the inherited project root in charge, and that project's hooks fire on
+whatever the probe does.
 
 Source: `work:hook-event-names` `decisions.md` (wave 2 notes).
 
