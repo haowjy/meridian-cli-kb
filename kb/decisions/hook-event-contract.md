@@ -21,9 +21,17 @@ add the guard that keeps a dead name from shipping again.
 
 ## D-hook-event-names — nine past-tense moments, old names rejected at load
 
-**Decision (owner-approved, 2026-10-18):** Hook events are named for the moment
-that just happened, in the past tense. Events that carry a notification share
-the `notify.` prefix.
+**Decision (2026-10-18, owner-approved):** Hook events are named for the
+moment that just happened, in the past tense. Events that carry a notification
+share the `notify.` prefix.
+
+The lead (the agent running this work) first proposed a narrow fix: make `work switch` fire `work.started`
+too. The owner rejected folding creation and choice into one event ("then
+shouldn't there be 2 events of work.start and work.switch or work.resume") and
+widened the scope ("or maybe there is better wording for all the events...").
+The lead then proposed the table below, the past-tense rule and the `notify.`
+prefix; the owner approved it with "yeah, lets fix the plugin API since we are
+already breaking it" (`chat:c8397`).
 
 | Event | Fires when |
 |---|---|
@@ -60,7 +68,21 @@ cannot share one hook config; the upgrade path is to upgrade, run
 `meridian hooks check`, and fix every reported row.
 
 **Rejected:** `work.resume` for the choice event, since a newly created item
-isn't resumed. Also rejected: keeping `spawn.start` / `work.start` as aliases.
+isn't resumed, and `work.switch`, since `work start` also activates without
+switching. Also rejected: keeping `spawn.start` / `work.start` as aliases. The
+rejection-over-alias call is the lead's: the owner asked "who would have
+event = spawn.start or work.start ...? also... why remove them?", the answer
+was that nothing did except Meridian's own git-autosync default, and the owner
+went on to approve the full rename.
+
+**Considered and not added:** `spawn.exited`, `work.renamed`, `work.deleted`,
+`work.reopened` and `session.ended`. Nothing would consume them, so each would
+be one more accepted name to keep working. Process exit and the three work
+changes are already telemetry records, and `session.ended` is
+`spawn.finished` with `when.kind = ["primary"]`. Adding an event later is a
+small change (see [D-hook-fact-owners](#d-hook-fact-owners--one-owner-for-each-fact-about-an-event)).
+Telemetry also keeps its per-outcome spawn records (`spawn.succeeded`,
+`spawn.failed`, …), which are finer-grained than `spawn.finished`.
 
 **`spawn.started` covers every path into `running`.** Before the rename, the
 hook fired only from `mark_running`'s queued-to-running transition. A spawn
@@ -73,9 +95,11 @@ second `spawn.finished` delivery after an authoritative terminal rewrite has
 the same ID and can be deduplicated. Work and notification event IDs are
 random per firing, so two activations of the same item stay distinct.
 
-**Telemetry follows where it is the same moment.** The owner allowed telemetry
-names to change too. Work telemetry `work.started` became `work.created` plus a
-new `work.activated` (ids `work_id`, `chat_id`). The core lifecycle names
+**Telemetry follows where it is the same moment.** The lead had left
+telemetry names alone as outside the hook contract; the owner overrode that
+("I think telemetry is fine to change it", `chat:c8397`). Work telemetry
+`work.started` became `work.created` plus a new `work.activated` (ids
+`work_id`, `chat_id`). The core lifecycle names
 `spawn.queued` and `spawn.running` became `spawn.created` and `spawn.started`.
 Local `telemetry query` still keeps only process-exit and terminal records for
 spawns, as on `main`; see
@@ -91,9 +115,11 @@ spawn field is known, and carries the persisted terminal error on
 
 ## D-work-activation — activation means someone chose the item
 
-**Decision (2026-10-18):** `work.activated` fires when a user or agent picks a
-work item to work on. It does not fire when Meridian writes a session's work
-attachment as maintenance.
+**Decision (2026-10-18, lead):** `work.activated` fires when a user or agent
+picks a work item to work on. It does not fire when Meridian writes a
+session's work attachment as maintenance. The owner asked for separate
+creation and choice events; the boundary below is the lead's, settled after
+review rounds.
 
 | Counts as activation | Does not count |
 |---|---|
@@ -117,6 +143,11 @@ session, before the harness starts, not one per spawn. A context sync at
 session start is also what the planned context-autosync daemon (#691) wants.
 This call is reversible if the startup delay proves annoying.
 
+> [!FLAG] **Needs human review**
+> The lead asked the owner whether primary launches should fire activation
+> ("Say if you'd rather launches didn't fire it", `chat:c8397`) and got no
+> answer. The behavior above is the lead's default, not an owner decision.
+
 **Why sessionless start and switch count:** the old `work.started` fired with
 no session, so keeping that preserves behavior for shell users and scripts.
 
@@ -129,13 +160,16 @@ which a fresh primary does not have before its harness starts, so
 
 ## D-autosync-default-events — `spawn.finished`, `work.activated`, `work.done`
 
-**Decision (2026-10-18):** An unevented `git-autosync` row registers on
-`spawn.finished`, `work.activated` and `work.done`.
+**Decision (2026-10-18, lead):** An unevented `git-autosync` row registers on
+`spawn.finished`, `work.activated` and `work.done`. Moving the work default to
+`work.activated` was a line in the rename table the owner approved.
 
 The v0.10.28 defaults were `spawn.start` (dead), `spawn.finalized` and
 `work.started`. Moving the dead default to `spawn.started` was rejected: it
 would put a new blocking sync in front of every spawn start, for a hook the
-context-autosync daemon is expected to replace. Autosync therefore keeps
+owner wants replaced: "create a specific context autosync setting and a
+running background daemon for git autosync, hooks are kinda... not the best"
+(`chat:c8174`). That daemon is #691. Autosync therefore keeps
 never syncing at spawn start, which is what it already did in practice.
 
 The work default moved from `work.started` to `work.activated`. The cost is one
@@ -146,10 +180,13 @@ synchronous sync before a primary launch with `--work` or `--from` work;
 
 ## D-hook-failure-policy-removed — hook failures always continue
 
-**Decision (2026-10-18):** Every hook failure logs and continues to the next
-hook. The `failure_policy` row field, the `FailurePolicy` Plugin API type, and
-the observe/post/gate event classes are deleted. A row that still sets
-`failure_policy` is rejected with a removal diagnostic.
+**Decision (2026-10-18, lead):** Every hook failure logs and continues to the
+next hook. The `failure_policy` row field, the `FailurePolicy` Plugin API
+type, and the observe/post/gate event classes are deleted. A row that still
+sets `failure_policy` is rejected with a removal diagnostic. The owner
+approved deleting the `gate` class and `when.status = "skipped"` ("add them")
+and asked for a kind filter in the same turn; removing `failure_policy`
+followed in review, once nothing honored it.
 
 **Why:** only `gate` events honored `failure_policy = "fail"`, and no event was
 a gate. The field was accepted, documented, and ignored. Leaving it would have
@@ -179,7 +216,7 @@ cannot expose a user-layer action. The row fails only if no default can match.
 
 ## D-hook-fact-owners — one owner for each fact about an event
 
-**Decision (2026-10-18):** Each fact about hook events has one owner.
+**Decision (2026-10-18, lead):** Each fact about hook events has one owner.
 
 | Fact | Owner |
 |---|---|
@@ -225,6 +262,7 @@ producer-coverage test fails if those disagree; see
 - **#691:** the context-autosync daemon may replace the `git-autosync` hook;
   the default events above are an interim choice until then.
 
-**Provenance:** `work:hook-event-names` `decisions.md` D1–D6; reviews
-`spawn:p8641`, `spawn:p8646`, `spawn:p8648`, `spawn:p8650`; probe
-`spawn:p8643`.
+**Provenance:** `work:hook-event-names` `decisions.md` D1–D6; owner turns in
+`chat:c8174` (2026-10-18) and `chat:c8397` (2026-10-18), mined by
+`spawn:p8653`; reviews `spawn:p8641`, `spawn:p8646`, `spawn:p8648`,
+`spawn:p8650`; probe `spawn:p8643`.

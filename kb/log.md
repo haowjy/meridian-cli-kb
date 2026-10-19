@@ -3,6 +3,36 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-18 — Hook event contract captured from PR #688 (`work:hook-event-names`)
+
+PR #688 (unmerged, fixes #687) renames the hook events and deletes
+`failure_policy`. Pages describe the branch and say so in their status lines.
+
+- New [decisions/hook-event-contract.md](decisions/hook-event-contract.md):
+  D-hook-event-names, D-work-activation (flagged: primary-launch activation
+  was never owner-confirmed), D-autosync-default-events,
+  D-hook-failure-policy-removed, D-hook-fact-owners. Indexed in
+  [decisions.md](decisions.md) and [decisions/overview.md](decisions/overview.md).
+- New [lessons/hook-event-contract.md](lessons/hook-event-contract.md):
+  accepted names need a producer (the producer-coverage test); repeated fixes
+  mean parallel owners.
+- [lessons/probe-runtime-placement.md](lessons/probe-runtime-placement.md):
+  an inherited `MERIDIAN_PROJECT_DIR` sent a scratch-home probe's `work`
+  commands to the real project.
+- Renamed events and removed `failure_policy` / event classes in
+  [hooks-and-plugins](concepts/hooks-and-plugins.md),
+  [work-items](codebase/work-items.md), [vocabulary](codebase/vocabulary.md)
+  (new Spawn kind, Work activation, Hook event spec; Hook event class
+  removed), [telemetry event catalog](architecture/telemetry/event-catalog.md)
+  and [overview](architecture/telemetry/overview.md) (also the missing
+  `spawn.timed_out`), [idle-notify-channels](decisions/idle-notify-channels.md),
+  [idle-notifications](decisions/idle-notifications.md),
+  [idle-adapters](architecture/idle-adapters.md) and
+  [meridian-base](ecosystem/prompt-packages/meridian-base.md).
+- [corrections.md](corrections.md): one occurrence on the
+  instance-only-fix class, two new candidates.
+
+---
 ## 2026-10-18 — Post-merge check of the idle push and notification pages against v0.10.28 (`work:kb-pass-notify-hook-events`)
 
 The pages from KB PR #1 (`c49e51f`) were checked against the shipped code
