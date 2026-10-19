@@ -96,7 +96,7 @@ The telemetry stream carries only content the existing stores don't capture. See
 | Command dispatch | `chat.command.dispatched` |
 | Chat runtime shutdown | `chat.runtime.stopping`, `chat.runtime.stopped` |
 | MCP local commands | `mcp.command.invoked` |
-| Work item transitions | `work.created`, `work.activated`, `work.updated`, `work.done`, `work.deleted`, `work.reopened`, `work.renamed` (`work.created` / `work.activated` replace `work.started` on the unmerged PR #688) |
+| Work item transitions | `work.created`, `work.activated`, `work.updated`, `work.done`, `work.deleted`, `work.reopened`, `work.renamed` (`work.created` / `work.activated` replaced `work.started` in v0.11.0) |
 | Stream backpressure | `runtime.stream_event_dropped` |
 | Debug tracer self-disable | `runtime.debug_tracer_disabled` |
 

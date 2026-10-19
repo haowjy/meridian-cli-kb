@@ -33,7 +33,7 @@ the index with it.
 **What we changed:**
 - **Bump the history-index `SCHEMA_VERSION` whenever a serialized record shape
   changes.** PR 1 went 3 → 4 → 5 across its phases. Since 2026-09-26 each schema
-  has its own index file (`history-v<N>.sqlite3`), so builds no longer share the
+  has its own index file (now `history-v<N>-sessions-v<S>.sqlite3`), so builds no longer share the
   index at all ([decision](../decisions/history-storage.md#d-history-index-schema-namespace)).
   Authoritative records are still shared, and a PR-only field in them still crashes
   an older build.

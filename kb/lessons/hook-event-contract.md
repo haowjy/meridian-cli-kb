@@ -1,7 +1,6 @@
 # Lessons: The Hook Event Contract (#687)
 
-Two lessons from replacing Meridian's hook event names (PR #688, unmerged,
-based on v0.10.28). The decisions themselves are in
+Two lessons from replacing Meridian's hook event names (PR #688, shipped in v0.11.0). The decisions themselves are in
 [The Hook Event Contract](../decisions/hook-event-contract.md).
 
 ---

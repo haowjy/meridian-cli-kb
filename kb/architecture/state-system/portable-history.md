@@ -76,28 +76,36 @@ Search is the one full-text projection. It is a separate, native-keyed FTS5 file
 that stores no chat IDs and no unique facts. Every hit is re-verified against the
 live native source ([native transcript reads](../native-transcript-reads.md#search-projection)).
 
-## Index files are named by schema
+## Index files are named by schema and session format
 
-The metadata index is one namespace per `SCHEMA_VERSION`
-([decision](../../decisions/history-storage.md#d-history-index-schema-namespace)):
+The metadata index is one namespace per pair of index `SCHEMA_VERSION` (`N`, 10)
+and session event format (`S`, 1), formed by `versioned()` in
+`state/history_changes.py`
+([decision](../../decisions/history-storage.md#d-history-index-schema-namespace);
+the session format joined the name in v0.11.0,
+[D-index-named-by-inputs](../../decisions/compatibility-versioning.md#d-index-named-by-inputs--a-rebuildable-indexs-file-name-carries-every-input-format)):
 
 | Path | Scope |
 |---|---|
-| `history-index/history-v<N>.sqlite3`, `.build-v<N>.sqlite3` stage | this schema |
-| `history-index/pending-v<N>/` and its `GENERATION` | this schema |
-| `locks/history-{catchup,database,markers}-v<N>.lock` | this schema |
-| `history-index-init-failure-v<N>.json` | this schema |
+| `history-index/history-v<N>-sessions-v<S>.sqlite3`, its `.build` stage | this namespace |
+| `history-index/pending-v<N>-sessions-v<S>/` and its `GENERATION` | this namespace |
+| `locks/history-{catchup,database,markers}-v<N>-sessions-v<S>.lock` | this namespace |
+| `history-index-init-failure-v<N>-sessions-v<S>.json` | this namespace |
 | `locks/history-mutation.lock`, per-source locks | shared: they guard authority |
 | `history-index/history.sqlite3`, `pending/`, unversioned locks and latch | 0.6.7 and earlier; never opened or deleted |
+| `history-index/history-v<N>.sqlite3` and its schema-only siblings | 0.7.0 through 0.10.30; never opened or deleted |
 
-A schema bump builds a fresh file from authority; nothing migrates in place. A file
+A schema or session-format bump builds a fresh file from authority; nothing
+migrates in place. A session row whose `v` this build does not support is
+skipped; indexing continues past it, and the skipped versions are kept in the
+sessions cursor so every indexed read warns once per command. A file
 whose version does not match its name reports `incompatible` and needs an explicit
 rebuild. Writers mark only their own schema's queue, so during a mixed-version
 overlap catch-up re-reads active loose spawns and the `sessions.jsonl` cursor
 without a marker. That picks up runs that an older build finishes, and primaries it
 stops, after the upgrade. Spawns an older build creates later, and archive changes
-it makes, need `session index rebuild`. The native search projection already worked
-this way (`native-search-v1.sqlite3`).
+it makes, need `session index rebuild`. The native search projection is named by its
+own schema alone (`native-search-v1.sqlite3`).
 
 ## Missing index initialization
 

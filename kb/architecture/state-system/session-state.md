@@ -28,6 +28,13 @@ one keyed seam in `session_store.py`
   every byte of the file.
 - **Appends:** `append_chat_rows` and `append_native_rows`. `SessionBindings.commit`
   publishes through `append_chat_rows` as one durable batch.
+- **Format version:** rows carry `v` (1; absent reads as 1). A read skips a row
+  with an unsupported `v` and warns. Paths that read rows to decide what to append
+  (starting a chat, binding a native session, deduplicating model records, adopting
+  an observed native session, repair binds) pass `require_supported` and refuse with
+  `UnsupportedSessionFormat` when an unsupported row is in their chat or native
+  scope. Blind appends read nothing and check nothing
+  ([D-check-before-deciding](../../decisions/compatibility-versioning.md#d-check-before-deciding--version-checks-guard-decisions-and-mutations-not-blind-appends)).
 - **Multi-chat callers make one call**, never a loop over single-chat reads, and
   never sort rows by timestamp.
 
@@ -89,8 +96,8 @@ Until it lands, describe and test sessions as the global log above.
 
 Two disposable projections sit beside the journal. Neither holds a fact the journal
 lacks:
-- **Metadata index** (`history-index/history-v<N>.sqlite3`, named by schema: 10 on
-  `main` since #631; 8 and 9 were written only by unreleased #616 builds and are
+- **Metadata index** (`history-index/history-v<N>-sessions-v<S>.sqlite3`, named by
+  index schema and session event format; schema 10 since #631; 8 and 9 were written only by unreleased #616 builds and are
   skipped; identity-v2 PR 4 plans v11 and #418 B2 v12): cross-record browse,
   discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
   `sessions` table folds native keys with the authority's own step,

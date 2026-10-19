@@ -1,7 +1,8 @@
 # Decisions: The Hook Event Contract
 
-> **Status:** Implemented on the unmerged `fix/hook-event-names` branch,
-> PR #688 (fixes #687), based on v0.10.28. `main` still has the old names.
+> **Status:** Shipped in v0.11.0 (PR #688, fixes #687; the permission notice
+> event in PR #689). The pre-0.11 names load with a warning until the next
+> minor release.
 
 Decision records for which hook events exist, what each one means, and who
 owns each fact about them. The current mechanism is in
@@ -19,7 +20,7 @@ add the guard that keeps a dead name from shipping again.
 
 ---
 
-## D-hook-event-names — nine past-tense moments, old names rejected at load
+## D-hook-event-names — past-tense moments named for what just happened
 
 **Decision (2026-10-18, owner-approved):** Hook events are named for the
 moment that just happened, in the past tense. Events that carry a notification
@@ -43,13 +44,18 @@ already breaking it" (`chat:c8397`).
 | `work.done` | A work item is archived as done |
 | `notify.your_turn` | The idle service sends its "your turn" push |
 | `notify.cache_expiring` | The idle service sends its prompt-cache warning |
+| `notify.needs_permission` | Claude reports a permission prompt still waiting ([D-idle-permission-ping](idle-notifications.md#d-idle-permission-ping--forward-claudes-still-waiting-signal-without-rebuilding-prompt-state)) |
 | `notify.manual` | `meridian notify` runs |
 
-Every removed name fails config load with its replacement, for example
-`'spawn.start' was removed; use 'spawn.started'`. The map
-(`_REPLACED_HOOK_EVENTS` in `lib/hooks/schema.py`):
+`notify.needs_permission` was built alongside the rename under the name
+`session.needs_permission` and shipped in the same release under the new
+scheme, so it has no deprecated name.
 
-| Removed | Replacement |
+Each old name maps to one replacement (`NEXT_MINOR_HOOK_CONFIG_BREAKS` in
+meridian-cli `lib/hooks/schema.py`); how old names load is
+[D-hook-deprecation-window](#d-hook-deprecation-window--old-names-load-for-one-minor-release):
+
+| Old | Replacement |
 |---|---|
 | `spawn.start`, `spawn.running` | `spawn.started` |
 | `spawn.finalized` | `spawn.finished` |
@@ -60,20 +66,17 @@ Every removed name fails config load with its replacement, for example
 `work.started` maps to `work.activated`, not `work.created`, because it fired
 on every `work start`, for existing items too.
 
-**Why rejection, not aliases:** Meridian has no external users to migrate, and
-an alias gives one moment two names, which is the ambiguity the rename exists
-to remove. A row that names an old event must fail where the user will see it.
-Ignoring it would recreate the silent dead row. Old and new binaries therefore
-cannot share one hook config; the upgrade path is to upgrade, run
-`meridian hooks check`, and fix every reported row.
+**No permanent aliases.** An alias gives one moment two names, which is the
+ambiguity the rename exists to remove. Old names are accepted only for the
+deprecation window, with a warning on every load, and then rejected.
 
 **Rejected:** `work.resume` for the choice event, since a newly created item
 isn't resumed, and `work.switch`, since `work start` also activates without
-switching. Also rejected: keeping `spawn.start` / `work.start` as aliases. The
-rejection-over-alias call is the lead's: the owner asked "who would have
-event = spawn.start or work.start ...? also... why remove them?", the answer
-was that nothing did except Meridian's own git-autosync default, and the owner
-went on to approve the full rename.
+switching. Also rejected: keeping `spawn.start` / `work.start` as permanent
+aliases. The owner had asked "who would have event = spawn.start or work.start
+...? also... why remove them?"; the answer was that nothing did except
+Meridian's own git-autosync default, and the owner went on to approve the full
+rename.
 
 **Considered and not added:** `spawn.exited`, `work.renamed`, `work.deleted`,
 `work.reopened` and `session.ended`. Nothing would consume them, so each would
@@ -105,11 +108,55 @@ Local `telemetry query` still keeps only process-exit and terminal records for
 spawns, as on `main`; see
 [Telemetry Event Catalog](../architecture/telemetry/event-catalog.md).
 
-**Plugin API 3.0.0 and hook context schema 3.** Removing names from
-`HookEventName` is breaking, so the Plugin API moves to 3.0.0. Schema 3 adds
-`spawn.kind` (`MERIDIAN_SPAWN_KIND`), emits the `spawn` JSON block whenever any
-spawn field is known, and carries the persisted terminal error on
-`spawn.finished`. `HookContext.from_authority` became `from_roots`.
+**Hook context schema 3.** The payload's `schema_version` 3 identifies this
+contract. It adds `spawn.kind` (`MERIDIAN_SPAWN_KIND`), emits the `spawn` JSON
+block whenever any spawn field is known, and carries the persisted terminal
+error on `spawn.finished`. `HookContext.from_authority` became `from_roots`.
+The branch first versioned the Plugin API as 3.0.0; that string was deleted
+before release because nothing read it, and the Plugin API now carries no
+version of its own
+([D-version-only-where-read](compatibility-versioning.md#d-version-only-where-read--integer-format-versions-where-another-build-reads-delete-the-rest)).
+
+---
+
+## D-hook-deprecation-window — old names load for one minor release
+
+**Decision (2026-10-19, owner; supersedes rejection at load):** The old event
+names, `failure_policy`, and `when` conditions an event can never satisfy load
+with one warning per row during v0.11, and become config errors in the next
+minor release. A row on an old name registers on the replacement event.
+
+This reversed the branch's first design, which failed config load on every old
+name ("`'spawn.start' was removed; use 'spawn.started'`") on the grounds that
+Meridian had no users to migrate. Before #688 merged, the owner dropped the
+project's no-backwards-compatibility rule and applied the replacement policy
+to this PR first
+([D-compat-policy](compatibility-versioning.md#d-compat-policy--one-minor-deprecation-new-builds-read-old-data-old-builds-refuse-new-data)).
+
+How the window behaves (meridian-cli `docs/upgrading.md` "Hook event names"
+is the user reference):
+
+- **Old names.** The row registers on the new event and warns once.
+  `meridian hooks check` exits 0 when deprecations are its only findings, and
+  `hooks list` marks the row `deprecated`. Rows on `spawn.start` and
+  `work.start` never fired before; they now run, and their warning says so.
+- **The row keeps its configured name in the payload.** `HookContext.event_name`,
+  JSON `event_name` and `MERIDIAN_HOOK_EVENT` carry the old name for a row
+  configured with it, so a script that branches on the event name keeps working
+  until its config is migrated. This was the lead's call.
+- **`failure_policy`** loads, warns and has no effect.
+- **`when.status = ["skipped"]`** drops `skipped` with a warning. If no status
+  remains, the row is skipped rather than widened to match every status.
+- **Impossible conditions on a row that names its event** warn and skip the
+  row, so it no longer shadows a lower-file row with the same name and event.
+
+**Mixed-version machines.** The new binary accepts both name sets; an old
+binary still rejects the new names. A shared config keeps the old names until
+every machine has upgraded.
+
+**Ending the window:** `NEXT_MINOR_HOOK_CONFIG_BREAKS` is the complete
+inventory of this compatibility behavior. Flipping its `mode` to `"error"`
+turns every entry into a load error.
 
 ---
 
@@ -181,9 +228,10 @@ synchronous sync before a primary launch with `--work` or `--from` work;
 ## D-hook-failure-policy-removed — hook failures always continue
 
 **Decision (2026-10-18, lead):** Every hook failure logs and continues to the
-next hook. The `failure_policy` row field, the `FailurePolicy` Plugin API
-type, and the observe/post/gate event classes are deleted. A row that still
-sets `failure_policy` is rejected with a removal diagnostic. The owner
+next hook. The `FailurePolicy` Plugin API type and the observe/post/gate event
+classes are deleted. A config row that still sets `failure_policy` loads with a
+warning and no effect until the next minor release
+([D-hook-deprecation-window](#d-hook-deprecation-window--old-names-load-for-one-minor-release)). The owner
 approved deleting the `gate` class and `when.status = "skipped"` ("add them")
 and asked for a kind filter in the same turn; removing `failure_policy`
 followed in review, once nothing honored it.
@@ -204,10 +252,11 @@ that is fixed.
 lifecycle and persisted spawn state import it, so there is one spawn-kind
 vocabulary.
 
-**Conditions are checked against what the event supplies.** An explicit row
-fails load if it asks for a field its event cannot supply: `when.status` exists
-only on `spawn.finished`, and work events reject `when.agent` and `when.kind`.
-An unevented builtin row keeps its compatible default events enabled and
+**Conditions are checked against what the event supplies.** `when.status`
+exists only on `spawn.finished`, and work events supply neither `when.agent`
+nor `when.kind`. A row that names its event and asks for a field the event
+cannot supply can never match: during the deprecation window it warns and is
+skipped, and in the next minor release it fails load. An unevented builtin row keeps its compatible default events enabled and
 records the rest as disabled overrides. The disabled entries still replace
 lower-layer rows with the same `(name, event)`, so narrowing a project row
 cannot expose a user-layer action. The row fails only if no default can match.
@@ -249,10 +298,7 @@ producer-coverage test fails if those disagree; see
 
 ## Open and follow-up
 
-- **#689 (`feat/permission-prompt-ping`, unmerged)** adds the Claude
-  permission notice as `session.needs_permission` at Plugin API 2.1.0. Under
-  this contract it becomes `notify.needs_permission` at 3.1.0 when it rebases
-  onto #688.
+- **Next minor release:** flip `NEXT_MINOR_HOOK_CONFIG_BREAKS` to `"error"`.
 - **#692:** build hook dispatchers in one factory in `lib/hooks` (removing the
   `core` ↔ `hooks` import cycle and the duplicate in `notify`), build it once
   per command so a bad config warns once, and move work-event publishing below
@@ -262,7 +308,7 @@ producer-coverage test fails if those disagree; see
 - **#691:** the context-autosync daemon may replace the `git-autosync` hook;
   the default events above are an interim choice until then.
 
-**Provenance:** `work:hook-event-names` `decisions.md` D1–D6; owner turns in
+**Provenance:** `work:hook-event-names` `decisions.md` D1–D8; owner turns in
 `chat:c8174` (2026-10-18) and `chat:c8397` (2026-10-18), mined by
-`spawn:p8653`; reviews `spawn:p8641`, `spawn:p8646`, `spawn:p8648`,
-`spawn:p8650`; probe `spawn:p8643`.
+`spawn:p8653` and `spawn:p8692`; reviews `spawn:p8641`, `spawn:p8646`,
+`spawn:p8648`, `spawn:p8650`, `spawn:p8664`; probe `spawn:p8643`.

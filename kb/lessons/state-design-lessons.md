@@ -313,7 +313,7 @@ maintenance cost compounds as the schema evolves across work streams.
 
 ### Cross-Language Consumers of Persisted Schema
 
-The "no backwards compatibility" rule is Python-scoped. The Pi
+Meridian's Python code is not the only reader of its persisted state. The Pi
 `meridian-spawn-watch` TypeScript extension reads `state.json` directly and
 broke when lifecycle facts moved from flat fields to nested sub-models: the
 extension rendered `duration` as `-` and misreported quarantined rows as

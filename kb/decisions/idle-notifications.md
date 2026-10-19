@@ -41,7 +41,7 @@ each harness actually schedules today is in
 
 Claude has one additional, unscheduled notice: when Claude Code reports that a
 permission prompt is still unanswered, Meridian forwards that signal as
-`session.needs_permission`. It is deliberately outside the stretch and timer
+`notify.needs_permission`. It is deliberately outside the stretch and timer
 model; see [D-idle-permission-ping](#d-idle-permission-ping--forward-claudes-still-waiting-signal-without-rebuilding-prompt-state).
 
 ## Invariants to keep
@@ -426,7 +426,8 @@ agent-dir and session-dir defaults. Forced adapter policy stays in
 #686, which carries
 [D-notify-hook-events](idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes),
 was built on it.
-Claude primaries only; other harnesses are #669. The first cut and its
+Built for Claude primaries; Pi and OpenCode 2.x adapters joined later under
+[D-idle-running-work-reporters](#d-idle-running-work-reporters--only-work-that-wakes-the-session-holds-the-push). The first cut and its
 thermo-nuclear review (a strict maintainability review) were made in a cloud session whose transcript is not readable from
 here; that the user approved them is session-record (the session's own KB
 entry), not independently confirmed.
@@ -482,11 +483,12 @@ the end of its line. A backslash-newline is deleted, joining the words around
 it, as the shell does. A line `shlex` cannot read (unbalanced quotes, stray
 punctuation) is *maybe*.
 
-The Claude mod forwards at most 16 tasks and 512 characters per command. A
-cut command gets `\n;:` appended, so its last segment is the no-op `:` and it
-reads *maybe* even when an option such as `--bg` fell past the cut. Claude
-itself caps a shell command at 1000 characters. An unknown task type maps to
-`other`.
+The Claude mod forwards at most 16 tasks. A command longer than 512
+characters is forwarded as `other` with no command, so it reads *maybe* even
+when an option such as `--bg` fell past the cut. (The first build appended
+`\n;:` to a cut command instead; review replaced it with `other` in both the
+Claude and Pi mods.) Claude itself caps a shell command at 1000 characters. An
+unknown task type maps to `other`.
 
 **Why this rule.** A correctness review of the first build found that "any
 `meridian … spawn` segment anywhere in the line" held the push forever for
@@ -519,6 +521,8 @@ quick-turn delay although no push had answered the user. Idle before #673
 behaved the same way (`select_push_delay`); the fix matches the field's documented meaning. The idle state file
 moved to `v: 2`. Files from older builds fail validation and read as absent,
 so a stretch open across the upgrade loses its pending push and owed time.
+Since v0.11.0 the reader also warns, naming the file
+([D-idle-absent-exception](compatibility-versioning.md#d-idle-absent-exception--idle-state-warns-and-behaves-as-absent)).
 
 **Why:** Before this, the Claude mod skipped the whole arm while a subagent ran
 (losing the cache warning with the push), and background shells were
@@ -548,8 +552,9 @@ main loop's `turn.complete`, lists running shells (with their command line),
 subagents and workflows, and the task's completion arrives as a
 `task-notification` prompt that runs another main-loop turn with an empty list.
 The mod forwards that list with `idle arm --background-tasks`; a turn with no
-`Stop` forwards nothing and gets the ordinary push. Other harnesses report no
-tasks yet and keep the ordinary push (#669). `session_crons` are not forwarded.
+`Stop` forwards nothing and gets the ordinary push. `session_crons` are not
+forwarded. Which other harnesses report running work, and why, is
+[D-idle-running-work-reporters](#d-idle-running-work-reporters--only-work-that-wakes-the-session-holds-the-push).
 
 **Gap:** a `meridian spawn --bg` with nothing waiting on it is invisible (its
 shell exits at once), so the push fires normally. Agents pair `--bg` with
@@ -607,14 +612,85 @@ sidecar, does not ask whether the primary is busy before firing a due push.
 When finishing background work starts a new main-loop turn, a push timer from
 the previous anchor can fire mid-turn (`lib/idle/.context/FUTURE`).
 
+## D-idle-running-work-reporters — only work that wakes the session holds the push
+
+**Status:** GitHub #669. Pi shipped in v0.10.29 (PR #690), OpenCode 2.x in
+v0.10.30 (PR #698). Codex and OpenCode 1.x report nothing. Decided by the lead
+from canary evidence, with the owner directing the OpenCode and Codex
+re-checks (`work:idle-other-harnesses` D1–D9).
+
+**Decision:** An adapter reports a piece of background work to idle policy
+only if that work's completion wakes the session without the user. Work that
+never wakes it must not hold or delay the push, since the push would then
+wait for a turn that never comes. Each harness was checked by a canary before
+any reporting was built.
+
+| Harness | Wakes on its own? | Reports |
+|---|---|---|
+| Claude | Yes: a finished task delivers a `task-notification` turn | `classic.Stop` `background_tasks` ([D-idle-push-in-flight](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not)) |
+| Pi | Yes: `meridian-spawn-watch` sends a follow-up that triggers a turn when a tracked background managed-bash row finishes | Running rows that are background and tracked; detached rows never wake Pi and are excluded |
+| OpenCode 2.x | Yes for the agent's `shell` and `subagent` tools with `background: true`; no for `POST /api/shell` and children made any other way | Only work a tool event of the parent named; a child on an open permission ask stops counting |
+| OpenCode 1.x | Not established | Nothing |
+| Codex | Not observed through Meridian (below) | Nothing |
+
+The mechanism per harness is in
+[Running work and the push](../architecture/idle-adapters.md#running-work-and-the-push).
+
+**How the verdicts were reached.** The first canaries said Codex and OpenCode
+do not wake, and the first decision was to report nothing for both. Both
+canaries had tested a path other than the one a managed primary uses. The
+OpenCode canary started its shell through `POST /api/shell`, which OpenCode
+hard-codes as non-resuming. When the owner asked to make OpenCode work, source
+research found the agent tools resume by default, and a second canary on
+opencode 2.0.29 confirmed both tools wake the parent. The owner then judged
+that Codex likely behaves the same and that the Codex canary (a bare
+`codex app-server` client with no TUI) could have missed it.
+
+**Why a child on a permission ask stops counting (OpenCode).** The child
+cannot finish until the user answers, so holding the push for it hides the
+one thing the user has to do. Review of the first OpenCode build caught this
+as a regression from `main`. The OpenCode sensor therefore releases the hold
+while the ask is open and treats the answer as a user return. Claude keeps
+holding in the same case
+([below](#d-idle-push-in-flight--the-push-waits-for-work-that-will-wake-the-session-the-warning-does-not));
+its permission notice reaches the user instead.
+
+**Why OpenCode re-checks after a reconnect.** The event stream is live-only.
+A wake turn's end that fell in a stream gap left the sensor believing the
+primary was busy, so the hold never lifted. On every reconnect after the
+first, the sensor re-lists running work and re-reads whether the primary's
+turn is running, and reports a missed turn end. When the server cannot say,
+it reports no work rather than guess, because a hold on work that already
+ended would never lift.
+
+**Codex: open question.** On Codex 0.163.0 through Meridian's managed path
+(owned `codex app-server` plus the attached TUI), a background command the
+agent started with a yield timeout finished 28 s after the turn ended, and no
+new turn started in the following 77 s; a rerun with the owner's own Codex
+config watched 109 s with the same result
+(`work:idle-other-harnesses` `canary-codex-tools.md`). Meridian disables
+Codex's native subagent tool on this path, so the subagent case could not run.
+The owner reports seeing Codex continue on its own after background work in
+real use, and the canary result does not explain that. Goal mode (`/goal`)
+does start a new turn right after each goal turn, but the owner ruled it out
+as the cause. The cause is unknown and was not pursued. Until it is
+reproduced, Codex reports no running work. If Codex does wake, its idle sensor
+could report `thread/backgroundTerminals/list` and child threads.
+
+**Not built:** wake behavior for OpenCode 1.x was never canaried; it keeps
+reporting nothing.
+
+**Follow-up:** #694, Meridian's OpenCode 2.x permission reply sends
+`{"reply": …}` where the server requires `{"decision": …}`; found during this
+work.
+
 ## D-idle-permission-ping — Forward Claude's still-waiting signal without rebuilding prompt state
 
-**Status:** GitHub #684, implemented on the unmerged
-`feat/permission-prompt-ping` branch from v0.10.28 (2026-10-18). The branch
-names the event `session.needs_permission`; it becomes
-`notify.needs_permission` when it rebases onto the renamed hook contract
-([D-hook-event-names](hook-event-contract.md#d-hook-event-names--nine-past-tense-moments-old-names-rejected-at-load),
-PR #688).
+**Status:** GitHub #684; shipped in v0.11.0 (PR #689) as the
+`notify.needs_permission` hook event. It was built as
+`session.needs_permission` and renamed under the hook contract
+([D-hook-event-names](hook-event-contract.md#d-hook-event-names--past-tense-moments-named-for-what-just-happened))
+before release.
 
 **Decision:** The Claude mod forwards only `classic.Notification` events whose
 `notification_type` is `permission_prompt`. It calls the hidden
@@ -623,7 +699,7 @@ adapter command and immediately continues the host event with `next(e)`.
 Core builds one priority-3, push-only notice titled
 `[permission] {label.headline}`. Its body is the stripped harness notification
 text, or `Permission prompt waiting` when `[notify].include_messages` is false.
-Core emits it as the `session.needs_permission` hook event. The
+Core emits it as the `notify.needs_permission` hook event. The
 event has the same default built-in `notify` route as the idle push and cache
 warning, so ordinary hook rows can add routes or replace its default; a
 disabled `notify` row for this event silences only this notice.
@@ -649,7 +725,7 @@ for Pi, Codex, OpenCode, or Cursor.
 **Verified:** a real Claude Code 2.1.302 primary with Haiku, isolated under a
 scratch `MERIDIAN_HOME` and runtime directory, was left at a Bash permission
 prompt for more than ten seconds. A command hook captured exactly one
-`session.needs_permission` notice titled
+permission notice (then named `session.needs_permission`) titled
 `[permission] claude in project: "permission-ping"` with the body
 `Claude needs your permission`. Mod and CLI tests also cover exact filtering,
 fail-open CLI errors, route silencing, and no idle-state write

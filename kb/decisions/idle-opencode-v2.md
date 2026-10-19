@@ -106,5 +106,6 @@ so they were not waited out.
 
 - [Idle Notifications](idle-notifications.md): shared idle policy, config, and harness-hosting rationale.
 - [Idle Adapter Architecture](../architecture/idle-adapters.md): current OpenCode V1/V2 contracts and known fragility.
+- [D-idle-running-work-reporters](idle-notifications.md#d-idle-running-work-reporters--only-work-that-wakes-the-session-holds-the-push): why the V2 sensor reports background `shell` and `subagent` tool work (v0.10.30) and V1 reports none.
 - [Idle TTL Detection](idle-ttl-detection.md): provider-derived TTL mapping.
 - [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md): provider retention evidence.

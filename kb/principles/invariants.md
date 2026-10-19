@@ -146,7 +146,7 @@ Op API functions in `src/meridian/lib/ops/` do not read from `os.environ` to det
 
 ## Plugin API Boundary Invariant
 
-Built-in commands import only from `src/meridian/lib/plugin_api/`. They do not import from `src/meridian/lib/ops/` or `src/meridian/lib/launch/` directly. This enforces the plugin boundary — external plugins that follow the same import rule will behave identically to built-ins.
+Built-in commands import only from `src/meridian/plugin_api/`. They do not import from `src/meridian/lib/ops/` or `src/meridian/lib/launch/` directly. This enforces the plugin boundary — external plugins that follow the same import rule will behave identically to built-ins.
 
 ---
 

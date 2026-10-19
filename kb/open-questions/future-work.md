@@ -94,6 +94,20 @@ the open issues and how they depend on each other:
 - **Untracked:** the automatic archiver folds the whole session log once per
   candidate. #418 leaves it out of scope, and no issue exists yet; see the
   [per-operation cost inventory](../architecture/per-operation-cost.md).
+- [#700](https://github.com/haowjy/meridian-cli/issues/700): a background spawn
+  composes its launch twice, once in the launcher and again in the worker; carry
+  the prepared launch across instead.
+- [#702](https://github.com/haowjy/meridian-cli/issues/702): `spawn wait` rewrites
+  Pi wait-observation state on every poll, and does so even for parents that are
+  not Pi.
+
+### Should `--fork` and `--fork-fresh` merge? (#701)
+
+**Status:** Open. [#701](https://github.com/haowjy/meridian-cli/issues/701): first
+measure whether `--fork` actually keeps the prompt cache, then decide whether the
+two flags merge. The owner chose to keep forking (2026-10-19). Merging or removing a
+flag is a public change and goes through the
+[deprecation window](../decisions/compatibility-versioning.md#d-compat-policy--one-minor-deprecation-new-builds-read-old-data-old-builds-refuse-new-data).
 
 ### D-003: Nested-Depth "After Reconciliation" Wording
 

@@ -95,16 +95,14 @@ transcript is not readable from here. Per that record, the user chose "Full
 `meridian notify "<title>" ["<body>"]`, and approved the reshape proposed by a
 thermo-nuclear review (a strict maintainability review) with "yea fix". A second session took the branch over (`work:notify-hook-events`) and
 fixed review findings in four rounds. The bullets below describe the result.
-Issue #684 adds the Claude permission notice on the unmerged
-`feat/permission-prompt-ping` branch (PR #689); it uses the same routing
-contract.
+Issue #684 added the Claude permission notice in v0.11.0 (PR #689); it uses
+the same routing contract.
 
 Event names here are the current ones from
-[D-hook-event-names](hook-event-contract.md#d-hook-event-names--nine-past-tense-moments-old-names-rejected-at-load)
-(unmerged PR #688). v0.10.28 shipped the idle push and cache warning as
-`session.responded` and `session.cache_expiring`; #689 still calls the
-permission notice `session.needs_permission` and renames it to
-`notify.needs_permission` when it rebases onto #688.
+[D-hook-event-names](hook-event-contract.md#d-hook-event-names--past-tense-moments-named-for-what-just-happened)
+(v0.11.0). v0.10.28 shipped the idle push and cache warning as
+`session.responded` and `session.cache_expiring`; those names still load,
+with a warning, until the next minor release.
 
 **Decision:** A notification is a hook event, and the hook rows on that event
 deliver it.
@@ -112,7 +110,7 @@ deliver it.
 - **Every notification event is fail-open** (a failing route never stops the
   caller), as every hook event now is: `notify.your_turn` (the idle waiting
   push), `notify.cache_expiring` (the cache warning), `notify.needs_permission`
-  (Claude's still-waiting permission signal, #689), and `notify.manual`
+  (Claude's still-waiting permission signal, #684), and `notify.manual`
   (`meridian notify`). The notification producers build one
   `plugin_api.Notification`, the only notification value;
   `lib/notify/emit.py` fires it as its event through `HookDispatcher`, next
@@ -158,9 +156,10 @@ deliver it.
   `HookContext.runtime_root` is optional, a `notification` field is added, and
   the hook payload is `schema_version` 2. `Notification` validates its own
   title (non-empty, no control characters) and priority. The event rename
-  (#687, PR #688) moves the API to 3.0.0 and the payload to `schema_version`
-  3; #684's additive event, at 2.1.0 on its branch, becomes 3.1.0 when it
-  rebases onto #688.
+  (#687, PR #688) moved the payload to `schema_version` 3. v0.11.0 deleted
+  the Plugin API's own version string, which nothing read; the payload
+  `schema_version` now identifies the contract
+  ([D-version-only-where-read](compatibility-versioning.md#d-version-only-where-read--integer-format-versions-where-another-build-reads-delete-the-rest)).
 
 **One owner for `[[hooks]]` row validation.** `lib/hooks/config.py` owns every
 check on a hook row. `load_hooks_config_report` returns the valid rows, with

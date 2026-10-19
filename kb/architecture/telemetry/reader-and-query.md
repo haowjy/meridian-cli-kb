@@ -40,6 +40,8 @@ Behavior:
   newline-terminated lines count, so a torn final line is withheld until the
   sink's next append repairs it
 - Skips blank lines; skips malformed complete lines with a debug diagnostic
+- Skips records whose envelope `v` is not supported (absent reads as 1) and warns
+  once per read, instead of parsing them as the current schema
 - Applies filters before yielding
 - Returns without raising on `OSError`
 

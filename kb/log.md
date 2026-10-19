@@ -3,6 +3,41 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-19 — v0.11.0 capture: shipped hook contract, permission notice, compatibility policy, idle running work
+
+Post-release pass against `main` at v0.11.0 (`work:hook-event-names`,
+`work:permission-ping`, `work:versioning-policy`, `work:idle-other-harnesses`).
+
+- New [decisions/compatibility-versioning.md](decisions/compatibility-versioning.md):
+  D-compat-policy (replaces "no backwards compatibility"), D-version-only-where-read,
+  D-staged-version-add, D-check-before-deciding, D-index-named-by-inputs,
+  D-idle-absent-exception. New vocabulary terms: Deprecation window, Format version.
+- [decisions/hook-event-contract.md](decisions/hook-event-contract.md): status
+  shipped; ten events with `notify.needs_permission`; new D-hook-deprecation-window
+  supersedes rejection at load; Plugin API version string removed. D-hook-event-names
+  anchor renamed; inbound links updated.
+- New D-idle-running-work-reporters in
+  [decisions/idle-notifications.md](decisions/idle-notifications.md): Pi and
+  OpenCode 2.x report running work, Codex and OpenCode 1.x don't; the Codex
+  self-continue report is recorded as an open question.
+  [architecture/idle-adapters.md](architecture/idle-adapters.md) gains the Pi and
+  OpenCode 2.x mechanisms, the reconnect re-check, and the over-cap `other` rule.
+- "Unmerged" status lines removed from the hook, telemetry, vocabulary, guide,
+  work-items, meridian-base, idle and decision-index pages; `session.needs_permission`
+  replaced with `notify.needs_permission`.
+- History index file names (`history-v<N>-sessions-v<S>.sqlite3`) updated across
+  the state-system pages; format-version handling added to session-state,
+  roots-and-work-items and telemetry reader pages.
+- Also fixed against code: work attachment storage and rename in
+  [codebase/work-items.md](codebase/work-items.md), `spawn_model` in the hook
+  context table, the plugin_api path in
+  [principles/invariants.md](principles/invariants.md), and the no-backward-compat
+  premise in [principles/design-principles.md](principles/design-principles.md).
+- Corrections register: three occurrences for claimed-without-checking (canaries
+  on the wrong path, the goal-mode guess) and one for fixing-only-the-instance.
+- [open-questions/future-work.md](open-questions/future-work.md): #700, #702, #701.
+
+---
 ## 2026-10-18 — Hook event contract captured from PR #688 (`work:hook-event-names`)
 
 PR #688 (unmerged, fixes #687) renames the hook events and deletes

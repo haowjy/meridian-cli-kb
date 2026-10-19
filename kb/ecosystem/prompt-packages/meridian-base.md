@@ -1,8 +1,5 @@
 # meridian-base
 
-> **Status:** The Meridian lifecycle event names below include the unmerged
-> `fix/hook-event-names` branch for #687, based on v0.10.28.
-
 **meridian-base** is the foundation package that turns a bare Meridian install into a functional multi-agent coordination system. It provides the orchestrator, subagent, KB agents, and the core skills that every other package builds on.
 
 **Package version:** 0.10.0  
@@ -99,8 +96,7 @@ the installed path, and merges entries into target config files.
 
 **`context-autosync`** closes a gap where meridian's builtin `git-autosync`
 fires only on meridian lifecycle events (by default `spawn.finished`,
-`work.activated` and `work.done`; v0.10.28 names them `spawn.finalized`,
-`work.started` and `work.done`). Commits created after the last such event -- typically
+`work.activated` and `work.done`). Commits created after the last such event -- typically
 knowledge capture by an Agent-tool subagent as a session's final act -- sit
 stranded locally until the next meridian event. This hook fires at Claude
 `SessionEnd` (with `timeout: 30`) and `SubagentStop`, discovers each enabled

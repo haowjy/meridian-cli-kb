@@ -152,7 +152,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **The principle:** A unit test is presumptively deletable if its primary failure mode is an internal rename rather than a behavioral regression. Tests that verify observable behavior at a stable seam survive refactoring; tests that verify internal wiring don't.
 
-**Why it matters:** Mock-heavy implementation-pinning tests break on every internal rename without catching real regressions. They create the appearance of coverage while adding friction to structural improvement. With no real users and no backward-compatibility constraints, accumulated structural debt costs more than fixing it — and test suites that resist structural work are a form of structural debt.
+**Why it matters:** Mock-heavy implementation-pinning tests break on every internal rename without catching real regressions. They create the appearance of coverage while adding friction to structural improvement. Compatibility obligations sit at the project's external contracts (config keys, hook names, CLI flags, stored formats; see [Compatibility and Format Versioning](../decisions/compatibility-versioning.md)), not at internal seams, so internal structure stays free to change. Accumulated structural debt costs more than fixing it — and test suites that resist structural work are a form of structural debt.
 
 **The positive rule:** Retain tests at stable seams with explicit contracts (policy precedence, fail-closed behavior, pure helper logic, cross-boundary behavior). Delete tests that verify collaborator call sequences, internal function invocations, or mock return plumbing. When reviewers find over-collapse, restore behavior contracts, not full suites.
 

@@ -1,11 +1,5 @@
 # architecture/idle-adapters — Idle Adapter Architecture
 
-> **Status:** Permission-prompt forwarding below is implemented on the
-> unmerged `feat/permission-prompt-ping` branch for #684, based on v0.10.28.
-> That branch names the event `session.needs_permission`; under the renamed
-> hook contract (PR #688) it becomes `notify.needs_permission` when the branch
-> rebases.
-
 This page owns the current idle adapter mechanism: where it lives, what each
 harness schedules, the runtime contracts, and the known fragility. The decision
 record retains the rationale, rejected alternatives, and decision history in
@@ -38,17 +32,19 @@ and scratch state.
 
 | Harness | Arms on | TTL source | Stages | Last verified |
 |---|---|---|---|---|
-| Claude | mod: main-loop `turn.complete`, with the background tasks from the `classic.Stop` just before it | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn; the push is held or delayed by running work ([below](#running-work-and-the-push)) | TTL replay on installed 0.9.8, 2026-10-14: `ttl=3600` for a session that had changed directory. Running-work hold live on Claude Code 2.1.302 (`claude-haiku-4-5`), 2026-10-18: background `spawn wait` held then pushed after the wake; a `spawn list` loop only delayed; a subagent on a permission prompt held (`work:notify-hook-events`). On the unmerged #684 branch, the same Claude version emitted exactly one permission notice after an unanswered Bash prompt (`work:permission-ping`). |
-| Pi | extension: `agent_end`, once `ctx.isIdle()` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with the warning scheduled; `xai` push only. |
+| Claude | mod: main-loop `turn.complete`, with the background tasks from the `classic.Stop` just before it | the transcript in the chat's recorded `native_store`: 3600 or 300, known | push, warn; the push is held or delayed by running work ([below](#running-work-and-the-push)) | TTL replay on installed 0.9.8, 2026-10-14: `ttl=3600` for a session that had changed directory. Running-work hold live on Claude Code 2.1.302 (`claude-haiku-4-5`), 2026-10-18: background `spawn wait` held then pushed after the wake; a `spawn list` loop only delayed; a subagent on a permission prompt held (`work:notify-hook-events`). The permission notice, on its branch before v0.11.0 with the same Claude version, was emitted exactly once after an unanswered Bash prompt (`work:permission-ping`). |
+| Pi | extension: `agent_end`, once `ctx.isIdle()` | provider and `PI_CACHE_RETENTION` table in `pi_idle` | push, warn on `anthropic`/`openai` long retention and `openai-codex`; push only otherwise; the push is held or delayed by tracked background bash | Replay on installed 0.9.8, 2026-10-14: `openai-codex` 1800 est. with the warning scheduled; `xai` push only. Running work live on Pi 1.2.0 (`openai-codex/gpt-5.6-luna`), 2026-10-18, before v0.10.29: a finished background managed `sleep 20` woke Pi with no input; a plain background shell delayed the push to the quick-turn delay; a background `spawn wait` held it until the wake; a detached `spawn wait` was not reported (`work:idle-other-harnesses` `pi-wake.md`). |
 | Codex | `notify` callback on turn completion, pinned to the recorded thread | `[harness.codex.idle] ttl_seconds` default 1800, estimated | push, warn | Live on installed 0.9.8: the sidecar armed with the 1800 s schedule and a real turn sent the push (`work:idle-ttl-detection` D8; probes `spawn:p7759`, `spawn:p7767`). Reopen close confirmed live (`spawn:p7893`). |
-| OpenCode 2.x | V2 sensor: `session.execution.{succeeded,failed,interrupted}` | provider read from `GET /api/session/{id}` at turn end; `openai` → 1800 est., everything else unknown | `openai`: push, warn. Others: push only | Released in v0.9.9 (PR #573); the stream fix shipped in v0.10.5. Live with opencode 2.0.28: `openai/gpt-6-luna` → push and warn with 1800 s offsets; other providers → push only; steer and queued prompts close the stretch. Released ≤0.9.8 arms nothing on 2.x. |
+| OpenCode 2.x | V2 sensor: `session.execution.{succeeded,failed,interrupted}` | provider read from `GET /api/session/{id}` at turn end; `openai` → 1800 est., everything else unknown | `openai`: push, warn. Others: push only. The push is held or delayed by background `shell` and `subagent` tool work | Released in v0.9.9 (PR #573); the stream fix shipped in v0.10.5. Live with opencode 2.0.28: `openai/gpt-6-luna` → push and warn with 1800 s offsets; other providers → push only; steer and queued prompts close the stretch. Released ≤0.9.8 arms nothing on 2.x. Running work (v0.10.30): live on opencode 2.0.29 against an isolated `opencode serve`, background `shell` and `subagent` tool runs woke the parent with no user input, and the sensor held and re-armed the push across permission asks and a forced stream gap (`work:idle-other-harnesses`). |
 | OpenCode 1.x | frozen V1 sensor: `session.idle` | none (V1 never reports a provider) | push only | Probed live on 1.18.32 when the adapter was built (2026-10-08). Not re-run in phase 2; dispatch to it is covered by unit tests. |
 | Cursor | — | — | none | No primary path. |
 
-Only Claude reports running work today. Codex, OpenCode and Pi arms carry no
-background tasks, so they get the ordinary push (#669).
+Claude, Pi and OpenCode 2.x report the background work a turn left running, so
+their push waits for work that will wake the session
+([below](#running-work-and-the-push)). Codex and OpenCode 1.x report none and
+get the ordinary push.
 
-Only Claude produces `session.needs_permission`. Its mod forwards
+Only Claude produces `notify.needs_permission`. Its mod forwards
 `classic.Notification` when, and only when, `notification_type` is
 `permission_prompt`, through `meridian idle needs-permission`. Core emits the
 notice through the ordinary notification hook routes without reading or
@@ -103,12 +99,17 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   `external_events` (Codex) get that check.
 - **OpenCode 2.x** (PR #573, v0.9.9; probed on 2.0.28). Events reach the
   sensor through the V2 transport's normalizer, which flattens `data` and keeps
-  the envelope `id` as the turn ID. Only events for the launched parent
-  `sessionID` count; child task sessions are ignored. The managed primary's
-  `/api/event` stream stays open for the primary's lifetime and reconnects
-  after quiet periods, EOF or recoverable errors (backoff capped at 10 s),
-  never synthesizing a terminal (`connections/opencode_http.py`). The stream is
-  live-only, so events during a reconnect are lost.
+  the envelope `id` as the turn ID. Turn ends and user returns count only
+  for the launched parent `sessionID`; running-work tracking also reads the
+  events of the shells and child sessions the parent's tools started. The
+  managed primary's `/api/event` stream stays open for the primary's lifetime
+  and reconnects after quiet periods, EOF or recoverable errors (backoff capped
+  at 10 s), never synthesizing a terminal (`connections/opencode_http.py`).
+  The stream is live-only, so events during a reconnect are lost. On each
+  `server.connected` after the first, the sensor re-checks against the server:
+  it drops tracked work the server no longer lists as running, and re-reads
+  whether the primary's own turn is running (`GET /api/session/active`),
+  emitting a turn end that fell in the gap.
   - *Turn end* is any of `session.execution.succeeded`, `.failed` or
     `.interrupted`; `session.execution.started` marks busy. V2 emits neither
     `session.status` nor `session.idle`.
@@ -139,7 +140,10 @@ is
 The split is the usual one: the adapter reports facts in the host's terms,
 and core alone interprets them.
 
-**Claude reports it.** The only Claude Code surface that lists background work
+Adapters report the work; each reports only work that will wake its session,
+because work that never wakes it must not hold the push.
+
+**Claude.** The only Claude Code surface that lists background work
 is the `background_tasks` of the classic `Stop` hook, which fires just before
 the main loop's `turn.complete`. The mod hooks it as `classic.Stop`, keeps the
 list (cleared on `turn.start`), and forwards it on the arm as
@@ -149,7 +153,37 @@ shell, its command line: `subagent` and `workflow` → `agent`, `shell` →
 forwards nothing and gets the ordinary push. `session_crons` are not forwarded.
 When a task finishes, Claude Code delivers a `task-notification` prompt; that
 is not a user origin, so it does not close the stretch, and its main-loop turn
-arms again.
+arms again. A subagent waiting on a permission prompt is still a running agent
+and holds the push; the permission notice is the separate page.
+
+**Pi.** The `meridian-idle` extension reads the managed-bash records at
+`agent_end` and forwards each row that is still running and tracked in the
+background (`isTrackedBackground`: `is_background && is_tracked`) as a
+`shell` with its command. Pi's `meridian-spawn-watch` extension wakes the
+session when such a row finishes. A detached row (`bash_manage detach` sets
+`is_tracked: false`) never wakes Pi, so it is not reported; neither are
+foreground or finished rows. An unreadable records file reports nothing.
+
+**OpenCode 2.x.** OpenCode resumes the parent when a shell started by the
+agent's `shell` tool, or a child started by its `subagent` tool, finishes in
+the background. It does not resume for a shell made through `POST /api/shell`
+or `POST /api/session/:id/shell` (hard-coded `resume: false`), nor for a child
+session made any other way. The V2 sensor therefore counts only work a tool
+event of the parent named (`opencode_running_work.py`, `RunningWork`): an
+unnamed child is an `agent`, a shell is a `shell` with its command, agents
+listed first. A child waiting on a permission prompt, or whose descendant is,
+stops counting while the ask is open, so the push goes out while it waits on
+the user. Answering the ask is the user acting in the TUI: the sensor reports
+a return, then re-arms with the work as it stands. When tracked work changes
+while the parent is idle, the sensor re-arms the push. Continuing an existing
+child (`subagent` with a `sessionID`) is not reported.
+
+**Codex and OpenCode 1.x report nothing.** Codex arms carry no tasks
+(`codex_idle.py`), and the OpenCode 1.x sensor returns an empty list. On Codex
+0.163.0 through Meridian's managed TUI path, a background command the agent
+started finished without starting a new turn
+([D-idle-running-work-reporters](../decisions/idle-notifications.md#d-idle-running-work-reporters--only-work-that-wakes-the-session-holds-the-push)
+holds the evidence and the open question about Codex continuing on its own).
 
 **Core reads it.** `BackgroundTask` (`lib/harness/idle_types.py`) is the wire
 shape. `lib/idle/wake.py` reduces the list to one `ExpectedWake`:
@@ -177,10 +211,10 @@ classify spawn commands itself. The rule and why it is shaped this way are in
 The arm reply carries `push_held` with the reason, which the Claude mod
 writes to its log.
 
-The Claude mod forwards at most 16 tasks and 512 characters per command, so a
-large task list cannot hit the OS argument limit on `idle arm`. A cut command
-ends in `\n;:`, which makes it read *maybe*, so a `--bg` lost past the cut
-cannot make a detached spawn look like a certain wake.
+Every reporting adapter forwards at most 16 tasks, so a large task list cannot
+hit the OS argument limit on `idle arm`. A command longer than 512 characters
+is sent as `other` with no command, which reads *maybe*, so a `--bg` lost past
+a cut cannot make a detached spawn look like a certain wake.
 
 ## Close and reopen
 
@@ -219,7 +253,7 @@ These cases fail open or fail silently:
   rather than held. Both fail silently back to the pre-hold behaviour.
 - **Claude's permission notification is an upstream dependency.** A subagent
   waiting on a permission prompt still holds the ordinary push because it is
-  a running agent; `session.needs_permission` is the separate page. If Claude
+  a running agent; `notify.needs_permission` is the separate page. If Claude
   renames or stops emitting `classic.Notification` with
   `notification_type=permission_prompt`, Meridian silently stops paging for
   this case. Meridian intentionally does not recover by correlating

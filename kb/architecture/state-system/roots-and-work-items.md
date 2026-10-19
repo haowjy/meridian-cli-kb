@@ -16,6 +16,21 @@ path hash and is never written into the directory.
 **Spawn IDs** and **session IDs** come from monotonic counters under their
 store locks and render as `p1`, `p2`, … and `c1`, `c2`, … respectively.
 
+## Format version and unknown fields
+
+`__status.json` is synced across machines through the context repo, so another
+build reads it. Since v0.11.0 the reader accepts a `v` field (absent means 1) and
+refuses a newer one; writers do not emit `v` yet, because v0.10.x readers reject
+unknown fields
+([D-staged-version-add](../../decisions/compatibility-versioning.md#d-staged-version-add--readers-learn-a-version-one-release-before-writers-write-it)).
+The stored model allows extra fields and writes them back, so a field from a newer
+build survives this build's updates; each unknown field warns once per file per
+command. A newer `v` lists as `requires-newer-meridian`, separate from the item's
+status. Before any mutation, `work_repository`'s write seam strictly loads every
+active and archived copy of the item, so rename, done, reopen, delete and duplicate
+cleanup refuse before touching disk. Other malformed files warn before falling back
+to directory-derived defaults.
+
 ## Read vs Write Resolution
 
 Read paths call `resolve_project_runtime_root_or_none()` when zero state is a

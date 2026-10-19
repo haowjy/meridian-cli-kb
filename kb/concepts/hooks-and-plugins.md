@@ -1,13 +1,5 @@
 # Hooks and Plugins
 
-> **Status:** The event names, `when` conditions, git-autosync defaults,
-> payload schema 3 and Plugin API 3.0.0 below are on the unmerged
-> `fix/hook-event-names` branch (PR #688, #687); `main` (v0.10.28) still has
-> the old names. The permission notice is on the unmerged
-> `feat/permission-prompt-ping` branch (PR #689, #684), which still calls it
-> `session.needs_permission` at Plugin API 2.1.0 and renames it to
-> `notify.needs_permission` at 3.1.0 when it rebases onto #688.
-
 Hooks are callbacks that fire at spawn and work lifecycle events and at
 notification events. They're the extension point for automation that should
 happen around agent activity — syncing state to a remote repo, sending
@@ -55,7 +47,7 @@ graph TD
 
     YOUR_TURN["notify.your_turn\nIdle push: agent waiting on you"]
     CACHE["notify.cache_expiring\nIdle cache warning"]
-    PERMISSION["notify.needs_permission\nClaude permission prompt waiting (#689)"]
+    PERMISSION["notify.needs_permission\nClaude permission prompt waiting"]
     MANUAL["notify.manual\nmeridian notify"]
 ```
 
@@ -75,10 +67,12 @@ graph TD
   ([D-notify-hook-events](../decisions/idle-notify-channels.md#d-notify-hook-events--notifications-are-hook-events-delivered-by-routes)).
 
 Every hook failure logs and continues; no hook can stop the event that fired
-it. A config row naming a removed event (`spawn.start`, `spawn.running`,
-`spawn.finalized`, `work.start`, `work.started`, `session.responded`,
-`session.cache_expiring`) fails to load and names its replacement. Why the
-names changed, why there are no aliases, and what activation excludes are in
+it. The pre-0.11 names (`spawn.start`, `spawn.running`, `spawn.finalized`,
+`work.start`, `work.started`, `session.responded`, `session.cache_expiring`)
+still load for one minor release: the row registers on the replacement event,
+warns once, and keeps receiving its configured name as `event_name`. They
+become load errors in the next minor release. Why the names changed, how the
+deprecation window behaves, and what activation excludes are in
 [The Hook Event Contract](../decisions/hook-event-contract.md).
 
 ---
@@ -118,8 +112,11 @@ Key configuration fields:
 | `when.agent` | Filter by agent profile name; spawn and notification events |
 | `when.kind` | Filter by spawn kind: `child`, `primary`, `streaming`; spawn and notification events |
 
-A condition the event can never supply is a load error on a row that names its
-`event`: work events reject `when.agent` and `when.kind`. An unevented builtin
+A row that names its `event` and sets a condition that event can never supply
+(work events supply neither `when.agent` nor `when.kind`) warns and is skipped
+during the deprecation window, and fails load in the next minor release. The
+same window covers `failure_policy`, which loads with a warning and no effect,
+and `when.status = ["skipped"]`, whose `skipped` value is dropped. An unevented builtin
 row keeps the default events its conditions can match and records the rest as
 disabled overrides, which still replace lower-layer rows of the same
 `(name, event)`. It fails only if no default can match. The `EVENTS` table in
@@ -172,11 +169,12 @@ When a hook fires, it receives context about the triggering event:
 
 | Field | Meaning |
 |-------|---------|
-| `event_name` | Which event fired |
+| `event_name` | Which event fired; a row configured with a deprecated name receives that name |
 | `event_id` | Stable per spawn and event for spawn events; unique per firing otherwise |
 | `spawn_id` | Spawn that triggered the event; the notifying spawn when known |
 | `spawn_status` | `spawn.finished` only: `success`, `failure`, `cancelled`, `timeout` |
 | `spawn_agent` | Agent profile name |
+| `spawn_model` | Resolved model of the spawn |
 | `spawn_kind` | `child`, `primary` or `streaming` |
 | `spawn_cost_usd`, `spawn_duration_secs` | `spawn.finished` only |
 | `spawn_error` | `spawn.finished` only: the persisted terminal error |
@@ -194,8 +192,9 @@ variable inherited from the caller, so a field absent from this event cannot
 carry a stale value from the session that fired it.
 
 **Built-in hooks** receive the typed `plugin_api.HookContext` directly; `lib/hooks`
-uses the same `HookContext`, `HookResult` and `HookEventName` types (plugin API
-3.0.0). A builtin returns structured output in `HookResult.details`, a
+uses the same `HookContext`, `HookResult` and `HookEventName` types. The plugin
+API carries no version of its own; payload `schema_version` identifies the hook
+contract. A builtin returns structured output in `HookResult.details`, a
 JSON-serializable mapping whose keys that builtin documents. The `notify`
 builtin sets `details["transports"]`. The plugin API stays neutral: no field
 on `HookResult` belongs to one builtin. A builtin declares the events it

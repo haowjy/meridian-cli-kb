@@ -33,12 +33,12 @@ A same-process `work start`/`switch` sets `RuntimeContext.work_id` — this take
 
 The "current" work item for a session is tracked in two places:
 
-1. **Persisted** (`current_work.py`): `~/.meridian/projects/<uuid>/current-work` — survives process restarts.
+1. **Persisted**: the session's chat record in `sessions.jsonl` carries `active_work_id` (`session_store.get_session_active_work_id` / `update_session_work_id`) — survives process restarts.
 2. **In-session override**: `RuntimeContext.work_id` — set by `work switch` or `work start` during a session; takes precedence over the persisted value.
 
-Nested agents inherit the work ID from their parent's `MERIDIAN_WORK_ID` env var. `work clear` clears both.
+Child spawns inherit their parent's work. `work clear` clears the session's attachment.
 
-Spawns record their `work_id` in `state.json`. When a work item is renamed, `work_store.rename_work_item()` rewrites all spawn `state.json` files that reference the old ID. The rename is atomic at the directory level; spawn rewrites are best-effort.
+Spawns record their `work_id` in `state.json`. `work rename` renames the item through `work_repository.rename_work_item()`, then updates the `work_id` of child spawns that referenced the old name and repoints the current session's attachment (`ops/work_lifecycle.py`). Primary spawn records keep the old name.
 
 ## Scratch Directories
 
@@ -114,7 +114,7 @@ See [../architecture/launch-system.md](../architecture/launch-system.md) — Aut
 
 ## Hook and Event Coordination
 
-Work items fire three hook events (on the unmerged PR #688; `main` still fires `work.started` on every `work start`):
+Work items fire three hook events:
 
 - `work.created`: `work start` made a new item.
 - `work.activated`: someone chose an item. `work start` (new or existing), `work switch` (archived items included), and a primary launch attaching `--work` or `--from` work fire it, with or without a session. Child spawns inheriting work, `work rename` repointing attachments, and `work clear` do not: they write the session attachment through `session_store` directly.
