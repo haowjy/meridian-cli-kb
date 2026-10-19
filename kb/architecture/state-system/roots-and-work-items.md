@@ -23,11 +23,11 @@ build reads it. Since v0.11.0 the reader accepts a `v` field (absent means 1) an
 refuses a newer one; writers do not emit `v` yet, because v0.10.x readers reject
 unknown fields
 ([D-staged-version-add](../../decisions/compatibility-versioning.md#d-staged-version-add--readers-learn-a-version-one-release-before-writers-write-it)).
-The stored model allows extra fields and writes them back, so a field from a newer
+The stored model (`StoredWorkItemState`) allows extra fields and writes them back, so a field from a newer
 build survives this build's updates; each unknown field warns once per file per
 command. A newer `v` lists as `requires-newer-meridian`, separate from the item's
-status. Before any mutation, `work_repository`'s write seam strictly loads every
-active and archived copy of the item, so rename, done, reopen, delete and duplicate
+status. Every mutation goes through `work_repository.write_state_locked`, which
+strictly loads every active and archived copy of the item first, so rename, done, reopen, delete and duplicate
 cleanup refuse before touching disk. Other malformed files warn before falling back
 to directory-derived defaults.
 

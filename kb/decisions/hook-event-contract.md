@@ -150,8 +150,8 @@ is the user reference):
 - **Impossible conditions on a row that names its event** warn and skip the
   row, so it no longer shadows a lower-file row with the same name and event.
 
-**Mixed-version machines.** The new binary accepts both name sets; an old
-binary still rejects the new names. A shared config keeps the old names until
+**Mixed-version machines.** v0.11 accepts both name sets; v0.10.x still
+rejects the new names. A shared config keeps the old names until
 every machine has upgraded.
 
 **Ending the window:** `NEXT_MINOR_HOOK_CONFIG_BREAKS` is the complete

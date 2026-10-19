@@ -8,11 +8,13 @@
 Until v0.11.0 the project rule was "no real users, no backwards
 compatibility": a change could rename a config key or reshape a stored file and
 expect every reader to be the same build. That rule never matched how
-Meridian runs. Two builds touch the same data whenever a primary keeps running
-across an upgrade, a work directory syncs through git to a machine on another
-release, or a separately installed component (Mars, a harness extension) reads
-what Meridian wrote. The decisions below replace the rule with a policy that
-says what each side of that skew must do. See [../decisions.md](../decisions.md)
+Meridian runs. Two builds touch the same data whenever a primary (the
+interactive harness session Meridian launched) keeps running across an
+upgrade, a work directory syncs through git to a machine on another release,
+or a separately installed component (Mars, a harness extension) reads what
+Meridian wrote. The decisions below replace the rule with a policy that says
+what the older and the newer build must each do when they meet the other's
+data. See [../decisions.md](../decisions.md)
 for the chronological index.
 
 What went wrong under the old rule, found while auditing for this policy
@@ -28,8 +30,9 @@ What went wrong under the old rule, found while auditing for this policy
   `plugin_api.__version__`, the launch-policy snapshot's `schema_version`, the
   Pi runtime sidecar's `schema_version`, and a copy of the native-search schema
   inside its SQLite file.
-- An old-build primary and a new-build CLI treated each other's idle files as
-  absent, silently.
+- An old-build primary and a new-build CLI treated each other's idle files
+  (short-lived per-session state under `~/.meridian/idle/` that schedules the
+  "your turn" push and cache warning) as absent, silently.
 
 ---
 
@@ -62,7 +65,8 @@ in the next minor. The hook contract is the first use; its window lives in
 `NEXT_MINOR_HOOK_CONFIG_BREAKS` (meridian-cli `lib/hooks/schema.py`), whose
 `mode` flips to `"error"` in the next minor release
 ([D-hook-deprecation-window](hook-event-contract.md#d-hook-deprecation-window--old-names-load-for-one-minor-release)).
-Removals are tracked in the owning directory's `.context/TODO`.
+Removals are tracked in the owning directory's `.context/TODO` (for hooks,
+meridian-cli `src/meridian/lib/hooks/.context/TODO`).
 
 **Why refuse instead of guess.** The `__status.json` fallback shows the cost of
 substituting defaults: the data is not lost on disk, but the reader presents
@@ -102,15 +106,18 @@ to that question.
 | MCP and `ext list` JSON `schema_version`, Claude `plugin.json` `version` | Kept: external output contracts, not stored formats |
 | Legacy native-import marker `schema_version` | Kept, contrary to the first plan |
 
-The legacy import marker is the one divergence. v0.10.29's reader requires the
-field and later `doctor` passes read the marker, so omitting it would make new
-markers unreadable to the previous build. The field stays, the new reader
-treats an absent field as 1, and removal waits in meridian-cli
-`src/meridian/lib/state/.context/TODO` until the strict reader leaves the
-compatibility window.
+The legacy import marker is the one divergence. `legacy-native-import-v1.json`
+records the outcome of the one-time import of pre-native session keys.
+v0.10.29's reader requires its `schema_version`, and later `doctor` passes read
+the marker, so omitting the field would make new markers unreadable to the
+previous build. The field stays, the new reader treats an absent field as 1,
+and removal waits in meridian-cli `src/meridian/lib/state/.context/TODO` until
+no supported build's reader requires it.
 
 **Not fixed here:** Mars skips a package's `requires-meridian` check silently
-when `MERIDIAN_VERSION` is unset (haowjy/mars-agents#178).
+when `MERIDIAN_VERSION` is unset
+([haowjy/mars-agents#178](https://github.com/haowjy/mars-agents/issues/178)),
+so a package can install against a Meridian it does not support.
 
 ---
 
@@ -140,17 +147,20 @@ separate from the item's own status, and every mutation refuses it.
 
 ## D-check-before-deciding — version checks guard decisions and mutations, not blind appends
 
-**Decision (2026-10-19, lead, across three review rounds):**
+**Decision (2026-10-19, lead):**
 
-- **Work items:** the repository's single write seam loads and validates every
-  copy of an item, active and archived, before any mutation runs. Rename, done,
+- **Work items:** every work mutation goes through `write_state_locked`
+  (`work_repository.py`), which loads and validates every copy of an item,
+  active and archived, before the mutation runs. Rename, done,
   reopen, delete and duplicate cleanup cannot touch disk and then refuse.
   Per-command checks were tried first and missed rename and duplicate cleanup.
 - **Sessions:** code that reads existing rows to decide what to append
   (starting a chat, binding a native session, deduplicating model records,
   adopting an observed native session) refuses when an unsupported row names
-  the same chat or native session. Blind appends of this build's own rows read
-  nothing and check nothing.
+  the same chat or native session. Blind appends of this build's own rows
+  (`append_chat_rows`, `append_native_rows`, which write stops, updates and
+  other records without consulting earlier ones) read nothing and check
+  nothing.
 - **Legacy native import:** reads only the chats it binds and defers, through
   a dedicated `UnsupportedSessionFormat`, when one has an unsupported row.
 

@@ -671,11 +671,13 @@ config watched 109 s with the same result
 (`work:idle-other-harnesses` `canary-codex-tools.md`). Meridian disables
 Codex's native subagent tool on this path, so the subagent case could not run.
 The owner reports seeing Codex continue on its own after background work in
-real use, and the canary result does not explain that. Goal mode (`/goal`)
-does start a new turn right after each goal turn, but the owner ruled it out
-as the cause. The cause is unknown and was not pursued. Until it is
-reproduced, Codex reports no running work. If Codex does wake, its idle sensor
-could report `thread/backgroundTerminals/list` and child threads.
+real use. That observation is unverified, and the canary result does not
+explain it. Goal mode (`/goal`) does start a new turn right after each goal
+turn, but the owner ruled it out as the cause. The cause is unknown and was
+not pursued. Until it is reproduced, Codex reports no running work, so if
+Codex does continue on its own, its push can fire before the continuation
+that makes it stale. A reproduction would reopen this; Codex's idle sensor
+could then report `thread/backgroundTerminals/list` and child threads.
 
 **Not built:** wake behavior for OpenCode 1.x was never canaried; it keeps
 reporting nothing.
