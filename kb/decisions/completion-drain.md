@@ -8,8 +8,8 @@ Pi's own profile is in [Pi runtime decisions](pi-runtime.md).
 
 ## D-child-completion: confirm each retained candidate once (2026-10-20)
 
-**Status:** settled by the owner; implemented on `feat/child-completion` at
-`b872080`, unmerged at capture. Supersedes D-claude-native-hold's separate native
+**Decision status:** settled intent. **Implementation status:** present on
+`feat/child-completion` at `b872080`, unmerged at capture; not a release claim. Supersedes D-claude-native-hold's separate native
 policy, sticky resident rearm, first-result leaf completion, and fixed deadline
 assumptions. The native background-task observation remains valid.
 
@@ -37,7 +37,7 @@ caller's idle/compaction exposure, not Codex prompt-cache retention.
 Signal commands advertise the selected plan's real capability through a side
 file, not a strict spawn-row field that older readers would quarantine.
 `done` leaves Meridian descendants running; parent cancel cascade and
-dead-descendant convergence remain separate work in #671. Signed-in Codex's
+dead-descendant convergence remain separate work in [#671](https://github.com/haowjy/meridian-cli/issues/671). Signed-in Codex's
 obsolete fixed idle cache warning is tracked separately by
 [#707](https://github.com/haowjy/meridian-cli/issues/707).
 

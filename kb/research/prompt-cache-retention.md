@@ -9,7 +9,7 @@ Provenance: `work:idle-cache-notify` (`spawn:p7423`) and
 `work:idle-ttl-detection` (`spawn:p7724`, `spawn:p7824`).
 
 **Cache policy depends on authentication and provider, not a universal idle
-TTL.** The owner's 2026-10-20 evidence correction records indefinite retention
+TTL.** Project-provided evidence from the owner on 2026-10-20 records indefinite retention
 and cache hits on resumption for signed-in Codex and Work. API-key use is
 separate: supported Responses API models offer a 30-minute default or a
 12-hour option. Neither is the rationale for Meridian's child-completion
@@ -72,8 +72,10 @@ product statement or settle its applicability to Pi and OpenCode.
 Historical probes are recoverable through `spawn:p7824` and
 `work:idle-ttl-detection`. A new third-party-client measurement needs distinct
 prefixes or serial runs so one request cannot refresh another gap's entry.
-The product statement supplied by the owner is recorded in
-`work:child-completion`, `decisions.md` K9. Meridian's operational choice is
+The owner supplied [this discussion of the OpenAI statement](https://www.reddit.com/r/codex/comments/1xb9prz/caching_upgraded_massively/)
+in `chat:c8468` (entry 29); the accepted project interpretation is recorded in
+`work:child-completion`, `decisions.md` K9. The signed-in product statement was
+not independently reverified during this capture; the API options above were. Meridian's operational choice is
 [the completion decision](../decisions/completion-drain.md).
 
 ## Anthropic retention, which OpenCode and Pi inherit

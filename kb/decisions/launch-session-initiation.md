@@ -39,22 +39,18 @@ See [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md).
 
 **Decision:** The default wait-yield interval is harness-aware: all harnesses default to 3000 seconds (50 minutes), with a 30s minimum clamp. `--yield-after-secs` overrides per invocation.
 
-**Why:** All supported harnesses (Claude Code with `ENABLE_PROMPT_CACHING_1H=1`, Codex extended cache, OpenCode) support cache TTLs of roughly 1 hour or more. A unified 50-minute default avoids unnecessary re-invocations for long-running sessions without requiring the user to tune the interval manually. Users who cannot extend harness cache TTL can lower the yield interval via `--yield-after-secs` or `MERIDIAN_WAIT_YIELD_AFTER_SECONDS`.
+**Why:** The interval bounds one caller wait before returning control for an
+operational checkpoint. Its default is the calling harness's configured
+`wait_yield_seconds`, not the child harness's setting or a provider cache TTL.
+The 3000-second default remains current; per-invocation and environment
+overrides remain available.
 
-**Alternatives rejected:** A single configurable global — doesn't adapt to harness differences. TTL-minus-buffer modeling — too implementation-specific and brittle when TTLs change. Per-harness split defaults (240s/900s) — obsolete now that all harnesses support comparable extended cache TTLs.
-
-> **Implementation updated (2026-05-05).** Values unified to 3000s for all harnesses. Previous split: unknown/default 240s, claude/codex 900s. Harness detection reads `os.getenv("_MERIDIAN_HARNESS")` (D33, 2026-04-30; the variable gained its `_` prefix in PR #388).
-
-> [!FLAG] **Needs human review: premise contradicted (2026-10-08).** The "Why"
-> above assumes every harness caches for roughly an hour. Codex sets no
-> retention parameter, and OpenAI GPT-5.6+ caches for 30 minutes on the public
-> API; the ChatGPT backend publishes no TTL. OpenCode
-> sends Anthropic `ephemeral` without a `ttl`, which gives 5 minutes. Pi
-> defaults to 5 minutes; Meridian sets `PI_CACHE_RETENTION=long` for
-> interactive Pi primaries (1 h on Anthropic), but Pi spawns keep 5 minutes. See
-> [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md).
-> The 3000-second default stands until someone decides whether per-harness
-> defaults should return.
+**Superseded rationale:** the original choice assumed every harness retained
+roughly an hour of prompt cache. [D-child-completion](completion-drain.md)
+replaces that premise with the caller's idle/compaction budget while keeping
+caller checkpoints independent from child completion deadlines. See
+[cache policy](../research/prompt-cache-retention.md) for authentication-specific
+retention rather than inferring it from the wait interval.
 
 ---
 

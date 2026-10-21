@@ -99,11 +99,11 @@ the retention mode to a TTL. No match means unknown.
 | `xai` | unknown | unknown | Best-effort cache that "can be evicted at any time"; no TTL to schedule against. |
 | `deepseek` | unknown | unknown | Disk cache that lasts "a few hours to a few days"; there is no pre-expiry point. Compact for context pressure, not cache expiry. |
 
-**D5 resolved:** the user confirmed 1800 s on 2026-10-14 ("GPT-5.6+, which we
-usually use, is 30 minutes"). `estimated=true` stays because the ChatGPT backend
-publishes no cache contract.
+**D5 historical settlement:** 1800 s was accepted as an operational estimate
+on 2026-10-14, not a backend contract. The mapping remains implemented; the
+signed-in Codex premise is superseded above. Pi applicability is still unverified.
 
-**Why 1800:** research (`spawn:p7724`) found no published TTL for the ChatGPT
+**Historical rationale for 1800:** research (`spawn:p7724`) found no published TTL for the ChatGPT
 backend, and refuted mapping the public API's GPT-5.6 30-minute TTL onto it as
 a documented fact
 ([research](../research/prompt-cache-retention.md#chatgpt-backend-codex-and-pis-openai-codex)).
@@ -167,13 +167,14 @@ primaries actually run here use an OpenAI model (`gpt-6-astra`).
 - The table stays in `opencode_idle.py`, not shared with Pi: Pi's is keyed by
   retention mode as well as provider.
 
-**D7 resolved:** the user confirmed 1800 s on 2026-10-14, with D5.
-`estimated=true` stays because the ChatGPT backend publishes no cache contract.
+**D7 historical settlement:** 1800 s was accepted with D5 on 2026-10-14.
+The implemented mapping remains estimated; the signed-in Codex premise is
+superseded above, and OpenCode applicability is still unverified.
 The provider-not-model limitation under the
 [Pi provider table](#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)
 applies here too.
 
-**Why 1800:** the same reasoning as D5. On this machine OpenCode's `openai`
+**Historical rationale for 1800:** the same reasoning as D5. On this machine OpenCode's `openai`
 provider authenticates with a ChatGPT account (the provider rejected
 `gpt-5.3-codex-spark` with "not supported when using Codex with a ChatGPT
 account"), so it reaches the ChatGPT backend that the Codex harness and Pi's
