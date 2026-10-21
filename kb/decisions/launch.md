@@ -278,7 +278,7 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 
 **Decision:** `spawn_wait_sync()` reads `os.getenv("MERIDIAN_HARNESS")` — the orchestrator's own harness — for yield interval. All harnesses default to 3000 seconds (50 minutes).
 
-**Why:** The yield protects the orchestrator's prompt-cache context window. Reading child spawn rows was wrong — a mixed-harness wait set would use the shortest child interval, but the cache being preserved is the parent's.
+**Why:** The yield bounds the orchestrator's own idle/compaction exposure. Reading child spawn rows would instead let a mixed-harness wait set choose another harness's budget. The original cache-preservation rationale is superseded by [D-child-completion](completion-drain.md): checkpointing is operational, not a provider cache-lifetime guarantee.
 
 ---
 

@@ -151,12 +151,11 @@ attempted IDs remain eligible for an owned fallback handle.
 
 `drain_plan_factory.py` is the composition root:
 
-- a connection that supplies `completion_evidence()` (Claude's background-task
-  snapshot) gets the resident coordinator with `NativeTaskHoldProfile`; its
-  assessment is `blocked` on `native_task` diagnostic blockers, not a policy flag
-  ([Claude native holds](drain-plans.md#claude-native-holds));
-- otherwise a resident-capable connection gets the resident coordinator with main's
-  `_ResidentCompletionProfile`. Both profiles compose `RearmWindow`;
+- a connection with a native task source or resident backend gets the shared
+  hold profile over `HoldEvidence(descendants, native)`; all holds observe
+  persisted descendants, and Claude adds native tasks;
+- Claude, Codex and resident OpenCode (including 2.x) use that same
+  [candidate-scoped confirmation contract](drain-plans.md);
 - a spawned Pi RPC session gets the Pi profile and private-ledger wake source;
 - ordinary streaming gets `DrainPlan(coordinator=None)`.
 
@@ -188,7 +187,7 @@ reason, or cleanup-phase policy.
    on the raw frame, and terminal handling. There is no history write to gate
    delivery (PR 3 renamed `note_event_persisted` and deleted the writer;
    [emit path](attempt-facts-and-delivery.md#the-emit-path)).
-9. Pi nudges and Claude native-hold nudges route through serialized
+9. Pi nudges and Claude confirmation turns route through serialized
    `SpawnManager.inject()`.
 10. The plain path remains `coordinator=None`.
 
@@ -198,6 +197,7 @@ reason, or cleanup-phase policy.
 - `work:drain-streaming-cleanup` (PR #375: reconciliation decisions extraction, rearm budget, timeout carrier unification)
 - `work:drain-streaming-cleanup` follow-up (probe-fix cycle: publication barrier, `resolve_terminal_outcome`, per-spawn cleanup keying)
 - `work:pi-descendant-refresh`
+- `work:child-completion`, decisions K6–K9 and review reports `spawn:p8721`–`spawn:p8725`; source checkpoint `b872080` on `feat/child-completion` (unmerged at capture).
 
 ## Related pages
 

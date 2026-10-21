@@ -6,11 +6,58 @@ harness reports a finished turn. The mechanism is in
 [completion drain coordination](../architecture/completion-drain-coordination.md);
 Pi's own profile is in [Pi runtime decisions](pi-runtime.md).
 
+## D-child-completion: confirm each retained candidate once (2026-10-20)
+
+**Status:** settled by the owner; implemented on `feat/child-completion` at
+`b872080`, unmerged at capture. Supersedes D-claude-native-hold's separate native
+policy, sticky resident rearm, first-result leaf completion, and fixed deadline
+assumptions. The native background-task observation remains valid.
+
+A finished harness turn is a completion candidate, not proof that the child has
+finished all its work. Claude, Codex and resident OpenCode children use one
+best-effort confirmation turn per candidate. `done` accepts the retained
+candidate; `rearm` rejects it and waits for a genuinely new successful/idle
+candidate. Candidate-less signals are discarded, rather than carried forward.
+Silence or unavailable confirmation accepts only ready evidence. Known blockers
+hold without explicit `done`; unreadable evidence never permits success.
+
+This keeps ordinary completion automatic without stranding a finished child
+behind a mandatory signal. It also prevents a silent confirmation from abandoning
+live descendants. Claude's native tasks and persisted Meridian descendants feed
+the same hold policy instead of parallel policies with drifting precedence.
+OpenCode 2.x has a resident backend and participates; Pi keeps its distinct
+quiescence contract, and genuinely plain plans have no completion hold.
+
+The default child completion deadline inherits the calling harness's
+`wait_yield_seconds`; explicit `timeouts.resident_deadline_seconds` wins.
+Only a granted rearm extends the absolute window. The caller's recursive wait
+checkpoint remains independent. Their shared default duration bounds the
+caller's idle/compaction exposure, not Codex prompt-cache retention.
+
+Signal commands advertise the selected plan's real capability through a side
+file, not a strict spawn-row field that older readers would quarantine.
+`done` leaves Meridian descendants running; parent cancel cascade and
+dead-descendant convergence remain separate work in #671. Signed-in Codex's
+obsolete fixed idle cache warning is tracked separately by
+[#707](https://github.com/haowjy/meridian-cli/issues/707).
+
+**Rejected:** sticky rearm; repeating confirmation on a timer; treating signal
+file presence as candidate authority; accepting silence with live or unknown
+work; a deadline based on the child's harness rather than the caller's;
+hard-coded 1800/3300-second defaults; Codex cache lifetime as the rationale.
+
+Mechanism and edge conditions: [drain plans](../architecture/drain-plans.md).
+
+**Provenance:** `work:child-completion`, `decisions.md` K6–K9 and round-three
+ownership correction; `DIVERGENCE/confirmation-handshake.md`;
+review reports `spawn:p8721`–`spawn:p8725`.
+
 ---
+
 
 ## D-claude-native-hold: a Claude child holds for its own background work through the resident coordinator (2026-10) {#d-claude-native-hold}
 
-**Status:** decided by the tech lead with the owner's direction (`chat:c8112`,
+**Status:** superseded by [D-child-completion](#d-child-completion-confirm-each-retained-candidate-once-2026-10-20). The record below preserves the earlier decision and its rationale, not the current contract. Originally decided by the tech lead with the owner's direction (`chat:c8112`,
 `work:claude-bg-quiescence` D1–D14). Issue #655, merged as PR #659
 (`25e3ac345`), released in v0.10.21. **Before v0.10.21:** a Claude child was
 finalized at its first `result`, its process group killed, and it was published

@@ -39,133 +39,114 @@ incomplete cleanup after a crash.
 
 ## Resident completion
 
-Codex and OpenCode managed backends can stay resident after a successful turn while
-descendant Meridian spawns are still running. `ResidentDrainCoordinator` owns that
-model:
+Claude, Codex, and OpenCode resident children share one candidate-scoped
+confirmation contract. A **candidate** is a successful or idle terminal turn
+retained by the coordinator; it is not yet the spawn's published outcome.
 
-1. A successful terminal turn does not immediately finalize if descendant work exists
-   or the resident backend requested re-arming.
-2. The coordinator emits a turn boundary, marks the backend as `awaiting_done`,
-   and polls the shared reconciled transitive descendant tree.
-3. `meridian spawn done` and `meridian spawn rearm` are file signals consumed by the
-   coordinator. `done` overrides known blockers only. If the fresh assessment is
-   `unknown`, `done` waits rather than turning unreadability into success.
-   `rearm` opts the backend into explicit residency with a fresh deadline and
-   advisory poll messages.
-4. When evidence becomes readable, `done` can finalize the pending success.
-   Persistent unreadability fails at the completion deadline with
-   `resident_evidence_unreadable` and directs the operator to the session log.
-5. Advisory follow-up nudges use `ResidentBackendControl.begin_followup_turn()`; drain
-   correctness does not depend on the nudge succeeding. Nudges come every
-   `min(270 s, deadline / 2)`.
+```mermaid
+flowchart LR
+    C["Retain successful candidate"] --> Q["One best-effort confirmation turn"]
+    Q -->|done and readable evidence| A["Accept retained candidate"]
+    Q -->|silent or unavailable; ready evidence| A
+    Q -->|rearm| R["Reject candidate; open fixed window"]
+    R -->|genuinely new candidate| C
+    Q -->|blocked or unknown| W["Hold within deadline"]
+```
 
-Selection is capability-driven, not harness-id branching, and made once in
-`build_drain_plan()`: a connection whose `completion_evidence()` is non-`None` gets
-`ResidentDrainCoordinator.for_native_evidence(...)` with `NativeTaskHoldProfile`
-(Claude, below); otherwise a `connection.resident_backend` gets
-`ResidentDrainCoordinator.for_connection(...)` with `_ResidentCompletionProfile`
-(Codex/OpenCode). Both profiles compose `RearmWindow` (`rearm_window.py`): signal
-latching, the absolute deadline, the persisted rearm budget and the nudge interval.
-See [concepts/harness-abstraction.md](../concepts/harness-abstraction.md)
-for the connection seam.
+The diagram shows the completion choices; evidence validation and deadline
+arbitration still gate publication. Before installing a candidate, the hold
+profile consumes and discards candidate-less `done` and `rearm` under the
+published-artifact lock. A signal file is delivery, not completion authority:
+a stale signal cannot accept a future turn or spend its rearm budget.
+
+- **`done` accepts the retained candidate.** It can override known blockers,
+  but never unreadable (`unknown`) evidence. During an active confirmation turn,
+  it waits for the closing report up to the completion deadline. It does not
+  cancel Meridian descendants; agents should wait for them before finishing.
+  Managed-scope teardown does stop leftover harness-native work.
+- **`rearm` rejects that candidate.** A granted rearm clears candidate-scoped
+  confirmation/done state and starts another fixed completion window. It waits
+  for a genuinely new successful/idle candidate, not another timer-generated
+  confirmation. It does not latch an indefinite requirement for a later `done`.
+- **Silence or unavailable confirmation can accept ready evidence.** Each
+  candidate gets one best-effort confirmation turn. A completed silent turn or
+  a failed/unavailable injection can accept when neither descendants nor native
+  tasks block completion. Live work still holds; `unknown` never authorizes
+  success. There are no recurring advisory polls or timeout-soon nudges.
+
+A fresh descendant assessment must cover every proposed success. Transport
+closure does not erase a retained success: ready evidence can accept it;
+persisted descendants or temporarily unknown evidence can keep the drain alive
+without further event reads. Native-only blockers on a dead backend and
+non-transport failures retain their failure diagnostics.
+
+### One hold profile, composed evidence
+
+Selection is capability-driven in `build_drain_plan()`. A connection with a
+native task source or resident backend receives `ResidentDrainCoordinator.build`
+with one shared hold profile and `HoldEvidence(descendants, native)`. All holds
+observe persisted descendants; Claude adds native background-task evidence.
+OpenCode 2.x is resident-capable and uses this hold too. Cursor and connections
+with neither capability remain plain plans. Pi retains its own quiescence policy.
+
+The profile owns confirmation, signal precedence and the completion window.
+Evidence sources report facts; they do not decide whether a child may finish.
+The shared mechanism and freshness gate are described in
+[completion drain coordination](completion-drain-coordination.md).
 
 ### Claude native holds
 
-Shipped in v0.10.21 (#655, PR #659,
-[D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold)).
-Before it, a Claude child got the plain plan and was finalized at its first
-`result`, background work killed, status `succeeded`.
+Claude's `system/background_tasks_changed` event is a full snapshot of
+harness-owned background work. `ClaudeNativeTaskSource` keeps the latest
+snapshot and reports `native_task` blockers; `HoldEvidence` combines them with
+persisted descendants. The source has no timers or signal policy.
 
-**The signal.** Claude Code (2.1.302) emits
-`{"type":"system","subtype":"background_tasks_changed","tasks":[...]}` on
-stream-json stdout, a **full snapshot** of Claude-owned background work, every time
-it changes. No task history is needed.
-- A `run_in_background` shell is a `local_bash` entry.
-- A background subagent (Agent tool) is a `local_agent` entry, with
-  `subagent_type`. The subagent's own background shells appear as `local_bash`
-  with `parent_task_id`; their `task_started` frames carry
-  `owned_by_subagent: true`. A subagent can re-activate with a new `run_id` when
-  its own task notifies.
-- The snapshot empties only once the whole tree is done. Claude may emit several
-  `result`s while it is non-empty (one probe: 4 results, 3 of them with tasks
-  pending). Raw `claude -p` exits only after `tasks: []`, and when the task
-  notifies it takes a follow-up turn on its own, with no injected prompt.
-- Raw `claude -p` waits **forever** on a task that never ends, such as a dev
-  server. Claude itself gives no bound.
-- Subagent `assistant` frames share the parent's stdout and carry
-  `parent_tool_use_id`. They are not parent activity: Claude's semantics ignore
-  them, so a busy subagent can't reset the parent's nudge timer or clear
-  `awaiting_done`.
+A non-empty snapshot blocks completion. When it empties, the closing parent
+`result` is still owed. A malformed snapshot holds within the deadline.
+Subagent assistant frames are not parent-turn activity. Even a Claude child
+without background tasks receives the same best-effort confirmation as other
+resident children.
 
-**The hold.** `harness/claude_drain.py` (`ClaudeCompletionEvidence`) keeps only
-the latest snapshot, updates in constant time per frame, and never reads the
-filesystem. The connection exposes it as `HarnessConnection.completion_evidence()`
-(default `None`); a non-`None` value selects `NativeTaskHoldProfile`. The
-assessment is `disposition="blocked"` with `DiagnosticBlocker(source="native_task")`
-entries: `code="running"` per task, or `code="awaiting_followup_result"` once the
-snapshot has emptied but Claude's closing `result` hasn't arrived. `WorkAssessment`
-carries no native-specific field.
-1. A `result` while the snapshot is non-empty is held.
-2. An empty snapshot alone does not finalize. The next `result` does.
-3. A Claude child with no background work finalizes at its first `result`, with no
-   added latency.
-4. A malformed snapshot warns and holds, bounded by the deadline.
+Confirmation reaches Claude through serialized `SpawnManager.inject()` and
+resident backends through `begin_followup_turn()`. Neither injection success nor
+a native snapshot alone authorizes terminal publication.
 
-**`NativeTaskHoldProfile` policy** (`streaming/native_hold_profile.py`,
-straight-line, no mode checks). The deadline runs from the first held
-`result` through the follow-up; task activity never renews it.
-- Rearm only extends the deadline; natural completion still finalizes `succeeded`.
-- An explicit `done` authorizes success with tasks left over, and managed-scope
-  teardown kills them. A `done` sent mid-turn waits for the turn's closing
-  `result` up to the deadline, then publishes `succeeded` with the latest report.
-- Without `done`, the deadline gives `timed_out`.
-- Native nudges name the pending tasks (`description (task_type)`, plus
-  `(subagent)` for entries with `parent_task_id`), say `done` stops them, and
-  offer rearm only in the timeout-soon form.
-- The profile polls the exact `done`/`rearm` signal files through `RearmWindow`;
-  the evidence adapter has no timers.
+### Completion windows and rearm budget
 
-**Delivery.** Nudges are stream-json user messages on Claude's stdin
-(`{"type":"user","message":{...}}`, `claude_ws.send_user_message`), sent through
-the manager's serialized `inject()` with source `completion_nudge`. That is the
-same path `meridian spawn inject` takes: any process reaches a live runner through
-`spawns/pN/control.sock`. Cancel is SIGINT.
+Unless `timeouts.resident_deadline_seconds` is explicit, the completion window
+inherits the **calling harness's** configured `wait_yield_seconds`, not the
+launched child's harness setting. Claude and Codex default to 3000 seconds.
+This is an operational idle/compaction bound, not a prompt-cache guarantee.
+The caller's [wait checkpoint](../concepts/spawn-wait-barrier.md) is independent:
+its expiry yields control, whereas a child's completion deadline can end the spawn.
 
-**What changed for Codex/OpenCode:** `_ResidentCompletionProfile` is main's code
-(main's resident tests pass verbatim), except:
-1. the stale `_success_validation` is reset for each new candidate;
-2. nudge urgency compares against the resolved interval, not a fixed 270 s;
-3. the shared nudge interval is `min(270, deadline / 2)`, inert at the 1800 s
-   default.
+The deadline is absolute per arm. Only a granted candidate-scoped rearm renews
+it; ordinary events and descendant activity cannot slide it. Rearm grants are
+unlimited by default. `--resident-rearm-budget`,
+`MERIDIAN_RESIDENT_REARM_BUDGET`, profile `resident-rearm-budget`, or
+`timeouts.resident_rearm_budget` opts into a maximum. Granted extensions are
+persisted as the spawn's `resident_rearm_count`. The CLI refuses an exhausted
+budget; runner-side exhaustion retains `resident_rearm_budget_exhausted`.
 
-Their `done` still beats the deadline, during validation too, and their explicit
-rearm still holds until `done`.
+With no accepted completion, deadline expiry publishes `timed_out` with
+`resident_deadline_expired`, then asynchronously attempts descendant cleanup.
+An explicit `done` cannot bypass unreadable evidence; persistent unreadability
+has its own failure diagnostic. The outer attempt timeout remains independent.
 
-### Rearm budget
+### Signal capability belongs to the selected plan
 
-Each `rearm` signal grants one deadline extension. Grants are unlimited by
-default (`None`). `--resident-rearm-budget` / `MERIDIAN_RESIDENT_REARM_BUDGET` /
-profile `resident-rearm-budget` / `timeouts.resident_rearm_budget` opts into a
-maximum grant count. The running count is spawn-scoped: initialized from the
-persisted `resident_rearm_count` in `state.json`, monotonic across resident rearm
-signals, and preserved across process recovery.
+`DrainPlan.accepted_signals` declares what the live coordinator consumes:
+hold plans accept `done` and `rearm`, Pi accepts only `done`, and plain plans
+accept neither. The runner publishes the set in
+`spawns/<id>/accepted-signals.json` before draining. Signal commands check it,
+spawn status, and rearm budget under the published-artifact lock; primary,
+terminal, unsupported and exhausted-budget targets fail clearly.
 
-Exhaustion (only when a budget is configured) produces `timed_out` with
-`resident_rearm_budget_exhausted`. Pre-expiry `timeout_soon` nudge behavior is
-unchanged from the deadline model. Rearm count telemetry is always emitted
-regardless of whether a budget is configured.
-
-The Mars launch-bundle schema does not currently expose a per-model resident
-rearm budget; `resident-rearm-budget` is a top-level profile default.
-
-For resident drains, `raw_terminal_frames_authoritative=False`: a terminal harness
-frame is a turn boundary candidate, not finalization authority by itself. The
-coordinator owns terminal finalization while resident. If the resident deadline
-expires, it finalizes the parent as `timed_out` with
-`resident_deadline_expired`. After that outcome is published, async best-effort
-teardown cancels active descendants through the normal cancel pipeline so
-children converge to terminal `cancelled` instead of surviving as orphaned
-backend launches.
+An absent file preserves legacy delivery with an explicit **unconfirmed**
+result. The capability stays off the strict spawn row: older readers reject
+unknown row fields but ignore this side file. A successful command confirms
+possible delivery, not acceptance of a candidate; candidate scope remains the
+coordinator's responsibility.
 
 ## Timeout carrier
 
@@ -180,6 +161,6 @@ resident rearms nor Pi child waves can reset it.
 ## Related pages
 
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared completion mechanism, profile policy, and evidence authority.
-- [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold) — why Claude children hold through the resident coordinator with their own profile.
+- [Completion decisions](../decisions/completion-drain.md) — why confirmation is candidate-scoped and shared across resident children.
 - [spawn-finalization.md](spawn-finalization.md) — terminal write authority and store-level finalization.
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — resident backend capability seam.

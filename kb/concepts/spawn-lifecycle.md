@@ -185,28 +185,19 @@ See [decisions/launch.md](../decisions/launch.md#d-reserve-before-prep-reserve-s
 
 ### Resident Turn Boundaries
 
-For Codex and OpenCode managed backends, a successful turn can be a **turn boundary**
-rather than the spawn's terminal state. If the spawn still has active Meridian
-descendants, `ResidentDrainCoordinator` keeps the backend alive, marks it
-`awaiting_done`, and waits for descendant work to drain. The parent finalizes when:
+Claude, Codex and resident OpenCode children retain a successful/idle turn as a
+**completion candidate**, then request one best-effort confirmation turn.
+`done` accepts that candidate with readable evidence; `rearm` rejects it and
+opens another fixed window for a genuinely new candidate. Candidate-less
+signals are discarded. Silent or unavailable confirmation accepts only when
+native and persisted-descendant evidence is ready; `unknown` stays fail-closed.
 
-- the descendant tree becomes terminal;
-- `meridian spawn done` writes the done signal and fresh completion evidence is
-  known (an evidence-read failure remains fail-closed);
-- the resident deadline expires, producing terminal `timed_out` and cancelling
-  active descendants through the same cancel pipeline as explicit cancellation.
-
-`meridian spawn rearm` opts the resident backend into another wait window and enables
-periodic advisory poll messages. These signals are files under the spawn's state
-directory, so they do not require a live control-socket connection.
-
-**`meridian spawn done` is a residency control, NOT a status source.** For resident spawns,
-`resident_drain.py` consumes the `done` signal to decide terminate-now vs stay-resident.
-It does NOT set the spawn's terminal status — status stays the `turn/completed` outcome
-written by the harness event. Done intent is latched across an `unknown` assessment,
-but cannot publish success until a later fresh assessment is known. The completion nudge ("ping" every 270s,
-`completion_nudge.py`) prompts the model to run `meridian spawn done` / `rearm`.
-A non-resident leaf spawn ends on `turn/completed` and never waits for `done`.
+`done` is a residency control, not a status source. It cannot manufacture a
+successful candidate and does not cancel Meridian descendants. The coordinator
+still validates fresh evidence before publishing. Deadline expiry ends the
+hold and starts best-effort descendant cleanup; ordinary activity does not
+renew the deadline. See [drain plans](../architecture/drain-plans.md) for
+signal delivery, report ordering, capability selection and timeout precedence.
 
 ### Startup Bound
 

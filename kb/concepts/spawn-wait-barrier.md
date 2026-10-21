@@ -142,9 +142,8 @@ adds `fail_fast` and `pending_ids` fields to the wire shape.
 - The default behavior is to **yield** after a configurable interval when
   spawns are still pending, print a continuation message, and exit with
   code 0.
-- Checkpoint expiry is **not failure**. It is a cache-preserving pause designed
-  to let the calling harness issue another tool call before session context
-  expires.
+- Checkpoint expiry is **not failure**. It is an operational checkpoint that returns control to the calling
+  harness within its configured idle/compaction budget.
 - A **hard timeout** (`--timeout`) causes `failed` semantics and is distinct
   from yield. When `--timeout` is not explicit, `hard_deadline = None` and
   only the checkpoint governs.
@@ -173,13 +172,15 @@ no state to restore — rediscovery happens fresh on each invocation.
 
 ## Harness-Aware Yield Defaults
 
-The default yield interval is **harness-aware**. The intent is conservative
-safe-yield assumptions chosen for cache/session preservation, not TTL modeling.
+The default yield interval belongs to the **caller's** harness, not the
+harnesses of the spawns being waited on. It bounds how long that caller remains
+inside one wait before it can checkpoint again. It is not a promise about
+provider prompt-cache lifetime.
 
-The interval is determined by the **caller's** harness — the harness the
-orchestrator itself is running inside — not by the harnesses of the spawns
-being waited on. The yield protects the orchestrator's own prompt-cache
-context window, so the orchestrator's session TTL is the right signal.
+A resident child's completion deadline inherits that same caller setting unless
+explicitly overridden, but the timers are independent: wait expiry yields;
+completion deadline expiry can time out the child. See
+[drain plans](../architecture/drain-plans.md).
 
 Harness detection reads `os.getenv("_MERIDIAN_HARNESS")`, which
 `bind_launch_context()` sets in every launched process's environment
@@ -193,21 +194,11 @@ Harness detection reads `os.getenv("_MERIDIAN_HARNESS")`, which
 All harnesses default to 3000 seconds. If a spawn record lacks harness
 metadata, the same unified value applies.
 
-> [!FLAG] **Needs human review.** The 3000-second default was chosen because
-> every harness was believed to keep the prompt cache about an hour. As of
-> 2026-10-08 that holds only for Claude Code sessions with a 1-hour cache:
-> Codex on GPT-5.6+ caches for 30 minutes through the public API (the ChatGPT
-> backend publishes no TTL), and OpenCode and Pi spawns for 5 minutes. Neither Codex nor OpenCode exposes a setting to extend it.
-> Meridian launches interactive Pi primaries with `PI_CACHE_RETENTION=long`
-> (1 h on Anthropic), so those are covered unless the user opts out. A
-> 50-minute yield therefore outlives the other caches. See
-> [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md).
-
 Config keys: `[spawn].default_wait_yield_seconds`, `[spawn].min_wait_yield_seconds`,
 `[harness.claude].wait_yield_seconds`, `[harness.codex].wait_yield_seconds`,
 `[harness.opencode].wait_yield_seconds`.
 
-Users who cannot extend harness cache TTL should lower the yield interval:
+Override the operational checkpoint interval with
 `--yield-after-secs` per invocation, or `MERIDIAN_WAIT_YIELD_AFTER_SECONDS`
 environment variable for a global override.
 
@@ -249,7 +240,7 @@ per-spawn ID tracking required.
 ### `--yield-after-secs`, not `--timeout-secs`
 
 The flag was named `--yield-after-secs` rather than `--timeout-secs` because
-"timeout" implies failure. The yield is a cache-preserving continuation point
+"timeout" implies failure. The yield is a continuation point
 that exits 0 with guidance. "Timeout" is reserved for hard failure semantics
 (the existing `--timeout` flag).
 
