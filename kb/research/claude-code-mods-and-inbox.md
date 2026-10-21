@@ -12,6 +12,8 @@ against Claude Code 2.1.302 with Haiku, on Linux, by live probes in a dedicated
 tmux server. Provenance: `work:claude-mod-inject` (`probe-mod-inject.md`
 `spawn:p8410`, `probe-tui-mod.md` `spawn:p8415`, `probe-inbox-socket.md`
 `spawn:p8419`, research `spawn:p8416`).
+Later-version findings in the table are explicitly versioned and cover only
+`$.ui.status` clearing; the other observations remain scoped to 2.1.302.
 
 **The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
 input, and a mod's `$.prompt.submit` waits until the current turn ends. The inbox

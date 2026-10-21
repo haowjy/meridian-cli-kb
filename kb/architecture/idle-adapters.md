@@ -141,14 +141,15 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
 ### Claude's spawn-status pin
 
 The Claude mod's spawn-status pin is separate from the idle notification
-timeline. Core's read-rootless `idle child-status --interactive` command owns
-selection and bounded wording. It calls the same indexed,
+timeline. Core's `idle child-status --interactive` command owns selection and
+bounded wording. It calls the same indexed,
 authority-rereading `discover_pending_spawns()` query as no-argument
 `spawn wait`, but uses the primary's owner-chat scope and removes primary rows.
-The result therefore includes derived-active nested spawns as well as direct
-children. The [wait barrier](../concepts/spawn-wait-barrier.md) uses the shared
-query with caller exclusion and descendant scope when invoked from a nested
-spawn.
+The result therefore includes nested spawns as well as direct children, but
+only while stored state reconciled with runner evidence still says they are
+[active](state-system/derived-status.md). The
+[wait barrier](../concepts/spawn-wait-barrier.md) uses the shared query with
+caller exclusion and descendant scope when invoked from a nested spawn.
 
 The mod owns refresh and display. It queries on an active `session.start`, a
 main-loop `turn.complete`, and completion of a Bash command at the
