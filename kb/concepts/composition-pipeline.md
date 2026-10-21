@@ -202,8 +202,8 @@ A launch request's `prompt` is always the caller's own text. Composition reads i
 as an input, alongside `context_refs`, reference files and template variables, and
 writes the composed result only to its outputs (`PreparedLaunchContent.final_prompt`
 and, after bind, the run parameters). Never write composed text back into the
-request: the background worker and a session change both prepare the persisted
-request again, and composing an already-composed prompt renders prior context and
+request: the background-spawn worker prepares the persisted request again (as can
+any later re-prepare), and composing an already-composed prompt renders prior context and
 references twice. There is no "already composed" escape hatch; the old
 `prompt_is_composed` flag was deleted for this reason
 ([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary); on the

@@ -3,6 +3,33 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-21 — Session browse redesign captured (unmerged branch)
+
+Capture of the settled `meridian session browse` redesign
+(`work:session-browse-redesign`, meridian-cli branch `feat/session-browse-redesign`,
+not merged).
+
+- New [decisions/session-browse.md](decisions/session-browse.md): picker columns,
+  transcript on demand, staleness from idle state, one matcher before `LIMIT`,
+  primary-only lineage view, Python before Rust.
+- New decisions: [D-lineage-conversation-identity](decisions/state.md#d-lineage-conversation-identity)
+  and [D-from-request-boundary](decisions/launch.md#d-from-request-boundary); history
+  index v12 flagged against the v11/v12 lane reservations.
+- Preview projection marked superseded in [decisions/history-storage.md](decisions/history-storage.md)
+  and [decisions/native-only-history.md](decisions/native-only-history.md); preview
+  material removed from [portable history](architecture/state-system/portable-history.md),
+  [native transcript reads](architecture/native-transcript-reads.md),
+  [session-log rendering](codebase/session-log-rendering.md) and
+  [session state](architecture/state-system/session-state.md), which also gains the
+  chat-owned fields kept across generations.
+- [codebase/session-operations.md](codebase/session-operations.md) browse section
+  rewritten; `prompt_is_composed` legacy section replaced in
+  [composition pipeline](concepts/composition-pipeline.md);
+  [continuation model selection](concepts/continuation-model-selection.md) corrected
+  (plain continue has preferred the observed last-used model since 2026-09-19).
+- Lessons: the `pkill -f` incident in [spawn lane operations](lessons/spawn-lane-operations.md);
+  the parallel-owners recurrence in [hook event contract](lessons/hook-event-contract.md).
+
 ## 2026-10-21 — OpenCode prompt delivery captured (unmerged branch)
 
 Capture of the settled OpenCode prompt-delivery fix (`work:long-view-review`,

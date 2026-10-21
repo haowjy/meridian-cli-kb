@@ -86,7 +86,8 @@ rounds each added a second path beside the first. The third fix round
 matcher (the `session_list` SQL query; the TUI-side filter deleted), one
 model-observation writer (`observe_session_model`), one place `--from` is
 resolved (the request boundary), one meaning of a request's `prompt` (raw), and one
-CLI registration path. The re-review (`spawn:p14149`) approved
+CLI registration path (every command group through one lazy registry, instead of a
+second eager list beside it). The re-review (`spawn:p14149`) approved
 ([session browse](../decisions/session-browse.md),
 [D-from-request-boundary](../decisions/launch.md#d-from-request-boundary)).
 

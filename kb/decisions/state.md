@@ -250,7 +250,7 @@ work item's `design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`).
   > The session-browse branch (`feat/session-browse-redesign`) bumps the history
   > index from v10 straight to **v12** for lineage edges and model observations,
   > taking B2's reserved number and skipping v11. Once it merges, identity-v2 PR 4
-  > and B2 need new numbers above 12.
+  > ([spawn identity](spawn-identity.md)) and B2 need new numbers above 12.
 
 On `main` sessions are still the one global log. #591 was closed as a duplicate of
 #418, which has owned this work since the 2026-07 thermo-nuclear audit.

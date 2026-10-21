@@ -102,14 +102,13 @@ regression and not the test suite (root cause `spawn:p14106`).
 `killall`, `pgrep -f | xargs kill`) on a shared host. Every agent's command line
 carries prompt text, so any pattern can match a stranger. Stop what you own by
 handle: the PID you recorded when you started it, the harness's background-task
-id, or the process group you created. Check a selector with `pgrep -f` before ever
-sending a signal through it.
+id, or the process group you created.
 
-**Not done:** two follow-ups were proposed, cleanup guidance in the coder and
-prober profiles and keeping profile prose off the Claude argv. The owner chose to
-treat the incident as one-off ("if its a one time thing, we can ignore it"), so
-neither is settled. If it recurs, the argv change is the structural fix;
-guidance alone is the weakest guard.
+**Status of the fixes:** none scheduled. Two were proposed: cleanup guidance in
+the coder and prober profiles, and keeping profile prose off the Claude argv. The
+owner treated the incident as a one-off ("if its a one time thing, we can ignore
+it"). If it recurs, the argv change is the structural fix; profile guidance alone
+is the weakest guard.
 
 **Provenance:** `work:session-browse-redesign` `decisions.md` (incident entry) and
 `sigterm-*.md`; root cause `spawn:p14106`; owner ruling in `chat:c13711`.

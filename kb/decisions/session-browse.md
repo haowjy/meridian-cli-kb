@@ -28,8 +28,11 @@ Current mechanism: [session operations](../codebase/session-operations.md#sessio
 enter resume  space view  l lineage  tab filters  / transcripts  esc quit
 ```
 
-- **`⚠`** when the session's prompt cache has probably expired. No explanatory
-  text; the owner reads age and icon together ("I would just know it").
+- **`⚠`** when the session's prompt cache has probably expired. The provider
+  caches the conversation prefix for a few minutes to an hour; after that, the next
+  turn pays to process the whole conversation again, so the icon tells you whether
+  re-entering is cheap. No explanatory text: age and icon together are enough
+  ("I would just know it").
 - **TMUX** is `session:window`, captured at launch. It is blank for a session
   started outside tmux, or before the capture existed.
 - **AGENT (model)** is one column. The model is the last one the session ran, not
@@ -108,16 +111,17 @@ the idle file already cover.
 
 **Decision.** The Status (Active/Archived) and Sort (Updated/Created) controls and
 the type-to-search text are inputs to one `session_list` query, which filters and
-orders in the history index **before** `LIMIT` and returns the count for that scope.
+orders in the [history index](../architecture/state-system/session-state.md)
+(a disposable SQLite projection of the session journals) **before** `LIMIT` and returns the count for that scope.
 That query is the only definition of a match. The TUI never matches filter text
 against rows itself; typing re-runs the query after a short debounce and shows
 `loading…` until the answer for the current scope lands. Matching is by substring
 over tmux target, work, agent, model, chat id and cwd.
 
 **Why.** The old picker cut to 50 rows first and filtered in the TUI, so a search
-for a chat outside the first page reported `0 of 309`. A second, TUI-side matcher
-had also been added beside the query during review; two matchers drift, and the one
-that sees only the loaded page is wrong by construction.
+for a chat outside the first page reported `0 of 309`. Moving the match into the
+query left the TUI filter in place for a while, and two matchers drift; the one that
+sees only the loaded page is wrong by construction, so it was deleted.
 
 `/` remains transcript search over the rows the Status view shows. The old
 `--include-archives` flag is accepted with a warning and has no effect, for one
