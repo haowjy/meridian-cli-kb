@@ -7,6 +7,7 @@ data behind them gives each fact one source.
 
 **Status:** settled 2026-10-21 (`work:session-browse-redesign`); shipped in
 meridian-cli PR #714 (merge `471dfbc59`, 2026-10-21).
+[D-browse-start-from](#d-browse-start-from) shipped in PR #716 (merge `d09656f5c`).
 
 Related records: [prompt_toolkit as the framework](tui-framework.md),
 [bare `--continue` opens the picker and the Resume/Fork/Blocked decision](launch-session-initiation.md#session-browse-2026-08-session-browse-design),
@@ -24,7 +25,7 @@ Current mechanism: [session operations](../codebase/session-operations.md#sessio
     TMUX            AGENT                        IDLE  WORK
 ▸   meridian:main   tech-lead (claude-opus-5-5)    3m  session-browse-redesign
   ⚠ research:main   solo-dev (gpt-6-astra)         2h  pr-conflict-refresh
-enter resume  space view  l lineage  tab filters  / transcripts  esc quit
+enter resume  n start from  space view  l lineage  tab filters  / transcripts  esc quit
 ```
 
 - **`⚠`** when the session's prompt cache has probably expired. The provider
@@ -144,6 +145,35 @@ rows, which is a product change.
 The edges themselves are conversation identity, carried across continuation: see
 [D-lineage-conversation-identity](state.md#d-lineage-conversation-identity).
 
+## D-browse-start-from: `n` starts a new session from a row, inheriting agent, model and work {#d-browse-start-from}
+
+**Decision (owner).** `n` (Ctrl-N once search text is typed, since `n` is then text;
+the same rule as `l`), in
+the list or the detail view, opens a one-line prompt in the footer. Enter launches a
+new interactive session with `--from <chat>` and the typed text as its first message;
+Esc cancels. Enter on a row continues or forks a session; `n` branches off with that
+session as context and no retyping of its id or flags.
+
+- **Inherit, don't choose.** The new session takes the source's agent profile, its
+  last-used model (the one on screen) and its work item. People rarely change these
+  when branching off. An agent/model selector on the prompt line is a possible later
+  addition (meridian-cli `src/meridian/cli/.context/FUTURE`); it would add a modal step
+  to the common case.
+- **Running sessions qualify.** `--from` reads only recorded state, the source's native
+  harness transcript, so liveness does not matter. Start-from eligibility is therefore a
+  row field of its own (`start_from`), separate from the Resume/Fork/Blocked decision
+  Enter takes. A row is blocked only when no harness session is recorded, or when it is
+  an archived-history row (readable with `session log`, but with no session record to
+  launch from).
+- **Rows carry eligibility, not a launch.** Agent, model and work are read from the
+  row and the screen when the prompt opens. A copy of them stored on each row would
+  keep launching the old model after the detail view refreshes it, and would repeat
+  the row's own fields in `--plain --format json` output.
+- **`--opt=value` argv, `--agent` always present.** `--prompt=-x fix` keeps typed text
+  that starts with `-` from parsing as a flag, which would fail after browse has exited
+  and lose the text. `--agent=` with an empty value keeps an agentless source
+  agentless; omitting `--agent` would select the configured default profile.
+
 ## D-browse-python-first: rewrite in Python; Rust waits for the data layer {#d-browse-python-first}
 
 **Decision (owner).** The picker was rewritten in Python on prompt_toolkit. The
@@ -169,9 +199,8 @@ picker stops duplicating Python state.
 
 ## Follow-ups
 
-- **Start a new session from a row with `--from`** (owner idea, settled as a stacked
-  follow-up PR): Enter-alternative that launches `meridian --from <id>` with an
-  optional extra prompt, instead of continuing.
+- **Agent/model selector at start-from** (owner: later, not now); default stays
+  inherit. Tracked in meridian-cli `src/meridian/cli/.context/FUTURE`.
 - **Cross-project "All" scope.** The listing reads one project's runtime root;
   tracked in meridian-cli `src/meridian/cli/.context/FUTURE`.
 - **#558** asked for tmux labels (delivered here) and a recently-crashed promotion
@@ -184,4 +213,6 @@ picker stops duplicating Python state.
 `findings.md`, `pr-body-session-browse.md`); owner rulings in `chat:c13711`;
 picker research `spawn:p14094`, `spawn:p14095`; plan review `spawn:p14100`;
 maintainability reviews `spawn:p14130`, `spawn:p14149`; live TUI probes
-`spawn:p14123`, `spawn:p14131`, `spawn:p14150`.
+`spawn:p14123`, `spawn:p14131`, `spawn:p14150`. Start-from: `work:browse-start-from`
+(`decisions.md`), meridian-cli PR #716; reviews `spawn:p14180`, `spawn:p14181`,
+`spawn:p14184`.

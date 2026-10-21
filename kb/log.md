@@ -3,6 +3,13 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-21 — Session browse start-from merged (PR #716)
+
+meridian-cli PR #716 (merge `d09656f5c`) added `n` to start a new session `--from` a
+picker row. New [D-browse-start-from](decisions/session-browse.md#d-browse-start-from)
+replaces the follow-up bullet; [codebase/session-operations.md](codebase/session-operations.md)
+and [decisions.md](decisions.md) updated.
+
 ## 2026-10-21 — Session browse redesign merged (PR #714)
 
 meridian-cli PR #714 merged the session browse redesign (merge `471dfbc59`). Pages

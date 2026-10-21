@@ -9,6 +9,14 @@ project's primary sessions. On Enter it execs `meridian --continue <c-id>` for a
 stopped session or `meridian --fork <c-id>` for a running one; fork allocates a new
 chat, so a running session is never attached twice.
 
+`n` (Ctrl-N once filter text exists, since `n` is then text) in the list or detail view starts a **new**
+session that reads the highlighted one as context instead. A one-line prompt opens in
+the footer; Enter execs `meridian --from <c-id> --agent=<a> [--model=<m>] [--work=<w>]
+[--prompt=<text>]` with the row's agent and work and the model on screen, and Esc
+cancels. It works on running sessions too. A row is blocked only when no harness session
+is recorded for it, or when it is an archived-history row. The code-level contract is in
+meridian-cli `src/meridian/cli/.context/CONTEXT.md`.
+
 Rationale for each choice: [session browse decisions](../decisions/session-browse.md).
 
 **Three views on one stack** (the list keeps its highlight and filter underneath):
@@ -38,7 +46,7 @@ from inside a running harness would nest the selected session under the original
 
 | Seam | Used for |
 |---|---|
-| `session_list_sync` | Rows for a status, sort and search text, filtered and ordered in the history index before `LIMIT`; also rows for specific chat ids (lineage nodes) |
+| `session_list_sync` | Rows for a status, sort and search text, filtered and ordered in the history index before `LIMIT`, each carrying its start-from eligibility (`start_from`); also rows for specific chat ids (lineage nodes) |
 | `session_lineage_sync` | The fork/`--from` component around a chat, from indexed edges |
 | `read_session_transcript` + `select_session_log_window` | Detail view: one parsed snapshot, windowed (shared with `session log`) |
 | `session_model_refresh_sync` | Record the native last-executed model on opening a detail view |
