@@ -130,8 +130,9 @@ budget; runner-side exhaustion retains `resident_rearm_budget_exhausted`.
 
 With no accepted completion, deadline expiry publishes `timed_out` with
 `resident_deadline_expired`, then asynchronously attempts descendant cleanup.
-An explicit `done` cannot bypass unreadable evidence; persistent unreadability
-has its own failure diagnostic. The outer attempt timeout remains independent.
+An explicit `done` cannot bypass unreadable evidence; if that override is still
+blocked on unreadability at expiry, it fails with `resident_evidence_unreadable`.
+The outer attempt timeout remains independent.
 
 ### Signal capability belongs to the selected plan
 

@@ -1,6 +1,8 @@
 # Completion drain is shared mechanism with profile-owned policy
 
-Pi and resident drains use one `CompletionCoordinator`, composed with
+The resident path keeps Claude/Codex/OpenCode children alive through completion
+confirmation; the Pi path waits for its own work and delivery obligations to
+settle. Both use one `CompletionCoordinator`, composed with
 `CompletionEvidence`, `CompletionProfile`, and `CompletionCleanup`
 collaborators. The coordinator owns candidate, wait, deadline, and stabilization
 mechanics; each profile owns the policy that decides what those facts mean.
@@ -21,7 +23,9 @@ flowchart LR
 
 ## The coordinator accepts evidence; it does not discover work
 
-The coordinator retains a successful parent terminal candidate, evaluates immutable
+A candidate is a successful harness turn retained until policy accepts or rejects
+it; it is not yet a published spawn outcome. The coordinator retains that
+candidate, evaluates immutable
 work assessments, schedules one completion deadline, and manages stabilization and
 validation. When policy proposes success, it requests a qualifying descendant refresh
 and does not publish until that request is covered. After the stabilization window
@@ -90,10 +94,9 @@ Pi-private work remains separate because a `SpawnRecord` cannot represent it.
 - exact native delivery receipts and matching public-event observations;
 - private-work read failures.
 
-Rowless subspawn tracking and PID/PGID cleanup handles were retired in PR #447
-(#440): zero canonical lifecycle events are emitted by real Pi, so the subspawn
-tracker and process cleanup module were deleted. Descendant discovery now
-relies solely on the reconciled persisted spawn tree.
+Real Pi emits no canonical lifecycle events for rowless native subspawns.
+Persisted descendant discovery therefore relies solely on the reconciled spawn
+tree, not an inferred native-subspawn tracker.
 
 `PiDiskWatcher` observes only Pi-private Bash and delivery-evidence files. It
 does not scan spawn directories or infer descendants. Finish-anchored polling
@@ -106,10 +109,12 @@ bus participates in persisted-descendant authority.
 Every proposed success receives a request sequence and waits for a refresh begun after
 that request before policy is reevaluated. A cached ready result cannot authorize
 publication. A `done` directive may override known blockers, but it cannot turn
-`unknown` into success. Transient unreadability waits for recovery. Persistent
-unreadability fails at the single completion deadline with
-`resident_evidence_unreadable` or `pi_evidence_unreadable`; the rendered failure directs
-the operator to the session log.
+`unknown` into success. Transient unreadability waits for recovery. A hold
+cannot succeed merely because its deadline expires: the profile returns a
+non-success outcome. Resident `done` blocked on unreadable evidence expires
+with `resident_evidence_unreadable`; without that override, the ordinary
+resident deadline timeout applies. Pi retains its `pi_evidence_unreadable`
+diagnostic.
 
 Pi narrows that override: an explicit done may override known running execution
 or descendant liveness, but not an owed result publication/admission/public-event
@@ -192,13 +197,11 @@ reason, or cleanup-phase policy.
 7. Terminal publication is idempotent and one-way; `_publish_terminal` guards
    against double publication; cleanup and lifecycle effects cannot replace the
    outcome.
-8. In pending PR #547 (source checkpoint `c1b64bcf`), per-event normalization is followed
-   by coordinator refinement/deduplication,
+8. Per-event normalization is followed by coordinator refinement/deduplication,
    then refined connection semantics, inline hooks on the raw frame, subscriber
    fan-out of the raw envelope carrying refined semantics, `note_event_delivered`
    on the raw frame, and terminal handling. There is no history write to gate
-   delivery (PR 3 renamed `note_event_persisted` and deleted the writer;
-   [emit path](attempt-facts-and-delivery.md#the-emit-path)).
+   delivery; see the [emit path](attempt-facts-and-delivery.md#the-emit-path).
 9. Pi nudges and Claude confirmation turns route through serialized
    `SpawnManager.inject()`.
 10. The plain path remains `coordinator=None`.
