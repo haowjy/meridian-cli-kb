@@ -246,6 +246,11 @@ work item's `design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`).
   `sessions.jsonl` (B4), is **yes** (2026-10-16). Questions 1–4 and 6–11 are still
   open and must be answered before B2.
 - **B2** comes after identity-v2 PR 4, which takes index v11; B2 takes v12.
+  > [!FLAG] **Needs human review**
+  > The session-browse branch (`feat/session-browse-redesign`) bumps the history
+  > index from v10 straight to **v12** for lineage edges and model observations,
+  > taking B2's reserved number and skipping v11. Once it merges, identity-v2 PR 4
+  > and B2 need new numbers above 12.
 
 On `main` sessions are still the one global log. #591 was closed as a duplicate of
 #418, which has owned this work since the 2026-07 thermo-nuclear audit.
@@ -453,6 +458,48 @@ touches every lock site anyway; deduping `native_identity_candidates` inline in
 `b1-one-chat.md`, `b1-recent-generation-conflict.md`); reviews `spawn:p8268`
 (MEM-1), `spawn:p8288`/`p8289` and re-reviews `p8300`/`p8301` (B1);
 `work:v010-followups` `design-591/decision-B.md` "Owner answers".
+
+### D-lineage-conversation-identity: fork and `--from` ancestry belong to the chat, not a generation (2026-10-21) {#d-lineage-conversation-identity}
+
+**Status:** settled (`work:session-browse-redesign`, plan revision after review
+`spawn:p14100`); on the unmerged meridian-cli branch `feat/session-browse-redesign`.
+
+**Decision.** A chat's parents are part of its identity, the way its native session
+binding is:
+- **Two edges.** `forked_from_chat_id`/`forked_from_history_id` (from `--fork`) and
+  `context_from_chat_id`/`context_from_history_id` (from a primary's `--from`) are
+  recorded on the start event. Each pair moves together.
+- **Carried across continuation.** The session fold keeps the pair from the first
+  start event that set it, and every later generation's start inherits it, along
+  with the chat's original creation time. The fold names these chat-owned fields
+  once (`_CHAT_LINEAGE_FIELDS`, `_CHAT_OWNED_FIELDS` in `state/session_fold.py`).
+- **Resolved once.** A primary's `--from` is resolved to chat id and history id at
+  the CLI by the same resolver that builds the prompt context, and persisted from
+  that result ([D-from-request-boundary](launch.md#d-from-request-boundary)).
+- **Indexed, never authoritative.** The history index projects parent edges into a
+  table (schema 12) so finding a chat's children is a query. The journal stays the
+  only copy; the index rebuilds from it.
+- **Generation metadata stays per generation.** The tmux target captured at launch
+  describes one launch and is not carried forward.
+
+Sessions recorded before this change have no `context_from_*`, and lost
+`forked_from_*` on any continuation. They read as "no edge", never as a guess.
+
+**Why.** Continuing a forked chat wrote a new start event without its parent, so the
+fork link vanished after the first `--continue` (repro: parent `c1` before, `None`
+after). Fixing the lineage view's reads alone would have left every other reader of
+the fold with the same hole; the class is "chat-owned facts treated as generation
+facts", and the fold is where it is fixed.
+
+**Rejected:** lineage on `SessionSettings`, the per-launch settings, because
+continuation replaces those by design; deriving lineage from SQLite alone, which
+would make a disposable projection the only copy of a fact.
+
+Spawn `--from` is deliberately not an edge: lineage covers primary sessions only
+([D-browse-lineage-view](session-browse.md#d-browse-lineage-view)).
+
+**Provenance:** `work:session-browse-redesign` `plan.md` "Revision"; implementation
+`spawn:p14101`; re-entry probes `spawn:p14131`, `spawn:p14150`.
 
 ---
 

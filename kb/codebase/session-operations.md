@@ -4,39 +4,69 @@ Session operations (`meridian session log`, `session search`, `session export`, 
 
 ## Session Browse
 
-`meridian session browse` is an interactive full-screen picker over recent
-primary sessions. It lists recent c-ids (primary chats only, current project
-scope), lets the user filter by metadata or deep-search transcripts via `/`,
-preview the highlighted session's current segment, and on Enter exec's
-`meridian --continue <c-id>` for stopped sessions or `meridian --fork <c-id>`
-for live ones. A live session is never double-attached — fork allocates a new
-c-id by construction.
+`meridian session browse` is an interactive full-screen picker over the current
+project's primary sessions. On Enter it execs `meridian --continue <c-id>` for a
+stopped session or `meridian --fork <c-id>` for a running one; fork allocates a new
+chat, so a running session is never attached twice.
 
-Bare `meridian --continue` (no ref) opens the same picker. Both entry forms
-are identical after argv canonicalization; there is no origin flag and no
-provenance-dependent behavior.
+> **Branch state.** This section describes the redesign on the unmerged meridian-cli
+> branch `feat/session-browse-redesign`. On `main` rows lead with the chat id, carry
+> a live marker, and a clipped preview pane loads on every highlight. Rationale for
+> each choice: [session browse decisions](../decisions/session-browse.md).
 
-Non-TTY invocations or `--plain` degrade to a plain table listing (no
-interaction), so the command stays scriptable and testable. Invocations from
-inside a managed Meridian session (detected by `MERIDIAN_SPAWN_ID`) refuse
-interactive mode with an explicit message — exec-ing `--continue` from inside
-a running harness would nest the selected session under the original one.
-`--plain` still works inside managed sessions.
+**Three views on one stack** (the list keeps its highlight and filter underneath):
 
-The picker is built on prompt_toolkit's full-screen `Application`
-([decision rationale](../decisions/tui-framework.md)). The TUI is pure
-presentation over four ops-layer seams: `session_list_sync` (listing),
-`session_log_sync` (preview), `iter_session_subset_search` (deep search), and
-`resolve_session_reentry` (Enter-time re-entry decision). The TUI never touches
-`lib/state`, `lib/harness`, or transcript files directly.
+- **List.** Rows show `⚠` (cache probably expired), tmux `session:window`,
+  `agent (model)` with the last-used model, age since last turn, and work item.
+  The chat id is not a column. A Status (Active/Archived) and Sort (Updated/Created)
+  header sits above an always-on search line. Tab focuses the header.
+- **Detail** (Space). Header facts plus the whole transcript, parsed once off the UI
+  thread and scrolled from that snapshot. Opening it also refreshes the row's
+  last-used model through `session_model_refresh_sync`.
+- **Lineage** (`l`, or Ctrl-L once filter text exists, since `l` is then text). The
+  tree of `--fork` and `--from` edges around the session, primary sessions only.
+  Enter on a node opens its detail view.
 
-See [../concepts/session-initiation.md](../concepts/session-initiation.md) for
-the re-entry model (Resume/Fork/Blocked) that governs what Enter does.
+Bare `meridian --continue` (no ref) opens the same picker; both forms are identical
+after argv canonicalization.
 
-Browse degrades per row when a chat lacks a complete native key: it remains visible
-with `unbound`, has no transcript preview, and re-entry is blocked both in the list
-and after fresh selection resolution. Browse does not guess or repair identity. The
-late legacy-ID repair and legacy Pi recovery run only from `meridian doctor` or
+Non-TTY invocations or `--plain` print a table (`STALE TMUX AGENT AGE WORK`, plus
+`--format json`), so the command stays scriptable. Inside a managed Meridian session
+(detected by `MERIDIAN_SPAWN_ID`) interactive mode is refused: exec-ing `--continue`
+from inside a running harness would nest the selected session under the original.
+`--plain` still works there.
+
+**The TUI is presentation over ops seams.** It never touches `lib/state`,
+`lib/harness` or transcript files directly:
+
+| Seam | Used for |
+|---|---|
+| `session_list_sync` | Rows for a status, sort and search text, filtered and ordered in the history index before `LIMIT`; also rows for specific chat ids (lineage nodes) |
+| `session_lineage_sync` | The fork/`--from` component around a chat, from indexed edges |
+| `read_session_transcript` + `select_session_log_window` | Detail view: one parsed snapshot, windowed (shared with `session log`) |
+| `session_model_refresh_sync` | Record the native last-executed model on opening a detail view |
+| `iter_session_subset_search` | `/` transcript search over the rows the Status view shows |
+| `resolve_session_reentry` | Enter-time Resume/Fork/Blocked decision |
+
+Blocking calls run on latest-only background lanes: a superseded request never
+applies, and a scope change cancels transcript search. Nothing may write to stderr
+while the application runs.
+
+**Where the row facts come from.** One indexed query returns the rows. Last turn is
+`stopped_at` for a stopped session and the idle file's last-turn time for a running
+one. The cache deadline is that time plus the idle file's TTL, or a per-harness
+default; `⚠` compares it to the clock at render. The last-used model is the latest
+model observation for the row's native session, queried in one batch for all
+visible rows, falling back to the launch model. Idle files are read once per
+distinct visible identity.
+
+See [../concepts/session-initiation.md](../concepts/session-initiation.md) for the
+re-entry model (Resume/Fork/Blocked) that governs what Enter does.
+
+Browse degrades per row when a chat lacks a complete native key: it remains visible,
+its transcript is unavailable, and re-entry is blocked both in the list and after
+fresh selection resolution. Browse does not guess or repair identity. The late
+legacy-ID repair and legacy Pi recovery run only from `meridian doctor` or
 primary-launch background repairs
 ([legacy import](../architecture/legacy-native-import.md#late-binding-after-the-marker)).
 `session repair` is the manual, explicit bind
@@ -46,8 +76,8 @@ primary-launch background repairs
 
 The contract from the native-read implementation in PR #534 is **ref → chat → the
 chat's bound native key → that harness's exact reader**, through one function,
-`ops/session_target.resolve_transcript_source`. `session log`, export, preview and
-`search REF` all use it. The full ref table, view labels and search projection are in
+`ops/session_target.resolve_transcript_source`. `session log`, export, the browse
+detail view and `search REF` all use it. The full ref table, view labels and search projection are in
 [native transcript reads](../architecture/native-transcript-reads.md).
 `pN` labels identify the chat being shown; text search prints a source-coverage line
 alongside the structured JSON coverage.
@@ -187,10 +217,7 @@ By default, oversized entries are preview-truncated (safe for reading in termina
 
 This truncation is a presentation limit on each message's cleaned content. It
 does not bound source bytes, decoded messages, grouping, or the number of messages
-rendered inside an entry. Browser pane clipping likewise happens after rendering.
-Issue #495 tracks the still-unimplemented bounded-content preview contract; an
-oversized-source unavailable state alone is not the accepted substitute for a
-useful fast large-history preview.
+rendered inside an entry.
 
 ## meridian session search
 

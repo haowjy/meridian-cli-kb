@@ -196,16 +196,18 @@ log directory. These are useful for debugging what the harness actually received
 
 ---
 
-## Pre-Composed Prompts (Legacy Path)
+## The Request Prompt Stays Raw
 
-Some older code paths use `prompt_is_composed=True` — a flag indicating the
-prompt is already fully assembled and should bypass the composition stage
-entirely. This is a legacy escape hatch. It produces no `ComposedLaunchContent`
-and calls no `project_content()`. The projection manifest won't reflect real
-routing, and the system-prompt.md artifact may be absent.
-
-New code should never set `prompt_is_composed=True`. The composition pipeline
-handles all cases correctly.
+A launch request's `prompt` is always the caller's own text. Composition reads it
+as an input, alongside `context_refs`, reference files and template variables, and
+writes the composed result only to its outputs (`PreparedLaunchContent.final_prompt`
+and, after bind, the run parameters). Never write composed text back into the
+request: the background worker and a session change both prepare the persisted
+request again, and composing an already-composed prompt renders prior context and
+references twice. There is no "already composed" escape hatch; the old
+`prompt_is_composed` flag was deleted for this reason
+([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary); on the
+unmerged meridian-cli branch `feat/session-browse-redesign`).
 
 ---
 

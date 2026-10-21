@@ -12,9 +12,15 @@ for each explicit request. Mars revalidates current targets and exclusions under
 the same harness, and a literal canonical/provider pin prevents alias drift.
 Non-routing policy and the original launch snapshots are unchanged.
 
-A later plain continuation reads the Meridian selection recorded at
-`accepted-running`; it never uses the native harness's observed last-executed
-model as discovery. `SessionAttempt` binds that selection to the same generation
+A later plain continuation (not a fork, no explicit `--model`) uses the model the
+session last ran: it reads the native history's last executed model, falling back to
+the stored model observation, and maps that raw token to a launch model on the
+replay harness. An unroutable or missing observation falls back to the Meridian
+selection recorded at `accepted-running`. Model observations have one writer,
+`harness/model_observation.observe_session_model`, which stores the raw native
+token; continue, a primary's stop and the browse detail view all record through it
+(the last two on the unmerged branch `feat/session-browse-redesign`, where continue
+also stopped storing the mapped id). `SessionAttempt` binds that selection to the same generation
 and attempt. A plan-assigned native ID is bound before exec; native-ID callbacks
 confirm it or, when no ID was assigned, bind the first observation. Append failure terminates continuation with a
 coordination error rather than switching the runtime model.

@@ -80,5 +80,16 @@ diff. The general process is in
 the registry pattern is in
 [Single-Source Registry Over Parallel Maps](structural-refactor-methodology.md#single-source-registry-over-parallel-maps).
 
+**It recurred (2026-10-21).** In the session-browse redesign, the first two fix
+rounds each added a second path beside the first. The third fix round
+(`spawn:p14140`) consolidated by fact instead: one search
+matcher (the `session_list` SQL query; the TUI-side filter deleted), one
+model-observation writer (`observe_session_model`), one place `--from` is
+resolved (the request boundary), one meaning of a request's `prompt` (raw), and one
+CLI registration path. The re-review (`spawn:p14149`) approved
+([session browse](../decisions/session-browse.md),
+[D-from-request-boundary](../decisions/launch.md#d-from-request-boundary)).
+
 **Provenance:** `work:hook-event-names` `decisions.md` (D4–D6); reviews
-`spawn:p8641`, `spawn:p8646`, `spawn:p8648`, `spawn:p8650`.
+`spawn:p8641`, `spawn:p8646`, `spawn:p8648`, `spawn:p8650`;
+`work:session-browse-redesign` reviews `spawn:p14130`, `spawn:p14149`.

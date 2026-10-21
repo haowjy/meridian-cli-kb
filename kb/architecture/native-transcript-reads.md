@@ -1,6 +1,6 @@
 # Native Transcript Reads and Search
 
-How `session log`, export, preview and search find a chat's conversation in the
+How `session log`, export, the browse detail view and search find a chat's conversation in the
 harness's own transcript, and how search stays fast without becoming a second
 authority. How the run's own facts are computed from live events instead of a
 re-read stream, and delivered to subscribers and reports: [attempt facts and
@@ -26,7 +26,7 @@ flowchart LR
   ADP --> SRC["TranscriptSource.native + view_label"]
   SRC --> READ["read_native_source → NativeRead"]
   FILE --> READ
-  READ --> OUT["log, export, preview, search"]
+  READ --> OUT["log, export, browse detail, search"]
 ```
 
 ## One resolver, one reader
@@ -38,7 +38,7 @@ ref to a transcript. It returns `SessionLogTarget(source, view_label)` or raises
 - **One constructor.** Every native source is built by `TranscriptSource.native(harness,
   session_id, path)`. The adapter names the kind of its own file
   (`native_transcript_kind`), and `native_source_label(harness)` gives the one label
-  (`"<harness> transcript"`) that log, preview and search all show.
+  (`"<harness> transcript"`) that log, the browse detail view and search all show.
 - **The key comes from `sessions.jsonl`.** The metadata index is used only by
   `_indexed_spawn`. It recovers a `SpawnRecord`, never a transcript location, for a
   reclaimed `pN` whose `state.json` is gone, or for a history UUID or non-harness
@@ -109,11 +109,10 @@ byte or snapshot read. It returns a lazy `NativeRead`:
 - `witness`: the source's freshness witness, taken when the generator starts, from
   the same bytes it reads.
 
-Log, export, preview and search all consume `NativeRead`. Pi is projected once, here,
+Log, export, the browse detail view and search all consume `NativeRead`. Pi is projected once, here,
 onto its reopen-default lineage (`project_pi_reopen_default`). Each surface then
 applies its own policy to the same reasons:
 - log keeps the view and adds `partial: …`;
-- preview shows the view as unavailable;
 - search skips the source (`search_ready` is false).
 
 An explicit Pi `--file` read stays raw.
@@ -206,13 +205,14 @@ sources_not_searched`.
 - More than three errors collapse into one line per reason class.
 
 **Archived chats** keep their binding and native file, so corpus search includes them.
-Search has no `--include-archives`. `session browse --include-archives` remains a
-row filter on the picker (`+archived` vs `loose`).
+Search has no `--include-archives`. In `session browse`, archived rows appear under
+Status: Archived, and `/` searches the rows that view shows; the picker's own
+`--include-archives` flag is deprecated with no effect (meridian-cli branch
+`feat/session-browse-redesign`, unmerged).
 
 **`session index`.**
 - `rebuild` imports configured archive ZIPs, rebuilds the metadata index, then unlinks
-  the search DB and its `-wal`/`-shm` and rebuilds the projection. It does not warm browse previews; they refresh
-  lazily.
+  the search DB and its `-wal`/`-shm` and rebuilds the projection.
 - `rebuild --metadata-only` skips the search projection.
 - `status` (the default) reports metadata status plus search counts: `search_bytes`,
   `search_fresh`, `search_stale`, `search_unavailable` and `search_unindexed`. It never

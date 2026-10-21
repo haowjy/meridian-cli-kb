@@ -130,28 +130,16 @@ render_session_log(...)       # assemble output with navigation and hints
 
 **The anti-pattern avoided:** Truncating in the command layer (`session_log.py`) before handing off to the render layer would force the renderer to work with already-truncated strings. Typed `ToolCall` fields would be lost, tool collapsing would fall back to string parsing, and `clean_content` would operate on already-truncated raw XML.
 
-## Browser preview is a bounded projection, not a shortened full log
+## The browse detail view shares this pipeline
 
-Full `session log` rendering still follows the exhaustive pipeline above. The
-browser uses a separate bounded DTO projected by the same canonical normalizer.
-Its SQLite cache holds recent normalized messages, setup and explicit clipping
-state; it does not persist a fully rendered conversation or interpret transcripts
-through a second parser.
-
-Selection performs a cache-only lookup first. A latest-only worker resolves and
-refreshes the selected source outside the UI path, with cancellation between
-records and expensive stages. Sources are native only, and each refresh reparses the
-selected source from a consistent fresh read. ZIP previews publish only after required members and bytes verify, so
-early iterator close cannot be mistaken for archive verification.
-
-Clipping has two layers and both remain visible: the bounded projection can omit
-earlier context or message text, and the pane can narrow the displayed status.
-Freshness is not hidden by the narrow rendering. An unavailable selected ZIP may
-show a previously verified preview only for the same selected digest and must be
-labeled offline.
-
-**Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
-`work:next-minor-planning/reviews/495-final.md`; `spawn:p6062`.
+`session browse`'s detail view is not a second renderer. It reads the transcript
+once through `read_session_transcript` and windows the parsed result with
+`session_log.select_session_log_window`, the same window selection `session log`
+uses, so it shows the same `SessionLogEntry` windows `session log` would. The view holds one parsed snapshot
+and caches wrapped lines per width and window; scrolling never re-reads the file.
+(On meridian-cli branch `feat/session-browse-redesign`, unmerged; it replaces the
+bounded preview cache, see
+[D-browse-transcript-on-demand](../decisions/session-browse.md#d-browse-transcript-on-demand).)
 
 ---
 

@@ -1,7 +1,8 @@
 # Spawn Lane Operations
 
 Lessons from running implementation and measurement lanes as `meridian spawn` children.
-They concern how a lane can fail without the failure being visible in its result.
+Most concern how a lane can fail without the failure being visible in its result;
+one concerns how a lane's cleanup can reach processes it does not own.
 
 ## Declared Backups Do Not Cover a Mid-Run Auth Failure
 
@@ -75,6 +76,43 @@ importer.
 auth failure → Claude backups" and "Recheck PASS WITH FIXES; V2 partial; lane D";
 `evidence/pr2-fix-d-report.md`; spawns `p7149`, `p7150`, `p7151`; for the squash
 lesson, `evidence/pr3-p3a-report.md`, `review/pr3-review.md`, `spawn:p7155`).
+
+## A Pattern `pkill -f` Killed the Owner's Primaries
+
+**What happened (2026-10-21, 17:31Z):** a coder lane (`spawn:p14102`) cleaned up its
+own wait loop with
+
+```
+pkill -f 'until grep -qE "passed|failed|error" /tmp/full-tests.txt'
+```
+
+Three of the owner's interactive tech-lead primaries, in other tmux sessions, died
+with SIGTERM within ten seconds. The lane itself survived and finished.
+
+**Why:** `pkill -f` matches the pattern as an extended regex against every
+process's full command line, and shell quoting does not escape `|`. The pattern was
+three alternatives, one of them the bare word `failed`. Meridian launches Claude
+with the agent profile inline on argv (`claude --agents <json>`), so the profile's
+prose is part of the command line. The tech-lead profile contains "A spawn that
+failed before doing any work", so every running tech-lead primary matched. The
+coder's own profile did not, which is why the killer lived. It was not a Meridian
+regression and not the test suite (root cause `spawn:p14106`).
+
+**The lesson:** never select processes by command-line text (`pkill -f`,
+`killall`, `pgrep -f | xargs kill`) on a shared host. Every agent's command line
+carries prompt text, so any pattern can match a stranger. Stop what you own by
+handle: the PID you recorded when you started it, the harness's background-task
+id, or the process group you created. Check a selector with `pgrep -f` before ever
+sending a signal through it.
+
+**Not done:** two follow-ups were proposed, cleanup guidance in the coder and
+prober profiles and keeping profile prose off the Claude argv. The owner chose to
+treat the incident as one-off ("if its a one time thing, we can ignore it"), so
+neither is settled. If it recurs, the argv change is the structural fix;
+guidance alone is the weakest guard.
+
+**Provenance:** `work:session-browse-redesign` `decisions.md` (incident entry) and
+`sigterm-*.md`; root cause `spawn:p14106`; owner ruling in `chat:c13711`.
 
 ## Parallel Lanes Can Collide on Test Basenames
 

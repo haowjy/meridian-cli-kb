@@ -297,13 +297,18 @@ All four modes apply to both surfaces:
 
 ## Implementation Seam
 
-The shared user-turn context resolution seam lives in `launch/context.py`:
+`--from` refs are resolved once, at the request boundary (`cli/primary_launch.py`
+for primaries, `ops/spawn/prepare.py` for spawns), into `ContextRef`s; launch only
+renders them ([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary);
+on the unmerged meridian-cli branch `feat/session-browse-redesign`). The shared
+user-turn context seam lives in `launch/context.py`:
 
 ```python
 resolve_task_context_inputs(
-    context_from: tuple[str, ...],
+    context_refs: tuple[ContextRef, ...],
     reference_files: tuple[str, ...],
-    project_root: Path,
+    authority_root: Path,
+    reference_anchor: Path,
 ) -> TaskContextInputs
 ```
 

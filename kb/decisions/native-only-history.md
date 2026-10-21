@@ -231,7 +231,9 @@ the native bytes and the parser version.
   ops-side filename scan would break the exact-source boundary.
 - **`session index rebuild` builds search and leaves previews lazy.** The old eager
   preview-warming loop re-folded authority and re-resolved every chat; keeping it
-  would multiply rebuild cost. Browse refreshes previews on demand.
+  would multiply rebuild cost. Browse refreshes previews on demand. *(The preview
+  cache itself is deleted by
+  [D-browse-transcript-on-demand](session-browse.md#d-browse-transcript-on-demand).)*
 - **WAL with `synchronous=NORMAL`.** Each source's replace is one atomic
   transaction, so a process crash loses at most the source being written. Only
   power-loss durability of a rebuildable cache is weaker. Full sync made the
@@ -455,6 +457,9 @@ copies. On this project only 15 Claude spawns (13 MB) were affected.
   includes them, and search's `--include-archives` is removed.
   `session browse --include-archives` stays, as a filter that adds archived rows to
   the picker (V1's call; it filters rows and no longer selects a read source).
+  *Superseded 2026-10-21:* the picker's Status: Archived view replaces the flag,
+  which is deprecated with no effect
+  ([D-browse-query-before-limit](session-browse.md#d-browse-query-before-limit)).
 - **Result caps.** Search no longer truncates because a time budget ran out, and
   every hit is verified exactly. Common words still fill the 100-match cap with the
   newest sessions' setup text, because Codex embeds AGENTS.md in every session. A

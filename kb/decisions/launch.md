@@ -27,6 +27,48 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — archit
 
 ---
 
+### D-from-request-boundary: `--from` is resolved once at the request boundary; the request prompt stays raw (2026-10-21) {#d-from-request-boundary}
+
+**Status:** settled (`work:session-browse-redesign`); on the unmerged meridian-cli
+branch `feat/session-browse-redesign`.
+
+**Decision.**
+- **Resolve once, at the boundary.** A `--from` ref is resolved into a `ContextRef`
+  (chat id, history id, rendered prior context) in exactly two places, both through
+  `ops/spawn/context_ref.resolve_context_ref`: `cli/primary_launch.py` for primaries
+  and `ops/spawn/prepare.py` for spawns. Requests carry only `context_refs`. Launch
+  renders them (`core/context_ref.render_context_refs`) and never resolves a ref.
+  A primary's lineage edge is persisted from that same result
+  ([D-lineage-conversation-identity](state.md#d-lineage-conversation-identity)).
+- **The request's `prompt` is the caller's raw prompt, always.** Every prepare
+  composes from the request's inputs (`prompt`, `context_refs`, `reference_files`,
+  template variables). The composed text lives only on the output side of prepare
+  and bind, never written back into the request.
+
+**Why.** Both rules give one fact one owner. Before, the CLI kept `--from` as
+strings, and launch, each harness adapter (`context_from_payload`) and several
+fallbacks resolved them again, and recording a primary's `--from` as lineage
+would have added one more resolution beside them. The prompt had two meanings, raw or already composed,
+told apart by a `prompt_is_composed` flag. The background worker re-prepares the
+persisted request; when the request already held composed text, `spawn --bg --from`
+and `spawn --bg -f` rendered the prior context and references twice. That bug was
+on `main` (v0.11.4) and is fixed by the same change.
+
+**Rejected:** keeping the flag and guarding the worker path. It would leave two
+meanings of `prompt` for the next re-prepare path to trip over.
+
+**Compatibility.** A background request written by an older build holds composed
+text in `prompt`; if this build's worker picks it up, the context is composed a
+second time. That needs an upgrade inside the gap between writing a request and
+the worker starting, which is short. The reverse (a 0.11.4 worker reading this
+build's request) is untested and could drop a `--from` context, because 0.11.4
+defaults the missing flag to "composed" (meridian-cli `docs/upgrading.md`).
+
+**Provenance:** `work:session-browse-redesign` `pr-body-session-browse.md` part 7;
+root cause `spawn:p14151`; streaming-harness probe `spawn:p14155`.
+
+---
+
 ### Prepare/bind split: expensive resolution separated from cheap materialization
 
 **Decision (2026-05, launch-primary-context-dedupe):** `build_launch_context()` is decomposed into two public phases: `prepare_launch_surface()` (expensive: model/harness/skill resolution, composition, prompt assembly) and `bind_launch_context()` (cheap: env, cwd, spec, argv, permissions given a spawn ID and report path). The existing `build_launch_context()` entry point was preserved as a backward-compat wrapper.

@@ -98,11 +98,14 @@ Two disposable projections sit beside the journal. Neither holds a fact the jour
 lacks:
 - **Metadata index** (`history-index/history-v<N>-sessions-v<S>.sqlite3`, named by
   index schema and session event format; schema 10 since #631; 8 and 9 were written only by unreleased #616 builds and are
-  skipped; identity-v2 PR 4 plans v11 and #418 B2 v12): cross-record browse,
-  discovery, aliases, spawn records for reclaimed refs and the preview cache. Its
+  skipped; the session-browse branch takes v12, see the flag on
+  [D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)):
+  cross-record browse, discovery, aliases and spawn records for reclaimed refs.
+  At v12 it also projects lineage edges and the latest model observation per native
+  session, and drops the preview cache. Its
   `sessions` table folds native keys with the authority's own step,
   `project_session_generation`, and persists the working state as `session_chats`.
-  Recency and preview freshness select a chat's highest-ordinal generation bucket.
+  Recency selects a chat's highest-ordinal generation bucket.
   That can differ from the accepted generation when a generation key is reused;
   making the index follow the accepted generation is B2's change, with v12.
 - **Search projection** (`history-index/native-search-v1.sqlite3`): normalized display
@@ -114,9 +117,10 @@ lacks:
 a chat's recorded primary spawn, and `session_records_for_spawns`. That last one returns
 the exact session generation a run started, not the chat's current binding.
 
-Normal browse uses the metadata index's recent-session view, which can include ZIP
-and inert historical records. `--include-archives` adds archived rows to the picker.
-Preview and re-entry resolve authoritative session and spawn facts before acting.
+Browse uses the metadata index's recent-session view, which can include ZIP and
+inert historical records; on the session-browse branch, Status: Archived selects
+archived rows. The detail view and re-entry resolve authoritative session and spawn
+facts before acting.
 Transcript reads go through one resolver to the chat's bound native key. There is no
 fallback scan, and a chat without a key is `unbound`
 ([native transcript reads](../native-transcript-reads.md#one-resolver-one-reader)).
@@ -200,6 +204,24 @@ would make this rule close a live generation. Rationale and
 rejected alternatives:
 [D-abandoned-generation-closure](../../decisions/history-storage.md#d-abandoned-generation-closure).
 
+## What a chat keeps across generations
+
+*On meridian-cli branch `feat/session-browse-redesign`, unmerged.*
+
+Most start-event fields describe one launch: settings, model selection, and the
+tmux `session:window` captured at that launch (blank outside tmux). A few describe
+the conversation and must survive `--continue`:
+
+- the chat's original `created_at`;
+- `forked_from_chat_id` + `forked_from_history_id`, set by `--fork`;
+- `context_from_chat_id` + `context_from_history_id`, set by a primary's `--from`.
+
+The fold keeps each pair from the first start that set it and gives every later
+generation the same values; `_CHAT_LINEAGE_FIELDS` and `_CHAT_OWNED_FIELDS` in
+`session_fold.py` are the one list. A new conversation-level fact belongs on that
+list, not on `SessionSettings`, which continuation replaces. Older journals simply
+lack the fields and read as "no parent".
+Why: [D-lineage-conversation-identity](../../decisions/state.md#d-lineage-conversation-identity).
 
 ## Related Pages
 

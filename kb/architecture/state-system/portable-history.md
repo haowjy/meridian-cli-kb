@@ -1,8 +1,8 @@
 # Portable history, derived discovery, and ZIP retention
 
 **Readable record files and immutable ZIPs are retained-history authority. SQLite
-metadata, preview and search rows are disposable projections that can be rebuilt
-without losing history.** The same authority boundary governs discovery, preview,
+metadata and search rows are disposable projections that can be rebuilt
+without losing history.** The same authority boundary governs discovery, reads,
 retention, transfer, and restore.
 
 **Scope.** This page covers retention, archive and restore. For a live bound chat,
@@ -18,7 +18,7 @@ flowchart LR
     W --> D["Dirty-source intent"]
     F --> P["Canonical projector"]
     D --> P
-    P --> I["Disposable metadata + previews"]
+    P --> I["Disposable metadata index"]
     F --> Z["Verified immutable ZIP"]
     Z --> R["Direct read or inert restore"]
     Z --> P
@@ -56,7 +56,7 @@ that new events touch
 Rebuild uses the same projectors rather than a second interpretation path.
 
 The index can hold discovery metadata, aliases, relationships, independent loose or
-ZIP locations, and bounded preview checkpoints. It must not become a full
+ZIP locations, lineage edges and model observations. It must not become a full
 conversation store or the only copy of any historical fact. Lifecycle, dependency,
 reclaim, and conflict decisions return to authoritative files or verified ZIP
 members.
@@ -64,8 +64,7 @@ members.
 A selected snapshot is a content decision, not merely a locator preference. Multiple
 physical copies are interchangeable only when they independently verify to the
 selected portable digest. If that snapshot is offline, the system may show metadata
-or a previously verified preview for the same digest, clearly labeled offline. It
-must not silently substitute an older but reachable snapshot.
+clearly labeled offline. It must not silently substitute an older but reachable snapshot.
 
 Rejected alternatives: a resident indexing service, a second transcript parser,
 and full-conversation caching as authority. They duplicate authority or
@@ -118,8 +117,7 @@ it does not build again.
 Workspace/global operations share one initialization deadline across roots. If all
 roots are already current, classification and work share the existing ordinary
 deadline without a reset. Only a real initialization phase permits a fresh ordinary
-deadline afterward. The 5 ms cache-only preview path does not join this gate, open
-transcript sources, or initialize anything.
+deadline afterward.
 
 A genuine owned-build failure is recorded atomically outside the replaceable SQLite
 directory and suppresses later automatic attempts for the same schema/coordination
@@ -194,30 +192,15 @@ each of those upgrades starts every runtime cold. Launch, startup repair and
 explicit warm-up. The build itself still holds the catch-up gate throughout (#592,
 open).
 
-## Bounded preview projection
+## No transcript content in the index
 
-Previews are a selected-row acceleration path, not a new transcript format. The
-canonical normalizer used for full reads feeds a bounded accumulator and persists
-only recent normalized messages, setup text, clipping state, and a refresh
-checkpoint. Ordinary metadata catch-up does not decode bodies. Rebuild leaves
-previews cold; browse refreshes them on demand. The old eager warm loop re-folded and
-re-resolved every chat.
-
-Selection first performs a bounded cache lookup without source reads or catch-up.
-Cached content may be shown as updating while a latest-only worker verifies or
-refreshes the selected row. ZIP-derived previews are published only after required
-members and bytes verify. Preview, selection, and direct archive read never restore
-or launch a record.
-
-Previews read native sources only, and each refresh reparses the selected source.
-The complete-line checkpoint that once let previews resume Meridian's own
-append-only runner stream was deleted with the runner-history read path.
-
-Rejected preview alternatives include caching grouped render entries as if they were
-bounded messages, clipping only at render time, parsing the full conversation into
-SQLite, adding a second parser, and hashing the full source on every append. The
-selected design keeps one interpretation path and treats a checkpoint witness as a
-narrow optimization rather than a generic mutation detector.
+The metadata index holds discovery facts, not conversation text. `session browse`
+reads a transcript only when its detail view opens, through the same resolver and
+parser as `session log`, and parses it once per view. A ZIP-only transcript is read
+from the archive; reading never restores or launches a record. The bounded preview
+cache that once sat here (recent normalized messages, clipping state, offline
+labels) is deleted on meridian-cli branch `feat/session-browse-redesign`
+([D-browse-transcript-on-demand](../../decisions/session-browse.md#d-browse-transcript-on-demand)).
 
 ## Archive capture is native-only
 

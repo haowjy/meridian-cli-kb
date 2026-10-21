@@ -798,8 +798,10 @@ by this decision or its implementation:
 - **GitHub #558:** session browse may gain tmux labels and a recently-crashed
   promotion group. The requested promotion expiry is **24 hours from the first
   time the crash is shown in `meridian session browse`**, not from crash
-  detection or background indexing; later views must not reset it. This remains
-  a deferred issue, not a delivered browser feature.
+  detection or background indexing; later views must not reset it. The tmux
+  labels arrive with the session-browse redesign
+  ([D-browse-recognition-row](session-browse.md#d-browse-recognition-row));
+  the crash promotion group remains deferred.
 
 ## Verification gaps
 

@@ -61,8 +61,9 @@ transcript plus the identity and relationship facts needed to recover and re-ind
 it. Harness-owned locators can aid ingestion but cannot be the only retained copy.
 
 SQLite is a disposable, one-way projection from files and available ZIPs. It may
-hold discovery metadata and bounded preview checkpoints, but no unique historical
-fact. Losing the database may cost acceleration, not history or control authority.
+hold discovery metadata (bounded preview checkpoints too, until
+[D-browse-transcript-on-demand](session-browse.md#d-browse-transcript-on-demand)),
+but no unique historical fact. Losing the database may cost acceleration, not history or control authority.
 Writers publish dirty-source intent before mutation and do not need SQLite to finish.
 
 **Why:** History must remain readable and transferable without a database export,
@@ -77,6 +78,13 @@ Database-file portability does not make the transcript independently readable, a
 each additional interpretation or service becomes another correctness dependency.
 
 ### D-history-bounded-preview: previews are disposable projections of canonical history (2026-09-14)
+
+**Superseded 2026-10-21** by
+[D-browse-transcript-on-demand](session-browse.md#d-browse-transcript-on-demand):
+browse no longer previews on highlight, and the preview cache, accumulator and
+offline labels are deleted (meridian-cli branch `feat/session-browse-redesign`,
+unmerged). Kept for the reasoning; the one-normalizer rule survives as the shared
+transcript reader.
 
 **Partly superseded 2026-09-25** ([native-only history](native-only-history.md)):
 - **Checkpoints.** Previews read only native sources, so the append-only checkpoint
