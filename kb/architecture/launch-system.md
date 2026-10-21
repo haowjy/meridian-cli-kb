@@ -574,10 +574,10 @@ from its own profile/model/config), so inheriting the grandparent's harness woul
 be wrong.
 
 **Usage at wait time.** `spawn_wait_sync()` reads `os.getenv("_MERIDIAN_HARNESS")`
-to determine the yield interval. This is the orchestrator's own harness — the one
-whose prompt-cache TTL the yield is designed to preserve. The orchestrator is
-asking "how long until *my* cache expires?" — the answer is its own harness, not
-the harnesses of the spawns it is waiting on.
+to determine the yield interval. This is the orchestrator's own harness: its
+configured interval bounds one wait before returning control for an operational
+checkpoint. Child harness settings do not determine that budget, and the
+interval is not a provider prompt-cache guarantee.
 
 ```python
 # In ops/spawn/api.py — _resolve_wait_yield_after_seconds()

@@ -281,4 +281,4 @@ error.
   authority and the history-index source behind discovery
 - [Contention and cost diagnosis](../lessons/contention-diagnosis.md) — why wait
   reports a checkpoint instead of hiding index contention
-- [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md) — current provider TTL evidence and the open question behind the 3000-second default
+- [Prompt-Cache Retention by Harness](../research/prompt-cache-retention.md) — provider/authentication cache policy, separate from the operational wait checkpoint

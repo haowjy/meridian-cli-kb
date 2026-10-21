@@ -42,10 +42,22 @@ The collaborators are cohesive boundaries:
 - **Completion evidence** observes persisted events and returns immutable
   assessments.
 - **Completion profile** owns directives, precedence, outcome mapping,
-  deadline/reset policy, close classification, stabilization, and advisory
-  nudges.
+  deadline/reset policy, close classification and stabilization. Resident
+  confirmation is once per candidate; Pi has its own advisory-nudge policy.
 - **Completion cleanup** interprets cleanup handles after the profile authorizes
   cleanup.
+
+Candidate installation is an explicit profile transition. The shared hold
+consumes and discards candidate-less signals under the published-artifact lock
+before the coordinator installs a new candidate. Its profile owns the `done`
+latch and candidate-aware rearm admission; `RearmWindow` only owns window and
+budget arithmetic. Keeping signal admission beside completion state prevents
+a stale mailbox entry from accepting the next turn.
+
+The protocols declare these lifecycle boundaries: `CompletionProfile` exposes
+`candidate_transition` and `after_terminal_accepted`; `DrainCoordinator`
+exposes `pending_outcome` and `should_defer_close`. The drain loop uses those
+contracts rather than probing for optional methods.
 
 Composition avoids an inheritance contract at the most ordering-sensitive
 points. A shared base class would make Pi override timeout, post-event,
