@@ -115,16 +115,20 @@ group under a one-line header such as "Override other guidance when loaded."
 
 ## Known Exceptions
 
-> [!FLAG] **Needs human review.** The rule above is the intended behaviour on
-> every harness. These gaps were found on 2026-10-17 and are not fixed.
+The rule above is the intended behaviour on every harness. These are the known
+places where delivery falls short of it.
 
-- **OpenCode v2 receives no composed system prompt.** Meridian builds it, with
-  every loaded skill, but the v2 message API has no `system` field and v2 ignores
-  the instructions file Meridian writes into `OPENCODE_CONFIG_CONTENT`. Loaded
-  skills, the agent profile body and Meridian's injected guidance all fail to
-  reach the model. OpenCode v1 streaming delivers them; the `opencode run`
-  subprocess path drops the system prompt on any version. The fix is a separate
-  change; see [harness adapters](../codebase/harness-adapters.md#skill-delivery).
+- **OpenCode on `main`.** OpenCode 2 receives no composed system prompt, so no
+  loaded skills, profile body or Meridian guidance; OpenCode 1 receives it twice;
+  the black-box TUI fallback receives none on either version. The settled fix
+  delivers the prompt through a config agent on every OpenCode path, verified
+  live on 2.0.29 and 1.19.3, and is on unmerged meridian-cli branch
+  `fix/opencode-v2-prompt`
+  ([D-opencode-config-agent](../decisions/opencode-prompt-delivery.md)).
+- **OpenCode 2 fallback resuming another agent's session.** With that fix, an
+  OpenCode 2 black-box fallback that resumes a session committed to another
+  agent still gets no prompt, because the v2 bare TUI has no `--agent`. Fresh
+  fallback sessions are covered.
 - **An exact continue lists available skills without their directories.** A
   continued session replays from its launch snapshot, which stores the rendered
   "Available Skills" text but not the skill entries, so those skill directories

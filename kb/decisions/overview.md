@@ -38,6 +38,7 @@ Decision records explain why durable architectural choices were made — what al
 | [static-typing.md](static-typing.md) | Pyright strict gate with warnings fatal, per-rule suppressions only, boundary narrowing over casts, public cross-module names, explicit nested CLI handler registration |
 | [tui-framework.md](tui-framework.md) | Session-browse framework choice: prompt_toolkit full-screen Application (D-tui-prompt-toolkit) |
 | [instruction-files.md](instruction-files.md) | Per-directory agent instructions in `AGENTS.md`; `CLAUDE.md` only for Claude-specific lines (D-agents-md-only) |
+| [opencode-prompt-delivery.md](opencode-prompt-delivery.md) | How the composed prompt reaches OpenCode: bind-projected config agent, explicit agent selection on every session, model off the agent (D-opencode-config-agent, D-opencode-explicit-agent, D-opencode-model-off-agent) |
 
 ## Naming
 

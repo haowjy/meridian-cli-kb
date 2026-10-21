@@ -298,6 +298,15 @@ may restart its still-uninitialized backend once with an override limited to the
 conflicting agent. It then revalidates before session creation. It never edits
 native user/project config and never retries creation without the selected model.
 
+*Restart part superseded (2026-10-21) by
+[D-opencode-model-off-agent](opencode-prompt-delivery.md#d-opencode-model-off-agent-the-model-stays-at-top-level-config-and-on-the-session),
+on unmerged meridian-cli branch `fix/opencode-v2-prompt`.* Every launch now
+selects Meridian's own config agent, which carries no model, so an inherited
+agent's pinned model can no longer conflict and the one-restart path is
+deleted. The rest of this decision (explicit model through launch-local config
+and the native create/prompt shapes, continuations keep the committed choice,
+never edit native config) stands.
+
 Session creation and prompt submission deliberately use OpenCode's distinct
 native shapes: nested `{model: {id, providerID}}` for create and
 `{model: {modelID, providerID}}` for prompt. Model-less launches retain native

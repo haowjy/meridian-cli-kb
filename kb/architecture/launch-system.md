@@ -297,15 +297,17 @@ Two binds are intentional: the preview context exists for `--dry-run` display; t
 For an OpenCode primary, dry-run describes the actual managed sequence—serve,
 native inspection, HTTP bootstrap, and attach—rather than presenting a black-box
 command as execution truth. Fresh explicit models are committed through
-launch-local config and the native session API; a conflicting primary-agent model
-may cause one verified owned-backend replacement before session creation. Dry-run
+launch-local config and the native session API. (On `main`, a conflicting
+primary-agent model may still cause one verified owned-backend replacement before
+session creation; meridian-cli branch `fix/opencode-v2-prompt` deletes it, see
+[D-opencode-model-off-agent](../decisions/opencode-prompt-delivery.md).) Dry-run
 cannot claim a native-observed default or actual message model. Core implementation
 `078d907a` is approved by `p6069`, with native matrix evidence from `p6060`.
 
 Dry-run preparation sends installed Mars's existing `--no-refresh-models` option
 through the ordinary bundle request instead of adding another resolver. For the
 exercised OpenCode path, the cold CLI did not run a native availability executable,
-create an OpenCode database/session, materialize private instructions, or start a
+create an OpenCode database/session or start a
 managed backend merely to describe the launch. This is not a promise that the CLI
 is write-free or universally subprocess-free: root, telemetry, and static-cache
 setup may write, installed capability checks still occur, and Mars may perform a

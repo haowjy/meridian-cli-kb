@@ -202,7 +202,7 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 **Deleted with it:** `_inject_loaded_skills`, the bind re-append and its `loaded_skills` parameter, `compose_skill_injections`, `RunPromptPolicy.skill_injection_mode`, `HarnessCapabilities.supports_native_skills`.
 
-**Divergence:** composition is not delivery everywhere. OpenCode v2 and the `opencode run` path never pass the composed system prompt to the model, so agents there get no loaded skills; this predates #661 and is tracked as a separate fix ([per-harness channels](../codebase/harness-adapters.md#skill-delivery)).
+**Divergence:** composition is not delivery everywhere. On `main`, OpenCode 2 and the OpenCode black-box fallback never pass the composed system prompt to the model, so agents there get no loaded skills; this predates #661. The settled fix, on unmerged meridian-cli branch `fix/opencode-v2-prompt`, is [D-opencode-config-agent](opencode-prompt-delivery.md) ([per-harness channels](../codebase/harness-adapters.md#skill-delivery)).
 
 **Supersedes:** D-skill-doc-suppression, below.
 

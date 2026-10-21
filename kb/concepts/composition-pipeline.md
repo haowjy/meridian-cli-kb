@@ -3,7 +3,8 @@
 Every spawn involves assembling content — skills, agent profile, user prompt,
 reference files, prior output — and delivering it to the harness in the right
 form. Each harness has its own channels: Claude reads an appended system prompt
-file, Codex takes developer instructions, and OpenCode takes an instruction file.
+file, Codex takes developer instructions, and OpenCode takes a config agent whose
+prompt is that same file.
 
 The **Semantic IR + Adapter Projection** pattern is how Meridian handles this
 without coupling content assembly to harness-specific logic.
@@ -94,10 +95,20 @@ semantic category to its harness-specific channel. The output is
 - References: `"inline"` (rendered as content blocks) or `"omitted"` for
   empty-body files
 
-**Codex and OpenCode:**
-- SYSTEM_INSTRUCTION → a system field (`channels.system_instruction =
-  "system-field"`): Codex developer instructions; OpenCode a materialized
-  instruction file
+**Codex:**
+- SYSTEM_INSTRUCTION → developer instructions (`channels.system_instruction =
+  "system-field"`)
+- TASK_CONTEXT + USER_TASK_PROMPT → user turn, context first
+- References: `"inline"` or `"omitted"`; no native injection
+
+**OpenCode:**
+- SYSTEM_INSTRUCTION → a config agent whose prompt is `{file:}` of
+  `system-prompt.md`, added to `OPENCODE_CONFIG_CONTENT` at bind
+  (`channels.system_instruction = "config-agent"`); see
+  [D-opencode-config-agent](../decisions/opencode-prompt-delivery.md). On `main`,
+  until meridian-cli branch `fix/opencode-v2-prompt` merges, it is still
+  `"system-field"`: a message `system` field plus an instruction file, which
+  OpenCode 2 ignores.
 - TASK_CONTEXT + USER_TASK_PROMPT → user turn, context first
 - References: `"inline"` or `"omitted"`; no native injection
 

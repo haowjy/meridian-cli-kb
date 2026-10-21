@@ -3,6 +3,26 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-21 — OpenCode prompt delivery captured (unmerged branch)
+
+Capture of the settled OpenCode prompt-delivery fix (`work:long-view-review`,
+meridian-cli branch `fix/opencode-v2-prompt`, not merged).
+
+- New [decisions/opencode-prompt-delivery.md](decisions/opencode-prompt-delivery.md):
+  D-opencode-config-agent, D-opencode-explicit-agent, D-opencode-model-off-agent.
+- New [research/opencode-config-semantics.md](research/opencode-config-semantics.md):
+  probed OpenCode 2.0.29 / 1.19.3 behavior.
+- [concepts/skill-loading.md](concepts/skill-loading.md),
+  [codebase/harness-adapters.md](codebase/harness-adapters.md),
+  [concepts/composition-pipeline.md](concepts/composition-pipeline.md) and
+  [decisions/launch.md](decisions/launch.md): OpenCode delivery gap replaced by the
+  config-agent channel, with `main` behavior stated until merge; "needs human review"
+  flags on the gap removed.
+- [decisions/model-resolution.md](decisions/model-resolution.md),
+  [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md),
+  [architecture/launch-system.md](architecture/launch-system.md) and the decision
+  index: OpenCode model-conflict restart marked superseded.
+
 ## 2026-10-19 — v0.11.0 capture: shipped hook contract, permission notice, compatibility policy, idle running work
 
 Post-release pass against `main` at v0.11.0 (`work:hook-event-names`,

@@ -213,17 +213,16 @@ Where the composed system prompt lands, per harness:
 |---|---|---|
 | Claude | `system-prompt.md` via `--append-system-prompt-file`, written from the full appended prompt | Yes |
 | Codex | `developer_instructions` | Yes |
-| OpenCode v1 streaming | message `system` field, plus a temp instructions file in `OPENCODE_CONFIG_CONTENT` | Yes |
-| OpenCode v2 streaming | temp instructions file only; the v2 message API has no `system` field | **No.** v2 loads only `AGENTS.md` files as instructions, so the file is ignored |
-| OpenCode `opencode run` subprocess | none; `appended_system_prompt` is dropped with a debug log | **No** |
+| OpenCode, every path (streaming spawn, managed primary, black-box fallback; v1 and v2) | config agent: bind adds `agent.meridian-<profile>.prompt = "{file:<spawn-log-dir>/system-prompt.md}"` and `default_agent` to `OPENCODE_CONFIG_CONTENT`, and each session selects that agent | Yes, once. Exception: a v2 black-box fallback resuming a session committed to another agent |
 | Pi | `--append-system-prompt` | Yes. Spawns and primaries keep Pi's native skill, context-file and prompt-template discovery; only ambient extensions are suppressed on spawns |
 | Cursor | user turn (no system channel) | Yes, as user-turn text |
 
-> [!FLAG] **Needs human review.** OpenCode v2 and `opencode run` agents get no
-> loaded skills, agent profile body or Meridian guidance. This predates the
-> single-path change and is being fixed separately. Options found so far: an
-> ad hoc OpenCode agent whose `system` replaces the built-in prompt, a v2 plugin
-> `context` hook that appends, or the experimental session instruction entries API.
+The OpenCode row describes meridian-cli branch `fix/opencode-v2-prompt`, which
+is not merged. On `main`, OpenCode v1 gets the prompt twice (message `system`
+field plus an `instructions` temp file), OpenCode v2 gets none because it
+ignores `instructions` and has no message `system` field, and the black-box
+fallback gets none on either version. Rationale and rejected channels:
+[D-opencode-config-agent](../decisions/opencode-prompt-delivery.md).
 
 ## Claude Native Agent Routing
 

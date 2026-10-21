@@ -73,6 +73,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/static-typing.md](decisions/static-typing.md) — Why pyright strict runs with warnings fatal and no demotions, the one allowed suppression form, where untyped data gets narrowed, and why nested CLI handlers are registered by call
 - [decisions/tui-framework.md](decisions/tui-framework.md) — prompt_toolkit full-screen Application for session browse; hand-rolled, textual, and fzf rejected on picker-specific evidence
 - [decisions/instruction-files.md](decisions/instruction-files.md) — AGENTS.md is the instruction file; no CLAUDE.md mirrors, `qi claude-md-fix` deleted
+- [decisions/opencode-prompt-delivery.md](decisions/opencode-prompt-delivery.md) — D-opencode-config-agent, D-opencode-explicit-agent, D-opencode-model-off-agent (unmerged branch `fix/opencode-v2-prompt`): the composed prompt reaches OpenCode as a bind-projected config agent selected on every session; model stays off the agent; rejected channels; accepted costs (base prompt replaced, `Agent not found` outside Meridian)
 
 ---
 
@@ -223,6 +224,7 @@ Synthesized external research with implications for Meridian's design and KB str
 - [research/tailscale-serve-semantics.md](research/tailscale-serve-semantics.md) — `tailscale serve`/`funnel` routing and teardown behavior: set-path forwards the full path (no prefix strip), portless 443 does not route local handlers on some nodes, per-path surgical teardown (never bare port off / reset), MagicDNS lookup
 - [research/prompt-cache-retention.md](research/prompt-cache-retention.md) — retention by harness, provider and authentication; signed-in Codex versus API-key policy, the separate #707 idle-warning divergence, compaction cache reads and Pi cache warming
 - [research/claude-code-mods-and-inbox.md](research/claude-code-mods-and-inbox.md) — Claude Code 2.1.302 input paths, probed: `-p` exits about 2.5 s after idle whatever a mod holds open; `$.prompt.submit` queues until the turn ends; `session.start` fires once per process; a broken mod fails silently; the cross-session inbox socket (wire format, no reply, mid-turn absorption between tool calls, bypass receivers hold unattested posts, `crossSessionInbound` and the `--settings` precedence trap)
+- [research/opencode-config-semantics.md](research/opencode-config-semantics.md) — OpenCode 2.0.29 and 1.19.3, probed: v2 ignores `instructions` and agent `model`, `{file:}` substitutes raw text before JSON parsing, `default_agent` misses sessions with a stored agent, the v2 bare TUI rejects `--model`/`--agent` and needs `--standalone`, no v2 effort channel
 
 ---
 
