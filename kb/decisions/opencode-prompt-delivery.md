@@ -7,10 +7,9 @@ current mechanism is described in meridian-cli
 Agent and Model Delivery". The upstream OpenCode behavior these decisions rest
 on is in [OpenCode config semantics](../research/opencode-config-semantics.md).
 
-**Status:** settled after review on 2026-10-21 (`work:long-view-review`). The
-code is on meridian-cli branch `fix/opencode-v2-prompt` (commits
-`c0fb10a1a..865cabca1`) and is not merged. Until it merges, `main` delivers
-nothing to OpenCode 2 and delivers the prompt twice to OpenCode 1.
+**Status:** settled after review on 2026-10-21 (`work:long-view-review`). Shipped
+in meridian-cli v0.11.6 (PR #710, squash `75e39eefc`). Before it, OpenCode 2
+got no prompt and OpenCode 1 got it twice.
 
 ## The problem
 

@@ -217,11 +217,10 @@ Where the composed system prompt lands, per harness:
 | Pi | `--append-system-prompt` | Yes. Spawns and primaries keep Pi's native skill, context-file and prompt-template discovery; only ambient extensions are suppressed on spawns |
 | Cursor | user turn (no system channel) | Yes, as user-turn text |
 
-The OpenCode row describes meridian-cli branch `fix/opencode-v2-prompt`, which
-is not merged. On `main`, OpenCode v1 gets the prompt twice (message `system`
-field plus an `instructions` temp file), OpenCode v2 gets none because it
-ignores `instructions` and has no message `system` field, and the black-box
-fallback gets none on either version. Rationale and rejected channels:
+The OpenCode row holds from v0.11.6 (PR #710). Before it, OpenCode v1 got the
+prompt twice (message `system` field plus an `instructions` temp file),
+OpenCode v2 got none because it ignores `instructions` and has no message
+`system` field, and the black-box fallback got none on either version. Rationale and rejected channels:
 [D-opencode-config-agent](../decisions/opencode-prompt-delivery.md).
 
 ## Claude Native Agent Routing

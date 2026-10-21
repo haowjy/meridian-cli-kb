@@ -22,7 +22,7 @@ cleanup to settle, and a new start cannot cross cleanup that can still mutate th
 old connection. OpenCode's one allowed conflict restart remained inside this same
 gate and shared startup deadline; that restart is deleted by
 [D-opencode-model-off-agent](opencode-prompt-delivery.md#d-opencode-model-off-agent-the-model-stays-at-top-level-config-and-on-the-session)
-(unmerged meridian-cli branch `fix/opencode-v2-prompt`), which leaves the gate
+(PR #710, v0.11.6), which leaves the gate
 itself unchanged.
 
 **Why:** Guarding only conditional replacement leaves the first backend launch
