@@ -3,8 +3,9 @@
 Every spawn involves assembling content — skills, agent profile, user prompt,
 reference files, prior output — and delivering it to the harness in the right
 form. Each harness has its own channels: Claude reads an appended system prompt
-file, Codex takes developer instructions, and OpenCode takes a config agent whose
-prompt is that same file.
+file, Codex takes developer instructions, and OpenCode (with the fix on
+meridian-cli branch `fix/opencode-v2-prompt`) takes a config agent whose prompt
+is that same file.
 
 The **Semantic IR + Adapter Projection** pattern is how Meridian handles this
 without coupling content assembly to harness-specific logic.

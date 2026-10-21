@@ -14,8 +14,12 @@ nothing to OpenCode 2 and delivers the prompt twice to OpenCode 1.
 
 ## The problem
 
-Probes on OpenCode 2.0.29 and 1.19.3 read the actual provider request through
-a local logging provider (`spawn:p8760`, `spawn:p8762`):
+Meridian reaches OpenCode on three paths: a streaming spawn talks to a private
+`opencode serve` over HTTP; a managed primary runs that server and attaches
+OpenCode's TUI to it; and when managed attach fails, the black-box fallback runs
+the plain OpenCode TUI as a subprocess with the launch environment. Probes on
+OpenCode 2.0.29 and 1.19.3 read the actual provider request through a local
+logging provider (`spawn:p8760`, `spawn:p8762`):
 
 | Path | OpenCode 2 before | OpenCode 1 before |
 |---|---|---|
@@ -40,12 +44,19 @@ both channels at once. The black-box fallback had neither.
  "default_agent": "meridian-<profile>"}
 ```
 
-The id is `meridian` when no profile is loaded. Every other key of the
+The id is `meridian-` plus the profile name, each run of characters other than
+letters, digits, `.`, `_` and `-` replaced by one hyphen (profile `weird profile [x]` gives
+`meridian-weird-profile-x`), or `meridian` when no profile is loaded. Every
+other key of the
 inherited config is kept. Bind already owns the child environment that every
 launch path inherits (streaming spawn, managed primary, black-box fallback), so
 one projection covers all of them and no path keeps its own prompt channel.
 `system-prompt.md` is the same file Claude reads through
-`--append-system-prompt-file`. The `instructions` temp file, the v1 message
+`--append-system-prompt-file`; it is written as soon as the spawn exists, before
+OpenCode starts, because a missing `{file:}` target fails the whole OpenCode
+config. On OpenCode 2 the fallback runs the TUI with `--standalone` and without
+`--model`: otherwise it would join a shared `opencode serve --service` that
+ignores the launch environment, or exit on the unknown flag. The `instructions` temp file, the v1 message
 `system` field and `ConnectionConfig.system` are deleted. The projection
 channel label is `config-agent`.
 

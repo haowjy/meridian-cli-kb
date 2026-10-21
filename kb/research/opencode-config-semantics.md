@@ -3,8 +3,7 @@
 Upstream OpenCode behavior that decides how a launcher can put a system prompt,
 an agent and a model in front of the model. Verified live on OpenCode 2.0.29
 and 1.19.3 against a local logging provider that recorded the actual provider
-request, and read from the tagged sources (`packages/core/src/...` for v2,
-`packages/opencode/src/...` for v1). Several of these contradict the config
+request, and read from the tagged sources listed at the end. Several of these contradict the config
 schema and `--help`, so recheck them on a new major version before relying on
 them. How Meridian uses them:
 [D-opencode-config-agent](../decisions/opencode-prompt-delivery.md).
@@ -13,7 +12,7 @@ them. How Meridian uses them:
 
 | Channel | 1.19.3 | 2.0.29 |
 |---|---|---|
-| `instructions` paths in config (inside or outside the project) | loaded on HTTP, TUI and `run` | **ignored.** The schema keeps the key, but the instruction loader discovers only global and ancestor `AGENTS.md` |
+| `instructions` paths in config (inside or outside the project) | loaded on HTTP, TUI and `run` | **ignored.** The schema keeps the key, but the instruction loader discovers only `AGENTS.md`: the one in the global OpenCode config directory and those in the project and its ancestors |
 | Message `system` field | applied (`POST /session/{id}/prompt_async`) | no such field; the prompt body is `{text}` |
 | Config agent prompt | `agent.<id>.prompt` | `agents.<id>.system`; a legacy `agent.<id>.prompt` is normalized to it |
 | Ambient `AGENTS.md` | loaded | loaded |
@@ -91,4 +90,8 @@ Probes `spawn:p8760`, `spawn:p8761`, `spawn:p8762`, `spawn:p8766`,
 `spawn:p8768` and the upstream source reading in `work:long-view-review`
 (`opencode-profile-findings.md`, `upstream-opencode-config-semantics.md`,
 `opencode-fix1-verification.md`). Upstream: `anomalyco/opencode` tags
-`v2.0.29` and `v1.19.3`.
+`v2.0.29` and `v1.19.3`: for v2, `packages/core/src/config/plugin/instruction.ts`,
+`session/context.ts`, `config/variable.ts`, `config/normalize.ts`,
+`config/plugin/agent.ts`, `agent.ts` and `session/runner/model.ts`; for v1,
+`packages/opencode/src/config/variable.ts`, `config/config.ts`,
+`session/prompt.ts` and `cli/cmd/run.ts`.
