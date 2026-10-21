@@ -245,12 +245,14 @@ work item's `design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`).
 - **Owner answers** (`decision-B.md` "Owner answers"): Q5, automatic retirement of
   `sessions.jsonl` (B4), is **yes** (2026-10-16). Questions 1–4 and 6–11 are still
   open and must be answered before B2.
-- **B2** comes after identity-v2 PR 4, which takes index v11; B2 takes v12.
+- **B2** comes after identity-v2 PR 4, which was planned to take index v11, with B2
+  taking v12.
   > [!FLAG] **Needs human review**
-  > The session-browse branch (`feat/session-browse-redesign`) bumps the history
-  > index from v10 straight to **v12** for lineage edges and model observations,
-  > taking B2's reserved number and skipping v11. Once it merges, identity-v2 PR 4
-  > ([spawn identity](spawn-identity.md)) and B2 need new numbers above 12.
+  > The session-browse redesign (meridian-cli PR #714, merged 2026-10-21) bumped
+  > the history index on `main` from v10 straight to **v12** for lineage edges and
+  > model observations, taking B2's reserved number and skipping v11. Identity-v2
+  > PR 4 ([spawn identity](spawn-identity.md)) and B2 now need new numbers above
+  > 12; nobody has assigned them yet.
 
 On `main` sessions are still the one global log. #591 was closed as a duplicate of
 #418, which has owned this work since the 2026-07 thermo-nuclear audit.
@@ -462,7 +464,7 @@ touches every lock site anyway; deduping `native_identity_candidates` inline in
 ### D-lineage-conversation-identity: fork and `--from` ancestry belong to the chat, not a generation (2026-10-21) {#d-lineage-conversation-identity}
 
 **Status:** settled (`work:session-browse-redesign`, plan revision after review
-`spawn:p14100`); on the unmerged meridian-cli branch `feat/session-browse-redesign`.
+`spawn:p14100`); shipped in meridian-cli PR #714 (merge `471dfbc59`, 2026-10-21).
 
 **Decision.** A chat's parents are part of its identity, the way its native session
 binding is:

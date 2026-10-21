@@ -82,8 +82,7 @@ each additional interpretation or service becomes another correctness dependency
 **Superseded 2026-10-21** by
 [D-browse-transcript-on-demand](session-browse.md#d-browse-transcript-on-demand):
 browse no longer previews on highlight, and the preview cache, accumulator and
-offline labels are deleted (meridian-cli branch `feat/session-browse-redesign`,
-unmerged). Kept for the reasoning; the one-normalizer rule survives as the shared
+offline labels are deleted (meridian-cli PR #714). Kept for the reasoning; the one-normalizer rule survives as the shared
 transcript reader.
 
 **Partly superseded 2026-09-25** ([native-only history](native-only-history.md)):

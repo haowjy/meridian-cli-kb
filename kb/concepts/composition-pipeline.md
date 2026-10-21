@@ -206,8 +206,8 @@ request: the background-spawn worker prepares the persisted request again (as ca
 any later re-prepare), and composing an already-composed prompt renders prior context and
 references twice. There is no "already composed" escape hatch; the old
 `prompt_is_composed` flag was deleted for this reason
-([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary); on the
-unmerged meridian-cli branch `feat/session-browse-redesign`).
+([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary);
+meridian-cli PR #714).
 
 ---
 

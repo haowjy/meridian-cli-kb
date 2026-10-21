@@ -19,8 +19,8 @@ replay harness. An unroutable or missing observation falls back to the Meridian
 selection recorded at `accepted-running`. Model observations have one writer,
 `harness/model_observation.observe_session_model`, which stores the raw native
 token; continue, a primary's stop and the browse detail view all record through it
-(the last two on the unmerged branch `feat/session-browse-redesign`, where continue
-also stopped storing the mapped id). `SessionAttempt` binds that selection to the same generation
+(the last two since meridian-cli PR #714, which also stopped continue from storing
+the mapped id). `SessionAttempt` binds that selection to the same generation
 and attempt. A plan-assigned native ID is bound before exec; native-ID callbacks
 confirm it or, when no ID was assigned, bind the first observation. Append failure terminates continuation with a
 coordination error rather than switching the runtime model.

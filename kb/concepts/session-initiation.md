@@ -299,8 +299,7 @@ All four modes apply to both surfaces:
 
 `--from` refs are resolved once, at the request boundary (`cli/primary_launch.py`
 for primaries, `ops/spawn/prepare.py` for spawns), into `ContextRef`s; launch only
-renders them ([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary);
-on the unmerged meridian-cli branch `feat/session-browse-redesign`). The shared
+renders them ([D-from-request-boundary](../decisions/launch.md#d-from-request-boundary)). The shared
 user-turn context seam lives in `launch/context.py`:
 
 ```python

@@ -29,8 +29,8 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — archit
 
 ### D-from-request-boundary: `--from` is resolved once at the request boundary; the request prompt stays raw (2026-10-21) {#d-from-request-boundary}
 
-**Status:** settled (`work:session-browse-redesign`); on the unmerged meridian-cli
-branch `feat/session-browse-redesign`.
+**Status:** settled (`work:session-browse-redesign`); shipped in
+meridian-cli PR #714 (merge `471dfbc59`, 2026-10-21).
 
 **Decision.**
 - **Resolve once, at the boundary.** A `--from` ref is resolved into a `ContextRef`

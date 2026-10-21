@@ -9,15 +9,12 @@ project's primary sessions. On Enter it execs `meridian --continue <c-id>` for a
 stopped session or `meridian --fork <c-id>` for a running one; fork allocates a new
 chat, so a running session is never attached twice.
 
-> **Branch state.** This section describes the redesign on the unmerged meridian-cli
-> branch `feat/session-browse-redesign`. On `main` rows lead with the chat id, carry
-> a live marker, and a clipped preview pane loads on every highlight. Rationale for
-> each choice: [session browse decisions](../decisions/session-browse.md).
+Rationale for each choice: [session browse decisions](../decisions/session-browse.md).
 
 **Three views on one stack** (the list keeps its highlight and filter underneath):
 
 - **List.** Rows show `⚠` (cache probably expired), tmux `session:window`,
-  `agent (model)` with the last-used model, age since last turn, and work item.
+  `agent (model)` with the last-used model, IDLE (time since last turn), and work item.
   The chat id is not a column. A Status (Active/Archived) and Sort (Updated/Created)
   header sits above an always-on search line. Tab focuses the header.
 - **Detail** (Space). Header facts plus the whole transcript, parsed once off the UI
@@ -30,7 +27,7 @@ chat, so a running session is never attached twice.
 Bare `meridian --continue` (no ref) opens the same picker; both forms are identical
 after argv canonicalization.
 
-Non-TTY invocations or `--plain` print a table (`STALE TMUX AGENT AGE WORK`, plus
+Non-TTY invocations or `--plain` print a table (`STALE TMUX AGENT IDLE WORK`, plus
 `--format json`), so the command stays scriptable. Inside a managed Meridian session
 (detected by `MERIDIAN_SPAWN_ID`) interactive mode is refused: exec-ing `--continue`
 from inside a running harness would nest the selected session under the original.

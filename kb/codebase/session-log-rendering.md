@@ -137,8 +137,7 @@ once through `read_session_transcript` and windows the parsed result with
 `session_log.select_session_log_window`, the same window selection `session log`
 uses, so it shows the same `SessionLogEntry` windows `session log` would. The view holds one parsed snapshot
 and caches wrapped lines per width and window; scrolling never re-reads the file.
-(On meridian-cli branch `feat/session-browse-redesign`, unmerged; it replaces the
-bounded preview cache, see
+(It replaced the bounded preview cache in meridian-cli PR #714; see
 [D-browse-transcript-on-demand](../decisions/session-browse.md#d-browse-transcript-on-demand).)
 
 ---

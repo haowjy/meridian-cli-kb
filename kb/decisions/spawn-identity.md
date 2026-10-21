@@ -195,7 +195,8 @@ PR 5 is independent and must land before 6. PR 2's residuals are listed
 **Index versions across lanes:** #631 took v10, identity PR 4 takes v11, and
 #418 B2 takes v12. Whoever merges second bumps
 ([D-session-per-chat-journals](state.md#d-session-per-chat-journals)). The
-session-browse branch has since taken v12 out of turn; see the flag there.
+session-browse redesign (PR #714, merged) has since taken v12 out of turn, so both
+lanes need numbers above 12; see the flag there.
 
 ### PR 2 as built: the launch lock and the sweep
 

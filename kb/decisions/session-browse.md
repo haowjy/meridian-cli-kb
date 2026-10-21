@@ -5,9 +5,8 @@ Each row of `meridian session browse` shows what a person recognizes a session b
 appears only when asked for. The owner set the columns and the interaction; the
 data behind them gives each fact one source.
 
-**Status:** settled 2026-10-21 (`work:session-browse-redesign`). The code is on the
-unmerged meridian-cli branch `feat/session-browse-redesign`; on `main` the picker
-still leads with the chat id and auto-loads a clipped preview.
+**Status:** settled 2026-10-21 (`work:session-browse-redesign`); shipped in
+meridian-cli PR #714 (merge `471dfbc59`, 2026-10-21).
 
 Related records: [prompt_toolkit as the framework](tui-framework.md),
 [bare `--continue` opens the picker and the Resume/Fork/Blocked decision](launch-session-initiation.md#session-browse-2026-08-session-browse-design),
@@ -22,7 +21,7 @@ Current mechanism: [session operations](../codebase/session-operations.md#sessio
 ```
  Status: [Active] Archived  Sort: [Updated] Created                50 of 309
 > type to search
-    TMUX            AGENT                         AGE  WORK
+    TMUX            AGENT                        IDLE  WORK
 ▸   meridian:main   tech-lead (claude-opus-5-5)    3m  session-browse-redesign
   ⚠ research:main   solo-dev (gpt-6-astra)         2h  pr-conflict-refresh
 enter resume  space view  l lineage  tab filters  / transcripts  esc quit
@@ -31,13 +30,13 @@ enter resume  space view  l lineage  tab filters  / transcripts  esc quit
 - **`⚠`** when the session's prompt cache has probably expired. The provider
   caches the conversation prefix for a few minutes to an hour; after that, the next
   turn pays to process the whole conversation again, so the icon tells you whether
-  re-entering is cheap. No explanatory text: age and icon together are enough
+  re-entering is cheap. No explanatory text: idle time and icon together are enough
   ("I would just know it").
 - **TMUX** is `session:window`, captured at launch. It is blank for a session
   started outside tmux, or before the capture existed.
 - **AGENT (model)** is one column. The model is the last one the session ran, not
   the launch model.
-- **AGE** is time since the last turn. A session running for hours no longer looks
+- **IDLE** is time since the last turn. A session running for hours no longer looks
   as old as its launch.
 - **WORK** comes last because it is the column that may be cut off. On narrow
   terminals WORK shrinks first, then `(model)` drops, then AGENT.
@@ -86,7 +85,7 @@ transcript with another run's identity, and it kept a failed lookup's stale stat
 
 ## D-browse-staleness-from-idle-state: last turn and cache staleness need no new durable data {#d-browse-staleness-from-idle-state}
 
-**Decision.** "Updated" order and AGE use facts that already exist:
+**Decision.** "Updated" order and IDLE use facts that already exist:
 
 - A **stopped** session's last turn is its `stopped_at`.
 - A **running** session's last turn comes from its idle file, which the idle
@@ -132,7 +131,7 @@ Archived replaced it.
 
 **Decision (owner).** `l` (Ctrl-L once filter text exists) opens a tree of the
 highlighted session's ancestors and descendants through `--fork` and `--from` edges,
-each node showing chat id, edge kind, tmux, agent, age and work. Subagent spawns are
+each node showing chat id, edge kind, tmux, agent, idle time and work. Subagent spawns are
 not part of it. The owner: "not hte subagent lineage but just the --from top-level
 lineage, and then be able to just see the ids".
 

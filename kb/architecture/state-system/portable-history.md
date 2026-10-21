@@ -186,8 +186,10 @@ The index is cold:
 - at every schema-namespace bump, because a bump builds a fresh file
   ([above](#index-files-are-named-by-schema)).
 
-The schema is v10 today. Identity-v2 PR 4 plans v11 and #418 B2 plans v12, so
-each of those upgrades starts every runtime cold. Launch, startup repair and
+The schema is v12 today. Identity-v2 PR 4 and #418 B2 each plan a further bump
+(numbers unassigned; see the flag on
+[D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)),
+so each of those upgrades starts every runtime cold. Launch, startup repair and
 `doctor` don't warm the index. `meridian session index rebuild` is the only
 explicit warm-up. The build itself still holds the catch-up gate throughout (#592,
 open).
@@ -199,7 +201,7 @@ reads a transcript only when its detail view opens, through the same resolver an
 parser as `session log`, and parses it once per view. A ZIP-only transcript is read
 from the archive; reading never restores or launches a record. The bounded preview
 cache that once sat here (recent normalized messages, clipping state, offline
-labels) is deleted on meridian-cli branch `feat/session-browse-redesign`
+labels) was deleted in meridian-cli PR #714
 ([D-browse-transcript-on-demand](../../decisions/session-browse.md#d-browse-transcript-on-demand)).
 
 ## Archive capture is native-only

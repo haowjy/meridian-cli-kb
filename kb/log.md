@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-21 — Session browse redesign merged (PR #714)
+
+meridian-cli PR #714 merged the session browse redesign (merge `471dfbc59`). Pages
+checked against `main`: branch-status lines replaced with the merged state; the
+time column is named IDLE (time since last turn) in
+[decisions/session-browse.md](decisions/session-browse.md),
+[codebase/session-operations.md](codebase/session-operations.md) and
+[decisions.md](decisions.md); history-index pages now say `main` is at v12, and the
+version-collision flag on
+[D-session-per-chat-journals](decisions/state.md#d-session-per-chat-journals) now
+says identity-v2 PR 4 and #418 B2 need numbers above 12.
+
 ## 2026-10-21 — Session browse redesign captured (unmerged branch)
 
 Capture of the settled `meridian session browse` redesign
