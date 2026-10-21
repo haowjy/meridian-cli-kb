@@ -39,6 +39,14 @@ discovery materialized every indexed row and filtered in Python. The measured
 before/after cost is recorded on the [per-operation cost bar](../architecture/per-operation-cost.md).
 The SQL filter keeps discovery within that bar.
 
+No-argument wait and Claude's spawn-status pin share
+`discover_pending_spawns()` in `lib/ops/spawn/query.py`, including the
+authoritative reread, derived-liveness overlay, and canonical numeric order.
+Their scopes differ: wait excludes the caller and, for a nested caller, supplies
+the descendant restriction; `idle child-status` uses owner-chat scope and then
+excludes primary rows. Wait freezes its result at the barrier boundary, while the
+status pin repeats the query on events and its conditional poll.
+
 If no pending spawns exist, the command returns immediately with a clean no-op
 message. That answer requires complete history-index coverage. Discovery reads
 the index for at most `QUERY_TIMEOUT` (2 s), even when the wait budget is 3000 s,
@@ -64,8 +72,8 @@ agent, not from the primary session), `spawn wait` restricts the wait set to
 session are excluded.
 
 Wait discovery gets this set from the history index's descendant projection,
-restricted to active rows (`_discover_pending_spawns` in `ops/spawn/api.py`). It
-then re-reads each selected row from authority.
+restricted to active rows (`discover_pending_spawns` in
+`lib/ops/spawn/query.py`). It then re-reads each selected row from authority.
 
 **Why this matters:** Without descendant-scoping, a tech-lead or orchestrator
 agent calling `spawn wait` would block on the primary session (which is running

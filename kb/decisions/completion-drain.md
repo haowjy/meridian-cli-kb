@@ -155,10 +155,15 @@ repro correctly. Why it went unfixed for weeks is a
   after going idle, so nothing outside can reach it, and Claude children keep
   `--input-format stream-json`. A TUI primary is injected through Claude Code's
   own inbox socket rather than a mod
-  ([D-claude-primary-inbox](primary-inject.md#d-claude-primary-inbox)). A mod's
-  remaining uses for primaries, native `done`/`rearm` tools and a status line
-  showing child spawns (`$.ui.status`), are not built; they would be an add-on to
-  Meridian's bundled `meridian-idle` mod.
+  ([D-claude-primary-inbox](primary-inject.md#d-claude-primary-inbox)).
+- The bundled `meridian-idle` mod now uses `$.ui.status` to show the
+  derived-active, non-primary spawns owned by the TUI primary's chat, including
+  nested spawns. Core owns selection and the bounded wording; the mod owns
+  display and refresh cadence, including the conditional 60-second poll while a
+  line is visible. Native `done`/`rearm` tools in the primary remain unbuilt.
+  This status path is present in the feature checkout at `1d282eb`; GitHub PR
+  #706 was still open and unmerged at capture. See
+  [idle adapter architecture](../architecture/idle-adapters.md#claudes-spawn-status-pin).
 
 **Revisit when:** Claude Code changes or drops `background_tasks_changed`, or
 #224 gives Claude children a descendant-spawn hold, which would join this one in
