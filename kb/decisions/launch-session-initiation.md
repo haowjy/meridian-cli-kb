@@ -31,7 +31,7 @@ See [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md).
 
 **Decision:** The wait-yield interval flag is named `--yield-after-secs`. Yield (checkpoint expiry while spawns are still pending) exits with code 0 and prints continuation guidance. "Timeout" semantics (hard failure) are reserved for the existing `--timeout` flag. When `--timeout` is not explicit, `hard_deadline = None` and only the checkpoint governs.
 
-**Why:** Naming the flag `--timeout-secs` would imply failure semantics, causing agents to treat a cache-preserving continuation as an error requiring retry logic. Keeping "timeout" reserved for failures makes the distinction unambiguous. Disabling the hard deadline in checkpoint mode prevents config-level `wait_timeout_minutes` from silently preempting checkpoint-mode waits.
+**Why:** Naming the flag `--timeout-secs` would imply failure semantics, causing agents to treat an operational checkpoint as an error requiring retry logic. Keeping "timeout" reserved for failures makes the distinction unambiguous. Disabling the hard deadline in checkpoint mode prevents config-level `wait_timeout_minutes` from silently preempting checkpoint-mode waits.
 
 ---
 

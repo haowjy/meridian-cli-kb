@@ -8,17 +8,25 @@ checked 2026-10-13; the backend's idle window was probed 2026-10-14.
 Provenance: `work:idle-cache-notify` (`spawn:p7423`) and
 `work:idle-ttl-detection` (`spawn:p7724`, `spawn:p7824`).
 
-**The common assumption that every harness keeps about an hour is wrong.**
-By default only Claude Code sessions can be assumed to get 1 h, and even there
-the TTL varies per session. Pi and OpenCode default to 5 minutes. Codex gets
-30 minutes on GPT-5.6+ through the public API. Through the ChatGPT backend,
-OpenAI publishes no TTL.
+**Cache policy depends on authentication and provider, not a universal idle
+TTL.** The owner's 2026-10-20 evidence correction records indefinite retention
+and cache hits on resumption for signed-in Codex and Work. API-key use is
+separate: supported Responses API models offer a 30-minute default or a
+12-hour option. Neither is the rationale for Meridian's child-completion
+window or caller wait checkpoint.
+
+Meridian's fixed 1800-second signed-in Codex idle warning is a known divergence,
+tracked separately in [#707](https://github.com/haowjy/meridian-cli/issues/707).
+The completion handshake does not change idle-warning policy. Do not infer
+third-party clients' guarantees merely from their sharing an authentication
+endpoint; their applicability still needs checking.
+
 
 | Harness | Idle retention by default | Can the user extend it? | Source |
 |---|---|---|---|
 | Claude Code | 1 h or 5 min, per session. Each transcript cache write records `ephemeral_1h` or `ephemeral_5m`, so the TTL can be read from the transcript instead of assumed. | Claude Code settings; not verified here | Claude Code transcripts; planning session `chat:c7275` |
 | Pi | **5 min** (short retention) on Anthropic. Other providers differ; see [Pi providers](#pi-providers). | `PI_CACHE_RETENTION=long` → Anthropic `cache_control.ttl: "1h"`, OpenAI `prompt_cache_retention: "24h"`. Not on the `openai-codex` provider: Pi 1.1.0's `openai-codex-responses.js` sends only `prompt_cache_key` and ignores the variable. | Pi `docs/environment-variables.md`; `packages/ai/test/cache-retention.test.ts`; installed Pi 1.1.0 (`chat:c7347`) |
-| Codex CLI | Whatever OpenAI's default is for the model and endpoint. Codex sends only `prompt_cache_key`, with no retention field (`codex-rs/core/client.rs:946-963`). | **No.** No config key in `config.schema.json` | `openai/codex` at `rust-v0.161.0` |
+| Codex CLI | Signed-in Codex: indefinite retention on resumption per the owner-supplied OpenAI statement. API-key sessions follow the API contract. | No Codex retention setting was found in the inspected `rust-v0.161.0` schema; API capability is not proof of a CLI setting. | `work:child-completion` K9; inspected Codex source |
 | OpenCode | Anthropic: **5 min**. It sends `cache_control: {type: "ephemeral"}` without a `ttl` (`packages/llm/src/cache-policy.ts:40-41`). OpenAI-compatible routes get no inline cache hints and rely on provider defaults. | No built-in config key. The internal `CachePolicy.ttlSeconds` needs caller or plugin code. | `anomalyco/opencode` at `v1.18.34` |
 
 ## OpenAI retention, which Codex inherits
@@ -27,10 +35,10 @@ This is the **public OpenAI API** contract (API-key auth):
 
 | Models | Default | Option |
 |---|---|---|
-| GPT-5.6 and later | `prompt_cache_options.ttl: "30m"`: the only value and the default; entries stay eligible at least 30 min after a write or reuse | none |
+| GPT-5.6 and later | `prompt_cache_options.ttl: "30m"` by default | `"12h"` in the Responses API; these are minimum lifetimes, not deletion deadlines |
 | Earlier models (`gpt-5.5`, `gpt-5.4`, `gpt-5.1-codex*`, `gpt-5-codex`, `gpt-4.1`, …) | Depends on the organization: `24h` without Zero Data Retention, `in_memory` (about 5–10 min idle, up to 1 h) with ZDR | `prompt_cache_retention: "24h"`: usually about 30 min, up to 24 h; no separate cache-write charge |
 
-Source: [OpenAI prompt-caching guide, cache lifetime](https://developers.openai.com/api/docs/guides/prompt-caching#cache-lifetime).
+API lifetime options rechecked 2026-10-21: [OpenAI prompt-caching guide, cache lifetime](https://developers.openai.com/api/docs/guides/prompt-caching#cache-lifetime).
 
 ### ChatGPT backend (Codex and Pi's `openai-codex`)
 
@@ -47,55 +55,26 @@ established for this endpoint.**
   `chatgpt.com/backend-api/codex/responses/compact`
   ([openai/codex#17809](https://github.com/openai/codex/issues/17809)), and
   `prompt_cache_options` is reported unsupported as well.
-- No official document publishes an idle lifetime for the backend's prefix
-  cache. Observed reports of retention values are not a contract.
+- The owner-supplied OpenAI statement establishes indefinite retention for
+  signed-in Codex and Work. It does not by itself establish the same contract
+  for every third-party client using this endpoint.
 - Pi's 5-minute WebSocket idle expiry on this provider is connection pooling,
   not cache lifetime.
 
-An earlier version of this page left "ChatGPT-auth versus API-key retention"
-open, and the idle design treated GPT-5.6's 30 minutes as the Codex fact.
-The endpoint split above refutes that mapping. Meridian's 1800 s for this
-backend is an estimate, not a provider guarantee. The user confirmed it on
-2026-10-14 for the GPT-5.6+ models in use here, and it stays marked estimated.
+The former 1800-second estimate must not be used as signed-in Codex's cache
+contract. Earlier third-party-client probes did not establish a TTL: the Pi
+run had unexplained misses, and the OpenCode run reused prefixes between
+sessions, confounding idle duration. They do not override the signed-in
+product statement or settle its applicability to Pi and OpenCode.
 
 #### Measured idle window (2026-10-14)
 
-`spawn:p7824` primed parallel sessions on both ChatGPT-backend routes, one
-session per idle gap, all with the same 21.6 KB first prompt. After the gap it
-sent one short resend per session and read the cached-token count on that
-resend. A hit means about 1,000 or more cached tokens. Gaps: 5, 15, 25, 35, 45
-and 60 min. The 5-min pair was first resent at about 2 min by mistake; those
-results are excluded and the replacement pair ran at about 6 min.
-
-| Gap | Pi `openai-codex` (`gpt-6-astra`), cached / total | OpenCode `openai` (`gpt-6-luna`), cached / total |
-|---:|---|---|
-| ~6 min | 5,504 / 5,679, hit | 10,752 / 11,624, hit |
-| 15 min | 0 / 5,692, **miss** | 1,536 / 11,624, partial hit |
-| 25 min | 5,504 / 5,685, hit | 10,752 / 11,624, hit |
-| 35 min | 5,504 / 5,683, hit | 10,752 / 11,624, hit |
-| 45 min | 0 / 5,683, **miss** | 10,752 / 11,624, hit |
-| 60 min | 0 / 5,700, **miss** | 10,752 / 11,624, hit |
-
-- **Pi `openai-codex`:** every prime read 0 cached tokens, so the sessions did
-  not visibly share a cache entry. Hits at 6, 25 and 35 min, misses at 15, 45
-  and 60. This fits the 1800 s estimate, and compaction at about 25 min would
-  have landed warm in this run. It is not a boundary: the 15-min miss is
-  unexplained (eviction or routing are guesses, not findings).
-- **OpenCode `openai`:** confounded, so it bounds nothing. The primes
-  themselves read 1,536–10,752 cached tokens: all six sessions hit one
-  prefix-keyed cache entry, and each resend refreshed it for the next. The
-  hits through 60 min measure time since the last touch by any session, which
-  was 15 min or less. They are not a 60-minute window.
-- **Outcome:** nothing contradicts 1800 s, and nothing confirms it as a
-  provider value. Both routes keep `estimated=true`.
-
-A clean re-measurement needs a *distinct* prefix for each gap's session, or
-serial runs, so that no resend can refresh another gap's entry.
-
-Evidence: `work:idle-ttl-detection` `evidence/probe-openai-cache-ttl.md`, raw
-session exports and launch logs in `evidence/openai-cache-ttl/`. Earlier
-observational data from real Pi sessions (90% hits after 20–30 min idle) is in
-`evidence/openai-codex-observed-cache.md`.
+Historical probes are recoverable through `spawn:p7824` and
+`work:idle-ttl-detection`. A new third-party-client measurement needs distinct
+prefixes or serial runs so one request cannot refresh another gap's entry.
+The product statement supplied by the owner is recorded in
+`work:child-completion`, `decisions.md` K9. Meridian's operational choice is
+[the completion decision](../decisions/completion-drain.md).
 
 ## Anthropic retention, which OpenCode and Pi inherit
 
@@ -127,8 +106,8 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
 
 ## What Meridian does with this
 
-- **Idle notifications.** These facts set the defaults: Codex
-  `ttl_seconds = 1800` (estimated). OpenCode 2.x maps the session's provider:
+- **Idle notifications.** The existing implementation still uses Codex
+  `ttl_seconds = 1800` (estimated), the signed-in policy divergence tracked by #707. OpenCode 2.x maps the session's provider:
   `openai` → 1800, estimated, everything else unknown (PR #573, released in
   v0.9.9; 0.9.8 and earlier default OpenCode to 300, push only). Claude reads the TTL from
   the transcript in the chat's recorded store. Pi maps provider and
@@ -143,12 +122,10 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   5-minute default. That buys a one-hour Anthropic cache at the higher write
   price. See
   [D-pi-cache-retention](../decisions/idle-notifications.md#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention).
-- **Spawn-wait yield.** The unified 3000-second yield default assumes about an
-  hour of cache for every harness. These facts contradict that assumption for
-  Codex (30 minutes on the public API, unpublished on the ChatGPT backend),
-  OpenCode, Pi spawns, and Pi primaries on short retention or a non-Anthropic
-  provider. See
-  [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md#harness-aware-yield-defaults).
+- **Spawn-wait yield.** The 3000-second default is an operational caller
+  checkpoint, not a cache-lifetime model. Child completion inherits the calling
+  harness's setting by default but uses an independent deadline. See
+  [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md).
 - **When idle compaction pays.** The write premiums above set the cold
   re-read cost w in the compaction break-even, and whether the compaction
   request itself reads the cache sets c (below). Meridian used this for its own
@@ -200,5 +177,5 @@ effective warming decision into `idle arm`. Source:
 `work:harness-compaction-cache` `research/pi-cache-warming.md`.
 
 Recheck this page when Codex, OpenCode or Pi releases a new version, when a
-provider changes its cache-lifetime docs, or when OpenAI documents the ChatGPT
-backend's cache.
+provider changes its cache-lifetime docs, or when signed-in product guarantees
+are clarified for third-party clients.

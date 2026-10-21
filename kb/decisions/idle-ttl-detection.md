@@ -3,6 +3,12 @@
 This decision covers transcript-store resolution and provider TTL mapping for
 idle notifications: Claude, Pi, and OpenCode 2.x.
 
+**Superseded premise:** the 1800-second estimate below is not signed-in
+Codex's cache contract. The owner's 2026-10-20 correction records indefinite
+retention for signed-in Codex and Work; #707 owns the separate idle-warning
+fix. Historical D5/D7 rationale remains below; applicability to third-party
+clients still needs checking. See [cache policy](../research/prompt-cache-retention.md).
+
 **Status:**
 
 - Claude and Pi (D1–D5) shipped in v0.9.8 (PR #568, merge `ad4f98e6e`, release

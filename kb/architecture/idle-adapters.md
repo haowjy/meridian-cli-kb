@@ -20,6 +20,13 @@ record retains the rationale, rejected alternatives, and decision history in
 
 ## Per-harness coverage
 
+**Known policy divergence:** the fixed 1800-second signed-in Codex cache warning
+is stale under the owner-confirmed indefinite-retention contract. Its
+replacement belongs to [#707](https://github.com/haowjy/meridian-cli/issues/707),
+not the child-completion handshake. The TTL values below describe the existing
+idle implementation, not a guarantee for signed-in Codex. See
+[cache policy](../research/prompt-cache-retention.md) for authentication scope.
+
 The idle timeline has two stages: the "waiting on you" push and the cache-expiry
 warning. Claude additionally forwards a stateless still-waiting permission
 signal outside that timeline. Meridian does not compact idle sessions; each

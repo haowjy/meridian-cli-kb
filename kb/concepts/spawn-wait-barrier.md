@@ -142,7 +142,7 @@ adds `fail_fast` and `pending_ids` fields to the wire shape.
 - The default behavior is to **yield** after a configurable interval when
   spawns are still pending, print a continuation message, and exit with
   code 0.
-- Checkpoint expiry is **not failure**. It is an operational checkpoint that returns control to the calling
+- Checkpoint expiry is **not failure**. It returns control to the calling
   harness within its configured idle/compaction budget.
 - A **hard timeout** (`--timeout`) causes `failed` semantics and is distinct
   from yield. When `--timeout` is not explicit, `hard_deadline = None` and
