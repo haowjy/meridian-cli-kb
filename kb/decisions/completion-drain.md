@@ -8,10 +8,11 @@ Pi's own profile is in [Pi runtime decisions](pi-runtime.md).
 
 ## D-child-completion: confirm each retained candidate once (2026-10-20)
 
-**Decision status:** settled intent. **Implementation status:** present on
-`feat/child-completion` at `b872080`, unmerged at capture; not a release claim. Supersedes D-claude-native-hold's separate native
-policy, sticky resident rearm, first-result leaf completion, and fixed deadline
-assumptions. The native background-task observation remains valid.
+**Decision status:** settled intent. **Implementation status:** shipped in
+v0.11.3 through [PR #708](https://github.com/haowjy/meridian-cli/pull/708).
+Supersedes D-claude-native-hold's separate native policy, sticky resident rearm,
+first-result leaf completion, and fixed deadline assumptions. The native
+background-task observation remains valid.
 
 A finished harness turn is a completion candidate, not proof that the child has
 finished all its work. Claude, Codex and resident OpenCode children use one
@@ -40,6 +41,17 @@ file, not a strict spawn-row field that older readers would quarantine.
 dead-descendant convergence remain separate work in [#671](https://github.com/haowjy/meridian-cli/issues/671). Signed-in Codex's
 obsolete fixed idle cache warning is tracked separately by
 [#707](https://github.com/haowjy/meridian-cli/issues/707).
+
+### Spawn visibility is a convenience, not completion
+
+The descendant-aware hold and `spawn wait` output are the correctness path.
+The always-visible Claude status row in
+[PR #706](https://github.com/haowjy/meridian-cli/pull/706) was rejected and
+closed without merge. Occasional inspection belongs in a pull-based surface:
+low-priority idea [#709](https://github.com/haowjy/meridian-cli/issues/709)
+proposes an on-demand `/meridian-spawns` menu with no persistent row or
+background polling while closed. It is not planned work; build it only if real
+usage shows that the existing CLI views are insufficient.
 
 **Rejected:** sticky rearm; repeating confirmation on a timer; treating signal
 file presence as candidate authority; accepting silence with live or unknown
@@ -156,18 +168,12 @@ repro correctly. Why it went unfixed for weeks is a
   `--input-format stream-json`. A TUI primary is injected through Claude Code's
   own inbox socket rather than a mod
   ([D-claude-primary-inbox](primary-inject.md#d-claude-primary-inbox)).
-- The bundled `meridian-idle` mod now uses `$.ui.status` to show the
-  derived-active, non-primary spawns owned by the TUI primary's chat, including
-  nested spawns. Core owns selection and the bounded wording; the mod owns
-  display and refresh cadence, including the conditional 60-second poll while a
-  line is visible. Native `done`/`rearm` tools in the primary remain unbuilt.
-  This status path is present in the feature checkout at `1d282eb`; GitHub PR
-  #706 was still open and unmerged at capture. See
-  [idle adapter architecture](../architecture/idle-adapters.md#claudes-spawn-status-pin).
 
-**Revisit when:** Claude Code changes or drops `background_tasks_changed`, or
-#224 gives Claude children a descendant-spawn hold, which would join this one in
-the same profile.
+**Revisit the surviving native-task observation when:** Claude Code changes or
+drops `background_tasks_changed`. The former descendant-hold revisit condition
+was resolved by the shared
+[D-child-completion](#d-child-completion-confirm-each-retained-candidate-once-2026-10-20)
+policy.
 
 **Provenance:** `work:claude-bg-quiescence` `decisions.md` D1–D14,
 `verification-p8407.md`,

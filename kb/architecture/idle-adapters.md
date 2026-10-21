@@ -138,43 +138,20 @@ Runtime probes (P0a–P0d) set these contracts, and G2 hardened them:
   them as returns. A turn end is `session.idle` after a busy status. Message
   excerpts come from `GET /session/{id}/message?limit=20`.
 
-### Claude's spawn-status pin
+### Spawn visibility stays outside the idle adapter
 
-The Claude mod's spawn-status pin is separate from the idle notification
-timeline. Core's `idle child-status --interactive` command owns selection and
-bounded wording. It calls the same indexed,
-authority-rereading `discover_pending_spawns()` query as no-argument
-`spawn wait`, but uses the primary's owner-chat scope and removes primary rows.
-The result therefore includes nested spawns as well as direct children, but
-only while stored state reconciled with runner evidence still says they are
-[active](state-system/derived-status.md). The
-[wait barrier](../concepts/spawn-wait-barrier.md) uses the shared query with
-caller exclusion and descendant scope when invoked from a nested spawn.
+The Claude idle mod does not render Meridian spawn state. An always-visible
+plugin row was implemented and live-probed in
+[#706](https://github.com/haowjy/meridian-cli/pull/706), then rejected and
+closed without merge because occasional inspection does not justify persistent
+UI or background polling.
 
-The mod owns refresh and display. It queries on an active `session.start`, a
-main-loop `turn.complete`, and completion of a Bash command at the
-`meridian ... spawn` seam, including top-level options with separate values.
-Unrelated Bash, Read, Edit, prompt submission, and slash-command submission do
-not query spawn status. Refreshes are gate-checked and dirty single-flight:
-events during a query cause one trailing query. A one-shot 60-second poll is
-armed only while the last successful line is nonempty. A transient failure
-keeps the last good line and the slow retry; a successful empty result stops
-polling.
-
-Clearing passes `undefined` to `$.ui.status`; an empty string leaves a named
-blank plugin row in Claude Code. The query is keyed by the Claude process's
-Meridian environment rather than its mutable Claude session ID, so `/clear`
-does not blank a still-valid pin. Going inert clears the pin and cancels the
-poll. The host supplies the visible plugin-name prefix; the mod controls only
-the text after it.
-
-**Implementation status (2026-10-21):** this path is present in the feature
-checkout at `1d282eb`; GitHub PR #706 was still open and unmerged at capture. A
-real Claude Code 2.1.306 TUI showed a real OpenCode 2.0.29 DeepSeek child while
-its authoritative row was active, then the conditional poll removed the pin
-after successful finalization without leaving a blank row. The child was
-launched from the TUI's local shell; this evidence does not claim a Claude
-model-authored Bash turn (`work:idle-status-line/live-check.md`).
+If real usage shows that the existing CLI views are insufficient, low-priority
+idea [#709](https://github.com/haowjy/meridian-cli/issues/709) proposes an
+on-demand `/meridian-spawns` menu. It is not planned work or a correctness
+requirement. The menu would query core for ownership and derived liveness when
+opened; it would leave no persistent row and perform no background polling
+while closed.
 
 ## Running work and the push
 
@@ -274,7 +251,7 @@ later. No adapter changed. Closing a primary still never touches the store.
 
 | Harness | On close | On start (reload or reopen) | After a Meridian reopen |
 |---|---|---|---|
-| Claude | `session.end` cancels in-memory idle-stage timers. It does not clear the process-scoped spawn-status pin or cancel its conditional poll. | `session.start` → `recover()` rebuilds timers from open rows in `idle status`, minus stages in `done`. Reload and resume take the same path; the mod can't tell them apart. | The row is already closed, so `recover()` re-adopts nothing. A reload runs no launcher, so its open row is rebuilt as before. |
+| Claude | `session.end` cancels in-memory idle-stage timers only. | `session.start` → `recover()` rebuilds timers from open rows in `idle status`, minus stages in `done`. Reload and resume take the same path; the mod can't tell them apart. | The row is already closed, so `recover()` re-adopts nothing. A reload runs no launcher, so its open row is rebuilt as before. |
 | Pi | `session_shutdown` → `stop()` cancels timers only | `session_start` → `start()` → `idle status` → `restore()`, same as Claude | Same as Claude |
 | Codex | launcher sidecar cancelled; timers die | never re-adopted: the new sidecar's identity-pin `arm` (`lib/idle/sidecar.py` `run`) re-anchors the row with a schedule from now, and the sidecar ignores that schedule until an external event moves the anchor | The launcher closes the old row first, so the pin opens a fresh stretch (`stretch + 1`, empty `done`). Its deadlines show in `idle status` but fire only after a real turn re-anchors. |
 | OpenCode | launcher sidecar cancelled; timers die | never re-adopted: the sidecar polls the store only for external-event sensors | The old row is closed; the first turn end opens a fresh stretch |

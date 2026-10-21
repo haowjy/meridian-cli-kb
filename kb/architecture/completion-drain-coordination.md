@@ -212,7 +212,7 @@ reason, or cleanup-phase policy.
 - `work:drain-streaming-cleanup` (PR #375: reconciliation decisions extraction, rearm budget, timeout carrier unification)
 - `work:drain-streaming-cleanup` follow-up (probe-fix cycle: publication barrier, `resolve_terminal_outcome`, per-spawn cleanup keying)
 - `work:pi-descendant-refresh`
-- `work:child-completion`, decisions K6–K9 and review reports `spawn:p8721`–`spawn:p8725`; source checkpoint `b872080` on `feat/child-completion` (unmerged at capture).
+- `work:child-completion`, decisions K6–K9 and review reports `spawn:p8721`–`spawn:p8725`; shipped in v0.11.3 through PR #708.
 
 ## Related pages
 

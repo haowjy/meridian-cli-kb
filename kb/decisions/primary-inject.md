@@ -104,7 +104,7 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
 |---|---|
 | A mod replacing the child stdin pipe (the owner's starting direction) | `-p` exits once idle; nothing found holds it open for new input (`spawn:p8410`) |
 | A settings-file `Stop` hook returning `block` to hold `-p` | Not probed. Even if it works it is more machinery than stdin: a hook process per idle wait, the hook timeout capping each wait, and Meridian deciding the stop a second time |
-| A Meridian mod in the TUI primary: a listener plus `$.prompt.submit` | Works (`spawn:p8415`), but only queues until idle, fails silently when it doesn't load, and adds a process. It remains rejected as the primary inject route. The bundled idle mod now uses `$.ui.status` for the [spawn-status pin](../architecture/idle-adapters.md#claudes-spawn-status-pin); native `done`/`rearm` tools remain unbuilt. |
+| A Meridian mod in the TUI primary: a listener plus `$.prompt.submit` | Works (`spawn:p8415`), but only queues until idle, fails silently when it doesn't load, and adds a process. It remains rejected as the primary inject route. A separate `$.ui.status` spawn row was later built and probed in [PR #706](https://github.com/haowjy/meridian-cli/pull/706), then rejected and closed without merge; it does not change this inject decision. |
 | `--messaging-socket-path` | Hidden and undocumented; the documented hook variable finds the socket |
 | Storing or sending the messaging token; forging a `from-mode="bypass"` envelope; `crossSessionInbound: accept` through `--settings` | Each gives Meridian authority the user didn't grant (decision 3) |
 | Claude Code channels | Research preview, organisation-gated, and a custom server needs `--dangerously-load-development-channels` |

@@ -13,7 +13,9 @@ tmux server. Provenance: `work:claude-mod-inject` (`probe-mod-inject.md`
 `spawn:p8410`, `probe-tui-mod.md` `spawn:p8415`, `probe-inbox-socket.md`
 `spawn:p8419`, research `spawn:p8416`).
 Later-version findings in the table are explicitly versioned and cover only
-`$.ui.status` clearing; the other observations remain scoped to 2.1.302.
+`$.ui.status` behavior probed for the rejected status-row design in
+[#706](https://github.com/haowjy/meridian-cli/pull/706). They describe the host
+API, not a Meridian feature; the other observations remain scoped to 2.1.302.
 
 **The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
 input, and a mod's `$.prompt.submit` waits until the current turn ends. The inbox
@@ -41,7 +43,7 @@ and [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold
 | Loading | `--plugin-dir` and `CLAUDE_CODE_PLUGIN_DIRS` both load a mod. |
 | Mod tools (`$.tool.register`) | The model calls `mcp__<plugin>__<tool>` with no permission prompt, in bypass and default modes. |
 | Ending the session from a mod | No API. `$.turn.abort` exists; nothing exits the process, so an outside watcher has to kill it. |
-| `$.ui.status` | Shows beside a user's own status line; both stay visible. On Claude Code 2.1.303, `$.ui.status(undefined)` removed the plugin pin, while `$.ui.status("")` left a named blank row. A real 2.1.306 TUI run again removed the row with `undefined` after its displayed spawn finished (`work:idle-status-line/live-check.md`). |
+| `$.ui.status` | Creates a persistent plugin row beside a user's own status line; both stay visible, and the host supplies the plugin-name prefix. On Claude Code 2.1.303, `$.ui.status(undefined)` removed the row while `$.ui.status("")` left a named blank row; 2.1.306 confirmed removal with `undefined`. These checks were part of rejected PR #706, not current Meridian behavior. |
 | `$.session.send` from a second process to a TUI session | Delivered (`isDelivered:true`), and the TUI answered. |
 
 ---
@@ -129,6 +131,6 @@ settings, including `refuse`.
 - Hot reload of a mod.
 - A settings-file command `Stop` hook returning `block` under `-p`.
 - Claude Code versions other than 2.1.302, apart from the separately noted
-  `$.ui.status` checks on 2.1.303 and 2.1.306. The inbox needs a version that
+  rejected-surface `$.ui.status` checks on 2.1.303 and 2.1.306. The inbox needs a version that
   publishes the socket; Meridian's error message names 2.1.224 as the minimum.
   Bare mode has no socket.
