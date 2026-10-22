@@ -109,8 +109,7 @@ leaves the lead where it was without one, needing an explicit wait.
 
 **Status:** lead decision after correctness and version-skew review
 (`spawn:p8936`) and containment review (`spawn:p8939`),
-`work:observed-spawns-move`. On the unmerged meridian-cli branch
-`fix/observed-spawns-move` (PR #729) as of 2026-10-22. Fixes #719.
+`work:observed-spawns-move`. Shipped in v0.11.10 (PR #729). Fixes #719.
 
 ### Problem
 

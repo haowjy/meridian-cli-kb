@@ -7,9 +7,8 @@ handed the lead in one file per primary, `observed-spawns.json`, so a result
 that one route delivered is not delivered again by another.
 
 Status: all three routes have shipped (the Claude route in v0.11.9, PR #724).
-The record's location below, `spawns/<primary>/`, is on the unmerged
-meridian-cli branch `fix/observed-spawns-move` (PR #729, 2026-10-22); released
-builds still keep it at `pi-bash/<primary>/`. Rationale and rejected designs:
+The record's location below, `spawns/<primary>/`, shipped in v0.11.10
+(PR #729); builds up to v0.11.9 keep it at `pi-bash/<primary>/`. Rationale and rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
