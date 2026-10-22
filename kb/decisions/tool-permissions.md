@@ -277,19 +277,23 @@ on Cursor; now each harness uses its own default. The upgrade note tells users
 to set `sandbox` explicitly. `approval: default` stays harness-specific
 (owner); `--dry-run` shows what it resolves to.
 
+## D-claude-settings-files-kept: a user's own harness settings stay in force {#d-claude-settings-files-kept}
+
+**Decided (owner):** Meridian keeps a harness vanilla so a user's own setup keeps
+working with Meridian added. Claude reads the user's, project's and local settings
+files as it always does; their `permissions.allow` entries run outside a profile
+allowlist, and `--dry-run` reports them. Rejected: launching allowlist profiles with
+`--setting-sources` that omit project and local files, which closes the gap but also
+drops those files' hooks. OpenCode follows the same principle: a headless spawn under
+`approval: default` gets the allow-all fallback only while no rule names a known
+OpenCode tool, so once a profile says something, the user's OpenCode config decides.
+The OpenCode native-denial divergence (refusal text is OpenCode's own; no event for
+tools it removes) is accepted.
+
 ## Open questions
 
-These belong to the owner; current behavior is reported in `--dry-run` and
-tracked in meridian-cli `src/meridian/lib/harness/.context/TODO`.
+Current behavior is reported in `--dry-run`.
 
-- **Claude settings files widen allowlists.** Claude merges `permissions.allow`
-  from the user's and project's settings files into the launch, so those
-  commands run outside a profile allowlist. Launching allowlist profiles with
-  `--setting-sources` that omit project and local files would close it, but also
-  drops those files' hooks.
-- **OpenCode headless default.** A spawn under `approval: default` gets
-  Meridian's allow-all fallback only while no rule names a known OpenCode tool.
-  Should it always apply, or never?
 - **Codex completion under a read-only sandbox.** Codex's default sandbox blocks
   `meridian spawn done`, because Meridian's state lock lives outside it. The
   child still closes when its completion window accepts on silence, but cannot
