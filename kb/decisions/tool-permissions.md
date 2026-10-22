@@ -181,9 +181,11 @@ denial reasons. Tracked in meridian-cli `src/meridian/lib/harness/.context/TODO`
 **Decided (owner):** a capability whose only rules are scoped allows is an
 allowlist for that capability: `bash(rg *): allow` with no plain `bash` rule
 means only `rg` runs in the shell, whatever `approval` says. `approval: never`
-means "don't prompt", not "allow anything". A list form, `tools: [read, grep]`,
-means exactly those tools (`*: deny` plus the allows), a behavior change that
-carries an upgrade note. An explicit `*` rule or an unscoped rule for the
+means "don't prompt", not "allow anything". An allowlist for the whole
+profile is `'*': deny` plus allows in map form. The list form, `tools: [read, grep]`,
+is deprecated: it only grants, and Mars warns (revised 2026-10-22: list =
+allowlist was withdrawn because the same YAML means "pre-approve" for skills and
+"only these" in Claude's agent frontmatter). An explicit `*` rule or an unscoped rule for the
 capability decides unmatched calls, so `*: allow` plus `bash(git *): allow` is
 not an allowlist.
 
@@ -227,7 +229,7 @@ after the profile's rules:
   `task: allow` or `task: ask`; `*: allow` does not count.
 - **Completion commands on every spawn.** `meridian spawn done` and
   `meridian spawn rearm` are allowed exactly, under any allowlist. Without them
-  a `tools: [read, grep]` child cannot confirm or reject its own completion, and
+  a `'*': deny` plus `read: allow` child cannot confirm or reject its own completion, and
   live Claude refused `spawn done` even with no profile rules.
 
 ## D-codex-sandbox-inference-deleted: an unset sandbox is the harness default {#d-codex-sandbox-inference-deleted}
