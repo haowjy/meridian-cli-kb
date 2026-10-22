@@ -25,10 +25,10 @@ description: >                    # one-liner shown in skill catalog (required)
   What the skill does.
 model-invocable: false            # can the model self-load this skill? (default: true)
 user-invocable: false             # can the user trigger it with /name? (default: true)
-allowed-tools:                    # tool allowlist injected on skill load (optional)
-  - Bash
-  - Read
-  - Write
+tools:                            # tools pre-approved while the skill runs; map form (optional)
+  bash(git *): allow
+  read: allow
+disallowed-tools: [agent]         # inline denials (optional)
 license: Apache-2.0               # SPDX identifier (optional)
 metadata:                         # free-form pass-through block (optional)
   author: acme-team
@@ -47,9 +47,14 @@ Skill body content here...
 | `description` | Yes | — | Short description for catalogs and help text |
 | `model-invocable` | No | `true` | Whether the model can find this skill in its harness's skill list and load it by itself. Does not affect a skill an agent profile loads |
 | `user-invocable` | No | `true` | Whether the user can trigger it with `/name` |
-| `allowed-tools` | No | — | Tool names Meridian injects as allowed when loading this skill |
+| `tools` | No | — | Tools the skill pre-approves, same rule grammar as agent profiles. Grants never restrict. List form is deprecated (it still grants, with a warning) |
+| `disallowed-tools` | No | — | Tools the skill denies; merges with denials in `tools` |
 | `license` | No | — | SPDX license identifier; propagated to skill catalogs |
 | `metadata` | No | — | Arbitrary key-value data — pass-through everywhere |
+
+Canonical skills do not author `allowed-tools`: Mars warns and strips it. A foreign
+skill's harness-native `allowed-tools` is lifted to canonical `tools:` as grants on
+import.
 
 **Invocability is two orthogonal dimensions, not one enum.** Before this schema,
 a single `invocation: explicit | implicit` field collapsed two independent concerns.

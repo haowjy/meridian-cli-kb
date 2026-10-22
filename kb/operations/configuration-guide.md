@@ -23,7 +23,7 @@ default_harness = "claude"        # default harness
 [primary]
 model = "claude-opus-4-6"         # model for interactive primary (meridian with no spawn)
 approval = "auto"                 # auto-approve safe tool calls
-autocompact = 120000              # compact at ~120k context tokens (min 1000); see #548
+autocompact = 120000              # compact at ~120k context tokens (min 1000; Claude applies 100k-1M)
 timeout = 3600.0                  # 1-hour session timeout
 
 [state]

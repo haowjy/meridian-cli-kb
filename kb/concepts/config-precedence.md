@@ -175,9 +175,11 @@ meridian config set/get/reset # operate on meridian.toml, not user config
 `meridian config show` is the fastest way to understand what's actually active: it annotates each value with whether it came from builtin, user, project, local, or env.
 
 `autocompact` is a token count and `autocompact_pct` is a percentage from 1 to
-100. Today the Claude launch path writes the token count into
-`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`, which Claude reads as a percentage, and never
-projects `autocompact_pct` (GitHub #548). Neither field has an "off" value.
+100. Claude takes the token count as `--autocompact` (100000–1000000) and the
+percentage as `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`; Codex takes both as `-c` keys;
+other harnesses report them not applied
+([D-compaction-projected](../decisions/bundle-field-consumption.md#d-compaction-projected)).
+Neither field has an "off" value.
 
 ### Declaring config keys
 

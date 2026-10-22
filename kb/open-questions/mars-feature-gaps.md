@@ -36,8 +36,8 @@ profile.
 ## 2. Tool Definition Distribution
 
 **Status (2026-05): Partially addressed** — The universal skill frontmatter
-schema now includes an `allowed-tools` field. When Meridian loads a skill, it
-can inject the declared tool allowlist. This is a per-skill declaration, not
+schema now includes a `tools` field (lifted from a foreign skill's `allowed-tools`),
+which pre-approves tools while a skill runs and never restricts. This is a per-skill declaration, not
 a full tool distribution system.
 
 **Remaining gap:**

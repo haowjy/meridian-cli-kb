@@ -275,7 +275,8 @@ the Mars agent profile parser/lowerer.
 passthrough. Mars validates only the outer mapping shape and serializability. Mars does
 NOT interpret key names, enforce key semantics, or use nested keys to replace top-level
 Mars fields. The matching block is carried in launch-bundle
-`execution_policy.native_config`; Meridian's harness adapter projects it at launch time.
+`execution_policy.native_config`; Meridian applies it on Codex and reports it not applied
+on other harnesses ([D-native-config-codex-only](bundle-field-consumption.md#d-native-config-codex-only)).
 
 **Why:** Mars can't track every harness version's config schema. The escape hatch gives profile authors direct access; universally useful knobs get promoted to first-class fields later.
 
@@ -289,7 +290,9 @@ statement: the canonical `capability` carries meaning, while `native` carries th
 harness spelling for emission. Meridian reads those two fields in those directions and
 keeps no second capability-to-native name table. The derived `allowed`, `disallowed`, and
 `mcp` lists remain temporarily for older consumers, but cannot express `ask`, `*`, or the
-capability that produced a name.
+capability that produced a name; `mcp` holds permission names, never MCP server
+definitions. The list form `tools: [a, b]` is deprecated and only grants; `'*': deny` in a
+map is the allowlist ([D-permission-list-form-deprecated](tool-permissions.md#d-permission-list-form-deprecated)).
 
 Mars also emits profile-independent `tools.capability_natives` entries for the `agent` and
 `task` capabilities in every bundle. Meridian still owns the decision to impose its

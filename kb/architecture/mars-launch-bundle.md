@@ -81,17 +81,24 @@ Top-level fields in the full Mars JSON schema (version 4):
 | `provenance` | object | Source attribution for each resolved field |
 | `warnings` | string[] | User-visible warnings emitted during build |
 
-Meridian consumes a subset of this schema. It parses:
+Meridian consumes a subset of this schema. Every field is applied, reported as not
+applied for the target harness, or deliberately unread
+([bundle field consumption](../decisions/bundle-field-consumption.md)). It parses:
 - `routing.model`, `routing.model_token`, `routing.harness`, `routing.harness_model`
 - `execution_policy` fields
-- `prompt_surface`
+- `prompt_surface.inventory_prompt`
 - `tools.rules` and `tools.capability_natives` (Meridian on `main` reads the flat
   `allowed`/`disallowed` lists instead)
 - `skills.loaded`, `skills.available` (it drops `description` and lists available skills by name), `skills.missing`
 - `provenance`
 - `warnings`
 
-Other routing fields are Mars-owned diagnostics and are ignored by Meridian.
+Deliberately unread: `agent_body`, `prompt_surface.system_instruction`,
+`supplemental_documents` and `scaffold_slots` (Meridian composes the prompt itself from
+the local profile and `skills.loaded`), and the flat `tools.allowed`/`disallowed`/`mcp`
+lists. The reasons live in the docstring of meridian-cli
+`src/meridian/lib/launch/bundle_adapter.py`. Other routing fields are Mars-owned
+diagnostics and are ignored by Meridian.
 
 ### `routing` object (Meridian-consumed fields)
 
@@ -129,15 +136,17 @@ refresh follows **`ProbeRefreshMode`** from the same **`ModelsRefreshControl`** 
     "autocompact_pct": 80,
     "timeout": null,
     "native_config": {
-      "sandbox_workspace_write.network_access": true
+      "sandbox_workspace_write": { "network_access": true }
     }
   }
 }
 ```
 
 `native_config` is omitted (`skip_serializing_if = None`) when no native config
-is declared. See [../concepts/native-config.md](../concepts/native-config.md) for
-full semantics.
+is declared. Meridian applies it on Codex only; see
+[../concepts/native-config.md](../concepts/native-config.md). `autocompact` is a token
+count and `autocompact_pct` a percentage; how each harness applies them:
+[D-compaction-projected](../decisions/bundle-field-consumption.md#d-compaction-projected).
 
 ### `tools` field
 
@@ -197,7 +206,8 @@ wrote (the narrower capability wins per native name), so a `known` rule's `nativ
 empty when a more specific rule shadows it.
 
 The flat `allowed`, `disallowed`, and `mcp` lists are derived compatibility fields for
-older consumers. They cannot represent `ask`, `*`, or the capability a native name came
+older consumers. `mcp` holds allowed MCP permission names, never server definitions;
+MCP rules reach Meridian as `mcp(...)` entries in `rules`. They cannot represent `ask`, `*`, or the capability a native name came
 from. Meridian with typed-rule support reads only `rules`: a bundle without them, or
 whose rules lack `native_tools`, stops the launch with "Install mars >= 0.17.0".
 
@@ -236,11 +246,11 @@ spawn.
 
 | Harness | Status | Notes |
 |---------|--------|-------|
-| Claude | First-class | Full native-config (`--settings`), tool policy (`--tools`, `--disallowedTools`, `--settings` permission rules), full bundle support |
-| Codex | First-class | Full bundle; native-config and available permission switches via `-c` flags |
-| OpenCode | First-class | Full bundle; native-config and tool policy via `OPENCODE_CONFIG_CONTENT` (tool rules on the `meridian-<profile>` config agent) |
+| Claude | First-class | Tool policy (`--tools`, `--disallowedTools`, `--settings` permission rules); native-config reported not applied |
+| Codex | First-class | Full bundle; native-config and permission switches via `-c` flags |
+| OpenCode | First-class | Tool policy via `OPENCODE_CONFIG_CONTENT` (rules on the `meridian-<profile>` config agent); native-config reported not applied |
 | Cursor | Unmaintained | Existing bundle support remains, but its native tool table is carried forward rather than reverified |
-| Pi | Active | Bundle supported; permission projection uses native flags plus Meridian's extension where Pi has no native mechanism |
+| Pi | Active | Bundle supported; permission projection uses native flags plus Meridian's extension where Pi has no native mechanism; native-config reported not applied |
 | Gemini | Out of scope | Not a current Mars/Meridian target |
 
 ---
@@ -253,11 +263,12 @@ Different build products for different consumers:
 |---|---|---|
 | **Consumer** | Harness-native agent discovery (e.g., Claude Code sidebar) | Meridian's runtime spawn flow |
 | **Output** | `.mars/agents/*.md`, `.claude/agents/*.md`, etc. | JSON scaffold |
-| **`native-config`** | Dropped from native artifacts (meridian-only in lossiness matrix) | Preserved in `execution_policy.native_config` for Meridian runtime projection |
+| **`native-config`** | Dropped from native artifacts (meridian-only in lossiness matrix) | Preserved in `execution_policy.native_config`; Meridian applies it on Codex |
 | **Tool policy** | Preserved for harnesses that support it in native artifacts | Preserved in `tools` field for per-harness projection |
 
 The static path serves harness-native discovery; the launch-bundle path serves Meridian.
-The harness does not know how to apply `native-config` — that's Meridian's job.
+The harness does not know how to apply `native-config`; Meridian does, on the harnesses
+where it has a channel.
 
 ---
 
@@ -272,7 +283,7 @@ graph TD
     TP["tools.rules\ncanonical meaning + native emission"]
     PN["tools.capability_natives\nagent + task names"]
 
-    NC_PROJ["Native-config projector\nper harness"]
+    NC_PROJ["Native-config projector\nCodex -c; others report"]
     TP_PROJ["Permission-policy compiler\nplatform decision + harness mechanism"]
 
     MERGE["Harness projection\nargv + env"]
@@ -288,8 +299,8 @@ graph TD
 
 Results are merged: args concatenated, env vars deep-merged (native-config first,
 tool-policy second for overlapping env vars), temp files tracked for cleanup.
-Native-config warnings reach the user; permission gaps go to the enforcement report
-shown by `--dry-run`, never to launch warnings.
+Native-config keys that are skipped or not applied, like permission gaps, go to the
+enforcement report shown by `--dry-run`, never to launch warnings.
 
 The permission compiler owns mechanism choices, not tool spelling. Mars is the sole
 owner of the capability-to-native mapping: profile rules arrive already projected in
@@ -301,10 +312,8 @@ capability or reverse-map native names back to capabilities.
 
 | Harness | Strategy |
 |---------|----------|
-| Codex | Repeated `-c <key>=<toml-value>` CLI flags |
-| Claude | Temp settings JSON file, `--settings <path>` |
-| OpenCode | Deep-merged into `OPENCODE_CONFIG_CONTENT` env var |
-| Cursor | `mcp` key → `.cursor/mcp.json`; unknown keys warn |
+| Codex | Repeated `-c <key>=<toml-value>` flags; keys Meridian computes are skipped and reported |
+| Claude, OpenCode, Pi, Cursor | Not applied; each key reported `[unsupported] ... not applied for <Harness>` |
 
 Per-harness permission mechanisms belong to the Meridian launch system, not this
 cross-repo boundary. They may use flags, settings, environment config, or an extension,

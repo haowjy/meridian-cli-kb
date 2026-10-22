@@ -3,6 +3,25 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-22 — Bundle field consumption and list-form deprecation captured
+
+`work:session-permissions`, owner rulings of 2026-10-22. New
+[decisions/bundle-field-consumption.md](decisions/bundle-field-consumption.md):
+every launch-bundle field is applied, reported or deliberately unread;
+`harness-overrides` applies on Codex only; compaction thresholds projected per
+harness (#548); `tools.mcp` is permission names and Meridian's `mcp_tools`
+projection is deleted; Mars drops `codex_rules`. New
+[D-permission-list-form-deprecated](decisions/tool-permissions.md#d-permission-list-form-deprecated)
+supersedes list = allowlist. Updated: consumed/unread fields, native-config
+strategies and harness table in
+[architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md);
+projection section and example in [concepts/native-config.md](concepts/native-config.md)
+(Claude/OpenCode strategies removed: never applied); D82/D83 in
+[decisions/package-management.md](decisions/package-management.md); autocompact
+in [concepts/config-precedence.md](concepts/config-precedence.md); skill `tools`
+field in [concepts/skill-schema.md](concepts/skill-schema.md) (canonical skills
+do not author `allowed-tools`); #548 note in idle-notifications; indexes.
+
 ## 2026-10-22 — observed-spawns.json location captured (unmerged branch)
 
 meridian-cli branch `fix/observed-spawns-move` (PR #729) moves the consumption

@@ -5,7 +5,7 @@ harness actually enforces, and why. A profile's `tools:` block means what it
 says on every harness that can express it: `bash(git log *): allow` with no other
 `bash` rule means the agent may run `git log` and no other shell command.
 
-**Status:** owner rulings of 2026-10-21 and lead decisions through four review
+**Status:** owner rulings of 2026-10-21 and 2026-10-22 and lead decisions through four review
 rounds (`work:session-permissions`). On the unmerged meridian-cli branch
 `feat/session-permissions` and the unmerged mars-agents PR #179; the Meridian
 side requires Mars ≥ 0.17.0 and stops with "install mars >= 0.17.0" against an
@@ -141,6 +141,10 @@ A separate report function per harness would drift from what launches.
 **Rejected:** a launch warning, and an `on_gap = "refuse"` setting. Gaps are
 standing facts about a harness, shown where a user checks a profile.
 
+The same report carries the launch-bundle fields a harness does not apply, such
+as `harness-overrides` passthrough and compaction thresholds
+([bundle field consumption](bundle-field-consumption.md)).
+
 ## D-permission-primaries-bound: the profile limits the model on every harness {#d-permission-primaries-bound}
 
 **Decided (owner):** profile rules bind interactive primaries as well as
@@ -182,15 +186,13 @@ denial reasons. Tracked in meridian-cli `src/meridian/lib/harness/.context/TODO`
 allowlist for that capability: `bash(rg *): allow` with no plain `bash` rule
 means only `rg` runs in the shell, whatever `approval` says. `approval: never`
 means "don't prompt", not "allow anything". An allowlist for the whole
-profile is `'*': deny` plus allows in map form. The list form, `tools: [read, grep]`,
-is deprecated: it only grants, and Mars warns (revised 2026-10-22: list =
-allowlist was withdrawn because the same YAML means "pre-approve" for skills and
-"only these" in Claude's agent frontmatter). An explicit `*` rule or an unscoped rule for the
-capability decides unmatched calls, so `*: allow` plus `bash(git *): allow` is
-not an allowlist.
+profile is `'*': deny` plus allows in map form; the list form is not one
+([D-permission-list-form-deprecated](#d-permission-list-form-deprecated)). An
+explicit `*` rule or an unscoped rule for the capability decides unmatched
+calls, so `*: allow` plus `bash(git *): allow` is not an allowlist.
 
 **Mechanism decided with it:** the policy writes each allowlist as the unscoped
-deny it means (origin `allowlist`) and resolves its overlap with broader
+deny it means (Meridian-internal origin `allowlist`) and resolves its overlap with broader
 unscoped rules the way Mars does for its own rules: the narrower capability
 wins. Each compile then emits that deny as it would a profile's plain deny
 beside scoped allows, so no compile has an allowlist path. Codex alone skips it,
@@ -214,6 +216,39 @@ meant as pre-approval, and this rule would have turned them into a shell
 allowlist; meridian-base PR #5 removes them. The other bash-allowlist profiles
 (explorer, cold-reader, kb-maintainer, session-miner, prompt-reviewer) intend
 the restriction.
+
+## D-permission-list-form-deprecated: `tools: [a, b]` only grants {#d-permission-list-form-deprecated}
+
+**Decided (owner, 2026-10-22):** the list form `tools: [read, grep]` is
+deprecated for agents and skills. Mars still accepts it, grants the listed
+tools (its 0.16.0 behavior), restricts nothing, and raises a deprecation
+warning. "Only these tools" is written as a map with `'*': deny` plus allows.
+The `mars.toml` overlay `allowed` list replaces grants and makes no allowlist
+either.
+
+**Supersedes** the owner ruling of 2026-10-21 that a list means exactly those
+tools (Mars adding `*: deny`). That ruling's wire field, the rule `origin` Mars
+emitted to mark the added deny, is gone from the bundle.
+
+**Why:** the same YAML already meant two things. In Claude's agent frontmatter
+`tools: Read, Grep` means "only these"; in a skill, `allowed-tools` means
+"pre-approve these". Either reading of a bare list surprises someone, so the
+unambiguous map form is the only way to say "only these".
+
+**Imports keep their meaning.** Mars lifts a foreign Claude agent file's tools
+list to the canonical map with `'*': deny`, so a ported agent stays restricted
+and raises no deprecation warning. A skill's `allowed-tools` lifts to grants.
+
+**Rejected:**
+
+- *Keep list = allowlist and only document it.* It stays ambiguous next to
+  skills' `allowed-tools`, and a reader taking the other meaning quietly widens a
+  ported Claude agent.
+- *List = allowlist for agents only.* One field would have two meanings
+  depending on the file it sits in.
+
+Meridian reads only typed rules, so this needed no Meridian code change; its
+docs, changelog and upgrade note say `'*': deny`.
 
 ## D-permission-platform-rules: Meridian's own rules hold under any profile {#d-permission-platform-rules}
 
@@ -262,7 +297,8 @@ tracked in meridian-cli `src/meridian/lib/harness/.context/TODO`.
 ## Provenance
 
 `work:session-permissions`: `design/owner-decisions.md` (owner rulings),
-`design/implementation-decisions.md` (lead decisions and review dispositions),
+`design/implementation-decisions.md` (lead decisions and review dispositions;
+section "List form deprecated" for the 2026-10-22 ruling, Mars lane `spawn:p8925`),
 `DIVERGENCE/opencode-d5.md`, `pr-body-permissions.md`. Probes:
 `spawn:p8820` (Claude `dontAsk`), `spawn:p8881` and `spawn:p8891` (live
 matrices on Claude, OpenCode V1/V2, Pi, Codex). Reviews: `spawn:p8867`,

@@ -18,16 +18,17 @@ Some harnesses expose config knobs that have no cross-harness equivalent. Rather
 ```yaml
 effort: low
 skills: [planning]
-tools: [ask_user]
+tools:
+  ask_user: allow
 
 harness-overrides:
   codex:
-    effort: high                  # target-native key; does not replace top-level effort
-    skills: [codex-only-skill]     # target-native key; does not replace top-level skills
-    sandbox_workspace_write.network_access: true
+    model_reasoning_effort: high   # reserved: Meridian sets this from top-level effort, so it is skipped
+    sandbox_workspace_write:
+      network_access: true          # applied as -c sandbox_workspace_write.network_access=true
 ```
 
-For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, and `tools` remain the Mars semantic controls.
+For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, and `tools` remain the Mars semantic controls, and a passthrough key never overrides a setting Meridian computes from them.
 
 ---
 
@@ -39,9 +40,9 @@ Harness passthrough and portable policy are independent concerns:
 |---------|----------------|-----------|---------------|-----------|
 | Tool policy | top-level `tools`, `disallowed-tools` (MCP as `mcp(...)` rules inside them) | Parse, validate, resolve into typed `tools.rules` with each harness's native names | Compile per harness into flags, settings, config agent or extension, and report gaps ([tool permissions](../decisions/tool-permissions.md)) | Yes |
 | Execution policy | top-level `effort`, `approval`, `sandbox`, `autocompact*` | Parse, validate, resolve into bundle `execution_policy` fields | Project per harness at launch time | Yes |
-| Harness passthrough | `harness-overrides.<harness>` | Validate outer mapping and serializability only | Interpret/project per resolved harness | No |
+| Harness passthrough | `harness-overrides.<harness>` | Validate outer mapping and serializability only | Apply as written on Codex; report not applied elsewhere ([bundle fields](../decisions/bundle-field-consumption.md#d-native-config-codex-only)) | No |
 
-A key inside `harness-overrides.<harness>` does not replace the top-level field with the same name. If a profile has both top-level `tools` and `harness-overrides.codex.tools`, the top-level value controls `bundle.tools`; the override value is preserved in `execution_policy.native_config.tools` for the Codex adapter/runtime to interpret.
+A key inside `harness-overrides.<harness>` does not replace the top-level field with the same name. If a profile has both top-level `tools` and `harness-overrides.codex.tools`, the top-level value controls `bundle.tools`; the override value is preserved in `execution_policy.native_config.tools`, and Meridian passes it to Codex as the literal Codex key `tools`. Meridian does not read it as tool policy.
 
 ---
 
@@ -98,51 +99,27 @@ Omitted from JSON when null (`skip_serializing_if = "Option::is_none"`).
 
 ---
 
-## Per-Harness Projection Strategies
+## Meridian Projection
 
-Meridian's harness adapter layer owns projection. Each harness declares its own strategy; do not assume all harnesses have Codex-style dotted CLI overrides.
+Meridian applies the block on Codex only. Every other harness reports the whole block
+`[unsupported] native_config: ... -> not applied for <Harness>` in `--dry-run`.
 
-### Codex
-
-**Strategy:** Repeated `-c <key>=<toml-value>` CLI flags where supported by the Codex adapter.
-
-Dotted notation can represent nested Codex config. Nested map values may require harness-adapter-specific handling.
+**Codex:** nested mappings flatten to dotted keys and values become TOML literals, emitted
+as repeated `-c key=value` on both the subprocess and app-server paths:
 
 ```yaml
 harness-overrides:
   codex:
-    sandbox_workspace_write.network_access: true
+    sandbox_workspace_write:
+      network_access: true
 ```
 
-Projected conceptually: `codex ... -c sandbox_workspace_write.network_access=true`
+Projected: `codex ... -c sandbox_workspace_write.network_access=true`
 
-### Claude
-
-**Strategy:** Temporary settings JSON file or CLI flags owned by the Claude adapter.
-
-```yaml
-harness-overrides:
-  claude:
-    permissions:
-      allow:
-        - "Bash(*)"
-        - "Read(*)"
-    env:
-      CLAUDE_CODE_MAX_TURNS: "50"
-```
-
-### OpenCode
-
-**Strategy:** Deep-merged into `OPENCODE_CONFIG_CONTENT` env var JSON where supported.
-
-```yaml
-harness-overrides:
-  opencode:
-    permission:
-      external_directory:
-        "/data/**": "allow"
-        "/models/**": "allow"
-    context:
-      max_tokens: 200000
-```
-
+Keys Meridian computes itself (model, reasoning effort, compaction, sandbox, approval,
+writable roots, notify, web search, `features.*`, `agents.*`) are skipped with a report
+line, so a passthrough cannot undo the profile's sandbox or tool switches. Keys `-c` cannot
+address and values TOML cannot hold are reported unsupported; nothing in the block fails the
+launch. The block can change any other Codex setting, including providers and MCP server
+commands, so a package that carries one is trusted code. Rationale and the full skip rules:
+[D-native-config-codex-only](../decisions/bundle-field-consumption.md#d-native-config-codex-only).

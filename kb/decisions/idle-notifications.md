@@ -847,9 +847,9 @@ the mod's `register.test.ts`.
   idle bundle ports.
 - [Idle Adapter Architecture](../architecture/idle-adapters.md): current
   adapter locations, coverage, contracts and fragility.
-- GitHub #548: `primary.autocompact` is written into
-  `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` as a token count; that variable expects a
-  percentage. Found during this design; tracked separately.
+- GitHub #548: `primary.autocompact` was written into
+  `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` as a token count; fixed by
+  [D-compaction-projected](bundle-field-consumption.md#d-compaction-projected).
 
 ## Revisit when
 
