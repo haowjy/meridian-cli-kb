@@ -4,6 +4,10 @@ Cross-repo system spanning `mars-agents` (builds the scaffold) and `meridian-cli
 (injects per-spawn content and launches the harness). The public verb is `build`
 (`mars build launch-bundle`).
 
+> **Status (2026-10-22):** The `tools.capability_natives` producer described below is
+> implemented on unmerged mars-agents PR #179 at commit `1f3c173`; Meridian consumption
+> is follow-on work on `feat/session-permissions`.
+
 **Related pages:**
 - [mars-compiler.md](mars-compiler.md) — compiler internals, config-entry pipeline
 - [mars-targeting.md](mars-targeting.md) — static `.mars/` targeting vs. launch-bundle
@@ -60,8 +64,7 @@ inject per-spawn content before assembling the final system prompt.
 
 ## Bundle Structure
 
-Top-level fields in the full Mars JSON schema (version 4, mars-agents pinned at
-0.14.0 in Meridian 0.4.6-rc.1):
+Top-level fields in the full Mars JSON schema (version 4):
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -72,7 +75,7 @@ Top-level fields in the full Mars JSON schema (version 4, mars-agents pinned at
 | `execution_policy` | object | Portable execution settings + `native_config` |
 | `prompt_surface` | object | System instruction, supplemental documents, and Mars-rendered `inventory_prompt` |
 | `scaffold_slots` | object | Placeholder positions for Meridian injection |
-| `tools` | object | Resolved portable tool policy (`allowed`, `disallowed`, `mcp`) |
+| `tools` | object | Resolved portable tool rules, compatibility flat lists, and profile-independent native names for platform-gated capabilities |
 | `skills` | object | `loaded[]` (`name`, `skill_type`, `source_path`, `body` with the harness variant applied), `available[]` (`name`, `skill_type`, `description`, `source_path`), `missing[]` (names). Neither list is filtered by `model-invocable`; see [skill loading](../concepts/skill-loading.md) |
 | `provenance` | object | Source attribution for each resolved field |
 | `warnings` | string[] | User-visible warnings emitted during build |
@@ -81,7 +84,8 @@ Meridian consumes a subset of this schema. It parses:
 - `routing.model`, `routing.model_token`, `routing.harness`, `routing.harness_model`
 - `execution_policy` fields
 - `prompt_surface`
-- `tools`
+- `tools` (current releases consume the compatibility flat lists; the permission-policy
+  rewrite consumes `rules` and `capability_natives`)
 - `skills.loaded`, `skills.available` (it drops `description` and lists available skills by name), `skills.missing`
 - `provenance`
 - `warnings`
@@ -139,16 +143,46 @@ full semantics.
 ```json
 {
   "tools": {
-    "allowed": ["Bash", "Bash(meridian spawn *)", "Bash(meridian session *)"],
-    "disallowed": ["Agent", "Edit", "Write"],
-    "mcp": ["plugin:context7:context7"]
+    "rules": [
+      {
+        "capability": "edit",
+        "pattern": null,
+        "action": "deny",
+        "native": ["Edit", "Write", "NotebookEdit"],
+        "native_status": "known"
+      }
+    ],
+    "capability_natives": {
+      "agent": {
+        "native": ["Agent", "SendMessage", "ListAgents"],
+        "native_status": "known"
+      },
+      "task": {
+        "native": ["TaskCreate", "TaskGet", "TaskList", "TaskOutput", "TaskUpdate", "TaskStop", "TodoWrite"],
+        "native_status": "known"
+      }
+    },
+    "allowed": [],
+    "disallowed": ["Edit", "Write", "NotebookEdit"],
+    "mcp": []
   }
 }
 ```
 
-Both `allowed` and `disallowed` may be non-empty simultaneously. An empty list
-means no entries of that kind — not "wildcard everything." Mars preserves both
-sides; Meridian projects both sides per harness.
+`rules` is the policy contract. Each entry keeps the canonical capability for meaning
+and the target harness's `native` names for emission. `native_status` is `known`,
+`absent`, or `unknown`; an `unknown` entry carries the reason in `note`. The flat
+`allowed`, `disallowed`, and `mcp` lists are derived compatibility fields. They cannot
+represent `ask`, `*`, or the capability a native name came from.
+
+`capability_natives` is a separate, profile-independent contract. It is present even
+for an ad-hoc bundle or a profile with no tool rules, and always has `agent` (sub-agent
+tools) and `task` (task-list tools). Meridian decides *whether* a platform rule applies;
+it takes the target harness's names from this map instead of keeping another native-name
+table. The entries use the same native table and `native_status` semantics as `rules`.
+An `absent` entry therefore has an empty native list and means the harness has no such
+built-in capability. The native list can include names retained for supported older
+harness builds, such as Claude's retired `TaskOutput`.
 
 ---
 
@@ -177,10 +211,10 @@ spawn.
 | Harness | Status | Notes |
 |---------|--------|-------|
 | Claude | First-class | Full native-config (`--settings`), tool policy (`--allowedTools`/`--disallowedTools`), full bundle support |
-| Codex | First-class | Full bundle; native-config via `-c` flags; tool allow/deny not projected (warns) |
+| Codex | First-class | Full bundle; native-config and available permission switches via `-c` flags |
 | OpenCode | First-class | Full bundle; native-config and tool policy via `OPENCODE_CONFIG_CONTENT` |
-| Cursor | Experimental | Bundle supported; `provenance.harness_stability: "experimental"` + warning; projection best-effort; contract may change |
-| Pi | Future | Pi contract still being developed; not in this slice; tool policy should be part of the future Pi contract |
+| Cursor | Unmaintained | Existing bundle support remains, but its native tool table is carried forward rather than reverified |
+| Pi | Active | Bundle supported; permission projection uses native flags plus Meridian's extension where Pi has no native mechanism |
 | Gemini | Out of scope | Not a current Mars/Meridian target |
 
 ---
@@ -209,16 +243,18 @@ Two independent projection paths in Meridian:
 graph TD
     BUNDLE["Launch bundle"]
     NC["execution_policy.native_config"]
-    TP["tools allowed/disallowed/mcp"]
+    TP["tools.rules\ncanonical meaning + native emission"]
+    PN["tools.capability_natives\nagent + task names"]
 
     NC_PROJ["Native-config projector\nper harness"]
-    TP_PROJ["Tool-policy projector\nper harness"]
+    TP_PROJ["Permission-policy compiler\nplatform decision + harness mechanism"]
 
     MERGE["merge_projections()"]
     LAUNCH["Harness launch invocation\nargs + env + temp files"]
 
     BUNDLE --> NC --> NC_PROJ
     BUNDLE --> TP --> TP_PROJ
+    BUNDLE --> PN --> TP_PROJ
     NC_PROJ --> MERGE
     TP_PROJ --> MERGE
     MERGE --> LAUNCH
@@ -227,6 +263,12 @@ graph TD
 Results are merged: args concatenated, env vars deep-merged (native-config first,
 tool-policy second for overlapping env vars), temp files tracked for cleanup,
 warnings surfaced to user.
+
+The permission compiler owns mechanism choices, not tool spelling. Mars is the sole
+owner of the capability-to-native mapping: profile rules arrive already projected in
+`tools.rules[].native`, and platform rules obtain their native names from
+`tools.capability_natives`. Meridian must not derive either list from the canonical
+capability or reverse-map native names back to capabilities.
 
 **Per-harness native-config projection:**
 
@@ -237,14 +279,10 @@ warnings surfaced to user.
 | OpenCode | Deep-merged into `OPENCODE_CONFIG_CONTENT` env var |
 | Cursor | `mcp` key → `.cursor/mcp.json`; unknown keys warn |
 
-**Per-harness tool-policy projection:**
-
-| Harness | Strategy |
-|---------|----------|
-| Claude | `--allowedTools` + `--disallowedTools` (both emitted when non-empty) |
-| Codex | Warning emitted; tool-level allow/deny not projected |
-| OpenCode | Permission JSON via `OPENCODE_CONFIG_CONTENT` overlay |
-| Cursor | Warning emitted; MCP tools via `.cursor/mcp.json` |
+Per-harness permission mechanisms belong to the Meridian launch system, not this
+cross-repo boundary. They may use flags, settings, environment config, or an extension,
+but all consume the native names Mars supplied and report any mechanism gap rather than
+creating another spelling table.
 
 ---
 
@@ -265,12 +303,11 @@ Model context never contains raw harness config.
 
 ## Compatibility
 
-Schema v3 is the required schema. Meridian supports exactly `(3,)`; schema v4
-`launch_actions` compatibility was removed because Meridian never consumed that
-experimental shape and mars-agents reverted it before the pinned 0.8.1 release.
-Bundles from older mars versions are rejected at parse time.
-
-`native_config` remains optional and additive — bundles without it remain valid within v3.
+Schema v4 is the required schema; bundles with older schema versions are rejected at
+parse time. The bundle version changes for incompatible contract changes. Additive
+fields remain in v4, so `tools.rules` and `tools.capability_natives` did not bump the
+schema. Meridian's mars-agents version pin, rather than a new schema number, establishes
+when a required additive field is available.
 
 Meridian validates the version field at consumption time:
 

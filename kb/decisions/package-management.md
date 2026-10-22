@@ -284,10 +284,19 @@ Mars fields. The matching block is carried in launch-bundle
 ### D83: Portable tool policy preserved through the full pipeline (mixed allow/deny)
 
 **Decision:** `tools` (map format with allow/deny entries) and `disallowed-tools` are
-portable Meridian semantics. Mars resolves them into the bundle's `tools` field
-(`{allowed: [...], disallowed: [...], mcp: [...]}`). Both `allowed` and `disallowed` are
-preserved simultaneously — neither side is dropped. Meridian projects both sides per
-harness.
+portable Meridian semantics. Mars resolves them into `tools.rules[]`, one typed entry per
+statement: the canonical `capability` carries meaning, while `native` carries the resolved
+harness spelling for emission. Meridian reads those two fields in those directions and
+keeps no second capability-to-native name table. The derived `allowed`, `disallowed`, and
+`mcp` lists remain temporarily for older consumers, but cannot express `ask`, `*`, or the
+capability that produced a name.
+
+Mars also emits profile-independent `tools.capability_natives` entries for the `agent` and
+`task` capabilities in every bundle. Meridian still owns the decision to impose its
+platform rules; it gets the target harness names for those rules from this map. Both fields
+share Mars's one native table and status projection, including older-build names such as
+Claude's `TaskOutput`. This extension is implemented on unmerged mars-agents PR #179 at
+commit `1f3c173`.
 
 **The c859 bug:** Prior projection only emitted `--allowedTools` with wildcard deny. Fix: emit each side whenever non-empty, independently.
 
