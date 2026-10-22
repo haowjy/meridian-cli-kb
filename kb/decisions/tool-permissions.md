@@ -33,7 +33,7 @@ graph LR
 
 ## The problem
 
-Before this work Meridian mostly did not enforce profile tool rules, and nothing
+Before these decisions Meridian mostly did not enforce profile tool rules, and nothing
 showed that it didn't:
 
 - **Wrong names.** Meridian translated capability names to harness tool names
@@ -54,7 +54,7 @@ commands under `approval: never`, could run any shell command on Claude and Pi.
 
 ## D-permission-mars-names: Mars owns every harness tool name {#d-permission-mars-names}
 
-**Decided:** Mars emits typed rules in the launch bundle, `tools.rules[]`, each
+**Decided (owner direction, lead design):** Mars emits typed rules in the launch bundle, `tools.rules[]`, each
 with `capability` and `pattern` (meaning), `action` (`allow`/`deny`/`ask`), and
 two harness facts: `native`, the permission-rule spelling, and `native_tools`,
 the harness tools the rule concerns. Meridian reads `capability` only for
@@ -111,16 +111,19 @@ connection's permission merge.
 - *A Meridian hook that mediates every call.* It would let Meridian force its
   own refusal text everywhere, at the cost of a second enforcement layer per
   harness that can disagree with the native one.
-- *Writing Codex trust files* to get scoped rules on Codex (owner D6).
+- *Writing Codex trust files* so a Meridian checker could run on Codex (owner).
 - *Hosting Pi's checks in the `managed-bash` extension.* It saves 25–40 lines
   but ties permission enforcement to `disable_managed_bash`. The owner accepted
   the Pi extension reluctantly: drop it if it stops being worth its code.
-- *A `bwrap` process sandbox for OpenCode and Pi* (owner D7): a possible opt-in
+- *Approximating a missing sandbox with tool denies,* such as a fake read-only
+  Pi from `edit`/`write` denies (owner). `sandbox` and `tools` mean different
+  things; where a harness has no sandbox, the report says so.
+- *A `bwrap` process sandbox for OpenCode and Pi* (owner): a possible opt-in
   later, not part of this.
 
 ## D-permission-report-only-gaps: one compile, one report read from what was emitted {#d-permission-report-only-gaps}
 
-**Decided (owner D2):** where a harness cannot express part of a profile, the gap
+**Decided (owner):** where a harness cannot express part of a profile, the gap
 is reported, not warned about and not refused. Each harness compile returns its
 native projection and an `EnforcementReport` together: one line per policy
 element, with status `native`, `partial`, `unsupported` or `platform`. The report
@@ -139,27 +142,31 @@ standing facts about a harness, shown where a user checks a profile.
 
 ## D-permission-primaries-bound: the profile limits the model on every harness {#d-permission-primaries-bound}
 
-**Decided (owner D1, D4):** profile rules bind interactive primaries as well as
+**Decided (owner):** profile rules bind interactive primaries as well as
 spawns. The profile limits the model, not the human: a human may widen their
 own primary, for example by switching OpenCode to `build` with Shift+Tab or
 choosing "always allow". That is documented, not blocked. On Claude, allows in
 the user's own settings files and passthrough permission flags are likewise
 reported rather than stripped, because command-line flags outrank the profile.
 
-This supersedes the open question recorded under
-[OpenCode prompt delivery](opencode-prompt-delivery.md#deliberately-out-of-scope)
-about whether Meridian's config agent should carry permission rules.
+The cost is the one the owner accepted: a profile now changes what a user can
+do in their own TUI. On OpenCode the rules ride the same config agent that
+delivers the prompt, so a primary and a spawn of one profile get one rule set.
 
 ## D-permission-headless-ask: `ask` in a spawn is refused at once {#d-permission-headless-ask}
 
-**Decided (owner D5):** a spawn has no human to answer, so a supported `ask` is
+**Decided (owner):** a spawn has no human to answer, so a supported `ask` is
 refused immediately with a reason the model can read, recorded in the spawn's
 `permission_requests.jsonl`, and listed by `meridian spawn show`
-(`denied_requests` in `--json`). It is never routed to the parent agent. A
-primary keeps `ask`. Claude spawns disable permission prompts; Pi's extension
+(`denied_requests` in `--json`). The owner chose "refuse and log it"; never
+routing the request to the parent agent was part of the recommendation the
+owner accepted. A primary keeps `ask`. Claude spawns disable permission prompts; Pi's extension
 blocks with Meridian's reason. Approval requests a harness raises from its own
 approval mode are refused and journaled the same way, which needed the Codex
 reply `decline` and the OpenCode V2 reply key `decision`.
+
+> [!FLAG] **Needs human review.** The lead accepted the OpenCode divergence
+> below without an owner ruling; the owner was told and has not answered.
 
 **Accepted divergence (OpenCode):** the owner mechanism lowers `ask` to native
 `deny` in OpenCode spawns. So the model sees OpenCode's own refusal text, not
@@ -213,8 +220,8 @@ after the profile's rules:
 - **Sub-agent deny.** Native sub-agent tools are denied on every launch unless
   the project's Mars config makes native agent copies the delegation mechanism
   for that harness. No profile rule opts out, scoped allows included, because
-  Meridian cannot track work started that way. Built-in agents follow
-  `allow_builtin_agents`, which Claude now honors (three code paths ignored it).
+  Meridian cannot track work started that way. Built-in agents are denied
+  unless `[harness.<id>] allow_builtin_agents = true`.
 - **Task-list deny on spawns,** unless the profile has an explicit unscoped
   `task: allow` or `task: ask`; `*: allow` does not count.
 - **Completion commands on every spawn.** `meridian spawn done` and
@@ -224,12 +231,12 @@ after the profile's rules:
 
 ## D-codex-sandbox-inference-deleted: an unset sandbox is the harness default {#d-codex-sandbox-inference-deleted}
 
-**Decided (owner D8):** Meridian no longer guesses a Codex sandbox from the tool
+**Decided (owner):** Meridian no longer guesses a Codex sandbox from the tool
 list. A profile with `tools` and no `sandbox` previously ran `read-only` on
 Codex (or `danger-full-access` for some rule shapes) and got `--sandbox enabled`
 on Cursor; now each harness uses its own default. The upgrade note tells users
-to set `sandbox` explicitly. `approval: default` stays harness-specific (owner
-D9); `--dry-run` shows what it resolves to.
+to set `sandbox` explicitly. `approval: default` stays harness-specific
+(owner); `--dry-run` shows what it resolves to.
 
 ## Open questions
 
@@ -247,15 +254,16 @@ tracked in meridian-cli `src/meridian/lib/harness/.context/TODO`.
 - **Codex completion under a read-only sandbox.** Codex's default sandbox blocks
   `meridian spawn done`, because Meridian's state lock lives outside it. The
   child still closes when its completion window accepts on silence, but cannot
-  reject a premature completion. Predates this work.
+  reject a premature completion. This predates the permission policy.
 
 ## Provenance
 
-`work:session-permissions`: `design/owner-decisions.md` (owner rulings D1–D11),
+`work:session-permissions`: `design/owner-decisions.md` (owner rulings),
 `design/implementation-decisions.md` (lead decisions and review dispositions),
 `DIVERGENCE/opencode-d5.md`, `pr-body-permissions.md`. Probes:
 `spawn:p8820` (Claude `dontAsk`), `spawn:p8881` and `spawn:p8891` (live
 matrices on Claude, OpenCode V1/V2, Pi, Codex). Reviews: `spawn:p8867`,
 `spawn:p8872`, `spawn:p8879`, `spawn:p8880`, `spawn:p8884` (Claude modes),
 `spawn:p8886`, `spawn:p8890`, `spawn:p8892`. Mars review: `spawn:p8855`,
-`spawn:p8864`.
+`spawn:p8864`. Owner rulings are in `chat:c8514`; it has no owner turn after the
+rulings, so the open questions above and the OpenCode divergence are unanswered there.

@@ -275,7 +275,7 @@ graph TD
     NC_PROJ["Native-config projector\nper harness"]
     TP_PROJ["Permission-policy compiler\nplatform decision + harness mechanism"]
 
-    MERGE["merge_projections()"]
+    MERGE["Harness projection\nargv + env"]
     LAUNCH["Harness launch invocation\nargs + env + temp files"]
 
     BUNDLE --> NC --> NC_PROJ
@@ -287,8 +287,9 @@ graph TD
 ```
 
 Results are merged: args concatenated, env vars deep-merged (native-config first,
-tool-policy second for overlapping env vars), temp files tracked for cleanup,
-warnings surfaced to user.
+tool-policy second for overlapping env vars), temp files tracked for cleanup.
+Native-config warnings reach the user; permission gaps go to the enforcement report
+shown by `--dry-run`, never to launch warnings.
 
 The permission compiler owns mechanism choices, not tool spelling. Mars is the sole
 owner of the capability-to-native mapping: profile rules arrive already projected in

@@ -3,6 +3,25 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-22 — Profile tool permissions captured (unmerged branches)
+
+meridian-cli branch `feat/session-permissions` and mars-agents PR #179 make profile
+`tools`/`sandbox`/`approval` harness-enforced. New
+[decisions/tool-permissions.md](decisions/tool-permissions.md) (eight decisions,
+rejected alternatives, open owner questions). Updated: the `tools` contract in
+[architecture/mars-launch-bundle.md](architecture/mars-launch-bundle.md)
+(`native_tools`, `note`, rules-only reader); the bind section of
+[architecture/launch-system.md](architecture/launch-system.md) (replaces the Claude
+agent-permission injection section); Pi and Claude agent routing in
+[codebase/harness-adapters.md](codebase/harness-adapters.md); permission terms in
+[codebase/vocabulary.md](codebase/vocabulary.md) (`PermissionConfig` entry replaced);
+the OpenCode permission open question removed from
+[decisions/opencode-prompt-delivery.md](decisions/opencode-prompt-delivery.md);
+stale symbol and status lines in `principles/invariants.md`, `concepts/native-config.md`,
+`concepts/harness-abstraction.md`, `architecture/pi-lifecycle.md`, D83 in
+`decisions/package-management.md`, and `open-questions/mars-feature-gaps.md`. Owner corrections
+from `chat:c8514` added to [corrections.md](corrections.md).
+
 ## 2026-10-21 — Claude spawn watch captured (unmerged branch)
 
 meridian-cli branch `feat/claude-spawn-watch` adds a Claude mod that delivers a

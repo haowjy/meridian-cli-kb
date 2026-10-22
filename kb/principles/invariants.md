@@ -10,7 +10,7 @@ This page is the canonical statement of the launch composition invariants (I-1 t
 
 **I-1 — Single composition seam.** The prepare/bind pipeline in `launch/context.py` — `prepare_launch_surface()` then `bind_launch_context()` — is the sole place where `SpawnRequest + LaunchRuntime → LaunchContext`. No driving adapter constructs argv, env, permissions, or prompt assembly independently. There is no one-call production wrapper; `build_launch_context()` survives only as a test facade.
 
-**I-2 — No bypass.** Driving adapters (primary CLI path, spawn subprocess path, CLI streaming-serve path) enter through the prepare/bind seam or its spawn wrappers (`compose_spawn_launch_surface()`, `bind_spawn_launch_context()`, `SpawnApplicationService.prepare_spawn()`). They may not call the composition pipeline stages (`resolve_policies`, `resolve_permission_pipeline`, `compose_run_prompt_text`, etc.) directly.
+**I-2 — No bypass.** Driving adapters (primary CLI path, spawn subprocess path, CLI streaming-serve path) enter through the prepare/bind seam or its spawn wrappers (`compose_spawn_launch_surface()`, `bind_spawn_launch_context()`, `SpawnApplicationService.prepare_spawn()`). They may not call the composition pipeline stages (`resolve_policies`, the permission-policy build, `compose_run_prompt_text`, etc.) directly.
 
 **I-3 — DTO discipline.** `SpawnRequest` and `LaunchRuntime` are frozen Pydantic with JSON-safe field types. `LaunchContext` is a frozen dataclass. No `arbitrary_types_allowed`, no `Path` on `SpawnRequest`, no pre-composed intermediate DTOs that cache derived state. DTOs carry inputs; the factory produces outputs.
 

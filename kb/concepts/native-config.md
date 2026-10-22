@@ -37,7 +37,7 @@ Harness passthrough and portable policy are independent concerns:
 
 | Concern | Schema location | Mars role | Meridian role | Portable? |
 |---------|----------------|-----------|---------------|-----------|
-| Tool policy | top-level `tools`, `disallowed-tools`, `mcp-tools` | Parse, validate, resolve into bundle `tools` field | Project per harness to CLI flags / config | Yes |
+| Tool policy | top-level `tools`, `disallowed-tools` (MCP as `mcp(...)` rules inside them) | Parse, validate, resolve into typed `tools.rules` with each harness's native names | Compile per harness into flags, settings, config agent or extension, and report gaps ([tool permissions](../decisions/tool-permissions.md)) | Yes |
 | Execution policy | top-level `effort`, `approval`, `sandbox`, `autocompact*` | Parse, validate, resolve into bundle `execution_policy` fields | Project per harness at launch time | Yes |
 | Harness passthrough | `harness-overrides.<harness>` | Validate outer mapping and serializability only | Interpret/project per resolved harness | No |
 

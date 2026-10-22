@@ -229,13 +229,15 @@ Claude Code's `Agent` tool is gated by Mars `[settings.meridian.agent_copy]`. Wh
 `harnesses = ["claude"]` and `.claude` is in targets, generic `Agent` is allowed
 (the native agent surface is Meridian-owned). Without agent copy, `Agent` is denied
 and delegation routes through `meridian spawn`. Built-in subagents (`Explore`,
-`Plan`, `General-purpose`/`general-purpose`) are always denied unconditionally.
+`Plan`, `General-purpose`/`general-purpose`) are denied unless
+`[harness.claude] allow_builtin_agents = true`.
 
-Detection runs in `bind_launch_context()` via `project_has_claude_agent_copy()` (reads
-`mars.toml` and `mars.local.toml`). The result flows through
-`ResolvedLaunchSpec.claude_native_agents_enabled` to `project_claude.py`, which strips
-`Agent` and `Agent(...)` from all allowed-tool sources when disabled. Parent-inherited
-allowed-tool tails cannot re-add denied agents — the projection layer filters them.
+On `feat/session-permissions` (unmerged) both denies are platform rules:
+`bind_launch_context()` asks `catalog/agent_copy.py:agent_copy_enabled()` (reads
+`mars.toml` and `mars.local.toml`), `launch_permission_rules()` adds the sub-agent deny
+with the names from the bundle's `tools.capability_natives`, and the Claude permission
+compile emits it. No profile rule opts out of the sub-agent deny
+([D-permission-platform-rules](../decisions/tool-permissions.md#d-permission-platform-rules)).
 
 Delegation guidance is rendered by Mars into the `prompt_surface.inventory_prompt` bundle
 field alongside the `# Meridian Agents` block. Meridian embeds the Mars-rendered string
@@ -246,7 +248,7 @@ See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#clau
 ## Pi-Specific Notes
 
 **Dual launch path.** Pi is the only harness with fully separate launch configurations per role:
-- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`; Meridian's managed extensions (managed-bash, spawn-watch, session-boundary, and primary-only meridian-idle) loaded with `-e`, passthrough `-e`/`--no-extensions` refused
+- **Primary:** native Pi TUI (`pi [--model ...] [--session/--fork ...]`), no `--mode rpc`; Meridian's managed extensions (managed-bash, spawn-watch, session-boundary, primary-only meridian-idle, and meridian-permissions when the permission compile needs it) loaded with `-e`, passthrough `-e`/`--no-extensions` refused
 - **Spawned:** Pi RPC (`pi --mode rpc ... --no-extensions -e <managed extensions>`), prompt written to stdin, JSONL events drained from stdout; meridian-idle is excluded
 
 The split is enforced at projection time: `project_pi_native_tui.py` for primary, `project_pi_rpc.py` for spawned.

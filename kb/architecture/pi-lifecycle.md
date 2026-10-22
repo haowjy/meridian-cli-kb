@@ -24,11 +24,14 @@ transitive spawn tree for persisted descendants.
 ## Extension Architecture
 
 Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships
-four managed extensions as package data under
+five managed extensions as package data under
 `src/meridian/pi_runtime/extensions/`. `session-boundary` records exit identity
 and is covered in [Pi native sessions](pi-native-sessions.md); `meridian-idle`
 translates primary-TUI events into the shared idle policy and is covered in
-[Idle Notifications](../decisions/idle-notifications.md). This page covers the
+[Idle Notifications](../decisions/idle-notifications.md); `meridian-permissions`
+(on unmerged branch `feat/session-permissions`) enforces scoped tool rules,
+allowlists and `ask` and loads only when the permission compile needs it
+([tool permissions](../decisions/tool-permissions.md)). This page covers the
 two lifecycle extensions; their cross-layer ownership and delivery contracts
 are in [Pi Runtime Coordination](pi-runtime/coordination.md).
 

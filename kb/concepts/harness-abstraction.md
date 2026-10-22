@@ -115,7 +115,8 @@ assuming one-file registration.
 
 ## Claude Native Agent Routing
 
-Claude's bundled agents are denied by default. When Mars materializes
+Claude's bundled agents are denied by default; `[harness.claude]
+allow_builtin_agents = true` keeps them. When Mars materializes
 Meridian-owned agent copies into Claude's native surface, launch policy may
 allow the generic native agent tool according to the recorded ownership
 contract. Inventory text still comes from Mars; the adapter does not invent an
