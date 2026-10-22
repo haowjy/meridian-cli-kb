@@ -6,8 +6,8 @@ written down. No field is dropped silently, and no field crashes a launch. This
 page records that rule and the decisions it forced for `harness-overrides`
 passthrough, compaction thresholds and MCP names.
 
-**Status:** owner rulings of 2026-10-22 (`work:session-permissions`), on the
-same branches as [Profile tool permissions](tool-permissions.md).
+**Status:** owner rulings of 2026-10-22 (`work:session-permissions`), made
+alongside [Profile tool permissions](tool-permissions.md).
 
 **Where the mechanism lives.** The unread list and its reasons: the module
 docstring of meridian-cli `src/meridian/lib/launch/bundle_adapter.py`. Codex
