@@ -117,8 +117,8 @@ leaves the lead where it was without one, needing an explicit wait.
 [D-claude-spawn-watch](#d-claude-spawn-watch) made `observed-spawns.json` the
 consumption record for every harness, but the file stayed at
 `<runtime>/pi-bash/<parent>/`, a directory owned by Pi's background-bash
-extension. The path claimed a Pi ownership the file no longer had, and the Rust
-rewrite would inherit that. Moving it is a state-compatibility change: new
+extension. The path claimed a Pi ownership the file no longer had, and any
+later implementation reading the state would inherit that misplacement. Moving it is a state-compatibility change: new
 builds must read state older builds wrote, and an older `spawn wait` or Pi
 session can keep running across an upgrade.
 
@@ -129,7 +129,8 @@ session can keep running across an upgrade.
 - **Written under the parent's published-spawn lock, which never recreates the
   directory.** Pruning and archiving delete spawn directories; a plain atomic
   write would bring them back. When the parent's `state.json` is missing or
-  quarantined, nothing is recorded: `spawn ack` reports an error, and
+  quarantined (unreadable and set aside by the spawn repository), nothing is
+  recorded: `spawn ack` reports an error, and
   `spawn wait` proceeds without a record. No reader selects children of such a
   parent, so nothing is redelivered.
 - **One-release transition: read both, mirror for Pi.** Every reader (Python

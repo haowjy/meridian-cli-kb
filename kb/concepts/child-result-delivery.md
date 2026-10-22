@@ -82,8 +82,9 @@ at every idle.
 
 Writes take the primary's published-spawn lock, the per-spawn lock every
 writer of a file in `spawns/<id>/` takes. That lock refuses a spawn whose
-`state.json` is missing or quarantined, so a write never recreates a directory
-that pruning or archiving deleted. When it refuses, nothing is recorded:
+`state.json` is missing or quarantined (unreadable and set aside by the spawn
+repository), so a write never recreates a directory that pruning or archiving
+deleted. When it refuses, nothing is recorded:
 `spawn ack` exits with an error, and `spawn wait` still waits and returns its
 results without a lease or observation. No reader looks for children of such a
 primary, so nothing is delivered twice.
@@ -105,7 +106,9 @@ the move ships, both locations count:
 - **Every reader unions both files**: Python ops, Pi's disk watcher, and Pi's
   TypeScript extension. A child is consumed if either file lists it, and leased
   if either holds a live lease on it. A `spawn wait` started by an older build
-  may still be writing the old file. A damaged old file counts as empty.
+  may still be writing the old file. A damaged old file counts as empty: it is
+only a compatibility copy, and a later mirror write may replace it. A damaged
+new file keeps the handling every current file gets.
 - **Writers mirror to the old file when `pi-bash/<primary>/` exists.** A Pi
   session started before an upgrade reads only the old file. Claude primaries
   never have that directory, and the mirror never creates it.
