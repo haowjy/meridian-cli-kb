@@ -101,7 +101,7 @@ Omitted from JSON when null (`skip_serializing_if = "Option::is_none"`).
 
 ## Meridian Projection
 
-Meridian applies the block on Codex only. Every other harness reports the whole block
+Meridian applies the block on Codex only. Every other harness reports each key
 `[unsupported] native_config: ... -> not applied for <Harness>` in `--dry-run`.
 
 **Codex:** nested mappings flatten to dotted keys and values become TOML literals, emitted

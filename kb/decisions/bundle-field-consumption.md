@@ -38,16 +38,17 @@ blocks; the flat `tools.allowed`/`disallowed`/`mcp` lists, because
 `tools.rules` replaces them. Meridian does read
 `prompt_surface.inventory_prompt`.
 
-**Why:** two fields had been dropped without any signal. `harness-overrides`
-reached Meridian as `execution_policy.native_config` and was never applied, so
-a profile's passthrough did nothing on any harness. `autocompact` was written
-into the wrong Claude variable. A profile author had no way to tell either from
-a working field.
+**Why:** to a profile author, a field Meridian drops looks exactly like one that
+works. Two did: `harness-overrides` reached Meridian as
+`execution_policy.native_config` and was never applied on any harness, and
+`autocompact` went into the wrong Claude variable. The three classes make a
+dropped field visible in `--dry-run` instead.
 
 ## D-native-config-codex-only: `harness-overrides` applies on Codex {#d-native-config-codex-only}
 
-**Decided (owner):** `execution_policy.native_config` (Mars's selected
-`harness-overrides.<harness>` block) is applied on Codex as repeated `-c
+**Decided (owner):** `execution_policy.native_config` (the
+`harness-overrides.<harness>` block Mars selects for the resolved launch
+harness) is applied on Codex as repeated `-c
 key=value` overrides on both the subprocess and app-server launch paths. Nested
 mappings flatten to dotted keys and values are written as TOML literals; dotted
 keys under one table combine. On every other harness the whole block is
@@ -60,10 +61,11 @@ What Codex skips, each with its own report line:
   `features.*` and `agents.*` tables). The block may add siblings to these but
   never replaces them; otherwise a passthrough could undo the profile's
   sandbox or tool switches.
-- **Keys `-c` cannot address:** a segment with a dot, `=`, quote, whitespace or
-  control character.
-- **Values TOML cannot hold:** integers outside int64, unencodable values, and
-  empty mappings.
+- **Keys `-c` cannot address:** any component of the dotted key path that
+  contains a dot, `=`, quote, whitespace or control character.
+- **Values outside what Codex `-c` takes:** Meridian encodes booleans, int64
+  integers, floats, strings, arrays and mappings; anything else (such as null),
+  integers outside int64, and empty mappings are reported.
 
 **Trust model:** a block applies as written and can change any Codex setting
 that is not reserved, including model providers and MCP server commands. A
@@ -75,7 +77,7 @@ enables network under `workspace-write`.
 
 **Rejected:** a first-class `network` profile field. Only Codex and Claude's
 sandbox have a network knob and they are spelled differently; passthrough
-covers the need. The owner asked for no follow-up entry.
+covers the need.
 
 ## D-compaction-projected: thresholds reach each harness's own knob {#d-compaction-projected}
 
@@ -112,8 +114,9 @@ other capability.
 **Not built:** per-launch MCP server injection (for example on OpenCode). It
 needs a new Mars bundle field that carries real server definitions.
 
-**Mars side:** the `codex_rules` bundle field, always null and never defined, is
-deleted.
+**Mars side:** the `codex_rules` bundle field is deleted. Mars always emitted it
+as null and no consumer read it; Meridian ignores unknown bundle fields, so an
+older bundle that still carries it parses.
 
 ## Provenance
 

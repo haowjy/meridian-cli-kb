@@ -141,7 +141,7 @@ A separate report function per harness would drift from what launches.
 **Rejected:** a launch warning, and an `on_gap = "refuse"` setting. Gaps are
 standing facts about a harness, shown where a user checks a profile.
 
-The same report carries the launch-bundle fields a harness does not apply, such
+The same `EnforcementReport` carries the launch-bundle fields a harness does not apply, such
 as `harness-overrides` passthrough and compaction thresholds
 ([bundle field consumption](bundle-field-consumption.md)).
 
@@ -220,11 +220,11 @@ the restriction.
 ## D-permission-list-form-deprecated: `tools: [a, b]` only grants {#d-permission-list-form-deprecated}
 
 **Decided (owner, 2026-10-22):** the list form `tools: [read, grep]` is
-deprecated for agents and skills. Mars still accepts it, grants the listed
-tools (its 0.16.0 behavior), restricts nothing, and raises a deprecation
+deprecated for agents and skills. Mars still accepts it, turns each entry into
+an `allow` rule (its 0.16.0 behavior), adds no deny, and raises a deprecation
 warning. "Only these tools" is written as a map with `'*': deny` plus allows.
-The `mars.toml` overlay `allowed` list replaces grants and makes no allowlist
-either.
+A project's `mars.toml` tool overlay `allowed` list likewise replaces the
+profile's `allow` rules and makes no allowlist.
 
 **Supersedes** the owner ruling of 2026-10-21 that a list means exactly those
 tools (Mars adding `*: deny`). That ruling's wire field, the rule `origin` Mars
@@ -237,7 +237,8 @@ unambiguous map form is the only way to say "only these".
 
 **Imports keep their meaning.** Mars lifts a foreign Claude agent file's tools
 list to the canonical map with `'*': deny`, so a ported agent stays restricted
-and raises no deprecation warning. A skill's `allowed-tools` lifts to grants.
+and raises no deprecation warning. A foreign skill's `allowed-tools` lifts to
+`allow` rules with no `'*': deny`.
 
 **Rejected:**
 
@@ -247,7 +248,7 @@ and raises no deprecation warning. A skill's `allowed-tools` lifts to grants.
 - *List = allowlist for agents only.* One field would have two meanings
   depending on the file it sits in.
 
-Meridian reads only typed rules, so this needed no Meridian code change; its
+Meridian reads only the typed `tools.rules`, so this needed no Meridian code change; its
 docs, changelog and upgrade note say `'*': deny`.
 
 ## D-permission-platform-rules: Meridian's own rules hold under any profile {#d-permission-platform-rules}

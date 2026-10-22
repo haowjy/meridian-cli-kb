@@ -299,8 +299,9 @@ graph TD
 
 Results are merged: args concatenated, env vars deep-merged (native-config first,
 tool-policy second for overlapping env vars), temp files tracked for cleanup.
-Native-config keys that are skipped or not applied, like permission gaps, go to the
-enforcement report shown by `--dry-run`, never to launch warnings.
+Native-config keys Codex skips because Meridian computes them, and blocks a harness
+cannot apply at all, go to the enforcement report shown by `--dry-run`, like permission
+gaps; neither becomes a launch warning.
 
 The permission compiler owns mechanism choices, not tool spelling. Mars is the sole
 owner of the capability-to-native mapping: profile rules arrive already projected in
