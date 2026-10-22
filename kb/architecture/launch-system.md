@@ -501,8 +501,9 @@ the spec; it decides no harness mechanism itself:
    `allow_builtin_agents` applies, and the completion-command allow on every spawn.
    Deny names come from the bundle's `tools.capability_natives`.
 3. `build_permission_policy()` (`safety/policy.py`) combines Mars's typed rules, the
-   platform denies (after the profile's rules), sandbox, approval and the roots a
-   native sandbox must leave writable, and writes each allowlist as an explicit deny.
+   platform denies (after the profile's rules), sandbox, approval and the workspace
+   roots (control root plus workspace roots) whose writes a read-only native sandbox
+   must block, and writes each allowlist as an explicit deny.
 
 Each harness's compile (`harness/projections/permissions_<harness>.py`) then turns the
 policy into native flags or config and an `EnforcementReport`. Spawn and primary use

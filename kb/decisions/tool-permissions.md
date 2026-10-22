@@ -47,7 +47,7 @@ showed that it didn't:
   server rejected Meridian's reply with HTTP 400. Codex could not parse
   Meridian's reply and the model saw `approval request failed`.
 
-So the shipped @session-miner profile, which allows only a few scoped `bash`
+So the @session-miner profile shipped in the meridian-base prompt package, which allows only a few scoped `bash`
 commands under `approval: never`, could run any shell command on Claude and Pi.
 
 ---
@@ -132,10 +132,11 @@ projection manifest. A shared completion step marks anything a compile did not
 place `unsupported`, so every element gets exactly one line. Mars's gap reasons
 travel as rule notes, never as launch warnings.
 
-**Why one compile:** reports built from the profile claimed more than the
-harness did. Review found the same mismatch several times on Claude until its
-report lines were built from the emitted channels. A separate report function
-per harness can drift from what launches.
+**Why one compile:** a report built from the profile claims what the profile
+asked for, not what the harness got; on Claude the two differ whenever a rule is
+moved to another channel or left out (a plain `Bash` deny dropped beside scoped
+allows, for one). So report lines are built from the emitted flags and settings.
+A separate report function per harness would drift from what launches.
 
 **Rejected:** a launch warning, and an `on_gap = "refuse"` setting. Gaps are
 standing facts about a harness, shown where a user checks a profile.
