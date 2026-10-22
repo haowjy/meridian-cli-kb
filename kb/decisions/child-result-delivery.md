@@ -63,8 +63,7 @@ results receives them as a turn, as if it had waited.
   ([host behaviour](../research/claude-code-mods-and-inbox.md)).
 - **A failed ack keeps its ids excluded until the mod reloads.** Releasing them
   would redeliver the same results at every idle while the ack keeps failing.
-  The cost is one duplicate after a restart. (This reversed the plan, which
-  released on failure.)
+  The cost is one duplicate after a restart.
 - **`session.start` starts an idle run; `/clear` does not.** A resumed session
   is idle with nothing to end, so it would otherwise wait for the user's first
   turn (found by the runtime probe, `spawn:p8840`). After `/clear`, results stay

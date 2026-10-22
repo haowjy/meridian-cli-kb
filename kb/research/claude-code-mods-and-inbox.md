@@ -56,6 +56,8 @@ Facts a mod that starts turns at idle depends on, from building and probing
 Meridian's `meridian-spawn-watch` mod on Claude Code 2.1.307 (live Haiku TUI
 sessions, the host's `claude-code.d.ts`, and `claude plugin test`). How
 Meridian uses them: [Child result delivery](../concepts/child-result-delivery.md).
+"Main loop" below means the session's own conversation, as opposed to a
+subagent's; its turn events carry no `agentId`.
 
 | Behaviour | Observed |
 |---|---|

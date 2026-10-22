@@ -221,7 +221,7 @@ shape. `lib/idle/wake.py` reduces the list to one `ExpectedWake`:
 A `spawn --bg` on a Claude or Pi primary with a spawn watcher will in fact wake
 the lead when the child finishes ([child result delivery](../concepts/child-result-delivery.md)),
 but core still reads it as *maybe*, so the push goes out early. The planned fix
-is for Claude's running collector to report the certain wake through the
+is for Claude's running `spawn collect` process to report the certain wake through the
 existing re-arm path, not a harness or config branch in idle core (#717).
 
 `wake.py` lexes the line the way the shell would before handing it to

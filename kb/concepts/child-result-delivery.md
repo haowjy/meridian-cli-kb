@@ -31,7 +31,7 @@ flowchart LR
 |---|---|---|
 | Interactive Claude primary | `meridian-spawn-watch` mod, unless `harness.claude.spawn_watch.enabled = false` | Explicit wait |
 | Pi primary or spawned Pi session | `meridian-spawn-watch` extension, unless `harness.pi.spawn_watch.enabled = false`; at idle and at tool boundaries | Explicit wait |
-| Spawned Claude (`claude -p`) | None (#722). Its completion hold already waits on descendants before the spawn finishes | Explicit wait |
+| Spawned Claude (`claude -p`) | None (#722). A spawned lead is not allowed to finish while its descendants run, so it cannot forget them the same way | Explicit wait |
 | Codex, OpenCode | None | Explicit wait |
 
 `meridian spawn wait` remains the barrier on every harness: it is how a lead
@@ -52,9 +52,8 @@ A child is **owed** to a lead while all of these hold:
   foreground spawn's result already went to the command that ran it;
 - no route has recorded it as consumed.
 
-Only direct children count. A child's own completion hold waits for its
-descendants, so a grandchild's result reaches the lead through its parent's
-report.
+Only direct children count. A child does not finish until its own descendants
+have, so a grandchild's result reaches the lead through its parent's report.
 
 Pi's extension applies the first and third conditions to the current primary
 only, and does not apply the second, so it also delivers foreground children
@@ -117,7 +116,9 @@ sequenceDiagram
 
 **`spawn collect`** discovers the owed children with one history-index query
 and subtracts consumed ids before reading any `state.json`. It then polls only
-the remaining children, once a second, with derived (lock-aware) status. If any
+the remaining children, once a second, reading derived status: a child that
+died without writing a terminal state shows as failed once its launch lock is
+free. If any
 owed child was already finished at the first look, it returns every finished
 one at once: those results are already late. Otherwise it waits until the whole
 owed set has finished, as `spawn wait` would. Leased ids are skipped while the
