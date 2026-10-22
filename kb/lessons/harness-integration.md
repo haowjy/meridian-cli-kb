@@ -389,6 +389,9 @@ on is a contract break for every running session, not only for new launches.
 The idle mods report failures quietly by design, so the break shows up as idle
 features that stop firing, with no error message. When such a change ships,
 its upgrade note needs to tell users to restart running interactive sessions.
+The hidden `spawn collect` and `spawn ack` commands that Claude's
+`meridian-spawn-watch` mod calls are the same kind of contract: their JSON
+shapes are a protocol with every running copy of the mod.
 
 **Where this lives:** `src/meridian/claude_runtime/meridian-idle/hooks/register.ts`
 (`note()`, the `arm` call), `src/meridian/pi_runtime/extensions/meridian-idle/`,
@@ -498,6 +501,33 @@ suppressing composed skills on Claude, Codex and OpenCode
 original failure on the current harness version and see it gone. An issue's
 closed state says nothing about the binary; read why it closed. Record the probe
 next to the deletion so the next person can rerun it.
+
+---
+
+## A Host Accepting a Message Is Not the Model Receiving It
+
+**The mechanism:** a harness API that takes a message for the session can
+return before the model has seen it. Claude Code's mod `$.prompt.submit` resolves when
+the turn starts, but also when the prompt is merely queued behind a running
+turn, and a queued prompt is lost if the user clears the queue (Esc) or Claude
+dies. Pi's `sendMessage()` return likewise says nothing about native admission.
+
+**Where it bit:** both spawn watchers have to mark a child's result consumed,
+and marking it on the send's return would lose results whenever the send
+didn't become a turn. Pi records exact native admission in
+`delivery-receipts.json` and Python's observation of the public event. Claude's
+mod puts a nonce line in the submitted text and acks only on the main-loop
+`turn.start` whose text contains it
+([child result delivery](../concepts/child-result-delivery.md)).
+
+**The lesson:** record consumption from evidence that the model's turn began
+with the text, never from the send call's return. Order it so that a crash
+between the two can only cause a duplicate, never a loss: claim in memory,
+send, observe the turn, then write the durable record.
+
+**Where this lives:** `src/meridian/claude_runtime/meridian-spawn-watch/hooks/register.ts`,
+`src/meridian/pi_runtime/extensions/meridian-spawn-watch/`. Host facts:
+[Claude Code mods and the inbox](../research/claude-code-mods-and-inbox.md#mod-hooks-for-idle-delivery-21307).
 
 ---
 

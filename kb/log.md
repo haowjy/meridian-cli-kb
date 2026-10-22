@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-21 — Claude spawn watch captured (unmerged branch)
+
+meridian-cli branch `feat/claude-spawn-watch` adds a Claude mod that delivers a
+lead's un-waited background results. New
+[concepts/child-result-delivery.md](concepts/child-result-delivery.md) (all three
+routes and the shared `observed-spawns.json` record) and
+[decisions/child-result-delivery.md](decisions/child-result-delivery.md)
+(D-claude-spawn-watch). 2.1.307 mod-hook facts added to
+[research/claude-code-mods-and-inbox.md](research/claude-code-mods-and-inbox.md);
+new lesson in [lessons/harness-integration.md](lessons/harness-integration.md);
+cross-links from the wait-barrier, idle-adapter and Pi coordination pages.
+
 ## 2026-10-21 — Session browse start-from merged (PR #716)
 
 meridian-cli PR #716 (merge `d09656f5c`) added `n` to start a new session `--from` a

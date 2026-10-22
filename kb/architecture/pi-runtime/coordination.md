@@ -219,7 +219,7 @@ are:
 | File | Authority |
 |---|---|
 | `bash-records.json` | Bash task facts, wait-consumption marker, and unresolved execution/storage evidence. |
-| `observed-spawns.json` | Durable explicit wait observations plus process-owned temporary wait leases. |
+| `observed-spawns.json` | Durable explicit wait observations plus process-owned temporary wait leases. Not Pi-private: `spawn wait` on every harness and Claude's `spawn ack` write it, and Claude's `spawn collect` reads it across a chat's primaries ([child result delivery](../../concepts/child-result-delivery.md)). Python's owner is `lib/state/spawn_observations.py`. |
 | `delivery-receipts.json` | Exact native message admission and work membership. |
 | `delivery-observations.json` | Exact matching public RPC events observed by Python. |
 | `delivery-fault.json` | Bounded diagnostics for scan, admission, and persistence failures, separate from task execution. |

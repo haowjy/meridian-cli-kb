@@ -218,6 +218,12 @@ shape. `lib/idle/wake.py` reduces the list to one `ExpectedWake`:
 | any other `shell` (including `spawn --bg`, `spawn list`, loops, `spawn wait … && more`) or `other` | maybe | the push waits at least `quick_turn_push_seconds` |
 | `watcher` | ignored | none |
 
+A `spawn --bg` on a Claude or Pi primary with a spawn watcher will in fact wake
+the lead when the child finishes ([child result delivery](../concepts/child-result-delivery.md)),
+but core still reads it as *maybe*, so the push goes out early. The planned fix
+is for Claude's running collector to report the certain wake through the
+existing re-arm path, not a harness or config branch in idle core (#717).
+
 `wake.py` lexes the line the way the shell would before handing it to
 `shlex`. Newlines, `;`, `&&`, `||`, `|`, `&` and parentheses end a segment.
 Redirections stay with their command. `#` comments are blanked, and a

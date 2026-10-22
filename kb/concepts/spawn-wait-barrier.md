@@ -239,6 +239,12 @@ This waits for all pending spawns for this chat.
 The no-arg form collects all background spawns in the current chat tree — no
 per-spawn ID tracking required.
 
+A lead that ignores the obligation and goes idle is not stuck on every harness:
+interactive Claude primaries and Pi sessions get owed results delivered as a new turn. Each wait
+records what it returned as consumed in `observed-spawns.json`, so those
+watchers don't deliver it a second time. See
+[Child result delivery](child-result-delivery.md).
+
 ---
 
 ## Behavioral Notes
@@ -279,6 +285,7 @@ error.
 - [Spawn Lifecycle](spawn-lifecycle.md) — status machine, reaper, and
   projection authority
 - [State Model](state-model.md) — JSONL event stores and crash-only design
+- [Child Result Delivery](child-result-delivery.md) — how results reach a lead that didn't wait, and the consumption record waits write
 - `../operations/configuration-guide.md` — TOML config and env var reference
 - [Spawn Output Contract](spawn-output-contract.md) — what `spawn wait` prints when a single spawn completes; report-first default, transcript pointer, progressive disclosure
 - [Per-operation cost](../architecture/per-operation-cost.md) — discovery's

@@ -15,7 +15,9 @@ tmux server. Provenance: `work:claude-mod-inject` (`probe-mod-inject.md`
 Later-version findings in the table are explicitly versioned and cover only
 `$.ui.status` behavior probed for the rejected status-row design in
 [#706](https://github.com/haowjy/meridian-cli/pull/706). They describe the host
-API, not a Meridian feature; the other observations remain scoped to 2.1.302.
+API, not a Meridian feature. [Mod hooks for idle delivery](#mod-hooks-for-idle-delivery-21307)
+was checked on 2.1.307 for the Claude spawn watcher (`work:claude-spawn-watch`).
+The other observations remain scoped to 2.1.302.
 
 **The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
 input, and a mod's `$.prompt.submit` waits until the current turn ends. The inbox
@@ -38,13 +40,37 @@ and [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold
 | `$.prompt.submit` during a turn | Accepted at once, but the submitted turn starts only after the current turn, including a long tool call, finishes. |
 | `$.prompt.submit` in a TUI while idle | First assistant text about 1.7 s after the send. The user's unsent composer text is kept. The transcript row is `type:"user"` with `origin.kind:"plugin"` and wrapped "…plugin sent a message" text. |
 | Mod-started turns in `-p` stdout | No standalone user frame for the submitted text. The `result` carries `origin.kind:"plugin"`; the last `type:"result"` frame is the reliable final report. |
-| `session.start` | Fires once per process, before the first prompt. Not on `/clear` or `/compact`. A resume is a new process, so it fires again. A listener started there with `$.process.spawn` dies with the TUI. Contrast the classic `SessionStart` command hook, which does fire on `/clear`. |
+| `session.start` | Fires once per process, before the first prompt. Not on `/clear` or `/compact`. A resume is a new process, so it fires again. A listener started there with `$.process.spawn` dies with the TUI. Contrast the classic `SessionStart` command hook, which does fire on `/clear`. Also fires for every later fresh load of one plugin (see [Mod hooks for idle delivery](#mod-hooks-for-idle-delivery-21307)). |
 | A mod that fails to load | Silent: a syntax error still gives exit 0, empty stderr and a normal answer. Detect loading with a ready marker written from `session.start`. |
 | Loading | `--plugin-dir` and `CLAUDE_CODE_PLUGIN_DIRS` both load a mod. |
 | Mod tools (`$.tool.register`) | The model calls `mcp__<plugin>__<tool>` with no permission prompt, in bypass and default modes. |
 | Ending the session from a mod | No API. `$.turn.abort` exists; nothing exits the process, so an outside watcher has to kill it. |
 | `$.ui.status` | Creates a persistent plugin row beside a user's own status line; both stay visible, and the host supplies the plugin-name prefix. On Claude Code 2.1.303, `$.ui.status(undefined)` removed the row while `$.ui.status("")` left a named blank row; 2.1.306 confirmed removal with `undefined`. These checks were part of rejected PR #706, not current Meridian behavior. |
 | `$.session.send` from a second process to a TUI session | Delivered (`isDelivered:true`), and the TUI answered. |
+
+---
+
+## Mod hooks for idle delivery (2.1.307)
+
+Facts a mod that starts turns at idle depends on, from building and probing
+Meridian's `meridian-spawn-watch` mod on Claude Code 2.1.307 (live Haiku TUI
+sessions, the host's `claude-code.d.ts`, and `claude plugin test`). How
+Meridian uses them: [Child result delivery](../concepts/child-result-delivery.md).
+
+| Behaviour | Observed |
+|---|---|
+| `$.prompt.submit` resolution | Resolves when the turn starts, when the prompt is queued behind a running turn, or with `{ drop }`. A resolved submit therefore does not prove a turn ran: a queued prompt can still be lost when the queue is cleared (Esc, crash). To act once the model has the text, put a nonce in it and wait for the main-loop `turn.start` whose text contains the nonce. |
+| Submitted text in `turn.start` | The host wraps it ("The meridian-spawn-watch plugin sent a message:" … an explanatory footer); `turn.start` carries the whole wrapped text, so a substring match on the nonce works. |
+| `session.start` per load | Fires for each loaded plugin before the first prompt, and is awaited; then once per fresh load of one plugin (enable, worker respawn, reload), running that plugin's hooks alone. Every copy of a module receives it before its other hooks, so a "loaded without `session.start`" fallback guards a state the host never produces. |
+| `/clear` | Fires `session.end` and no `session.start`. |
+| Typing in the prompt box | Typing, pasting and deletion (including a kill such as C-u) arrive as `prompt.edit`. `prompt.change` carries only engine writes: history recall, a clear, a plugin's fill. A "user touched the box recently" check needs both hooks. With only `prompt.change`, clearing a draft with C-u looked untouched and a delivery landed at once. |
+| Subagent turns | `turn.start` and `turn.complete` fire for subagents, teammates and compaction forks too, with `agentId` set. A main-loop hook must filter on `agentId === undefined`, or background agents keep restarting it. |
+| `turn.complete` reasons | `answer` for a normal end and `aborted` after Esc; errors (API, rate or context limits) and refusals carry other reasons. Gate "the turn ended normally" on `answer` alone. |
+| `$.process.spawn` cleanup | Leaving the read loop kills the child, and `stream.return()` works while a read is pending (SIGTERM within the same second on a blocked child). Racing `stream.next()` against an `AbortController` gives a cancellable child. |
+| Hot reload (edit under `--plugin-dir`) | The engine kills the old copy's running child process, prints its own "reloaded" notice, and the new copy starts with clean state and gets `session.start`. |
+| Sharing code between plugins | `claude plugin validate` and `test` refuse an import from outside the plugin's folder ("outside the plugin's folder"), and a symlink to a sibling directory is not followed. Each plugin holds all of its own source. |
+| Test kit | `mock.clock` mocks `$.clock.now()`, not `Date.now()`. `clock.advance` does not settle while a `process.spawn` stream is pending. `prompt.edit`/`prompt.change` have no typed call on `$`, but calling them through a cast raises them at runtime. One `on('x')` per event. |
+| Module shape | Helpers that take `$` must be top-level function declarations, or the module validator rejects them. The hooks environment has `AbortController` but no `setTimeout`. |
 
 ---
 
@@ -128,9 +154,9 @@ settings, including `refuse`.
 ## Not covered
 
 - macOS behaviour of unauthenticated posts.
-- Hot reload of a mod.
 - A settings-file command `Stop` hook returning `block` under `-p`.
 - Claude Code versions other than 2.1.302, apart from the separately noted
-  rejected-surface `$.ui.status` checks on 2.1.303 and 2.1.306. The inbox needs a version that
+  rejected-surface `$.ui.status` checks on 2.1.303 and 2.1.306 and the 2.1.307
+  idle-delivery hooks. The inbox needs a version that
   publishes the socket; Meridian's error message names 2.1.224 as the minimum.
   Bare mode has no socket.
