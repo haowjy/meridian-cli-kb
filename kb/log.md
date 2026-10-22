@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-22 — observed-spawns.json location captured (unmerged branch)
+
+meridian-cli branch `fix/observed-spawns-move` (PR #729) moves the consumption
+record from `pi-bash/<parent>/` to `spawns/<parent>/` with a one-release
+read-both and Pi mirror-write transition. New
+[D-observed-spawns-location](decisions/child-result-delivery.md#d-observed-spawns-location);
+location and transition in
+[concepts/child-result-delivery.md](concepts/child-result-delivery.md); path
+updates in [architecture/pi-runtime/coordination.md](architecture/pi-runtime/coordination.md)
+and [architecture/pi-runtime/vocab.md](architecture/pi-runtime/vocab.md).
+D-claude-spawn-watch status updated to shipped (v0.11.9, PR #724).
+
 ## 2026-10-22 — Profile tool permissions captured (unmerged branches)
 
 meridian-cli branch `feat/session-permissions` and mars-agents PR #179 make profile

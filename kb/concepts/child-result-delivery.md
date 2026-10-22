@@ -6,9 +6,10 @@ extension, or Claude's `meridian-spawn-watch` mod. All three record what they
 handed the lead in one file per primary, `observed-spawns.json`, so a result
 that one route delivered is not delivered again by another.
 
-Status: the Claude route is on the unmerged meridian-cli branch
-`feat/claude-spawn-watch` (2026-10-21); the Pi route and explicit waits have
-shipped. Rationale and rejected designs:
+Status: all three routes have shipped (the Claude route in v0.11.9, PR #724).
+The record's location below, `spawns/<primary>/`, is on the unmerged
+meridian-cli branch `fix/observed-spawns-move` (PR #729, 2026-10-22); released
+builds still keep it at `pi-bash/<primary>/`. Rationale and rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
@@ -17,7 +18,7 @@ flowchart LR
     P["Pi meridian-spawn-watch<br/>(extension, in process)"]
     C["Claude meridian-spawn-watch<br/>(mod) runs spawn collect"]
     A["meridian spawn ack"]
-    O[("pi-bash/&lt;primary&gt;/<br/>observed-spawns.json")]
+    O[("spawns/&lt;primary&gt;/<br/>observed-spawns.json")]
     W -- "lease while waiting,<br/>observed on exit" --> O
     P -- "reads leases and<br/>observed ids" --> O
     C -- "reads across every<br/>primary of the chat" --> O
@@ -61,9 +62,9 @@ again (#718).
 
 ## The consumption record
 
-`observed-spawns.json` lives at `pi-bash/<primary spawn id>/` under the project's
-runtime state. The directory name dates from when only Pi used the file; moving
-it is a state-compatibility change (#719). It holds two things:
+`observed-spawns.json` lives in the primary's own spawn directory,
+`spawns/<primary spawn id>/`, under the project's runtime state. It holds two
+things:
 
 - **observed ids**: durable. A child listed here was handed to the lead and is
   never delivered automatically again.
@@ -79,6 +80,14 @@ resumed under a new primary, has that observation in the old primary's file.
 A reader that looked only at the current primary would deliver the child again
 at every idle.
 
+Writes take the primary's published-spawn lock, the per-spawn lock every
+writer of a file in `spawns/<id>/` takes. That lock refuses a spawn whose
+`state.json` is missing or quarantined, so a write never recreates a directory
+that pruning or archiving deleted. When it refuses, nothing is recorded:
+`spawn ack` exits with an error, and `spawn wait` still waits and returns its
+results without a lease or observation. No reader looks for children of such a
+primary, so nothing is delivered twice.
+
 Python's owner is `lib/state/spawn_observations.py`. Pi's TypeScript extension
 reads the same file with its own schema
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
@@ -86,6 +95,28 @@ schema change moves both.
 
 Fetching a result is not consuming it. A command that reads a child's result
 for display or for a notification uses `spawn wait --no-observe`.
+
+### Transition from `pi-bash/`
+
+Builds before PR #729 kept the file at `pi-bash/<primary>/observed-spawns.json`,
+a directory owned by Pi's background-bash extension. For one minor release after
+the move ships, both locations count:
+
+- **Every reader unions both files**: Python ops, Pi's disk watcher, and Pi's
+  TypeScript extension. A child is consumed if either file lists it, and leased
+  if either holds a live lease on it. A `spawn wait` started by an older build
+  may still be writing the old file. A damaged old file counts as empty.
+- **Writers mirror to the old file when `pi-bash/<primary>/` exists.** A Pi
+  session started before an upgrade reads only the old file. Claude primaries
+  never have that directory, and the mirror never creates it.
+- **Nothing is migrated or deleted.** A still-running older `spawn wait` would
+  recreate a deleted old file.
+- **Rolling back** to an older build is safe for Pi primaries, which are
+  mirrored. A Claude primary's results consumed after the upgrade can be
+  delivered once more.
+
+Every transitional line in meridian-cli is tagged `legacy-observed-spawns
+(#719)`; removing them next minor release is one search.
 
 ## Explicit wait
 

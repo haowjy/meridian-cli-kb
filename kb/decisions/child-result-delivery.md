@@ -1,7 +1,8 @@
 # Decisions: Child Result Delivery
 
 Why a Claude primary gets its forgotten background children's results from a
-mod that calls Meridian, and why consumption is shared with `spawn wait`.
+mod that calls Meridian, why consumption is shared with `spawn wait`, and why
+the shared record lives in the parent's spawn directory.
 Current mechanism: [Child result delivery](../concepts/child-result-delivery.md).
 
 ---
@@ -9,9 +10,9 @@ Current mechanism: [Child result delivery](../concepts/child-result-delivery.md)
 ## D-claude-spawn-watch: core decides what is owed; a Claude mod only senses idle and submits (2026-10) {#d-claude-spawn-watch}
 
 **Status:** lead decision after design review (`spawn:p8815`) and structure
-review (`spawn:p8822`), `work:claude-spawn-watch`. Final review approved; on the
-unmerged meridian-cli branch `feat/claude-spawn-watch` as of 2026-10-21.
-Follow-ups #717–#722.
+review (`spawn:p8822`), `work:claude-spawn-watch`. Shipped in meridian-cli
+v0.11.9 (PR #724). Follow-ups #717–#722; #719 is
+[D-observed-spawns-location](#d-observed-spawns-location).
 
 ### Problem
 
@@ -101,3 +102,62 @@ leaves the lead where it was without one, needing an explicit wait.
 - The per-idle CLI start shows up as a cost (#721); a hint that skips `collect`
   when nothing changed is the planned fix, never a correctness input.
 - Pi adopts `collect` and the background-only filter (#718).
+
+---
+
+## D-observed-spawns-location: the consumption record lives in the parent's spawn directory (2026-10) {#d-observed-spawns-location}
+
+**Status:** lead decision after correctness and version-skew review
+(`spawn:p8936`) and containment review (`spawn:p8939`),
+`work:observed-spawns-move`. On the unmerged meridian-cli branch
+`fix/observed-spawns-move` (PR #729) as of 2026-10-22. Fixes #719.
+
+### Problem
+
+[D-claude-spawn-watch](#d-claude-spawn-watch) made `observed-spawns.json` the
+consumption record for every harness, but the file stayed at
+`<runtime>/pi-bash/<parent>/`, a directory owned by Pi's background-bash
+extension. The path claimed a Pi ownership the file no longer had, and the Rust
+rewrite would inherit that. Moving it is a state-compatibility change: new
+builds must read state older builds wrote, and an older `spawn wait` or Pi
+session can keep running across an upgrade.
+
+### Decision
+
+- **Keyed by parent spawn, in that spawn's directory:**
+  `spawns/<parent>/observed-spawns.json`.
+- **Written under the parent's published-spawn lock, which never recreates the
+  directory.** Pruning and archiving delete spawn directories; a plain atomic
+  write would bring them back. When the parent's `state.json` is missing or
+  quarantined, nothing is recorded: `spawn ack` reports an error, and
+  `spawn wait` proceeds without a record. No reader selects children of such a
+  parent, so nothing is redelivered.
+- **One-release transition: read both, mirror for Pi.** Every reader (Python
+  ops, the Pi disk watcher, the Pi TypeScript extension) unions the old and new
+  files, because an older `spawn wait` may still write the old one. Writers
+  also update the old file wherever `pi-bash/<parent>/` already exists, because
+  a Pi session started before the upgrade reads only the old file. Claude
+  parents never get that directory. Every transitional line is tagged
+  `legacy-observed-spawns (#719)`, to be deleted one minor release after the
+  move ships, keeping the `pi-bash` watch for Pi's other files.
+
+### Rejected
+
+- **One file per chat.** Spawned Pi sessions key consumption by their own spawn
+  id; a per-chat file would change how they decide they are finished.
+- **A separate lock file beside the new file.** It would guard nothing the
+  published-spawn lock doesn't already.
+- **Migrating and deleting the old file.** A still-running older waiter would
+  recreate it.
+- **Accepting a one-time redelivery for running Pi sessions** instead of the
+  mirror write.
+
+### Cost
+
+Rolling back to an older build can deliver a Claude primary's results once
+more: the older build reads only the old file, and Claude primaries are not
+mirrored.
+
+### Revisit when
+
+- The compatibility window closes: delete the tagged transition code.
