@@ -29,7 +29,7 @@ five managed extensions as package data under
 and is covered in [Pi native sessions](pi-native-sessions.md); `meridian-idle`
 translates primary-TUI events into the shared idle policy and is covered in
 [Idle Notifications](../decisions/idle-notifications.md); `meridian-permissions`
-(on unmerged branch `feat/session-permissions`) enforces scoped tool rules,
+(since v0.12.0) enforces scoped tool rules,
 allowlists and `ask` and loads only when the permission compile needs it
 ([tool permissions](../decisions/tool-permissions.md)). This page covers the
 two lifecycle extensions; their cross-layer ownership and delivery contracts

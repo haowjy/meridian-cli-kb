@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-22 — Profile tool permissions shipped
+
+meridian-cli v0.12.0 (PR #730) and Mars 0.17.0 (mars-agents PR #179). Status lines that said
+"unmerged branch" or "`main` still reads the flat lists" now say shipped, on
+[tool-permissions](decisions/tool-permissions.md), [Mars launch bundle](architecture/mars-launch-bundle.md),
+[package management](decisions/package-management.md), [launch system](architecture/launch-system.md),
+[harness adapters](codebase/harness-adapters.md), [Pi lifecycle](architecture/pi-lifecycle.md),
+[Mars feature gaps](open-questions/mars-feature-gaps.md), the index and the decisions table. The owner
+closed the three open questions (Claude settings files are not stripped, the OpenCode headless fallback
+is kept, the OpenCode native-denial divergence is accepted): see
+`D-claude-settings-files-kept` in tool-permissions.
+
 ## 2026-10-22 — Bundle field consumption and list-form deprecation captured
 
 `work:session-permissions`, owner rulings of 2026-10-22. New

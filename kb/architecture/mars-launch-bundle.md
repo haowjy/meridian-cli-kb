@@ -5,9 +5,9 @@ Cross-repo system spanning `mars-agents` (builds the scaffold) and `meridian-cli
 (`mars build launch-bundle`).
 
 > **Status (2026-10-22):** The typed `tools.rules` contract (including `native_tools`
-> and `note`) and `tools.capability_natives` are on unmerged mars-agents PR #179; the
-> Meridian reader is on the unmerged meridian-cli branch `feat/session-permissions`.
-> Meridian on `main` still reads the flat `allowed`/`disallowed` lists.
+> and `note`) and `tools.capability_natives` shipped in Mars 0.17.0 (mars-agents PR
+> #179). Meridian reads them from v0.12.0 (PR #730) and requires Mars ≥ 0.17.0; it
+> no longer reads the flat `allowed`/`disallowed` lists.
 
 **Related pages:**
 - [mars-compiler.md](mars-compiler.md) — compiler internals, config-entry pipeline
@@ -87,9 +87,8 @@ applied for the target harness, or deliberately unread
 - `routing.model`, `routing.model_token`, `routing.harness`, `routing.harness_model`
 - `execution_policy` fields
 - `prompt_surface.inventory_prompt`
-- `tools.rules` and `tools.capability_natives` (Meridian on `main` reads the flat
-  `allowed`/`disallowed` lists instead)
-- `skills.loaded`, `skills.available` (it drops `description` and lists available skills by name), `skills.missing`
+- `tools.rules` and `tools.capability_natives`
+- `skills.loaded`, `skills.available` (it lists available skills with their descriptions), `skills.missing`
 - `provenance`
 - `warnings`
 

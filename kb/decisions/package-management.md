@@ -300,8 +300,8 @@ platform rules; it gets the target harness names for those rules from this map. 
 share Mars's one native table and status projection, including older-build names such as
 Claude's `TaskOutput`. Each rule also carries `native_tools`, the harness tools it
 concerns, because a permission spelling can name a different tool (Claude `Edit(src/*)`
-for a scoped `write`). The typed rules and `capability_natives` are on unmerged
-mars-agents PR #179; the Meridian reader is on unmerged branch `feat/session-permissions`.
+for a scoped `write`). The typed rules and `capability_natives` shipped in Mars 0.17.0
+(mars-agents PR #179); Meridian reads them from v0.12.0 (PR #730).
 How Meridian enforces them: [tool permissions](tool-permissions.md).
 
 **Why portable, not passthrough:** Tool policy is portable across harnesses. Encoding as passthrough would require per-harness duplication.

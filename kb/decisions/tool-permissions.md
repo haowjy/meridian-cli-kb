@@ -6,8 +6,8 @@ says on every harness that can express it: `bash(git log *): allow` with no othe
 `bash` rule means the agent may run `git log` and no other shell command.
 
 **Status:** owner rulings of 2026-10-21 and 2026-10-22 and lead decisions through four review
-rounds (`work:session-permissions`). On the unmerged meridian-cli branch
-`feat/session-permissions` and the unmerged mars-agents PR #179; the Meridian
+rounds (`work:session-permissions`). Shipped in meridian-cli v0.12.0 (PR #730) and
+Mars 0.17.0 (mars-agents PR #179); the Meridian
 side requires Mars ≥ 0.17.0 and stops with "install mars >= 0.17.0" against an
 older binary.
 

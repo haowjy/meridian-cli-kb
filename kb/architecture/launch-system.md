@@ -485,8 +485,8 @@ gone.
 
 ## Permission Policy at Bind
 
-> On the unmerged meridian-cli branch `feat/session-permissions`; `main` still uses
-> the per-harness permission resolvers. Rationale:
+> Since meridian-cli v0.12.0 (PR #730); earlier releases used per-harness permission
+> resolvers. Rationale:
 > [Profile tool permissions](../decisions/tool-permissions.md).
 
 `bind_launch_context()` builds one `PermissionPolicy` for the launch and puts it on

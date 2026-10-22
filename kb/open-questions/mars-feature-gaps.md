@@ -12,7 +12,7 @@ This page tracks the open questions. As of April 2026, these are gaps between Ma
 `tools`, `sandbox` and `approval` in its frontmatter; Mars carries them in the
 launch bundle as typed rules with each harness's native names, and Meridian
 enforces them per harness and reports what a harness cannot express (on
-unmerged meridian-cli branch `feat/session-permissions` and mars-agents PR #179;
+meridian-cli v0.12.0 (PR #730) and Mars 0.17.0 (mars-agents PR #179);
 see [Profile tool permissions](../decisions/tool-permissions.md)). What remains
 of this gap is a package-level permission declaration independent of any one
 profile.
