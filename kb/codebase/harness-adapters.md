@@ -258,7 +258,7 @@ streaming layer treats receipts and observations as separate facts; the retired
 `last-notification.json` timestamp is not authority. See
 [Pi Runtime Coordination](../architecture/pi-runtime/coordination.md).
 
-**Extension-based permission routing.** Pi returns an empty tuple from its permission-flag projector — Pi uses extension event hooks for permissions rather than CLI flags. This differs from Claude (`--dangerously-skip-permissions`) and Codex (its own flag set).
+**Permissions: flags plus an extension.** On `feat/session-permissions` (unmerged), Pi's compile (`projections/permissions_pi.py`) emits plain tool rules as `--tools`/`--exclude-tools` and hands scoped rules, allowlists and `ask` to the bundled `meridian-permissions` extension through `_MERIDIAN_PI_PERMISSION_POLICY`. The extension blocks through Pi's `tool_call` event and refuses to load on an empty or malformed policy. Pi has no sandbox and no approval mode, so both are reported as not enforced ([Profile tool permissions](../decisions/tool-permissions.md)).
 
 **Env defaults.** Pi's `env_defaults(config, *, run)` fills `PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR` and, for interactive primaries only, `PI_CACHE_RETENTION=long`; a non-blank value already in the child env wins ([D-pi-cache-retention](../decisions/idle-notifications.md#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention)).
 

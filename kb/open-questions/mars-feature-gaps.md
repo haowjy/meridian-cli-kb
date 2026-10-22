@@ -8,7 +8,16 @@ This page tracks the open questions. As of April 2026, these are gaps between Ma
 
 ## 1. Permission Sync
 
-**The gap:** Packages can install agent and skill content, but cannot declaratively define the runtime permission model those assets expect.
+**Status (2026-10): Mostly addressed per profile.** An agent profile declares
+`tools`, `sandbox` and `approval` in its frontmatter; Mars carries them in the
+launch bundle as typed rules with each harness's native names, and Meridian
+enforces them per harness and reports what a harness cannot express (on
+unmerged meridian-cli branch `feat/session-permissions` and mars-agents PR #179;
+see [Profile tool permissions](../decisions/tool-permissions.md)). What remains
+of this gap is a package-level permission declaration independent of any one
+profile.
+
+**The gap as first stated:** Packages can install agent and skill content, but cannot declaratively define the runtime permission model those assets expect.
 
 **What's missing:**
 - Approval mode defaults (should this agent run in `auto` or `confirm`?)

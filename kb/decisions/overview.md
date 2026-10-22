@@ -41,6 +41,7 @@ Decision records explain why durable architectural choices were made — what al
 | [session-browse.md](session-browse.md) | The session picker: rows by tmux, agent (model), last turn and work with no chat id or live marker; transcript on demand with the preview subsystem deleted; staleness from idle state; one search matcher before `LIMIT`; primary-only `--fork`/`--from` lineage view; Python before Rust (D-browse-recognition-row, D-browse-transcript-on-demand, D-browse-staleness-from-idle-state, D-browse-query-before-limit, D-browse-lineage-view, D-browse-python-first) |
 | [instruction-files.md](instruction-files.md) | Per-directory agent instructions in `AGENTS.md`; `CLAUDE.md` only for Claude-specific lines (D-agents-md-only) |
 | [opencode-prompt-delivery.md](opencode-prompt-delivery.md) | How the composed prompt reaches OpenCode: bind-projected config agent, explicit agent selection on every session, model off the agent (D-opencode-config-agent, D-opencode-explicit-agent, D-opencode-model-off-agent) |
+| [tool-permissions.md](tool-permissions.md) | How a profile's `tools`, `sandbox` and `approval` become harness-enforced limits: Mars owns tool names, native enforcement with gaps reported in `--dry-run`, primaries bound, headless `ask` refused, allowlists, platform rules, Codex sandbox inference deleted (D-permission-mars-names, D-permission-native-enforcement, D-permission-report-only-gaps, D-permission-primaries-bound, D-permission-headless-ask, D-permission-allowlists, D-permission-platform-rules, D-codex-sandbox-inference-deleted) |
 
 ## Naming
 

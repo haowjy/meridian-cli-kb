@@ -142,17 +142,12 @@ is unreachable and is deleted. An independent probe with a user
 project `opencode.json`, served Meridian's agent and the requested model
 (`spawn:p8766`).
 
-**Rejected:** carrying model and permissions on the agent. The model half does
-nothing on v2; the permission half is an open owner decision (below).
+**Rejected:** carrying the model on the agent: it does nothing on v2. The
+agent does carry the profile's `permission` rules, for spawns and primaries on
+both versions; see
+[D-permission-native-enforcement](tool-permissions.md#d-permission-native-enforcement).
 
 ## Deliberately out of scope
-
-> [!FLAG] **Needs human review.** Profile tool and permission policy is not
-> applied to OpenCode interactive primaries on either version: they defer to the
-> native TUI, and `bash`, `edit` and `write` stayed available under a profile
-> that denies them (`spawn:p8760`). Meridian's config agent could carry the
-> profile's `permission` rules, but that changes what a user can do in their own
-> TUI. Owner call; noted in meridian-cli `src/meridian/lib/harness/.context/FUTURE`.
 
 OpenCode 2 has no working effort channel: config parses `provider/model#variant`
 but provider requests carry no reasoning field (`spawn:p8762`).

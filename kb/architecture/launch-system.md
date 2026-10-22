@@ -483,39 +483,30 @@ prelaunch maps `spawn` to its internal `spawned` profile when choosing the
 runtime compatibility probe. The old `_MERIDIAN_PI_SESSION_ROLE` marker is
 gone.
 
-## Claude Native Agent Permission Injection
+## Permission Policy at Bind
 
-For Claude launches, `bind_launch_context()` injects a two-tier Agent permission policy
-before materializing the launch spec:
+> On the unmerged meridian-cli branch `feat/session-permissions`; `main` still uses
+> the per-harness permission resolvers. Rationale:
+> [Profile tool permissions](../decisions/tool-permissions.md).
 
-1. **Built-in denial (unconditional):** `ResolvedLaunchSpec` projection always adds
-   `Agent(Explore)`, `Agent(Plan)`, `Agent(General-purpose)`, and `Agent(general-purpose)`
-   to `--disallowedTools`. No config toggle.
+`bind_launch_context()` builds one `PermissionPolicy` for the launch and puts it on
+the spec; it decides no harness mechanism itself:
 
-2. **Generic `Agent` gating (Mars agent-copy boundary):** `project_has_claude_agent_copy()`
-   reads `mars.toml` / `mars.local.toml` for `[settings.meridian.agent_copy] harnesses = ["claude"]`
-   with `.claude` in targets. The result sets `claude_native_agents_enabled` on the spec, which
-   `project_claude.py` uses to either allow or strip `Agent` from all allowed-tool sources
-   (permission-derived, parent-inherited via `CLAUDE_PARENT_ALLOWED_TOOLS_FLAG`, and
-   user passthrough).
+1. `agent_copy_enabled(project_root, harness_id)` (`catalog/agent_copy.py`) reports
+   whether the project's Mars config makes native agent copies the delegation
+   mechanism for this harness.
+2. `launch_permission_rules()` (`launch/permissions.py`) picks the platform rules: a
+   sub-agent deny unless agent copies are on, a task-list deny on spawns unless the
+   profile explicitly allows `task`, a built-in-agent rule unless
+   `allow_builtin_agents` applies, and the completion-command allow on every spawn.
+   Deny names come from the bundle's `tools.capability_natives`.
+3. `build_permission_policy()` (`safety/policy.py`) combines Mars's typed rules, the
+   platform denies (after the profile's rules), sandbox, approval and the roots a
+   native sandbox must leave writable, and writes each allowlist as an explicit deny.
 
-For **nested Claude spawns** (SPAWN_PREPARE surface), `resolve_nested_claude_permission_request()`
-applies additional deny entries for `agent` and `task` capabilities. Agent profiles can
-opt out per-capability via `tools: {agent: allow}` in their frontmatter.
-
-The injection runs in `bind_launch_context()`:
-
-```python
-claude_native_agents_enabled = (
-    harness.id == HarnessId.CLAUDE
-    and project_has_claude_agent_copy(project_paths.project_root)
-)
-# ... threaded into resolve_claude_native_agent_permission_request() and
-# resolve_nested_claude_permission_request()
-```
-
-See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#claude-native-agent-routing)
-for the full policy.
+Each harness's compile (`harness/projections/permissions_<harness>.py`) then turns the
+policy into native flags or config and an `EnforcementReport`. Spawn and primary use
+the same compile; `--dry-run` and the projection manifest read the same report.
 
 ## Child Env Boundaries
 
@@ -623,7 +614,7 @@ launch/
   process/              run_harness_process(); native/PTY/pipe launchers; primary-path executor
   streaming_runner.py   one-turn startup, connection, drain, teardown, and finalization
   policies.py           resolve_policies() → ResolvedPolicies
-  permissions.py        resolve_permission_pipeline()
+  permissions.py        launch_permission_rules() — platform rules for a launch
   command.py            resolve_launch_spec_stage(), build_launch_argv()
   fork.py               materialize_fork() — sole callsite for adapter.fork_session()
   prompt.py             compose_run_prompt_text() — SPAWN_PREPARE path

@@ -4,9 +4,10 @@ Cross-repo system spanning `mars-agents` (builds the scaffold) and `meridian-cli
 (injects per-spawn content and launches the harness). The public verb is `build`
 (`mars build launch-bundle`).
 
-> **Status (2026-10-22):** The `tools.capability_natives` producer described below is
-> implemented on unmerged mars-agents PR #179 at commit `1f3c173`; Meridian consumption
-> is follow-on work on `feat/session-permissions`.
+> **Status (2026-10-22):** The typed `tools.rules` contract (including `native_tools`
+> and `note`) and `tools.capability_natives` are on unmerged mars-agents PR #179; the
+> Meridian reader is on the unmerged meridian-cli branch `feat/session-permissions`.
+> Meridian on `main` still reads the flat `allowed`/`disallowed` lists.
 
 **Related pages:**
 - [mars-compiler.md](mars-compiler.md) — compiler internals, config-entry pipeline
@@ -84,8 +85,8 @@ Meridian consumes a subset of this schema. It parses:
 - `routing.model`, `routing.model_token`, `routing.harness`, `routing.harness_model`
 - `execution_policy` fields
 - `prompt_surface`
-- `tools` (current releases consume the compatibility flat lists; the permission-policy
-  rewrite consumes `rules` and `capability_natives`)
+- `tools.rules` and `tools.capability_natives` (Meridian on `main` reads the flat
+  `allowed`/`disallowed` lists instead)
 - `skills.loaded`, `skills.available` (it drops `description` and lists available skills by name), `skills.missing`
 - `provenance`
 - `warnings`
@@ -149,6 +150,15 @@ full semantics.
         "pattern": null,
         "action": "deny",
         "native": ["Edit", "Write", "NotebookEdit"],
+        "native_tools": ["Edit", "Write", "NotebookEdit"],
+        "native_status": "known"
+      },
+      {
+        "capability": "write",
+        "pattern": "src/*",
+        "action": "allow",
+        "native": ["Edit(src/*)"],
+        "native_tools": ["Write"],
         "native_status": "known"
       }
     ],
@@ -169,11 +179,27 @@ full semantics.
 }
 ```
 
-`rules` is the policy contract. Each entry keeps the canonical capability for meaning
-and the target harness's `native` names for emission. `native_status` is `known`,
-`absent`, or `unknown`; an `unknown` entry carries the reason in `note`. The flat
-`allowed`, `disallowed`, and `mcp` lists are derived compatibility fields. They cannot
-represent `ask`, `*`, or the capability a native name came from.
+`rules` is the policy contract. Each entry keeps the canonical capability and pattern
+for meaning and gives two harness facts that neither side derives from the other:
+`native`, the permission-rule spelling with the scope appended, and `native_tools`, the
+unscoped harness tools the rule concerns. They differ where a harness checks one tool's
+paths through another's permission: Claude matches paths only through `Edit(path)` and
+`Read(path)`, so a scoped `write` rule is `Edit(src/*)` on the tool `Write`. Meridian
+emits permission rules from `native` and decides which tools stay callable (`--tools`,
+Pi's `--exclude-tools`) from `native_tools`.
+
+`native_status` is `known`, `absent` (the harness has no such tool, so a deny is
+satisfied), or `unknown` (Mars cannot name it: a gap); it is omitted for `*`. `note` is
+the only channel for a permission gap, since Mars adds nothing to `warnings[]` for one:
+it explains an `unknown` rule, or a `known` rule whose native permission is shared with
+another rule or has broader effects. Mars has already resolved overlap among the rules it
+wrote (the narrower capability wins per native name), so a `known` rule's `native` can be
+empty when a more specific rule shadows it.
+
+The flat `allowed`, `disallowed`, and `mcp` lists are derived compatibility fields for
+older consumers. They cannot represent `ask`, `*`, or the capability a native name came
+from. Meridian with typed-rule support reads only `rules`: a bundle without them, or
+whose rules lack `native_tools`, stops the launch with "Install mars >= 0.17.0".
 
 `capability_natives` is a separate, profile-independent contract. It is present even
 for an ad-hoc bundle or a profile with no tool rules, and always has `agent` (sub-agent
@@ -210,9 +236,9 @@ spawn.
 
 | Harness | Status | Notes |
 |---------|--------|-------|
-| Claude | First-class | Full native-config (`--settings`), tool policy (`--allowedTools`/`--disallowedTools`), full bundle support |
+| Claude | First-class | Full native-config (`--settings`), tool policy (`--tools`, `--disallowedTools`, `--settings` permission rules), full bundle support |
 | Codex | First-class | Full bundle; native-config and available permission switches via `-c` flags |
-| OpenCode | First-class | Full bundle; native-config and tool policy via `OPENCODE_CONFIG_CONTENT` |
+| OpenCode | First-class | Full bundle; native-config and tool policy via `OPENCODE_CONFIG_CONTENT` (tool rules on the `meridian-<profile>` config agent) |
 | Cursor | Unmaintained | Existing bundle support remains, but its native tool table is carried forward rather than reverified |
 | Pi | Active | Bundle supported; permission projection uses native flags plus Meridian's extension where Pi has no native mechanism |
 | Gemini | Out of scope | Not a current Mars/Meridian target |
@@ -282,7 +308,8 @@ capability or reverse-map native names back to capabilities.
 Per-harness permission mechanisms belong to the Meridian launch system, not this
 cross-repo boundary. They may use flags, settings, environment config, or an extension,
 but all consume the native names Mars supplied and report any mechanism gap rather than
-creating another spelling table.
+creating another spelling table. Why Mars owns the names, and what each harness enforces:
+[Profile tool permissions](../decisions/tool-permissions.md).
 
 ---
 
