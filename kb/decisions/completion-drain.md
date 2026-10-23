@@ -6,6 +6,98 @@ harness reports a finished turn. The mechanism is in
 [completion drain coordination](../architecture/completion-drain-coordination.md);
 Pi's own profile is in [Pi runtime decisions](pi-runtime.md).
 
+## D-completion-report-contract: the confirmation says what the report is; `done` keeps the retained reply (2026-10-23) {#d-completion-report-contract}
+
+**Decision status:** settled intent (tech lead, `work:completion-hardening` D2,
+D4). **Implementation status:** on branch `completion-hardening`, which closes
+[#725](https://github.com/haowjy/meridian-cli/issues/725); not merged as of
+2026-10-23.
+
+A hold child's report is the reply that formed the candidate `done` accepts.
+When a successful turn becomes the first candidate, the drain captures that
+turn's text, and finalization prefers it over anything the child writes later,
+including its answer to the confirmation turn. A granted `rearm` drops the
+candidate and its text, so the next candidate captures again. The confirmation
+text now states this plainly: the previous reply is kept as the report; if it is
+final, run `meridian spawn done` and end the turn; if more work remains,
+including waiting on background tasks or spawns, run `meridian spawn rearm`
+first, then finish with a complete report.
+
+Pi is the exception. Its plan keeps the reply to its own confirmation message,
+so the Pi message says that reply is the report and must be complete. Because
+the two plans keep different text, only the confirmation message, which knows
+its plan, states a report rule. The generic spawn guidance in every child's
+system prompt does not.
+
+**Why.** #725 reported a reviewer spawn "accepted on silence" while its
+background suite ran, with the report "The suite is at about 34%". The spawn's
+records showed the hold had worked: all three confirmation messages named the
+running native tasks, the child rearmed twice, then killed the suite itself and
+ran `done`. The defect was the report. The old message said "run `meridian spawn
+done` and then provide your complete final report", but that later report was
+discarded in favour of the 34% reply the candidate had captured. Every
+confirmation turn also paid for a report rewrite nothing kept.
+
+**Rejected.**
+
+- *Latest text wins.* Brings back the loss fixed in `5c4cc7764`, where a child
+  that answered the confirmation with "Done." replaced its whole report.
+- *Recapture on any later successful turn without `done`.* The confirmation
+  turn is itself such a turn. Telling continued work from a plain confirmation
+  reply would need harness-specific tool tracking.
+
+**Known gap.** With an exhausted `resident_rearm_budget`, a child cannot rearm,
+so text from work it does after a confirmation never replaces the retained
+report. The refusal tells it to run `done`. Tracked in the streaming
+`.context/FUTURE`; revisit if exhausted budgets appear in practice.
+
+## D-completion-channel: a child that cannot signal completion gets no confirmation turn (2026-10-23) {#d-completion-channel}
+
+**Decision status:** settled intent (tech lead, `work:completion-hardening` D1,
+D4, D5). **Implementation status:** on branch `completion-hardening`; not
+merged as of 2026-10-23.
+
+The connection declares whether the launched child can write Meridian's
+completion signals (`completion_signals_available`). A hold without that
+channel is still a hold: it waits on descendants and native tasks, holds on
+unreadable evidence and times out at the deadline. It sends no confirmation
+message, reads no `done` or `rearm` signal, accepts a ready candidate directly,
+and publishes an empty accepted-signal set, so `meridian spawn done <id>` from
+outside is refused. Codex reports no channel only for an explicit `read-only`
+sandbox, the same resolved value it projects as `sandbox_mode`.
+
+**Why.** `meridian spawn done` takes Meridian's state lock, which a read-only
+Codex sandbox cannot write (`Errno 30` on `spawns.jsonl.flock`). Measured on
+`gpt-6-luna`, each confirmation turn cost about 24–29k tokens and one failed
+shell call, then the child's report described the failure instead of its
+answer. Nothing was gained: a read-only child cannot start Meridian spawns,
+and its background processes end with its turn, so it never has work worth
+holding for. The shipped `explorer`, `cold-reader` and `session-miner` profiles
+are read-only Codex and among the most-spawned.
+
+**Rejected.**
+
+- *Remove only the `done`/`rearm` sentence from the message.* The cost is the
+  turn, not the sentence.
+- *Give Codex a writable path or a non-filesystem signal channel.* Buys nothing
+  a read-only child needs.
+- *Model the missing channel as requested-then-failed confirmation flags.*
+  Capability is named state on the profile; confirmation settlement derives
+  from it.
+
+**Residual.** A Codex profile with no `sandbox` keeps the confirmation turn even
+when Codex's own default is read-only, because Meridian does not read the
+user's Codex config ([sandbox inference deleted](tool-permissions.md#d-codex-sandbox-inference-deleted)).
+No shipped profile omits `sandbox`. Tracked in the harness `.context/FUTURE`.
+
+**Provenance (both decisions):** `work:completion-hardening` `decisions.md`
+D1, D2, D4, D5; `evidence/725-root-cause.md` (`spawn:p8966`),
+`evidence/codex-readonly-completion.md` (`spawn:p8965`),
+`evidence/rearm-same-turn.md`, `evidence/live-readonly-final.md`; reviews
+`spawn:p8977`, `spawn:p8983`, `spawn:p8990`.
+
+---
+
 ## D-child-completion: confirm each retained candidate once (2026-10-20)
 
 **Decision status:** settled intent. **Implementation status:** shipped in

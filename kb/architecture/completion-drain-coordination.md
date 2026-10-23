@@ -47,7 +47,8 @@ The collaborators are cohesive boundaries:
   assessments.
 - **Completion profile** owns directives, precedence, outcome mapping,
   deadline/reset policy, close classification and stabilization. Resident
-  confirmation is once per candidate; Pi has its own advisory-nudge policy.
+  confirmation is once per candidate, and skipped for a child with no
+  completion-signal channel; Pi has its own advisory-nudge policy.
 - **Completion cleanup** interprets cleanup handles after the profile authorizes
   cleanup.
 

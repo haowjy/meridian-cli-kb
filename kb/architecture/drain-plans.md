@@ -74,6 +74,22 @@ a stale signal cannot accept a future turn or spend its rearm budget.
   tasks block completion. Live work still holds; `unknown` never authorizes
   success. There are no recurring advisory polls or timeout-soon nudges.
 
+**The retained candidate carries the report.** The drain captures the text of
+the turn that formed the candidate, and finalization prefers it over later
+assistant text. A reply the child writes after `done` is therefore not its
+report; a granted `rearm` drops the captured text with the candidate. The
+confirmation message tells the child exactly this
+([report contract](../decisions/completion-drain.md#d-completion-report-contract)).
+
+**A hold without a completion-signal channel skips confirmation.** When the
+connection reports that the child cannot write completion signals (Codex under
+an explicit `read-only` sandbox), the hold keeps the same evidence, blocker and
+deadline policy but sends no confirmation, reads no signals, and accepts a ready
+candidate directly ([D-completion-channel](../decisions/completion-drain.md#d-completion-channel)).
+This and the empty accepted-signal set below are settled but, as of
+2026-10-23, live only on the unmerged `completion-hardening` branch; `main`
+still sends a read-only Codex child a confirmation it cannot answer.
+
 A fresh descendant assessment must cover every proposed success. Transport
 closure does not erase a retained success: ready evidence can accept it;
 persisted descendants or temporarily unknown evidence can keep the drain alive
@@ -137,8 +153,10 @@ The outer attempt timeout remains independent.
 ### Signal capability belongs to the selected plan
 
 `DrainPlan.accepted_signals` declares what the live coordinator consumes:
-hold plans accept `done` and `rearm`, Pi accepts only `done`, and plain plans
-accept neither. The runner publishes the set in
+hold plans with a completion-signal channel accept `done` and `rearm`, holds
+without one accept neither, Pi accepts only `done`, and plain plans accept
+neither. The hold coordinator derives its set from the connection capability;
+the factory copies it into the plan. The runner publishes the set in
 `spawns/<id>/accepted-signals.json` before draining. Signal commands check it,
 spawn status, and rearm budget under the published-artifact lock; primary,
 terminal, unsupported and exhausted-budget targets fail clearly.

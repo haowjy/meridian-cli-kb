@@ -65,8 +65,8 @@ holds `origin.json`. `lib/state/project_identity.py` is the only resolver
 ([project identity](project-identity.md)). Repo-local `.meridian/` is not a
 state root and `.meridian/id` is not read.
 
-Control sockets live outside spawn directories in the per-user POSIX temp
-root. Work items live under `[context.work]` and archive beside that work root.
+Control sockets live outside spawn directories, in the mode-0700 per-user
+directory `/tmp/meridian-<uid>` ([why](project-identity.md)). Work items live under `[context.work]` and archive beside that work root.
 See `docs/configuration.md` in meridian-cli for context-path resolution.
 
 ## Pages in This Domain

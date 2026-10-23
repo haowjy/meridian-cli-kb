@@ -294,10 +294,13 @@ tools it removes) is accepted.
 
 Current behavior is reported in `--dry-run`.
 
-- **Codex completion under a read-only sandbox.** Codex's default sandbox blocks
-  `meridian spawn done`, because Meridian's state lock lives outside it. The
-  child still closes when its completion window accepts on silence, but cannot
-  reject a premature completion. This predates the permission policy.
+- **Codex completion when the profile sets no sandbox.** A read-only Codex
+  sandbox cannot run `meridian spawn done`, because Meridian's state lock lives
+  outside it. An explicit `sandbox: read-only` now skips the confirmation turn
+  ([D-completion-channel](completion-drain.md#d-completion-channel), unmerged
+  as of 2026-10-23). A profile with no `sandbox` still gets the confirmation
+  under Codex's own read-only default, since Meridian does not read Codex's
+  config. No shipped profile omits `sandbox`.
 
 ## Provenance
 
