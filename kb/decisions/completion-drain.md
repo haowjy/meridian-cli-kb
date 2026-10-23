@@ -9,9 +9,8 @@ Pi's own profile is in [Pi runtime decisions](pi-runtime.md).
 ## D-completion-report-contract: the confirmation says what the report is; `done` keeps the retained reply (2026-10-23) {#d-completion-report-contract}
 
 **Decision status:** settled intent (tech lead, `work:completion-hardening` D2,
-D4). **Implementation status:** on branch `completion-hardening`, which closes
-[#725](https://github.com/haowjy/meridian-cli/issues/725); not merged as of
-2026-10-23.
+D4). **Implementation status:** shipped in PR #737 (v0.12.4), which closed
+[#725](https://github.com/haowjy/meridian-cli/issues/725).
 
 A child under the completion hold ([drain plans](../architecture/drain-plans.md#resident-completion))
 reports the reply that formed the candidate `done` accepts.
@@ -55,8 +54,7 @@ report. The refusal tells it to run `done`. Tracked in meridian-cli
 ## D-completion-channel: a child that cannot signal completion gets no confirmation turn (2026-10-23) {#d-completion-channel}
 
 **Decision status:** settled intent (tech lead, `work:completion-hardening` D1,
-D4, D5). **Implementation status:** on branch `completion-hardening`; not
-merged as of 2026-10-23.
+D4, D5). **Implementation status:** shipped in PR #737 (v0.12.4).
 
 The connection declares whether the launched child can write Meridian's
 completion signals (`completion_signals_available`). A hold without that

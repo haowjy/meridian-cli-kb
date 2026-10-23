@@ -86,9 +86,7 @@ confirmation message tells the child exactly this
 the child cannot write there (Codex under an explicit `read-only` sandbox), the hold keeps the same evidence, blocker and
 deadline policy but sends no confirmation, reads no signals, and accepts a ready
 candidate directly ([D-completion-channel](../decisions/completion-drain.md#d-completion-channel)).
-This and the empty accepted-signal set below are settled but, as of
-2026-10-23, live only on the unmerged `completion-hardening` branch; `main`
-still sends a read-only Codex child a confirmation it cannot answer.
+This and the empty accepted-signal set below shipped in v0.12.4 (PR #737).
 
 A fresh descendant assessment must cover every proposed success. Transport
 closure does not erase a retained success: ready evidence can accept it;
