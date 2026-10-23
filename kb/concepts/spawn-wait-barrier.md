@@ -104,8 +104,11 @@ Waiting for 3 pending spawn(s) for chat c123:
 
 Identity comes first (spawn, agent, full model ID) so an orchestrator can
 record who it is waiting on without a separate lookup; missing values render
-as `-` so columns stay aligned. Descriptions are omitted to keep repeated wait
-output token-efficient. `spawn children` uses the same columns plus `duration`.
+as `-` so columns stay aligned. The table omits descriptions so the output an
+orchestrator re-reads on every wait stays token-efficient. `spawn children` text
+uses the same columns plus `duration`; its JSON output still carries each
+child's `desc`. Checkpoint lines (see [Checkpoint Output](#checkpoint-output))
+still append the description.
 
 The wait set is **frozen at discovery time**. Spawns that become queued after
 discovery are not added. This is intentional: the orchestrator controls when to
