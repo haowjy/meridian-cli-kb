@@ -95,11 +95,17 @@ Before blocking, `spawn wait` prints the full wait set — both for no-arg and
 explicit-ID invocations:
 
 ```
-Waiting for 3 pending spawns for chat c123:
-  p2404  running     Design mermaid check style warnings
-  p2408  finalizing  Review design package
-  p2410  running     Probe CLI behavior
+Waiting for 3 pending spawn(s) for chat c123:
+  spawn  agent     model        status      desc
+  p2404  explorer  gpt-5.4      running     Design mermaid check style warnings
+  p2408  reviewer  claude-opus  finalizing  Review design package
+  p2410  -         -            running     Probe CLI behavior
 ```
+
+Identity comes first (spawn, agent, full model ID) so an orchestrator can
+record who it is waiting on without a separate lookup; missing values render
+as `-` so columns stay aligned. `spawn children` uses the same column order
+plus `duration`.
 
 The wait set is **frozen at discovery time**. Spawns that become queued after
 discovery are not added. This is intentional: the orchestrator controls when to
