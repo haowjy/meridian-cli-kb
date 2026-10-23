@@ -75,9 +75,13 @@ any hook it installs.
 **Evidence:** a live probe showed `-c sandbox_workspace_write.network_access=true`
 enables network under `workspace-write`.
 
-**Rejected:** a first-class `network` profile field. Only Codex and Claude's
+**Rejected (2026-10-22):** a first-class `network` profile field. Only Codex and Claude's
 sandbox have a network knob and they are spelled differently; passthrough
 covers the need.
+
+> **Superseded (2026-10-23):** the owner decided on a `network` profile field, decided
+> but not shipped. See [sandbox-platform-access.md](sandbox-platform-access.md#d-network-field).
+> Until it ships, passthrough remains the only way to set Codex's network key.
 
 ## D-compaction-projected: thresholds reach each harness's own knob {#d-compaction-projected}
 

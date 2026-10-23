@@ -3,6 +3,19 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-23 — Sandbox platform access decisions
+
+`work:harness-sandbox-network`. New page [decisions/sandbox-platform-access.md](decisions/sandbox-platform-access.md)
+records what Meridian grants a sandboxed launch: the projected project lock directory, the
+Meridian-commands platform rule, the Claude child-spawn escape and its limits, and the
+compound-launch refusal. It also records two decided, unshipped items: Codex child spawns
+and the profile `network` field. [Tool permissions](decisions/tool-permissions.md) and
+[sandbox projection](architecture/sandbox-projection.md) were updated to match. The
+2026-10-22 rejection of a `network` field in
+[bundle field consumption](decisions/bundle-field-consumption.md) is marked superseded.
+Two items are flagged for human review: the shared lock directory's cross-project reach, and
+a shipped marker check that differs from the approved PID-namespace check.
+
 ## 2026-10-23 — Prompt-package pages rewritten against current source
 
 `chat:c8796`. All six pages under [ecosystem/prompt-packages/](ecosystem/prompt-packages/overview.md)

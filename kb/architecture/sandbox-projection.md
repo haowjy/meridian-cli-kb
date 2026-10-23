@@ -9,10 +9,16 @@ Related: [startup/sandbox decisions](../decisions/startup-health-sandbox.md#sand
 Child sandboxes may receive:
 
 - **Project runtime roots** — `~/.meridian/projects/<uuid>/` for the current project
+- **Project lock directory** — `~/.meridian/projects/.locks/`, so a sandboxed command can take the project's lifetime lock
 - **Workspace/context roots** — work, kb, archive, strategy directories, configured git context clones
 - **System temp** — platform temp directory
 
-Child sandboxes **shall not** receive the whole `~/.meridian/` tree. The global user home is not projected. This is a fixed constraint, not a tunable.
+Child sandboxes **shall not** receive the whole `~/.meridian/` tree, nor `~/.meridian/projects/`
+itself. The global user home is not projected. This is a fixed constraint, not a tunable.
+
+The lock directory is shared across projects, so it is a wider grant than the runtime root:
+a sandboxed agent can reach another project's lock file. [Decisions](../decisions/sandbox-platform-access.md#d-sandbox-state-roots)
+records that risk as open for human review.
 
 The design question is therefore not "how do we make user home writable?" but "which global paths are actually valid in nested execution, and how should each class of path behave?"
 
@@ -32,6 +38,7 @@ flowchart TD
 | Class | Examples | Nested policy |
 |---|---|---|
 | Per-project runtime state | `~/.meridian/projects/<uuid>/...` | Already projected — no change |
+| Project lifetime lock | `~/.meridian/projects/.locks/<id>.lock` | Directory projected, created at bind (see Fixed Projection Constraint) |
 | Repo/context state | work, kb, archive roots, context git clones | Already projected — no change |
 | Automatic global cache | `doctor-cache.json`, background global scan | **Delete** — expensive automatic global work is wrong |
 | Cheap per-project repairs | Stale session lock cleanup, orphan run reconciliation | **Keep** — daemon thread, current project root only |
@@ -60,6 +67,8 @@ Critically, a sandbox-broken worker cannot run **any** Meridian command either �
 
 **Implementation:** Missing context roots are skipped at debug log level, not warning. A missing context dir is the normal pre-archive state — it must not pollute stderr on every launch.
 
+**The lock directory is created, not filtered:** bind creates `~/.meridian/projects/.locks/` before projecting it, so the filter never drops it. A missing directory would abort Codex's namespace the same way a missing context root does.
+
 **Git clone roots are unaffected:** `_collect_git_context_clone_roots` returns configured clone roots for git-backed context entries. These are intentionally still projected even when the clone hasn't happened yet — they exist on disk by launch time after `mars sync`.
 
 **Other harnesses:** opencode uses `external_directory` allow-lists (missing entry is harmless — just not in the allow-list). Claude `--add-dir` to a missing path is non-fatal (Claude warns but continues). Codex is the only hard-affected harness.
@@ -85,7 +94,7 @@ Autosync lock files live in `~/.meridian/locks`, not projected in nested sandbox
 - Existing `TimeoutError` handling is unchanged
 - No new projection paths added
 
-**Why not project the lock dir?** Projecting `~/.meridian/locks` as shared writable creates cross-project interference — any nested child could create arbitrary lock files or hold them to force autosync skips. Also, lock identity is derived from clone paths that depend on user config which may not be visible in nested contexts — projecting the lock dir would not guarantee correct serialization anyway.
+**Why not project `~/.meridian/locks`?** (The projects `.locks` directory above is projected despite the same kind of risk; see its decision.) Projecting `~/.meridian/locks` as shared writable creates cross-project interference — any nested child could create arbitrary lock files or hold them to force autosync skips. Also, lock identity is derived from clone paths that depend on user config which may not be visible in nested contexts — projecting the lock dir would not guarantee correct serialization anyway.
 
 ### Gap 3: User Config Read (Wrap — Best-Effort + Warning)
 

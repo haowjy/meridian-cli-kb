@@ -11,6 +11,10 @@ Mars 0.17.0 (mars-agents PR #179); the Meridian
 side requires Mars ≥ 0.17.0 and stops with "install mars >= 0.17.0" against an
 older binary.
 
+**Not yet on `main`.** The Meridian-commands rule below and the sandbox behavior it depends
+on are implemented on branch `feat/sandbox-network`. Their rationale is in
+[sandbox-platform-access.md](sandbox-platform-access.md).
+
 **Where the mechanism lives.** User-facing semantics and the per-harness table:
 meridian-cli `docs/agent-profiles.md`, section "Permissions by harness". Policy,
 allowlists, platform rules and reports: `src/meridian/lib/safety/.context/CONTEXT.md`.
@@ -263,10 +267,23 @@ after the profile's rules:
   unless `[harness.<id>] allow_builtin_agents = true`.
 - **Task-list deny on spawns,** unless the profile has an explicit unscoped
   `task: allow` or `task: ask`; `*: allow` does not count.
-- **Completion commands on every spawn.** `meridian spawn done` and
-  `meridian spawn rearm` are allowed exactly, under any allowlist. Without them
-  a `'*': deny` plus `read: allow` child cannot confirm or reject its own completion, and
-  live Claude refused `spawn done` even with no profile rules.
+- **Meridian commands on every launch.** One rule grants three sets, each entry
+  either exact or prefix-matched in the harness's syntax:
+  - *Completion:* `meridian spawn done` and `meridian spawn rearm`, under any allowlist.
+    Without them a `'*': deny` plus `read: allow` child cannot confirm or reject its own
+    completion, and live Claude refused `spawn done` even with no profile rules.
+  - *Read-only:* Meridian's inspection commands (`spawn list`, `session search`,
+    `work current`, `task-dir`, and similar). Profiles that listed them by hand missed
+    some, so the list is Meridian's to keep. Mutating forms stay out, such as
+    `task-dir set`, `session index` and `spawn wait`. The exact list lives in
+    `src/meridian/lib/launch/permissions.py`.
+  - *Spawn:* `meridian spawn` launch commands, granted only to a profile that can spawn
+    (declares `subagents`).
+
+  Claude also excludes the spawn launch from its Bash sandbox, so a standalone spawn
+  survives the shell call; that escape and its limits are in
+  [sandbox-platform-access.md](sandbox-platform-access.md#d-sandbox-spawn-escape).
+  Codex cannot grant shell-command matches and reports these grants as unsupported.
 
 ## D-codex-sandbox-inference-deleted: an unset sandbox is the harness default {#d-codex-sandbox-inference-deleted}
 
