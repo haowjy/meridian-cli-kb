@@ -58,6 +58,22 @@ sandboxed runner can bind its socket (PR #735, v0.12.2). Three `test_signal_canc
 that put `app.sock` under an ad-hoc test root failed the first release-on-main
 preflight after PR #575 (run `38586754232`).
 
+The socket directory is shared by every project and outlives every runner, so a
+SIGKILLed runner leaves its socket behind and spawn-directory cleanup cannot
+find it: the socket path is not under the runtime root, and the root may
+already be gone (most leaked sockets observed on one host came from deleted
+pytest roots). Recovery happens when the next control server starts: it removes
+the current user's control sockets that are at least two minutes old and
+refuse a nonblocking *datagram* connect with `ECONNREFUSED`. A bound stream
+socket answers that probe with `EPROTOTYPE` on Linux and macOS before the
+kernel looks at listen or backlog state, so a runner paused between `bind` and
+`listen`, or a listener with a full backlog, is never mistaken for a dead one.
+A stream connect was rejected as the probe because macOS refuses a live
+listener whose backlog is full. Mechanism and exclusions:
+`lib/streaming/.context/CONTEXT.md` in meridian-cli (branch
+`stale-control-sockets`, unmerged as of 2026-10-23; until it lands, abandoned
+sockets accumulate).
+
 **`origin.json`** is `{path, created_at}`, written once with
 `write_model_once` (staged file, linked into place). Its mtime is the
 cheap activity signal. A crash after `mkdir` and before `origin.json` heals on

@@ -195,6 +195,36 @@ them, run the test against each, and
 record the red output with the PR. If timing can't hit the window reliably,
 inject the interleaving at the seam the property is about.
 
+## Patches Stop at the Interpreter Boundary
+
+A pytest fixture or `monkeypatch.setattr` changes module state in the pytest
+process only. A test that launches a new Python interpreter (`python -m
+meridian`, a driver script, a background runner the CLI starts) gets the
+production value in that child. Environment variables do cross, so
+`MERIDIAN_HOME` and `_MERIDIAN_RUNTIME_DIR` isolate children; a module constant
+with no environment override does not.
+
+The control-socket root is such a constant: `/tmp/meridian-<uid>`, shared by
+every process the user runs. The session fixture in `tests/conftest.py`
+redirects it to a short private directory, but the launch-lock crash tests
+start CLI and runner interpreters through `tests/support/launch_lock_driver.py`
+and SIGKILL them on purpose, so their sockets landed in the real user
+directory and were never removed. They made up 59 of the 69 control sockets
+found there on one host.
+
+To isolate such a child, pass the patched value in an environment variable
+and have the child apply the same patch before it runs Meridian: the launch-lock
+driver does this for both its CLI and worker modes, and
+`tests/integration/cli/test_spawn_report.py` runs the CLI through
+`python -c` that patches first. The other pattern is a test-only `sitecustomize`
+every child inherits (the `--runner-history=off` trap in `tests/AGENTS.md`);
+it was not used for sockets, to avoid intercepting every child for one
+constant. When a test deliberately kills a process, isolation is the only
+thing keeping its residue out of shared user directories: the killed process
+cleans up nothing.
+
+(Branch `stale-control-sockets` in meridian-cli, unmerged as of 2026-10-23.)
+
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 
 Runs N worker processes under `multiprocessing.get_context("spawn")` with a ready barrier — every child arms before any is released, maximizing real contention.

@@ -3,6 +3,15 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-23 — Abandoned control sockets and child-interpreter test isolation
+
+`work:stale-control-sockets` (issues #733, #445; branch unmerged as of this date).
+[Project identity](architecture/state-system/project-identity.md) says why the shared
+`/tmp/meridian-<uid>` directory leaks sockets after SIGKILL and how the next control server
+reclaims them with a datagram probe. [Test determinism](codebase/test-determinism.md) gains
+"Patches Stop at the Interpreter Boundary": in-process patches do not reach test-launched
+Meridian interpreters.
+
 ## 2026-10-23 — Completion report contract, channel-less holds, socket anchor
 
 `work:completion-hardening`. New records in [completion-drain](decisions/completion-drain.md):
