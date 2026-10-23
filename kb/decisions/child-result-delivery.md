@@ -108,8 +108,8 @@ leaves the lead where it was without one, needing an explicit wait.
 ## D-claude-delivery-header-only: automatic delivery carries lookup headers, not reports (2026-10) {#d-claude-delivery-header-only}
 
 **Status:** lead decision in `work:read-consumes` (Decision 3), implemented on
-the unmerged meridian-cli branch `fix/read-consumes` at `bb3438717`; not yet on
-`main`.
+the unmerged meridian-cli branch `fix/header-only-delivery` at `bb3438717`; not
+yet on `main`.
 
 ### Problem
 
@@ -162,6 +162,60 @@ command when the lead needs the report.
 - **Keep bounded report excerpts in Claude delivery.** That preserves the
   costly duplicate that motivated read-consumption and keeps report I/O plus
   budget-sharing machinery on every automatic delivery.
+
+---
+
+## D-no-arg-wait-owed-bounded: no-arg wait returns a bounded header-only owed batch (2026-10) {#d-no-arg-wait-owed-bounded}
+
+**Status:** lead decisions in `work:read-consumes` (Decisions 4 and 5),
+implemented on the unmerged meridian-cli branch `fix/header-only-delivery`; not
+yet on `main`.
+
+### Problem
+
+No-arg `spawn wait` selected only active descendants. A child that finished just
+before target discovery disappeared from wait even though it remained owed; the
+Claude watcher could then deliver it after the lead believed wait had drained the
+chat. Sharing collect's owed definition closes that gap, but the first
+implementation exposed another one: real resumed chats had as many as 79
+unconsumed finished background children. Returning every full report would dump
+an unbounded stale backlog into one model turn.
+
+### Decision
+
+- **No-arg wait adds terminal children from collect's owed scope.** A primary
+  owns background direct children across every primary generation of its chat;
+  a nested caller owns only its own background direct children. Active
+  transitive-descendant discovery is unchanged.
+- **Only the already-finished part is capped.** Target resolution takes at most
+  the oldest 32 owed terminal rows, the same member bound as collect. Active
+  targets are never capped; excess finished rows remain owed for the next wait
+  or collection.
+- **Classification belongs to target resolution.** A carried classification,
+  not a status check at render time, decides output policy. Children already
+  finished use the shared collect header (outcome, worker, failure, distinct
+  task directory, and `spawn show` lookup). Children active at resolution keep
+  ordinary wait output and their requested report body after wait blocks for
+  them.
+- **The existing JSON shape carries the distinction.** Owed-finished entries
+  omit `report_body`, including under `--full`; no parallel public output model
+  or schema field is added.
+- **Consumption stays with wait.** An observing wait leases the combined target
+  set and consumes terminal rows on return. `--no-observe` uses the same scope,
+  cap, and rendering but neither leases nor consumes, so its oldest batch may
+  repeat.
+
+### Rejected
+
+- **Limit owed discovery to the current primary generation.** Measured current
+  generations still had up to 12 finished children, and a second owed definition
+  would drift from collect across resumes.
+- **Keep full reports but cap the batch.** Up to 32 reports is still a large,
+  often already-read context dump.
+- **Cap the combined target set.** That could strand live descendants outside
+  the synchronization barrier.
+- **Reclassify from terminal status while rendering.** A child that was active
+  when the wait claimed it would lose the full report it waited to return.
 
 ---
 

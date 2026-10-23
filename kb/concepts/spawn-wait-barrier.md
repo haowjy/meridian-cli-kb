@@ -5,6 +5,10 @@ orchestration. After launching background subagents, the orchestrator runs
 `meridian spawn wait` to block until all pending work in the current chat
 completes before producing a final answer.
 
+Status: the bounded owed-result extension below is implemented on the unmerged
+meridian-cli branch `fix/header-only-delivery`; `main` still selects active rows
+only. See [D-no-arg-wait-owed-bounded](../decisions/child-result-delivery.md#d-no-arg-wait-owed-bounded).
+
 ---
 
 ## No-arg Wait by Chat Lineage
@@ -13,16 +17,18 @@ completes before producing a final answer.
 meridian spawn wait
 ```
 
-With no positional spawn IDs, `wait` discovers every **pending** spawn that
-shares the current root chat, identified by `MERIDIAN_CHAT_ID`. Discovery is
-lineage-scoped: all spawns at any nesting depth inherit the same root chat ID.
+With no positional spawn IDs, `wait` discovers the caller's active wait set and,
+on the bounded-delivery branch, terminal background children still owed to that
+caller. Active discovery is lineage-scoped: all spawns at any nesting depth
+inherit the same root chat ID.
 
 **Discovery filters:**
 
 | Filter | Detail |
 |---|---|
 | Owner chat (`owner_chat_id`, else `chat_id`) `== MERIDIAN_CHAT_ID` | Only spawns belonging to this chat tree |
-| Active status only | `queued`, `running`, or `finalizing` |
+| Active set | `queued`, `running`, or `finalizing`; never capped |
+| Owed finished set (unmerged branch) | Oldest 32 terminal, unconsumed, unleased background direct children; excess stays owed |
 | Self-exclusion | The current spawn (`MERIDIAN_SPAWN_ID`) is excluded from the wait set |
 | **Descendant-scoping** | When called from a nested spawn, only descendants of the caller are included (not siblings, ancestors, or the primary session) |
 
@@ -38,6 +44,19 @@ authoritative `state.json` before wait decides it is pending. Before #599,
 discovery materialized every indexed row and filtered in Python. The measured
 before/after cost is recorded on the [per-operation cost bar](../architecture/per-operation-cost.md).
 The SQL filter keeps discovery within that bar.
+
+The owed set comes from the same `owed.py` scope and authoritative snapshot as
+Claude's hidden `spawn collect`. A primary reads direct background children and
+observations across every primary generation in its chat. A nested caller owns
+only its own direct background children, while its active set remains the
+transitive descendant projection. Foreground, archived, retired, historical,
+missing, quarantined, consumed, and live-leased rows are not owed targets.
+
+Whether a target was already finished is decided once, when the target set is
+resolved. Those rows use collect's status/worker/failure/task-dir/show header and
+omit `report_body` even for JSON `--full`. Rows active at resolution keep normal
+wait output and full reports after they finish. A normal wait leases the combined
+set and consumes every terminal result it returns; `--no-observe` does neither.
 
 If no pending spawns exist, the command returns immediately with a clean no-op
 message. That answer requires complete history-index coverage. Discovery reads

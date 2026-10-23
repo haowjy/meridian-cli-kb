@@ -9,9 +9,10 @@ that one route delivered is not delivered again by another.
 Status: all three routes have shipped (the Claude route in v0.11.9, PR #724).
 The record's location below, `spawns/<primary>/`, shipped in v0.11.10
 (PR #729); builds up to v0.11.9 keep it at `pi-bash/<primary>/`. Claude's
-header-only delivery refinement is implemented on the unmerged
-`fix/read-consumes` branch at `bb3438717`; `main` still delivers bounded
-report bodies until that branch lands. Rationale and rejected designs:
+header-only delivery refinement and no-arg wait's bounded owed-result delivery
+are implemented on the unmerged `fix/header-only-delivery` branch; `main` still
+delivers bounded report bodies from collect and no-arg wait still selects active
+rows only. Rationale and rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
@@ -57,6 +58,9 @@ A child is **owed** to a lead while all of these hold:
 
 Only direct children count. A child does not finish until its own descendants
 have, so a grandchild's result reaches the lead through its parent's report.
+For a nested caller, the same owed rule applies only to its own direct background
+children; it does not take the primary's backlog, siblings, or terminal
+grandchildren.
 
 Pi's extension applies the first and third conditions to the current primary
 only, and does not apply the second, so it also delivers foreground children
@@ -133,6 +137,17 @@ lease and records the terminal spawns it returned as observed. A watcher that
 sees a live lease leaves those ids alone; if the wait is killed, the lease dies
 with it and the ids are owed again.
 
+On the unmerged bounded-delivery branch, a no-arg wait combines its unchanged
+active set with terminal children from the shared owed scope. Target resolution
+takes at most the oldest 32 already-finished children; active targets are not
+capped. That classification is frozen with the wait set: children already
+finished render through collect's header-only formatter and omit `report_body`
+even under JSON `--full`, while children active at resolution keep ordinary wait
+output and their requested report body after the wait blocks for them. Excess
+finished children stay owed for the next normal wait or collection.
+`--no-observe` makes the same selection and rendering but creates no lease or
+consumption record, so it can return the same oldest batch again.
+
 ## Claude: the `meridian-spawn-watch` mod
 
 The split follows "adapters report facts, core decides". Core decides which
@@ -163,7 +178,7 @@ owed set has finished, as `spawn wait` would. Leased ids are skipped while the
 lease lives, never treated as a reason to exit. Just before returning it
 re-reads consumption and leases, so a wait or ack that took a result meanwhile
 drops it from the batch. It consumes nothing, and exits when its parent process
-changes (Claude died) or when it is killed. On the unmerged header-only branch,
+changes (Claude died) or when it is killed. On the unmerged bounded-delivery branch,
 a delivery carries at most 32 results. Each member contains its identity and
 terminal outcome, worker, failure when present, distinct task directory, and
 the exact `meridian spawn show <id>` lookup command. `collect` reads no report
