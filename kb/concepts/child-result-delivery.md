@@ -8,7 +8,10 @@ that one route delivered is not delivered again by another.
 
 Status: all three routes have shipped (the Claude route in v0.11.9, PR #724).
 The record's location below, `spawns/<primary>/`, shipped in v0.11.10
-(PR #729); builds up to v0.11.9 keep it at `pi-bash/<primary>/`. Rationale and rejected designs:
+(PR #729); builds up to v0.11.9 keep it at `pi-bash/<primary>/`. Claude's
+header-only delivery refinement is implemented on the unmerged
+`fix/read-consumes` branch at `bb3438717`; `main` still delivers bounded
+report bodies until that branch lands. Rationale and rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
@@ -93,8 +96,10 @@ reads the same file with its own schema
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
 schema change moves both.
 
-Fetching a result is not consuming it. A command that reads a child's result
-for display or for a notification uses `spawn wait --no-observe`.
+Fetching a result is not itself consuming it. `spawn show`, `spawn report
+show`, and `session log` remain pure reads. A terminal result returned by
+`spawn wait` is consumed unless the caller supplies `--no-observe`; `spawn
+ack` is the other command that records consumed ids.
 
 ### Transition from `pi-bash/`
 
@@ -158,9 +163,12 @@ owed set has finished, as `spawn wait` would. Leased ids are skipped while the
 lease lives, never treated as a reason to exit. Just before returning it
 re-reads consumption and leases, so a wait or ack that took a result meanwhile
 drops it from the batch. It consumes nothing, and exits when its parent process
-changes (Claude died) or when it is killed. A delivery carries at most 32
-results and 64 KiB, with every result's identity and outcome line kept and
-report bodies cut to share the rest; the bounds follow Pi's delivery contract.
+changes (Claude died) or when it is killed. On the unmerged header-only branch,
+a delivery carries at most 32 results. Each member contains its identity and
+terminal outcome, worker, failure when present, distinct task directory, and
+the exact `meridian spawn show <id>` lookup command. `collect` reads no report
+bodies and has no report-byte budget. Pi keeps its separate TypeScript renderer
+and bounded report excerpts.
 
 **The mod** starts `collect` 2 s after a main-loop `turn.complete` with reason
 `answer`, and at `session.start` (a resumed or reloaded session is idle with

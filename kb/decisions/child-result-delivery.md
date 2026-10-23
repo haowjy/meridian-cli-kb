@@ -105,6 +105,66 @@ leaves the lead where it was without one, needing an explicit wait.
 
 ---
 
+## D-claude-delivery-header-only: automatic delivery carries lookup headers, not reports (2026-10) {#d-claude-delivery-header-only}
+
+**Status:** lead decision in `work:read-consumes` (Decision 3), implemented on
+the unmerged meridian-cli branch `fix/read-consumes` at `bb3438717`; not yet on
+`main`.
+
+### Problem
+
+Claude's collector originally rendered report bodies into the automatic turn,
+sharing a 64 KiB budget across at most 32 children. Reading a report directly
+did not consume it, so a later automatic delivery could send the same body
+again. Making `spawn show`, `spawn report show`, and `session log` consume what
+they displayed would avoid that repeat, but would also turn read operations
+used by the CLI, server, UI, and MCP into observation writers. The rule would
+have needed caller-context, terminal-state, and partial-transcript-window
+exceptions, and each write would take the parent's published-spawn lock.
+
+Once the automatic delivery contains only enough information to identify and
+inspect a child, a repeat after a direct read is one short lookup notice rather
+than a repeated report. That makes keeping reads pure the simpler and safer
+tradeoff.
+
+### Decision
+
+- **Claude delivery is header-only.** Each child keeps its terminal
+  status/outcome line, `Worker:`, `Failure:` when present, the distinct task
+  directory line, and the exact `meridian spawn show <id>` lookup command.
+  Report bodies, the no-durable-report fallback, and truncation notices are not
+  delivered.
+- **`spawn collect` does not read report files.** The report-byte budget and
+  cross-member budget-sharing machinery are deleted. The existing 32-child
+  cap remains.
+- **Reads remain reads.** `spawn show`, `spawn report show`, and `session log`
+  do not record consumption and gain no observation flag. Consumption remains
+  with terminal results returned by `spawn wait` unless `--no-observe` is used,
+  and with `spawn ack` after the Claude delivery turn starts.
+- **Pi is unchanged.** Its TypeScript renderer continues to deliver bounded
+  report excerpts under Pi's delivery contract.
+
+### Consequence
+
+A lead that directly reads a finished child can receive one later header-only
+Claude delivery for it. This duplicate is accepted: it is short, preserves the
+single durable consumption protocol, and points back to the explicit lookup
+command when the lead needs the report.
+
+### Rejected and superseded
+
+- **Record consumption from report and transcript reads.** An earlier
+  work-item decision proposed opt-in op parameters and default-on CLI
+  `--observe` flags, with terminal-child and transcript-final-entry checks. It
+  was superseded before implementation because it made unrelated read surfaces
+  share delivery policy and lock-taking write failure modes to avoid only a
+  short duplicate header.
+- **Keep bounded report excerpts in Claude delivery.** That preserves the
+  costly duplicate that motivated read-consumption and keeps report I/O plus
+  budget-sharing machinery on every automatic delivery.
+
+---
+
 ## D-observed-spawns-location: the consumption record lives in the parent's spawn directory (2026-10) {#d-observed-spawns-location}
 
 **Status:** lead decision after correctness and version-skew review
