@@ -19,7 +19,9 @@ Raw research dumps and conversation transcripts don't belong here — synthesize
 them first. Active task plans live in work directories, not the KB. But
 documenting how the code works, what the APIs look like, how data flows through
 the system — that absolutely belongs here, alongside the reasoning and context
-that make those facts meaningful.
+that make those facts meaningful. Prefer linking: when the project's docs or a
+colocated `.context/` already describe it, link there instead of restating it,
+and write here only what they don't say.
 
 ## Writing
 
