@@ -35,8 +35,7 @@ Invalid shortcuts are part of the contract. Benchmark agents must not edit bench
 The package inherits model aliases and descriptions from its dependencies. It
 does not define local aliases. Benchmark routing should select among configured
 agent profiles using active model descriptions and task evidence; it should not
-invent ad hoc model aliases during a run. Display curation is separate and
-cannot select a model or change runtime routing.
+invent ad hoc model aliases during a run.
 
 This keeps benchmark comparisons tied to named, inspectable profiles instead of one-off model strings embedded in prompts. A report should say which profiles and aliases ran, not merely which provider family was used.
 
@@ -52,7 +51,7 @@ At the initial scaffold (0.1.1, 2026-07-09), source-package `mars check`, `mars 
 
 Benchmark README claims should stay runner-agnostic until real benchmark runs exist. It is valid to say the package supports DeepSWE, Terminal-Bench, or local verifiers as externally specified task sources. It is not valid to claim improved pass rate, lower cost, or superior harness composition without actual run data.
 
-The report fields are defined in `skills/benchmark-methodology/resources/report-schema.md`.
+The report fields are defined in `../prompts/meridian-benchmark-agents/skills/benchmark-methodology/resources/report-schema.md`.
 
 The likely headline comparison metric is cost per accepted task: total run cost divided by verifier-accepted benchmark tasks. Treat it as a future evaluation metric, not a current result claim.
 

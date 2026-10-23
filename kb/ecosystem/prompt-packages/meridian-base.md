@@ -74,7 +74,7 @@ README instead of copying it. Shifts that break old prompts and notes:
   in 0.11.5. The GPT family is now `sol`, `terra`, `luna` and `astra`.
 - `deepseek` has meant V4 Flash since 0.10.9, and `deepseekflash` is gone.
   Pro is `deepseekpro`.
-- `sonnet` was removed in 0.7.26 and later restored.
+- `sonnet` was removed in 0.7.26 and later restored; it is current.
 - `fable` is for escalation only and is never a default (0.11.8).
 
 An alias name copied from an older note or prompt may no longer resolve.
@@ -90,7 +90,7 @@ ordinary read command it needs.
 
 ## Hooks
 
-Mars-compiled hooks using the D91 native fragment schema. Each hook has a
+Mars-compiled hooks using the native fragment schema ([D91](../../decisions/package-management.md)). Each hook has a
 `hook.toml` (identity and routing) and a per-target JSON fragment
 (`claude.json`, `codex.json`) carrying the harness's native config shape
 verbatim. Mars validates event keys, substitutes `${MARS_HOOK_DIR}` with

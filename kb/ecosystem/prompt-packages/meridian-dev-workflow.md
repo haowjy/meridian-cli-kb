@@ -8,7 +8,7 @@ from first edit to PR (`/pre-dev`, `/parallel-execution`, `/post-dev`,
 `/dev-workflow`). tech-lead is the default primary.
 
 **Source:** `../prompts/meridian-dev-workflow/`. The README holds the lead
-roles, the handoff topology, the end-to-end lifecycle, and the agent and
+roles, which lead hands off to which, the end-to-end lifecycle, and the agent and
 skill tables with default models. Review lanes and stop conditions live in
 `skills/agent-staffing/resources/reviewers.md`.
 
@@ -24,8 +24,7 @@ The package began as a fixed pipeline: product-lead → design-lead → planner
 → tech-lead, with requirements written in EARS, a tech-lead that never wrote
 code, a mandatory four-reviewer final gate, and a parallel swarm of QA and
 documentation agents after implementation. Every step ran on every change.
-Over five months the package removed that ceremony one piece at a time,
-because each piece cost more than it caught:
+Over five months the package removed that ceremony one piece at a time:
 
 | Version (date) | Change | Stated reason |
 |---|---|---|
@@ -69,8 +68,9 @@ captured knowledge. What went was running every check on every change.
 - **`@gpt-dev` is now `@solo-dev`.** Profiles and notes that name the old
   agent fail to resolve it.
 - **Model names in old notes are stale.** Profiles use meridian-base aliases
-  (`opus`, `luna`, `sol`, `astra`), and Fable is set `no-fallback` on the
-  interactive leads, so it is used only when chosen explicitly.
+  (`opus`, `luna`, `sol`, `astra`), and the interactive leads mark Fable
+  `no-fallback`, so automatic fallback never picks it; it runs only when
+  chosen explicitly.
 
 ## Related
 
