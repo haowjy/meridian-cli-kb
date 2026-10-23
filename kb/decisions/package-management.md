@@ -740,7 +740,7 @@ order became: merge mars-agents #173 → publish 0.16.0 → bump the pin and
 `uv lock` on the Meridian branch → re-gate → merge #575. The earlier smokes had
 passed only because a dev build had been copied over `.venv/bin/mars`, which
 also rewrote uv's shared cache
-([lesson](../lessons/dogfooding-pr-builds.md#copying-over-venvbin-rewrites-uvs-cache)).
+([lesson](../lessons/dogfooding-pr-builds.md#writing-over-venvbin-rewrites-uvs-cache)).
 
 **User agents resolve their model against the project** (I16, confirmed with
 mars 0.16.0). Because configuration comes from `primary` only, a user agent

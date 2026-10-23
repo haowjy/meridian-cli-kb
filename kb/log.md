@@ -3,6 +3,20 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-23 — Sandbox platform access reconciled against both branches
+
+`work:harness-sandbox-network`. [Sandbox platform access](decisions/sandbox-platform-access.md)
+was checked against PR #750 and the stacked network branch and rewritten: the caller record is
+`_MERIDIAN_CALLER_BOUNDARY` in `core/caller_boundary.py`, checked only in the operations layer;
+the Codex rule and Claude escape need spawn capability and a sandbox Meridian projected; owner
+rulings are separated from lead choices, with the child guardrail flagged; Mars's network-only
+validation and the owed profile follow-up are recorded.
+[Completion drain](decisions/completion-drain.md) now says read-only Codex without spawn
+capability still skips the confirmation turn.
+[Dogfooding PR builds](lessons/dogfooding-pr-builds.md) records the second `.venv/bin/mars`
+overwrite with the new-inode procedure, and Codex's login shell resolving the installed
+`meridian`.
+
 ## 2026-10-23 — Sandbox platform access decisions
 
 `work:harness-sandbox-network`. New page [decisions/sandbox-platform-access.md](decisions/sandbox-platform-access.md)
@@ -950,7 +964,7 @@ runner as `failed`/`crashed` (or `cancelled` with a cancel request),
   release and pin bump before #575; the probe is the safety net behind the pin), I21 (no automatic
   pruning; daily sweep declined) and the I16 addendum (alias gap is narrow; aliases from the fallback
   root left open). [Health checks](operations/health-checks.md) updated for the listing.
-- Lessons: [`.venv/bin/*` hard-link rule](lessons/dogfooding-pr-builds.md#copying-over-venvbin-rewrites-uvs-cache);
+- Lessons: [`.venv/bin/*` hard-link rule](lessons/dogfooding-pr-builds.md#writing-over-venvbin-rewrites-uvs-cache);
   [landing a stacked chain](lessons/release-sequencing.md#landing-a-stacked-chain-2026-10-14) (producer before
   the pin, CHANGELOG re-homing, `merge-tree` exit code); [how the stack landed](codebase/cleanup-program.md#how-the-stack-landed)
   (#576 fast-gate gap, #577 Pi flakes). Ad-hoc ids vs AF_UNIX `sun_path` noted on project identity.

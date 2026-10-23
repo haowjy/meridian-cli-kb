@@ -100,7 +100,7 @@ the running Python (the install's own) over `PATH`. A probe that puts a dev
 build first on `PATH` still gets `.venv/bin/mars`. Never copy a build over
 `.venv/bin/mars` to get around this: uv hard-links it into its cache, so the
 copy replaces the binary in every venv that shares the entry
-([lesson](../lessons/dogfooding-pr-builds.md#copying-over-venvbin-rewrites-uvs-cache)).
+([lesson](../lessons/dogfooding-pr-builds.md#writing-over-venvbin-rewrites-uvs-cache)).
 
 ## `meridian mars` passthrough
 

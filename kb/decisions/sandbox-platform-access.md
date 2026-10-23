@@ -1,180 +1,195 @@
 # Decisions: Meridian's Access Inside a Harness Sandbox
 
-A profile's `sandbox:` limits what an agent may write. Meridian's own work still has to
-run under that limit: the spawn takes its project lock, its `meridian` commands read and
-write state, and a child spawn must outlive the shell call that launched it. Profile authors
-should not have to know any of this. Meridian grants what its control plane needs wherever the
-harness can express the grant, and `--dry-run` reports each grant, or its absence, per harness.
+A profile's `sandbox:` limits what an agent may write, and its `network:` limits whether
+the agent's shell may connect out. Meridian's own work still has to run under those limits:
+the spawn takes its project lock, its `meridian` commands read and write state, and a child
+spawn must outlive the shell call that launched it. Profile authors should not have to know
+any of this. Meridian grants what its control plane needs wherever the harness can express
+the grant, and `--dry-run` reports each grant, or its absence, per harness.
 
-**Status (as of 2026-10-23):** the Claude and Codex grants, delegation guardrail, and profile
-`network` projection are combined on `feat/sandbox-network-projection` through `6a1b02c16`,
-not yet merged to `main`. The implementation is gated only on the separate pre-merge pin to
-the first Mars release that carries the field (expected 0.18.0).
+Three owners divide the work. The **profile author** (Mars schema) states what the role may
+do: `sandbox`, `network`, `tools`. **Meridian** adds what any spawn needs to operate inside
+Meridian, invisibly to the author. The **harness projection** turns both into native
+settings and reports what it cannot enforce. The owner asked for this split: "what stuff we
+need to pass in by default so prompt authors don't have to learn too much about meridian".
+
+**Status (2026-10-23): unmerged.** The grants, escapes, compound-launch refusal and child
+guardrail are on meridian-cli PR #750 (`feat/sandbox-network`). Profile `network` projection
+and the network part of the guardrail are on the stacked `feat/sandbox-network-projection`,
+which also needs the Mars `network` field (mars-agents PR #182, first release expected 0.18.0)
+and a Mars pin bump before it merges.
+
+**Who decided what.** The owner ruled two points: `network` defaults to allow ("yes, default
+allow") and Meridian owns its CLI's permission surface ("yes, thats honestly better").
+Everything else on this page is the implementing lead's current choice, made after probes
+and reviews; the owner has not addressed it. The child guardrail in particular was put to the
+owner as an uncertain call and has had no answer.
 
 **Where the mechanism lives.** Platform command grants and the rule that owns them:
 [tool-permissions.md](tool-permissions.md#d-permission-platform-rules). Which paths a
 sandbox may see: [architecture/sandbox-projection.md](../architecture/sandbox-projection.md).
-Per-harness compiles: `src/meridian/lib/harness/projections/.context/CONTEXT.md`.
+In meridian-cli: per-harness compiles in `src/meridian/lib/harness/projections/.context/CONTEXT.md`,
+the caller record and its checks in `src/meridian/lib/core/caller_boundary.py`.
 
 ## What each harness gets
 
 | Grant | Claude | Codex | OpenCode, Pi |
 |---|---|---|---|
 | Project lifetime lock usable | Yes: real-launch materialization pre-creates the exact file; POSIX locking opens it read-only | Yes by the same mechanism, including `read-only` | n/a: no sandbox |
-| Meridian commands allowed (completion, read-only, spawn) | Exact and prefix `Bash(...)` allows | The `meridian spawn` prefix through a user-wide execution-policy rule; other command grants are not expressible | Native shell or extension allows |
-| Child spawn leaves the shell sandbox | Yes, for a standalone `meridian spawn` in a spawn-capable profile | Yes, for a standalone `meridian spawn` in every session using the Codex home | n/a: no sandbox |
-| Nested child authority | A Meridian-launched caller cannot select a less-confined child or weaken an authored, enforced network deny | Same when the caller was launched by Meridian; a direct Codex session has no floor | Same floor, without a sandbox escape |
+| Meridian commands allowed (completion, read-only, spawn) | Exact and prefix `Bash(...)` allows | Only the `meridian spawn` prefix, through a user-wide execution-policy rule; other command grants are not expressible | Native shell or extension allows |
+| Child spawn leaves the shell sandbox | For a standalone `meridian spawn` in a spawn-capable profile, when the sandbox is one Meridian projected (`read-only` or `workspace-write`) | For a standalone `meridian spawn` in every session using the Codex home, once any spawn-capable constrained launch has written the rule | n/a: no sandbox |
+| Completion signals (`spawn done`, `rearm`) under `read-only` | Yes | Only through the spawn rule; a read-only profile without spawn capability skips the confirmation turn | n/a |
+| Nested child authority | A Meridian-launched constrained caller cannot select a less-confined child or weaken an authored, enforced network deny | Same when the caller was launched by Meridian; a direct Codex session has no floor | Same floor, without a sandbox escape |
 | Compound launch refused | Yes on Linux, by PID-namespace comparison | Yes on Linux, by the same comparison | n/a: same namespace |
 
 A compound launch is a `meridian spawn` inside a shell line that also contains `&&`, a pipe,
-`$()`, or a leading `VAR=` assignment. A spawn-capable profile is one that declares
-`subagents`. The three grant sets are defined in
-[tool-permissions.md](tool-permissions.md#d-permission-platform-rules). `--dry-run` states each grant on the `sandbox:` and
-`platform:` lines.
+`$()`, or a leading `VAR=` assignment. A spawn-capable profile declares `subagents` and does
+not set `spawn: false`. The three grant sets are defined in
+[tool-permissions.md](tool-permissions.md#d-permission-platform-rules). `--dry-run` states each
+grant on the `sandbox:`, `network:` and `platform:` lines. Every spawn's injected guidance
+tells the agent to run `meridian` commands as standalone shell calls; it sits in the
+always-on block because children without spawn capability still run `spawn done`.
 
 ## D-sandbox-state-roots: pre-create the exact project lock {#d-sandbox-state-roots}
 
 **Decided:** every spawn and session takes a shared lifetime lock in
-`~/.meridian/projects/.locks/<project-id>.lock`, where `<project-id>` is the project's ID.
-The lock sits beside the project runtime root (`~/.meridian/projects/<project-id>/`), not
-under it. Runtime materialization pre-creates that exact file after pure bind and before the
-harness starts. On POSIX, lock acquisition opens an existing lock read-only, so a sandboxed
-`meridian` process can take the lock without receiving write access to the shared `.locks`
-directory. Dry-run performs neither write.
+`<user home>/projects/.locks/<project-id>.lock` (`~/.meridian/` unless `MERIDIAN_HOME` moves
+it). The lock sits beside the project runtime root, not under it. Runtime materialization
+creates that exact file after pure bind and before the harness starts. On POSIX, lock
+acquisition opens an existing lock read-only, so a sandboxed `meridian` process can take the
+lock without write access to the shared `.locks` directory. Dry-run performs neither write.
 
 **Why:** the first implementation projected the entire sibling directory because ordinary
 lock acquisition created a missing file in append mode. That fixed the sandbox failure but
 let a child create lock names for other projects. Splitting creation from acquisition removes
 the shared writable root: trusted runtime materialization creates the current project's file,
-while the nested control process only needs the existing inode. This follows the fixed rule that a
-launch may see the current project's runtime state but does not receive a writable
-cross-project state tree.
+while the nested control process only needs the existing inode. A launch may see the current
+project's runtime state but never receives a writable cross-project state tree.
 
 **Rejected:**
 
 - *A per-harness `allowWrite` rule for the lock directory.* A Claude-only rule would fix one
-  sandbox while retaining a broader write grant than lock acquisition requires.
+  sandbox while keeping a broader write grant than lock acquisition requires.
 - *Projecting `~/.meridian/projects/`.* That is the whole-tree grant the
   [fixed projection constraint](../architecture/sandbox-projection.md#fixed-projection-constraint)
   forbids.
 - *Projecting `~/.claude`.* A sandboxed Claude run in a normal workflow, with no `~/.claude`
-  grant, completed without a read-only error, so no root was added. Add it when a sandboxed run fails with a read-only error on
-  `~/.claude`.
+  grant, completed without a read-only error, so no root was added. Add it when a sandboxed
+  run fails with a read-only error on `~/.claude`.
 
 ## D-sandbox-spawn-escape: a standalone spawn launch leaves Claude's sandbox {#d-sandbox-spawn-escape}
 
-**Decided:** a spawn-capable profile's standalone `meridian spawn …` command is excluded
-from Claude's Bash sandbox (`excludedCommands: ["meridian spawn *"]`). The whole command
-runs unsandboxed and its detached child survives the shell call.
+**Decided:** when Meridian projects a `read-only` or `workspace-write` sandbox for a
+spawn-capable profile, Claude's settings exclude `meridian spawn *` from the Bash sandbox
+(`excludedCommands`). The whole command runs unsandboxed and its detached child survives the
+shell call.
 
 **Why:** Claude's sandbox runs commands in their own PID namespace and kills detached
 children when the call ends. A child spawn is a detached worker, so inside the sandbox it
 dies with the shell. Excluding the launch is the only way its worker finishes. The excluded
-process remains in the launcher's host PID namespace; a sandboxed command runs in another
-namespace.
+process stays in the launcher's host PID namespace.
 
 **Why only `meridian spawn` and only spawn-capable profiles:** `meridian *` would have let
-any sandboxed profile run `config set`, `work delete` or `mars …` unconfined. The grant is
-limited to the launch form because only a launch needs to outlive the shell. A profile has
-spawn capability when it declares `subagents` and does not set `spawn: false`
-(`has_spawn_capability`). That flag is computed from the profile at prepare time and carried
-on the prepared launch, because continue and fork relaunch from a saved snapshot that has no
-profile, and a flag computed at bind would be lost there.
+any sandboxed profile run `config set`, `work delete` or `mars …` unconfined. Only a launch
+needs to outlive the shell. Spawn capability is computed from the profile at prepare time and
+carried on the prepared launch, because continue and fork relaunch from a saved snapshot that
+has no profile.
 
-**Consequence the profile author must accept:** the excluded `meridian` process itself
-bypasses the sandbox completely. The [delegation guardrail](#d-delegation-floor) prevents a
-Meridian-launched constrained caller from choosing a weaker child sandbox and preserves an
-authored network deny only when the caller's harness effectively denies network. It does not
-re-sandbox the escaped control process or make its inputs trustworthy. The user-facing
-boundary and residual risks are in `docs/agent-profiles.md` in the meridian-cli repository.
+**Why only sandboxes Meridian projected:** a profile with `sandbox: default` gets no
+exclusion, even when the user turned on Claude's sandbox in their own settings. Such a caller
+has no guardrail record, so an exclusion would let it escape a sandbox it never declared with
+no check on the child. Its nested launches get the compound-launch refusal instead; the fix is
+to set `sandbox:` in the profile.
 
-**Matching is by command shape.** Claude matches only a simple command: one command with no
-`&&`, pipe, `$()` or `VAR=` prefix. A compound line (`cd x && meridian spawn …`, a pipe,
-`$()`, or `VAR=1 meridian …`) does not match, and its launch stays sandboxed. See
-[D-sandbox-compound-refusal](#d-sandbox-compound-refusal).
+**Consequence the profile author must accept:** the excluded `meridian` process bypasses the
+sandbox completely, including `network: deny`. The [guardrail](#d-delegation-floor) stops a
+constrained caller from asking for a weaker child; it does not re-sandbox the escaped process
+or make its inputs trustworthy. The user-facing boundary and residual risks are in
+`docs/agent-profiles.md` in the meridian-cli repository.
 
-**Evidence:** on Claude Code 2.1.309, using the haiku model, a spawn-capable architect under
+**Matching is by command shape.** Claude matches only a simple command. A compound line
+(`cd x && meridian spawn …`, a pipe, `$()`, or `VAR=1 meridian …`) does not match, and its
+launch stays sandboxed. See [D-sandbox-compound-refusal](#d-sandbox-compound-refusal).
+
+**Evidence:** on Claude Code 2.1.309 with haiku, a spawn-capable architect under
 `workspace-write` launched a child from one standalone Bash call, and the child finished and
-reported. The same profile's compound form was refused with the error text in the next
-section. Spawn IDs are in provenance.
+reported. The same profile's compound form was refused.
 
 ## D-sandbox-compound-refusal: a compound launch fails before it starts {#d-sandbox-compound-refusal}
 
-**Decided:** before it launches a harness, Meridian records its own
-`/proc/self/ns/pid` link in `_MERIDIAN_LAUNCHER_PID_NAMESPACE`. A `meridian spawn` create,
-continue, or fork compares that value with its current namespace and refuses when they differ.
-Every nested Meridian launcher replaces the value with its own namespace. The error says to
-run `meridian spawn` as a standalone shell command. `meridian spawn done`, `rearm`, help, and
-dry run are not refused by this namespace check.
+**Decided:** every Meridian launcher writes a JSON caller record to the child's
+`_MERIDIAN_CALLER_BOUNDARY` environment variable; its `pid_namespace` field is the
+launcher's `/proc/self/ns/pid` link. A nested `meridian spawn` create, continue or fork
+compares that value with its own namespace in the operations layer, before it writes any
+state, and refuses when they differ. The error says to run `meridian spawn` as a standalone
+shell command. `spawn done`, `rearm`, help and dry run are not refused by this check. Each
+nested launcher overwrites the record with its own.
 
-**Why:** a sandbox that kills detached children isolates the shell in another PID namespace.
-The namespace comparison tests that failure condition directly across Claude and Codex;
-harness-specific markers do not. Without the refusal, a compound launch starts a worker the
-shell's exit kills, and the parent sees no useful error. The CLI checks on its import-cheap
-startup path before Mars loads, then the operations layer repeats the guard for non-CLI
-callers. This keeps the corrective message ahead of lower-level sandbox failures and child
-state writes.
+**Why:** a sandbox that kills detached children does so by giving the shell its own PID
+namespace, so the comparison tests that failure condition directly, on every harness at once.
+Codex sets no general sandbox marker (only `CODEX_SANDBOX_NETWORK_DISABLED`), so a check on
+Claude's `SANDBOX_RUNTIME=1` and per-harness markers was rejected. Without the refusal, a
+compound launch starts a worker the shell's exit kills, and the parent sees no useful error.
+The CLI entrypoint has no copy of the check: duplicating spawn-argument parsing there was
+deleted as a second grammar, since the operations layer already refuses before state access.
 
-**Platform limit:** if the launch environment has no recorded value or procfs does not expose
-the current namespace, Meridian skips the comparison. This is the expected path on macOS.
-The mechanism does not claim to detect a sandbox there.
+**Platform limit:** if the launch environment has no record or procfs does not expose the
+current namespace, Meridian skips the comparison. This is the expected path on macOS. The
+mechanism does not claim to detect a sandbox there.
 
 **Evidence:** the host and a Claude excluded command shared `pid:[4026531836]`; sandboxed
-Claude and Codex commands used different namespaces. Live compound calls under both harnesses
-were refused with exit 1 and no child; standalone Claude, Codex, and Pi nesting succeeded. A
-real Codex workspace-write probe also exercised flags before and after the prompt, background,
-model, agent, prompt-file, continue, fork, and a harness shortcut; every launch form reached
-the startup refusal before sandboxed state access. Source: `work:harness-sandbox-network`.
+Claude and Codex commands each had their own namespace. Live compound calls under both
+harnesses were refused with exit 1 and no child; standalone Claude, Codex and Pi nesting
+succeeded. A Codex workspace-write probe covered every launch form (flags before and after
+the prompt, background, model, agent, prompt file, continue, fork, a harness shortcut).
 
 ## D-delegation-floor: escaped child launches get a CLI guardrail {#d-delegation-floor}
 
-**Decided:** only callers that Meridian launched with an explicit constrained sandbox
-(`read-only` or `workspace-write`) receive a launcher-owned guardrail. Its record carries the
-PID namespace, sandbox, spawn capability, and `network: deny` only when deny was both authored
-and effectively enforced. Nested create, continue, fork, and their dry runs refuse a caller
-without spawn capability, a child with a weaker sandbox, a child with weaker effective network
-under a deny floor, or harness-native passthrough arguments that could replace Meridian's
-resolved policy. Approval, workspace roots, and `--env` values are not compared. A missing
-network key and the legacy persisted value `allow` mean no network floor.
+> [!FLAG] **Needs human review.** This is the implementing lead's choice. The lead asked the
+> owner whether a sandboxed spawner may launch a less-confined child, got no answer within
+> ten minutes, and took the conservative option. The rejected alternatives below are still
+> open to the owner.
 
-The refusal distinguishes two remedies: an omitted or allowed child must set `network: deny`;
-a child that already declares deny must use a harness/sandbox/native override combination that
-actually enforces it. Every child emits its own immediate boundary rather than carrying the
-root caller's record forward. Top-level, `default`, and `danger-full-access` callers receive no
-floor. Read operations, `spawn done`, and `spawn rearm` do not consult it.
+**Current choice:** a caller Meridian launched under `read-only` or `workspace-write` carries
+a guardrail in its caller record: sandbox, spawn capability, and a network deny floor only
+when the caller authored `network: deny` and its harness enforces it. Nested create, continue,
+fork and their dry runs refuse:
 
-**Why:** Claude's exclusion and Codex's execution-policy rule move the standalone
-`meridian spawn` command outside the caller's native sandbox so its detached worker survives.
-The guardrail prevents the easy CLI escalation taught by the privilege-escalation workflow,
-such as retrying a child with `--sandbox danger-full-access`. It is deliberately **not an
-adversarial confinement boundary**: the escaped process reads request, config, hook, executable,
-and state inputs that a sandboxed agent can alter. Those forgery surfaces make a stronger claim
-false; issue #747 owns real confinement work.
+- any launch when the caller lacks spawn capability;
+- a child whose sandbox is weaker than the caller's (`--yolo` included);
+- a child whose effective network is allow under a deny floor;
+- harness-native passthrough arguments that could replace Meridian's resolved policy.
 
-**The check precedes writes.** Spawn creation resolves request policy read-only, checks the
-boundary, then materializes runtime state. Continue and fork repeat the passthrough check after
-recovering replayed native arguments. Effective network is derived without a preview bind or
-permission-report round trip: the harness port accepts only sandbox, authored network,
-projection availability, and native config. Keeping that input narrow prevents approval or
-tool-policy facts from silently changing the guardrail.
+Approval, workspace roots and `--env` values are not compared. Top-level, `default` and
+`danger-full-access` callers carry no floor. The refusal names the remedy: a child that omits
+`network` or allows it must set `network: deny`; a child that already says deny must use a
+harness and sandbox that enforce it.
 
-**Compatibility:** parsers ignore unknown record keys. An absent network key and the legacy
-value `allow` impose no deny floor. The persisted restrictive spelling stays
-`"network": "deny"` even though the in-memory fact is simply whether a deny floor exists.
+**Why:** Claude's exclusion and Codex's rule move a standalone `meridian spawn` outside the
+caller's sandbox so its worker survives, which would otherwise let any sandboxed spawner run
+`meridian spawn --sandbox danger-full-access …`. The `meridian-privilege-escalation` skill
+teaches agents exactly that retry. The guardrail stops escalation through the CLI. It is
+deliberately **not confinement against an adversarial agent**: the escaped process reads
+inputs a sandboxed agent can write (the background-worker request, session records that name
+`CODEX_HOME`, project `meridian.toml` hooks, workspace config, other spawns' control state).
+A whole-system review proved a guardrail-compliant child could still run an agent-written hook
+as the full user. Each tighter round found the next forged input, so the claim was narrowed
+rather than chased. Issue #747 owns real confinement and holds the input table.
 
-**Rejected:** treating declared `subagents:` membership as authority (it couples confinement to
-role topology but still permits a declared child to widen), and the earlier adversarial frame
-that compared approval, workspace roots, or loader environment keys. Membership enforcement is
-the separate #742 question.
+**Compatibility:** the parser ignores unknown keys, so a newer build's record still parses. A
+record without `pid_namespace` or `sandbox` is invalid and refused; a missing `spawn` counts
+as no spawn capability. A missing network key, and the older persisted value `allow`, mean no
+network floor: the default is now allow, and reading a missing key as deny would refuse the
+children of every caller launched before an upgrade.
 
-**Evidence:** the final frame follows the whole-system review recorded at `spawn:p9223`, which
-proved a floor-compliant child could still run an agent-written hook as the full user. Sandbox,
-spawn-capability, continuation/fork, and network cases passed the combined branch gates through
-`6a1b02c16`. Source: `work:harness-sandbox-network`.
+**Rejected:** declared roles (enforce `subagents:` membership, issue #742, and forbid widening
+flags; a declared child could still be less confined), accepting and documenting the escape,
+and an earlier adversarial frame that also compared approval, workspace write roots and loader
+environment keys.
 
 ## D-codex-child-spawn: Codex uses one user-wide spawn rule {#d-codex-child-spawn}
 
-**Implemented on the unmerged branch:** before a Codex launch whose resolved sandbox is
+**Current choice:** before a real Codex launch that is spawn-capable and whose sandbox is
 `read-only` or `workspace-write`, Meridian ensures that the launch environment's
 `$CODEX_HOME/rules/meridian.rules` contains exactly:
 
@@ -183,103 +198,114 @@ spawn-capability, continuation/fork, and network cases passed the combined branc
 prefix_rule(pattern=["meridian", "spawn"], decision="allow")
 ```
 
-It resolves the Codex home from the final launch environment, byte-compares existing content,
-and uses an atomic replacement only when the file differs. It never edits another rules file.
-A write failure does not prevent the Codex launch; the permission report says the spawn command
-remains sandboxed and includes the error. Dry-run reports the projection without writing it.
+It byte-compares existing content, replaces atomically only when the file differs, and never
+edits another rules file. A write failure does not stop the launch; the permission report says
+the spawn command remains sandboxed. Dry-run reports the rule without writing it.
 
 The rule lets a standalone `meridian spawn ...` run outside Codex's shell sandbox. It fixes
-both observed causes of nested failure: the sandbox would kill the detached worker, and Mars's
-wait-timeout path gets `EPERM` writing its `SIGCHLD` self-pipe under Codex's restricted
-network. It also lets `meridian spawn done` take Meridian's state lock under `read-only`, so
-read-only Codex again gets the ordinary completion-confirmation turn
+both causes of nested failure: the sandbox kills the detached worker, and Mars's wait-timeout
+path gets `EPERM` writing its `SIGCHLD` self-pipe under Codex's restricted network (writable
+roots do not fix that). It also lets `meridian spawn done` take Meridian's state lock under
+`read-only`, so a spawn-capable read-only Codex agent gets the ordinary completion-confirmation
+turn. A read-only Codex profile without spawn capability (explorer, cold-reader,
+session-miner) does not have the rule written for it and still skips that turn
 ([D-completion-channel](completion-drain.md#d-completion-channel)).
 
-**Cost:** Codex has no per-launch rules layer, so the rule applies to the user's interactive
-Codex sessions and every Codex agent using that home, not only spawn-capable ones. The dry-run
-report and user-facing docs state that scope.
+**Cost:** Codex has no per-launch rules layer. Once written, the rule applies to the user's
+interactive Codex sessions and every Codex agent using that home. The dry-run report and
+user-facing docs state that scope.
 
-**Evidence:** with the matching line removed from the owner's `default.rules`, a
-workspace-write `gpt-6-luna` parent launched child p9088, which finished with `child-ok`.
-Read-only p9089 ran `meridian spawn done` with exit 0 and received the actual confirmation
-turn. These probes used Meridian's generated file; `default.rules` was restored byte-for-byte.
+**Evidence:** with the matching line removed from the owner's own `default.rules`, a
+workspace-write parent launched a child that finished, and a read-only agent ran
+`meridian spawn done` with exit 0 and received the confirmation turn.
 
-**Rejected:** a project `.codex/rules/` file (Mars regenerates that directory on sync, so a rule
-written there would be lost, and Codex loads project rules only for trusted projects), and a
-per-invocation `-c` config key (Codex has none for rules).
+**Rejected:** a project `.codex/rules/` file (Mars regenerates that directory on sync, and
+Codex loads project rules only for trusted projects), and a per-invocation `-c` key (Codex
+has none for rules).
 
-## D-network-field: profile `network` is decided; projection is implemented {#d-network-field}
+## D-network-field: profile `network`, default allow {#d-network-field}
 
-**Decided (owner, 2026-10-23):** a profile may set `network: allow | deny`. The field governs
-the agent's shell only: whether its commands may open connections to the internet, to host
-services, or to local sockets. Built-in web tools stay under `tools: web`. When `network` is
-unset, Meridian resolves it to `allow`.
+**Decided (owner, 2026-10-23):** a profile may set `network: allow | deny`. It governs the
+agent's shell only: whether its commands may connect to the internet, to host services, or to
+local sockets. Built-in web tools stay under `tools: web`. Unset resolves to `allow`. The owner
+started from "I think architects should be able to have internet access tho (to do research)"
+and approved the default with "yes, default allow".
 
-**Why `allow` is the default:** every `workspace-write` profile in the shipped prompt packages does work that
-needs the network or does not care. A harness-dependent default meant one profile had network
-access on one harness and none on another. Authors who want isolation write `deny` and see it
-in the profile.
+**Why `allow` is the default:** every `workspace-write` profile in the shipped prompt
+packages does work that needs the network or does not care. The rejected default, "whatever
+the harness does", meant one profile was online on OpenCode and Pi and offline on Claude and
+Codex. Authors who want isolation write `deny` and see it in the profile.
 
-**Why there is no `network: default` value:** Mars (`mars-agents`) resolves policy layers by
-the first value set, in the order CLI flag, overlay, profile, then settings. A `default` value
-would be a second spelling of `allow`, and a higher layer that wrote it would silently reopen a
-profile's `deny`. Unset is the only default state.
+**Why there is no `network: default` value:** Mars resolves policy layers by the first value
+set (CLI `--network`, overlay, overlay model policy, profile, profile model policy, settings
+model policy). A `default` value would be a second spelling of `allow`, and a higher layer
+that wrote it would silently reopen a profile's `deny`. Unset is the only default state.
 
-**Implemented on the unmerged combined branch** (2026-10-23, through `6a1b02c16`; first
-supported Mars release expected to be 0.18.0):
+**Mars validates only `network` strictly.** A non-string value such as `network: false` is an
+error at every input (frontmatter, model policy, overlay, CLI). The same fail-open still
+exists for `sandbox`, `approval` and `effort`: a non-string value silently becomes unset.
+Fixing the whole class in this change grew a second enum validator and deprecation code in
+about fifteen places, so it was cut to a follow-up: one execution-enum table in Mars config
+that every input reads, with a one-release warning for the older keys. Native Codex lowering
+reports `network` as Dropped, so a Codex agent invoked outside Meridian keeps Codex's default.
+
+**Projection** (on `feat/sandbox-network-projection`):
 
 | `network` | Claude | Codex | OpenCode, Pi, Cursor |
 |---|---|---|---|
-| `allow` | Under `read-only`/`workspace-write`, `sandbox.network` gets `allowedDomains` `*`, `localhost`, `127.0.0.1`, `allowLocalBinding=true`, and `allowAllUnixSockets=true` | `workspace-write`: explicit `network_access=true`; `read-only`: unsupported, reported | Already unrestricted |
-| `deny` | Under `read-only`/`workspace-write`, `sandbox.network.strictAllowlist=true` | `workspace-write`: explicit `network_access=false`; `read-only`: native offline behavior | Not enforced, reported |
+| `allow` | Under `read-only`/`workspace-write`, `sandbox.network` gets `allowedDomains` `*`, `localhost`, `127.0.0.1`, plus `allowLocalBinding` and `allowAllUnixSockets` (both ignored by Claude at the top level) | `workspace-write`: explicit `network_access=true`. `read-only`: an authored `allow` is unsupported and reported; unset stays offline and reports native | Already unrestricted |
+| `deny` | Under `read-only`/`workspace-write`, `sandbox.network.strictAllowlist=true` | `workspace-write`: explicit `network_access=false`, so a user's `config.toml` cannot open it. `read-only`: offline | Not enforced, reported |
 
-Effective network has one harness-owned derivation shared by the public permission report and
-the child guardrail. Its complete input is sandbox, authored network, network-projection
-availability, and native config; approval and tool rules are deliberately absent. Claude's
-effective network is the declared portable mode while its constrained Bash sandbox is enabled,
-and allow when that sandbox is off. The deny report is still partial on Linux because processes
-in the same sandbox can communicate over private TCP loopback; Claude settings may merge
-additional domains, and a spawn-capable profile's excluded `meridian spawn` command runs outside
-the sandbox. Allow's Linux host-service hint uses that same derivation.
+Effective network is one harness-owned function of sandbox, authored network, whether the
+bundle carries network, and native config. The permission report and the guardrail both use
+it. Approval and tool rules are deliberately not inputs. Claude's `strictAllowlist` is what
+makes that possible: probes showed a deny that only listed no domains still let traffic out
+under some approval modes, while `strictAllowlist` (or `deniedDomains: ["*"]`) blocked it. The
+rejected alternative made effective network a compile output checked at bind, which would have
+split the guardrail across two checks.
 
-Absent a usable deprecated override, Codex's workspace-write projection always spells the
-portable boolean, so deny overrides a permissive ambient `config.toml`. During the one-release
-compatibility window, the profile-native `sandbox_workspace_write.network_access` override wins
-only if the same native-config emitter can produce an addressable, TOML-encoded boolean `-c`
-pair. A literal dotted key, null, string, map, or other unemitted candidate is reported ignored
-and does not suppress the portable projection. This keeps the effective decision, report, and
-actual argv aligned. The next release reserves the key and deletes the exception.
+`danger-full-access` cannot enforce deny on any harness. Claude's deny is partial on Linux
+because processes in one sandbox share a private loopback, Claude's own settings can add
+domains, and an excluded `meridian spawn` runs outside. Claude's Linux allow reaches host
+services only through its proxy, and the sandbox's `NO_PROXY` makes most clients skip it
+(curl needs `--noproxy ''`); the injected guidance says so when it applies.
 
-A current Mars bundle carries `provenance.network_source`; an authored value remains
-`allow`/`deny`, while `network_source: unset` uses the one effective default accessor and
-becomes allow. A bundle without `network_source` is from Mars before 0.18: Meridian warns,
-projects no portable network setting, and leaves the harness's native default in place. For the
-child guardrail only, this unprojected/unknown state is conservatively classified as effective
-allow; the actual launch argv and settings remain untouched. Missing provenance is therefore
-not the same state as a current bundle's unset value.
+**Old Mars keeps old behavior.** A current bundle carries `provenance.network_source`. A
+bundle without it comes from Mars before 0.18: Meridian warns, projects no network setting,
+and leaves the harness default, so an authored `deny` cannot fail open on an old Mars. The
+guardrail treats that unknown state as allow.
 
-`danger-full-access` cannot enforce deny on any harness. Codex `read-only` cannot enforce
-explicit allow. Claude Linux allow reaches host services through its proxy only when clients
-bypass `NO_PROXY` (for curl, `--noproxy ''`). OpenCode, Pi, and Cursor share one unenforced
-network implementation and one default report path rather than parallel harness blocks.
+**Codex passthrough key.** For one warning release, a profile's
+`harness-overrides.codex.sandbox_workspace_write.network_access` boolean wins over the
+portable field when Meridian can emit it as a `-c` pair; anything else is reported ignored and
+the portable value stands. The next release reserves the key. See
+[native-config](../concepts/native-config.md).
 
-**Supersedes** the 2026-10-22 rejection of a first-class `network` profile field in
-[bundle-field-consumption.md](bundle-field-consumption.md). Current-Mars unset changes both
-Claude `read-only`/`workspace-write` and Codex `workspace-write` from their native network-off
-defaults to allow, so the user-facing upgrade note explains `network: deny` as the way to
-preserve offline behavior. Continued sessions that began before this release are re-resolved
-under the new default. The exact Mars dependency bump is a separate pre-merge step.
+**Upgrade impact:** unset now means online for Claude `read-only`/`workspace-write` and Codex
+`workspace-write`, which were offline. The upgrade note tells authors to write `network: deny`
+to keep them offline. Continued sessions are re-resolved under the new default.
+
+**Supersedes** the 2026-10-22 rejection of a `network` profile field in
+[bundle-field-consumption.md](bundle-field-consumption.md).
+
+## Profile follow-up (not done)
+
+The owner approved changing only profiles first ("ok, phase 0 now that just alters the
+profiles"). Released in meridian-base v0.11.14 and meridian-dev-workflow v0.15.7:
+architect and web-researcher run on `danger-full-access` as a stopgap for network and child
+spawns, and session-miner's allowlist gained the read commands it lacked. Once both
+meridian-cli branches ship, the plan is to put architect and web-researcher back on
+`workspace-write`, drop session-miner's hand-listed `meridian` reads, and delete scoped
+`bash(meridian spawn *)`-style allows from lead profiles, which the platform grants now cover.
+Whether other roles that use `danger-full-access` only for network or spawning should move to
+`workspace-write` is a separate, later decision.
 
 ## Open questions
 
 - **`subagents:` membership is not enforced at spawn creation.** A spawn-capable profile can
-  launch any registered agent. The delegation guardrail rejects a direct request for a weaker
-  child, but does not restrict the choice to the caller's declared list or provide adversarial
-  confinement. Membership remains
-  separate issue #742.
-- **macOS and Cursor** (a harness Meridian supports) are not tested for any of these grants.
-  Claude Code's documentation says `allowLocalBinding` fixes host localhost on macOS; that is
-  not verified here.
+  launch any registered agent. Issue #742.
+- **macOS and Cursor** are untested for every grant here. Claude Code's documentation says
+  `allowLocalBinding` fixes host localhost on macOS; not verified.
 
 ## Harness facts these decisions rest on
 
@@ -287,24 +313,20 @@ Linux, Claude Code 2.1.309, Codex CLI 0.163.0. Recheck when either version chang
 
 | Fact | Claude | Codex |
 |---|---|---|
-| OS sandbox covers | Bash only. Edit and Write are governed by tool rules; WebFetch and WebSearch run outside the sandbox | Every shell command |
+| OS sandbox covers | Bash only. Edit and Write follow tool rules; WebFetch and WebSearch run outside | Every shell command, run through a login shell (`bash -lc`) |
 | Detached child survives the shell call | No | No in sandbox; yes with full access |
 | Per-command escape | `excludedCommands`, simple commands only | Execution-policy `prefix_rule` with `allow` |
-| Sandbox PID namespace | Different from the launcher; an excluded command stays in the launcher's namespace | Different from the launcher; an execpolicy-allowed command runs outside it |
-| Shell network switch | Domain allowlist through a proxy | One boolean, which also gates host localhost and sockets |
+| Sandbox PID namespace | Different from the launcher; an excluded command stays in the launcher's | Different from the launcher; an allowed command runs outside it |
+| Shell network switch | Domain allowlist through a proxy; `strictAllowlist` for a hard deny | One boolean, which also gates host localhost and sockets |
+| Read-only writes | Everything except roots Meridian denies | Nothing; `--add-dir` is ignored |
 
 ## Provenance
 
-`work:harness-sandbox-network`: the owner's design approval, the structure review that
-changed the platform-rule shape (`spawn:p9047`), the Codex rules POC (`spawn:p9048`), the
-Claude excluded-command probe and Phase 1 live runs (`spawn:p9060`–`spawn:p9068`), the
-Meridian-owned Codex rules and confirmation probes (`spawn:p9087`–`spawn:p9089`), and the
-PID-namespace probes (`spawn:p9096`–`spawn:p9107`). The gate A security review
-(`spawn:p9112`) found the missing delegation boundary; live floor verification is recorded for
-`spawn:p9139`–`spawn:p9147`. Claude host-localhost and proxy behavior comes from probes recorded
-in the same work item's research notes. The exact-lock correction is unmerged meridian-cli
-commit `9517c8e25`; the floor is `d5e7b8781` plus bypass correction `f45c88b5f`.
-Phase 3 and both gate-fix rounds are on the combined unmerged branch through `6a1b02c16`;
-the first correctness and maintainability gates were `spawn:p9242` and `spawn:p9243`, and the
-second were `spawn:p9246` and `spawn:p9247`. See
-`work:harness-sandbox-network/gate-b-round2-fixes.md` for the final gate and dry-run evidence.
+`work:harness-sandbox-network` (design, plan, research per harness, verification). Owner
+rulings: `chat:c8765`, 2026-10-23. Structure review `spawn:p9047`; Codex rules POC
+`spawn:p9048`; Claude escape and Phase 1 runs `spawn:p9060`–`spawn:p9068`; Codex rule and
+confirmation probes `spawn:p9087`–`spawn:p9089`; PID-namespace probes
+`spawn:p9096`–`spawn:p9107`. Guardrail: gate A security review `spawn:p9112`, second round
+`spawn:p9153`/`spawn:p9154`, whole-system review `spawn:p9223`. Network gates:
+`spawn:p9242`/`spawn:p9243`, then `spawn:p9246`/`spawn:p9247`. Mars validation scope:
+`spawn:p9058`, `spawn:p9080`.

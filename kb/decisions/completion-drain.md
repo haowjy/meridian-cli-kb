@@ -54,17 +54,8 @@ report. The refusal tells it to run `done`. Tracked in meridian-cli
 ## D-completion-channel: a child that cannot signal completion gets no confirmation turn (2026-10-23) {#d-completion-channel}
 
 **Decision status:** settled intent (tech lead, `work:completion-hardening` D1,
-D4, D5). **Implementation status:** shipped in PR #737 (v0.12.4); its
-read-only Codex exception is superseded on the unmerged `feat/sandbox-network` branch.
-
-The connection declares whether the launched child can write Meridian's
-completion signals (`completion_signals_available`). A hold without that
-channel is still a hold: it waits on descendants and native tasks, holds on
-unreadable evidence and times out at the deadline. It sends no confirmation
-message, reads no `done` or `rearm` signal, accepts a ready candidate directly,
-and publishes an empty accepted-signal set, so `meridian spawn done <id>` from
-outside is refused. No maintained harness connection currently reports this
-unavailable state, but the drain contract still handles it.
+D4, D5). **Implementation status:** shipped in PR #737 (v0.12.4); the unmerged
+`feat/sandbox-network` branch (PR #750) narrows its read-only Codex exception.
 
 **Why #737 originally disabled the channel for read-only Codex.** `meridian spawn done`
 takes Meridian's state lock, which the sandbox could not write (`Errno 30` on
@@ -89,22 +80,20 @@ are read-only Codex and among the most-spawned.
   Capability is named state on the profile; confirmation settlement derives
   from it.
 
-**2026-10-23 follow-up.** Meridian now maintains a user-wide Codex execpolicy rule for
-resolved `read-only` and `workspace-write` launches. `meridian spawn done` runs outside the
-sandbox through that rule, so `CodexConnection` no longer overrides
-`completion_signals_available`; read-only Codex follows the ordinary confirmation protocol.
-Live p9089 received the confirmation turn and wrote `done` with exit 0. The rules-file
-decision and its user-wide cost are in
-[D-codex-child-spawn](sandbox-platform-access.md#d-codex-child-spawn).
+**Narrowed on `feat/sandbox-network`.** A spawn-capable read-only Codex launch gets
+Meridian's user-wide execpolicy rule, so its `meridian spawn done` runs outside the sandbox
+and the child gets the ordinary confirmation turn (live `spawn:p9089`: confirmation received,
+`done` exit 0). `CodexConnection` reports no channel only for a read-only launch without
+spawn capability, or when writing the rules file failed. The read-only profiles above
+(`explorer`, `cold-reader`, `session-miner`) declare no `subagents`, so they still skip the
+turn, which keeps #737's reasoning for them: a read-only child that cannot spawn has nothing
+worth holding for. The rule is gated on spawn capability like Claude's escape, and its
+user-wide cost is in [D-codex-child-spawn](sandbox-platform-access.md#d-codex-child-spawn).
 
-**Residual.** Meridian launches Codex even if it cannot write its rules file, reporting the
-projection as partial. A read-only child can then receive a confirmation whose signal fails
-until the file is repaired. A profile with no resolved `sandbox` has a related gap: Meridian
-does not project the file even if the user's Codex config defaults to read-only, because it
-does not infer sandbox policy from that config
-([sandbox inference deleted](tool-permissions.md#d-codex-sandbox-inference-deleted)). No
-shipped profile omits `sandbox`. Both cases belong to the same effective-sandbox/reporting
-boundary rather than a read-only-only connection override.
+**Residual.** A profile with no resolved `sandbox` gets no rule even if the user's Codex
+config defaults to read-only, because Meridian does not infer sandbox policy from that config
+([sandbox inference deleted](tool-permissions.md#d-codex-sandbox-inference-deleted)). Its
+child receives a confirmation whose `done` fails. No shipped profile omits `sandbox`.
 
 **Provenance (both decisions):** `work:completion-hardening` `decisions.md`
 D1, D2, D4, D5; `evidence/725-root-cause.md` (`spawn:p8966`),

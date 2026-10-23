@@ -280,14 +280,15 @@ after the profile's rules:
     `session index`, and `spawn wait` (which records a consumption). The exact list lives in
     `src/meridian/lib/launch/permissions.py`.
   - *Spawn:* `meridian spawn` launch commands, granted only to a profile that can spawn
-    (declares `subagents`).
+    (declares `subagents` and does not set `spawn: false`).
 
   Claude also excludes the spawn launch from its Bash sandbox, so a standalone spawn
   survives the shell call; that escape and its limits are in
   [sandbox-platform-access.md](sandbox-platform-access.md#d-sandbox-spawn-escape).
-  Codex cannot project arbitrary shell-command matches. Under a constrained sandbox,
-  Meridian's user-wide execpolicy file grants the `meridian spawn` prefix to every session
-  using that Codex home; the other requested matches remain ordinary shell calls. The scope
+  Codex cannot project arbitrary shell-command matches. A spawn-capable launch under a
+  constrained sandbox writes Meridian's user-wide execpolicy file, which grants the
+  `meridian spawn` prefix to every session using that Codex home; the other requested
+  matches remain ordinary shell calls. The scope
   and tradeoff are in
   [D-codex-child-spawn](sandbox-platform-access.md#d-codex-child-spawn).
 

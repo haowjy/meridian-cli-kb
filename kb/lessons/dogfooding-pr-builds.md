@@ -3,8 +3,8 @@
 Meridian's state is shared. Every project root under `~/.meridian/projects/`, and
 every build that touches it, reads and writes the same files. A PR build that
 changes a record shape can therefore break the installed CLI for every agent working
-in that project. This page collects what the native-session-identity PRs (#520 and
-its stacked PR 2) taught about running such builds safely.
+in that project. This page collects what PR builds of Meridian and Mars have taught about running such
+builds safely, starting with the native-session-identity PRs (#520 and its stacked PR 2).
 
 ## A PR build must never touch a real runtime root
 
@@ -121,23 +121,48 @@ Narrow probe briefs with enumerated checks completed; broad ones stopped short.
 The upgrade failure mechanism and decision are recorded in
 [native session identity lessons](native-session-identity.md#an-in-place-projection-upgrade-breaks-the-build-still-running).
 
-## Copying over `.venv/bin/*` rewrites uv's cache
+## Writing over `.venv/bin/*` rewrites uv's cache
 
-**What happened (2026-10-14, `work:two-tier-identity` I20).** A prober brief said
-`cp target/debug/mars .venv/bin/mars` to test an unreleased Mars. uv hard-links
-venv binaries to its cache (`~/.cache/uv/archive-v0/`), so `cp` wrote through
-the shared inode. The cached "0.15.0" became a 116 MB `--fallback-root` debug
-build in all four stack worktrees. For hours every smoke ran with a flag no
-released Mars had, and "merge order doesn't matter" rested on that.
+uv hard-links venv executables to its cache (`~/.cache/uv/archive-v0/`), so one inode
+backs `.venv/bin/mars` in every checkout and worktree that installed the same version.
+Anything that writes through that path (`cp dev-build .venv/bin/mars`, a build script that
+opens it for writing) changes the binary everywhere, while `mars --version` still prints
+the released number.
 
-**Repair:** `uv cache clean mars-agents`, then `uv sync --reinstall-package
-mars-agents` in each worktree. Check the binary afterwards: the genuine 0.15.0
-was 8.9 MB and lacked the flag.
+**It has happened twice.**
+- *2026-10-14 (`work:two-tier-identity` I20).* A prober brief said `cp target/debug/mars
+  .venv/bin/mars`. The cached "0.15.0" became a 116 MB debug build with a `--fallback-root`
+  flag in all four stack worktrees. For hours every smoke ran with a flag no released Mars
+  had, and "merge order doesn't matter" rested on that.
+- *2026-10-23 (`work:harness-sandbox-network`).* A coder lane testing Mars's unreleased
+  `network` field selected its dev build through the worktree's `.venv/bin/mars` in place.
+  The main checkout and three other worktrees got a "0.17.0" that accepted `--network`; a
+  gate reviewer noticed the flag before anyone trusted a result.
 
-**The rule:** never copy or write over `.venv/bin/*`. To test a dev build, use a
-throwaway venv, or a resolution path that does not go through the shared venv.
-(`resolve_mars_executable()` prefers the venv's `mars` over `PATH`, so
-prepending `PATH` does not work either.)
+**The rule:** never write over a file in `.venv/bin/`. To run a dev build through a venv,
+give it a new inode in that one venv (`rm .venv/bin/mars && cp <dev build> .venv/bin/mars`)
+and restore it the same way when done, or use a throwaway venv. Prepending `PATH` does not
+work: `resolve_mars_executable()` prefers the venv's `mars`. After any doubt, check the link
+count and hash against another venv (`stat -c %h`, `sha256sum`), not the version string.
+
+**Repair:** `uv cache clean mars-agents`, then in each affected venv
+`uv pip install --reinstall --no-deps mars-agents==<released version>` (or
+`uv sync --reinstall-package mars-agents`). Confirm the binary lacks the dev-only flag.
+
+## Codex runs `meridian` from the login shell's `PATH`
+
+Codex runs each shell command through `bash -lc`. The login profile rebuilds `PATH`, so
+inside a Codex sandbox `meridian` resolves to the user's installed build, not the branch
+build that launched the spawn, even when the spawn's environment put the branch first.
+During `work:harness-sandbox-network`, Codex probes of nested spawning ran the installed
+0.12.x while the branch under test was newer, and an agent's first explanation (the
+environment was stripped) was wrong.
+
+**The rule:** when a Codex agent must run a branch's CLI, call it by absolute path
+(`<worktree>/.venv/bin/meridian spawn …`) in the agent's prompt, and check which build ran
+(its version or a behavior only the branch has). For a top-level probe, a `BASH_ENV` file
+that prepends the worktree's `bin` after login also works; nested launches cannot pass
+`BASH_ENV` through `--env`, so they still need the absolute path.
 
 ## Pushing through a long pre-push gate
 
@@ -156,7 +181,9 @@ github.com closed by remote host", exit 141).
 The general rule, "record exit status", is in
 [verification discipline](verification-and-review-discipline.md#record-exit-status-and-working-directory).
 
-**Provenance:** `work:native-harness-session-identity`:
+**Provenance:** the venv and Codex `PATH` sections cite their work items inline
+(`work:harness-sandbox-network` `design.md` and `verification.md`; gate B reviewer
+`spawn:p9242`). The rest is `work:native-harness-session-identity`:
 - `decision.md` entries of 2026-09-25: "INCIDENT", "INCIDENT (cont.)", "INCIDENT
   RESOLVED", "Push note", and "PR 2 kicked off" (the scratch near-miss);
 - `design/pr1-foundation-restructure.md` risk 5;
