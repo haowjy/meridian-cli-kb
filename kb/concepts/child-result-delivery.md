@@ -3,13 +3,13 @@
 A lead that launches `meridian spawn --bg` learns each child's result by one of
 three routes: its own `meridian spawn wait`, Pi's `meridian-spawn-watch`
 extension, or Claude's `meridian-spawn-watch` mod. Owed discovery reads the
-durable evidence each route actually owns, while a separate chat-scoped claim
-prevents concurrent waits and Claude collectors from selecting the same header.
+durable consumption evidence each route already owns; there is no separate
+claim subsystem for result delivery.
 
 Status: all three routes have shipped (the Claude route in v0.11.9, PR #724),
 and Claude's header-only delivery shipped in v0.12.8 (PR #743). Bounded owed
-results in no-arg wait and chat-scoped claims are implemented on the unmerged
-`fix/owed-wait` branch. Rationale and rejected designs:
+results in no-arg wait are implemented on the unmerged `fix/owed-wait` branch.
+Rationale and rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
@@ -20,11 +20,11 @@ flowchart LR
     A["meridian spawn ack"]
     O[("spawns/&lt;primary&gt;/<br/>observed-spawns.json")]
     R[("pi-bash/&lt;primary&gt;/<br/>receipts + cleared ids")]
-    Q[("spawn-delivery/&lt;chat&gt;.json<br/>renewable claims")]
-    W -- "reserve owed ids" --> Q
-    C -- "reserve and renew" --> Q
-    W -- "compatibility lease;<br/>observed on exit" --> O
+    W -- "lease while waiting,<br/>observed on exit" --> O
+    P -- "reads CLI consumption<br/>and leases" --> O
     P -- "native admission<br/>or dismissal" --> R
+    C -- "reads consumption across<br/>every primary of the chat" --> O
+    C -- "reads Pi consumption" --> R
     C -- "after the delivered<br/>turn starts" --> A
     A -- "observed ids" --> O
 ```
@@ -66,37 +66,36 @@ Pi's extension applies the first and third conditions to the current primary
 only, and does not apply the second, so it also delivers foreground children
 again (#718).
 
-## Consumption and arbitration
+## Consumption sources
 
 There is no single consumption file shared by every route. Owed discovery
-unions three kinds of durable evidence for every relevant primary generation:
+unions three kinds of evidence for every relevant primary generation:
 
-- `spawns/<primary>/observed-spawns.json`: ids consumed by CLI wait or ack;
-- `pi-bash/<primary>/delivery-receipts.json`: exact Pi native admission;
-- `pi-bash/<primary>/cleared-spawns.json`: results the user dismissed in Pi.
+- current and legacy `observed-spawns.json`: ids consumed by CLI wait or ack;
+- `delivery-receipts.json`: exact Pi native admission;
+- `cleared-spawns.json`: results the user dismissed in Pi.
 
-CLI writers record under the caller's current primary. Readers must still scan
-every primary generation in the chat: a lead that waited on a child before a
-resume has that observation in the old primary's file, and Pi may have admitted
-or cleared an old generation's result. Reading only the current primary would
-replay already handled work after every resume.
+The shared reader opens each source once per call. A damaged or unreadable
+source is skipped and diagnosed independently, so one truncated Pi receipt file
+cannot prevent wait or collect from honoring the remaining evidence.
 
-Temporary ownership has a different authority. `spawn-delivery/<chat>.json`
-holds birth-verified, expiring reservations under one chat lock, so a wait or
-Claude collector from any primary generation arbitrates against every other
-generation. A collector returns its claim token to the mod, which renews the
-claim while it owns unadmitted text and releases it when submission does not
-happen. Ack writes durable consumption before claim removal; a crashed owner
-stops renewing, so expiry makes the result eligible again. Collect makes every
-delivered ID exclusive. Wait makes only its owed-at-resolution IDs exclusive,
-so two ordinary barriers may still overlap on active work without either
-stealing the other's synchronization target.
+The current `observed-spawns.json` lives in the primary's own spawn directory,
+`spawns/<primary spawn id>/`, under the project's runtime state. It holds two
+things:
 
-`observed-spawns.json` still carries birth-verified wait reservations. New
-waits and Claude collections project their claims there because Pi and older
-Meridian builds already read those leases. The projection is a compatibility
-seam, not arbitration authority: separate per-primary files cannot serialize
-collectors that belong to different generations of one chat.
+- **observed ids**: durable. A child listed here was handed to the lead and is
+  never delivered automatically again.
+- **wait leases**: temporary. A running `spawn wait` holds a lease naming its
+  ids, its process id and that process's birth time, with an expiry. A lease
+  counts only while that exact process is alive, so a killed wait stops
+  covering its ids.
+
+Writers record under the caller's own primary spawn id: `spawn wait` and
+`spawn ack` both do. Readers that decide what is owed must read the consumption
+sources of every primary in the chat. A lead that handled a child before a
+crash, then resumed under a new primary, has that evidence under the old
+primary. A reader that looked only at the current primary would deliver the
+child again at every idle.
 
 Writes take the primary's published-spawn lock, the per-spawn lock every
 writer of a file in `spawns/<id>/` takes. That lock refuses a spawn whose
@@ -107,11 +106,11 @@ deleted. When it refuses, nothing is recorded:
 results without a lease or observation. No reader looks for children of such a
 primary, so nothing is delivered twice.
 
-Python's owners are `lib/state/spawn_observations.py` and
-`lib/state/spawn_delivery_claims.py`. Pi's TypeScript extension reads the
-observation projection with its own schema (meridian-cli
-`src/meridian/pi_runtime/.context/delivery-contract.md`), so a schema change
-moves both readers.
+Python's observation owner is `lib/state/spawn_observations.py`; the shared Pi
+consumption reader lives in `lib/harness/pi_private_state.py`. Pi's TypeScript
+extension reads the observation file with its own schema
+(meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
+schema change moves both.
 
 Fetching a result is not itself consuming it. `spawn show`, `spawn report
 show`, and `session log` remain pure reads. A terminal result returned by
@@ -150,20 +149,22 @@ lease and records the terminal spawns it returned as observed. A watcher that
 sees a live lease leaves those ids alone; if the wait is killed, the lease dies
 with it and the ids are owed again.
 
-On the unmerged `fix/owed-wait` branch, a no-arg wait combines its unchanged
-active set with terminal children from the shared owed scope. Target resolution
-puts these in different result classes: **blocked-on** rows were active when
-resolution ran, while **owed** rows were already terminal and are late delivery,
-not work this invocation waited for. Only blocked-on rows drive run counts,
-single-result compatibility fields, fail-fast, aggregate failure and the CLI
-exit code. An owed failed child therefore keeps its failed status in its header
-without making an otherwise successful wait fail.
+On the unmerged `fix/owed-wait` branch, target resolution also asks `owed.py`
+for terminal children from the shared owed scope. That step snapshots the
+scope, keeps finished rows, subtracts the active blocked-on ids, and takes at
+most the oldest 32. The result classes stay separate: owed rows are late
+delivery, not work this invocation waits for. They are included in the existing
+observation lease, but the unchanged wait loop and its pending table contain
+blocked-on ids only. The existing `finally` consumes owed rows and terminal
+blocked-on rows together.
 
-Resolution takes at most the oldest 32 owed rows; blocked-on targets are not
-capped. Owed rows render through collect's header-only formatter and appear in
-JSON as `owed_spawns`, with no `report_body` even under `--full`. Blocked-on rows
-remain in `spawns` and keep ordinary wait output and their requested report body
-after the wait blocks for them. Excess owed rows stay eligible for the next
+Owed rows render through collect's header-only formatter and appear in JSON as
+`owed_spawns`, with no `report_body` even under `--full`. Blocked-on rows remain
+in `spawns` and keep ordinary wait output and their requested report body after
+the wait blocks for them. Only blocked-on rows drive run counts, single-result
+compatibility fields, fail-fast, aggregate failure, and the CLI exit code. An
+old failed owed child therefore remains visibly failed without making an
+otherwise successful wait fail. Excess owed rows stay eligible for the next
 normal wait or collection.
 `--no-observe` makes the same selection and rendering but creates no lease or
 consumption record, so it can return the same oldest batch again.
@@ -180,8 +181,8 @@ sequenceDiagram
     participant C as meridian spawn collect
     participant K as meridian spawn ack
     M->>C: 2 s after a main-loop turn ends, or at session start
-    C-->>M: {kind: delivery, ids, text, claim_id, lease_seconds} or {kind: empty}
-    M->>M: renew claim; hold while the prompt box is in use
+    C-->>M: {kind: delivery, ids, text} or {kind: empty}
+    M->>M: claim ids; hold while the prompt box is in use
     M->>M: $.prompt.submit(nonce line + text)
     M->>K: on the main-loop turn.start carrying the nonce
     K-->>M: {acked: ids}
@@ -197,8 +198,11 @@ one at once: those results are already late. Otherwise it waits until the whole
 owed set has finished, as `spawn wait` would. Leased ids are skipped while the
 lease lives, never treated as a reason to exit. Just before returning it
 re-reads consumption and leases, so a wait or ack that took a result meanwhile
-drops it from the batch. It then atomically claims the survivors across the
-chat before returning. It consumes nothing, and exits when its parent process
+drops it from the batch. A wait can still lease an id just after that final
+check, producing one duplicate header; this short race is accepted instead of
+adding chat-scoped claim state, commands, or plugin protocol. The broader
+plugin-held-but-unacknowledged window already has the same at-least-once
+tradeoff. Collect consumes nothing, and exits when its parent process
 changes (Claude died) or when it is killed. A delivery carries at most 32
 results. Each member contains its identity and
 terminal outcome, worker, failure when present, distinct task directory, and
@@ -217,23 +221,22 @@ delivery. `/clear` starts nothing: results stay owed until the next normal idle.
 **Delivery order is what makes it crash-safe.** Consumption is recorded only
 once the lead's conversation has the text:
 
-1. The collector claims the ids in chat-scoped state. The mod also holds them in
-   memory and renews the shared claim at one-third of its lease; a later local
-   `collect` gets them as `--exclude`.
+1. The mod claims the ids in memory; a later `collect` gets them as
+   `--exclude`.
 2. It holds while the prompt box has a draft or was touched in the last 10 s,
    so a delivery never lands under the user's typing.
 3. It submits the text under a `[meridian-spawn-watch delivery <nonce>]` line.
    `$.prompt.submit` resolves when the prompt is queued, not when its turn
    starts, so its return proves nothing.
 4. The ack runs on the main-loop `turn.start` whose text contains the nonce,
-   writes durable observation, and only then removes the claim.
+   and on nothing else.
 
 | Failure | Result |
 |---|---|
 | Claude killed while `collect` runs | Nothing consumed; the resumed chat delivers before the first prompt |
-| Prompt dropped, or queued and the queue cleared | No turn carried the nonce; nothing acked; an explicit release or claim expiry permits redelivery |
+| Prompt dropped, or queued and the queue cleared | No turn carried the nonce; nothing acked; the next idle redelivers |
 | Crash after the turn starts, before the ack lands | The lead may see the result once more after resume (accepted) |
-| Ack keeps failing | Its ids stay excluded and renewed until the mod reloads; after a crash, renewal stops and expiry permits one retry |
+| Ack keeps failing | Its ids stay excluded until the mod reloads; one duplicate after a restart instead of a turn at every idle |
 
 The mod and its full behaviour table: meridian-cli
 `src/meridian/claude_runtime/meridian-spawn-watch/README.md`. The command

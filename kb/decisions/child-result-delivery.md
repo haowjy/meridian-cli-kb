@@ -1,8 +1,9 @@
 # Decisions: Child Result Delivery
 
 Why a Claude primary gets its forgotten background children's results from a
-mod that calls Meridian, why owed discovery shares each delivery route's
-consumption evidence, and how concurrent delivery is arbitrated across a chat.
+mod that calls Meridian, why owed discovery shares the durable consumption
+evidence each delivery route already owns, and why no separate delivery-claim
+subsystem ships.
 Current mechanism: [Child result delivery](../concepts/child-result-delivery.md).
 
 ---
@@ -104,9 +105,9 @@ leaves the lead where it was without one, needing an explicit wait.
 - Pi adopts `collect` and the background-only filter (#718).
 
 The one-record statement describes the original Claude/CLI design. The later
-[bounded no-arg wait decision](#d-no-arg-wait-owed-bounded) made owed discovery
-also honor Pi's native admission receipts and explicit cleared IDs, and made a
-chat-scoped claim the concurrency authority.
+[bounded no-arg wait decision](#d-no-arg-wait-owed-bounded) also made owed
+discovery honor Pi's native admission receipts and explicit cleared IDs.
+Existing observation leases remain the only temporary coordination state.
 
 ---
 
@@ -151,9 +152,9 @@ tradeoff.
 ### Consequence
 
 A lead that directly reads a finished child can receive one later header-only
-Claude delivery for it. This duplicate is accepted: it is short, preserves the
-single durable consumption protocol, and points back to the explicit lookup
-command when the lead needs the report.
+Claude delivery for it. This duplicate is accepted: it is short, preserves
+pure reads and the existing durable consumption protocol, and points back to
+the explicit lookup command when the lead needs the report.
 
 ### Rejected and superseded
 
@@ -171,9 +172,9 @@ command when the lead needs the report.
 
 ## D-no-arg-wait-owed-bounded: no-arg wait returns a bounded header-only owed batch (2026-10) {#d-no-arg-wait-owed-bounded}
 
-**Status:** lead decisions in `work:read-consumes` (Decisions 4 and 5), with
-review corrections from `spawn:p9156`; implemented on the unmerged meridian-cli
-branch `fix/owed-wait` at `e9fac2a78`, not yet on `main`.
+**Status:** lead decisions in `work:read-consumes` (Decisions 4–6), with review
+corrections from `spawn:p9156` and `spawn:p9230`; implemented on the unmerged
+meridian-cli branch `fix/owed-wait`, not yet on `main`.
 
 ### Problem
 
@@ -190,41 +191,38 @@ an unbounded stale backlog into one model turn.
 - **No-arg wait adds terminal children from collect's owed scope.** A primary
   owns background direct children across every primary generation of its chat;
   a nested caller owns only its own background direct children. Active
-  transitive-descendant discovery is unchanged. Both paths subtract CLI
-  observations, Pi native-delivery receipts and Pi cleared IDs, so a result
-  delivered or dismissed in Pi is not replayed by the CLI.
+  transitive-descendant discovery is unchanged. Owed discovery subtracts CLI
+  observations (current and legacy), Pi native-delivery receipts, and Pi
+  cleared IDs. Their shared reader opens each source once per call; a damaged
+  source is skipped and diagnosed without discarding the others.
 - **Only the already-finished part is capped.** Target resolution takes at most
   the oldest 32 owed terminal rows, the same member bound as collect. Active
   targets are never capped; excess finished rows remain owed for the next wait
   or collection.
-- **Classification belongs to the result model.** Target resolution places
-  already-finished rows in `owed_spawns` and rows active then in `spawns`; a
-  later status check cannot change classes. Owed rows use the shared collect
-  header (outcome, worker, failure, distinct task directory, and `spawn show`
-  lookup). Blocked-on rows keep ordinary wait output and their requested report
-  body after wait blocks for them.
+- **Resolve owed delivery once, outside the wait loop.** `owed.py` discovers
+  the caller's scope, snapshots it, keeps finished rows, subtracts the
+  blocked-on IDs, then applies the cap. Thus one child cannot appear in both
+  lists, and the existing polling loop and pending table still operate on
+  blocked-on IDs only.
+- **The result model names both classes.** Target resolution places late
+  delivery in `owed_spawns` and rows active then in `spawns`; a later status
+  check cannot move them. Owed rows use the shared collect header (outcome,
+  worker, failure, distinct task directory, and `spawn show` lookup) and omit
+  `report_body`, including under `--full`. Blocked-on rows keep ordinary wait
+  output and their requested report body.
 - **Owed delivery is not waited work.** Run counts, single-result compatibility
-  fields, fail-fast, aggregate failure and the CLI exit code use only
-  `spawns`. A failed owed row still says `failed` in its header but does not make
-  an otherwise successful no-arg wait fail.
-- **JSON names both classes.** `spawns` carries blocked-on results and
-  `owed_spawns` carries late delivery. Owed entries omit `report_body`, including
-  under `--full`; consumers need not infer the class from a null field.
-- **Consumption stays with wait.** An observing wait leases the combined target
-  set and consumes terminal rows on return. `--no-observe` uses the same scope,
+  fields, fail-fast, aggregate failure, and the CLI exit code use only
+  `spawns`. A failed owed row still says `failed` in its header but does not
+  make an otherwise successful no-arg wait fail.
+- **Consumption stays with wait's existing observation lease.** An observing
+  wait leases both classes, then its existing exit cleanup records owed rows
+  and terminal blocked-on rows together. `--no-observe` uses the same scope,
   cap, and rendering but neither leases nor consumes, so its oldest batch may
   repeat.
-- **One renewable chat claim arbitrates owed headers.** Wait and collect reserve
-  under `spawn-delivery/<chat>.json`, so collectors and resumed primary
-  generations cannot both select the same result. Collect's IDs are exclusive;
-  wait makes only owed-at-resolution IDs exclusive so active barriers may
-  overlap. After the initial
-  compatibility lease write they re-read durable consumption and other leases;
-  durable observation is written before a claim is removed. Claude renews its
-  claim while it owns unadmitted text, releases it when submission does not
-  happen, and lets it expire after a crash. Per-primary wait reservations in
-  `observed-spawns.json` remain a projection for Pi and older builds, not the
-  arbitration authority.
+- **At-most-once arbitration is not added.** Collect rechecks existing
+  consumption and leases immediately before returning; wait does not recheck
+  after acquiring its lease. If those actions cross, one duplicate header can
+  appear. That short, occasional duplicate is accepted.
 
 ### Rejected
 
@@ -236,10 +234,17 @@ an unbounded stale backlog into one model turn.
 - **Cap the combined target set.** That could strand live descendants outside
   the synchronization barrier.
 - **Reclassify from terminal status while rendering.** A child that was active
-  when the wait claimed it would lose the full report it waited to return.
-- **Use per-primary observation leases as the only claim.** A resumed chat has
-  several primary directories; separate locks cannot prevent two generations
-  from selecting the same owed header.
+  when the wait selected it would lose the full report it waited to return.
+- **A renewable chat-scoped claim subsystem.** An implemented draft added a
+  new `spawn-delivery/<chat>.json` authority, lifecycle commands, renewal and
+  release paths, and plugin protocol solely to close the final-read/lease race.
+  It was deleted before shipping: the cost was disproportionate to one short
+  duplicate header, and it could not remove the broader
+  plugin-held-but-unacknowledged duplicate window. Existing observation leases
+  and at-least-once delivery are the settled tradeoff.
+- **Post-lease consumption recheck.** It duplicated target resolution and the
+  no-pending return without eliminating the plugin window, so it was deleted
+  with the claim design.
 
 ---
 
