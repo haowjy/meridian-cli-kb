@@ -3,6 +3,19 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-23 — Prompt-package pages rewritten against current source
+
+`chat:c8796`. All six pages under [ecosystem/prompt-packages/](ecosystem/prompt-packages/overview.md)
+described packages as they were months earlier (meridian-dev-workflow 0.3.4, meridian-base 0.10.0):
+planner, EARS, qa-lead, the four-lane review gate, a base orchestrator, removed model aliases.
+They now link to each package's README for agent, skill and model inventories and keep only
+the reasons behind each package's shape, how the packages depend on each other, retired pieces,
+and traps. The overview now covers all ten packages and records that meridian-prompter is a
+local-only dependency of base and dev-workflow, and that benchmark-agents, autoresearch and
+microct-analysis pin versions older than the current releases. Summaries in `index.md`,
+`ecosystem/overview.md`, `vocabulary.md` and `codebase/vocabulary.md` (EARS) were updated to
+match. `meridian-base.md#hooks` is unchanged.
+
 ## 2026-10-23 — Abandoned control sockets and child-interpreter test isolation
 
 `work:stale-control-sockets` (issues #733, #445; branch unmerged as of this date).

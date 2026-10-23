@@ -12,8 +12,8 @@ graph TD
     end
 
     subgraph prompts["Prompt Packages"]
-        MB["meridian-base\ncore agents + skills"]
-        MDW["meridian-dev-workflow\ndev orchestration"]
+        MB["meridian-base\nshared workers + skills"]
+        MDW["meridian-dev-workflow\ndev leads + lifecycle"]
         MPR["meridian-prompter\nprompt engineering"]
     end
 
@@ -62,7 +62,7 @@ See [architecture/system-overview.md](../architecture/system-overview.md) for th
 ---
 
 ### mars-agents
-**Role:** The package compiler. Reads `mars.toml`, resolves the dependency graph, compiles agent/skill packages into `.mars/` (the canonical compiled store), and syncs to native harness target directories (`.claude/`, `.codex/`, `.opencode/`).
+**Role:** The package compiler. Reads `mars.toml`, resolves the dependency graph, compiles agent/skill packages into `.mars/` (the canonical compiled store), and copies it to the harness directories a project lists as targets (`.claude/`, `.codex/`, `.opencode/`, `.pi/`, `.cursor/`).
 
 **Language:** Rust (binary name: `mars`)
 
@@ -81,51 +81,11 @@ See [architecture/mars-compiler.md](../architecture/mars-compiler.md) and [archi
 
 ## Prompt Packages
 
-Prompt packages are distributed via mars. Each package defines agent profiles and skills in source repos, which mars resolves and compiles into `.mars/` for meridian-cli to load at spawn time.
+Prompt packages are distributed via mars. Each package defines agent profiles and skills in a source repo, which mars resolves and compiles into `.mars/` for meridian-cli to load at spawn time. Each package's README lists its agents and skills; the KB pages below cover why each package has its shape. [prompt-packages/overview.md](prompt-packages/overview.md) maps the full package graph, including benchmark, research and domain packages.
 
-### meridian-base
-**Role:** The foundation layer for the Meridian agent ecosystem. Provides the infrastructure skills (spawning, KB conventions, shared-workspace safety) and utility agents (orchestrator, subagent, explorer, KB agents, session explorer) that other packages build on.
-
-**Exports:**
-- 6 agents: `meridian-default-orchestrator`, `meridian-subagent`, `explorer`, `kb-writer`, `kb-maintainer`, `session-explorer`
-- 11 skills: `meridian-spawn`, `meridian-work-coordination`, `meridian-privilege-escalation`, `shared-workspace`, `kb-conventions`, `md-validation`, `decision-log`, `intent-modeling`, `llm-writing`, `agent-management`, `session-mining`
-- Shared model alias catalog (`gpt55`, `opus`, `sonnet`, `codex`, `gpt`, etc.)
-
-**Canonical source path:** `../prompts/meridian-base/`
-
-See [ecosystem/prompt-packages/meridian-base.md](prompt-packages/meridian-base.md) for the full agent and skill inventory.
-
----
-
-### meridian-dev-workflow
-**Role:** Dev orchestration agents and skills for the full product development lifecycle — from requirements to shipped code with tests and docs.
-
-**Depends on:** meridian-base (model aliases, core skills)
-
-**Exports:**
-- 26 agents organized into orchestrators (`product-lead`, `design-lead`, `planner`, `tech-lead`, `qa-lead`, `ux-lead`), builders (`coder`, `frontend-coder`, `refactor-coder`, `architect`, etc.), reviewers (`reviewer`, `refactor-reviewer`, `alignment-reviewer`), and testers (`smoke-tester`, `integration-tester`, `unit-tester`, `verifier`, `browser-tester`)
-- 17 local skills: `agent-staffing`, `dev-artifacts`, `planning`, `design-principles`, `dev-principles`, `architecture`, `refactoring-principles`, `review`, `testing-principles`, and more
-
-**Workflow topology:** `product-lead → design-lead → planner → tech-lead`, with `qa-lead + kb-writer + tech-writer` in parallel after implementation.
-
-**Canonical source path:** `../prompts/meridian-dev-workflow/`
-
-See [ecosystem/prompt-packages/meridian-dev-workflow.md](prompt-packages/meridian-dev-workflow.md) for the full agent and skill catalog.
-
----
-
-### meridian-prompter
-**Role:** Prompt engineering agents and skills. Treats prompt writing as an engineering discipline with research-backed principles, an iterative draft/review/test cycle, and explicit artifact conventions.
-
-**Depends on:** meridian-base (core skills)
-
-**Exports:**
-- 5 agents: `prompt-dev`, `prompt-reviewer`, `prompt-tester`, `python-tool-writer`, `web-prompt-researcher`
-- 4 skills: `prompt-principles` (the core doctrine, 4-level: prompt/skill/agent/system), `agent-artifacts`, `skill-artifacts`, `prompt-review`
-
-**Canonical source path:** `../prompts/meridian-prompter/`
-
-See [ecosystem/prompt-packages/meridian-prompter.md](prompt-packages/meridian-prompter.md) for the agent catalog and prompt engineering doctrine.
+- **meridian-base** (`../prompts/meridian-base/`): the root package. Shared workers (explorer, session miner, generic subagent, kb-lead, kb-maintainer, cold reader), coordination and writing skills, the model-alias catalog, and hooks. It has no lead. See [prompt-packages/meridian-base.md](prompt-packages/meridian-base.md).
+- **meridian-dev-workflow** (`../prompts/meridian-dev-workflow/`): software development. Leads (tech-lead by default, product-lead, design-lead, solo-dev, ux-lead), specialists, and the `/pre-dev` → `/post-dev` → `/dev-workflow` lifecycle. Depends on meridian-base. See [prompt-packages/meridian-dev-workflow.md](prompt-packages/meridian-dev-workflow.md).
+- **meridian-prompter** (`../prompts/meridian-prompter/`): prompt engineering. prompt-dev, prompt-reviewer, prompt-tester and the `/prompt-principles` doctrine. Depends on meridian-base; other packages reference it only as a local dependency. See [prompt-packages/meridian-prompter.md](prompt-packages/meridian-prompter.md).
 
 ---
 
@@ -164,7 +124,7 @@ sequenceDiagram
     Mars->>Pkg: fetch + resolve dependencies
     Mars->>Mars: compile skills, agents, hooks, MCP
     Mars-->>CLI: writes .mars/ (compiled store)
-    Mars-->>CLI: syncs .claude/, .codex/, .opencode/
+    Mars-->>CLI: copies to configured targets (.claude/, .codex/, ...)
     CLI-->>Dev: packages available for spawns
 ```
 
