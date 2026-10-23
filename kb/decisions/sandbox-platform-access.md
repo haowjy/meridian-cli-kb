@@ -111,12 +111,12 @@ compound form, through the state roots above. Dry-run is not refused.
 kills, and the parent sees no error. A failure before any state is written is the only
 signal the agent gets, and the message names the rule it must follow.
 
-> [!FLAG] **Needs human review.** The current check reads only `SANDBOX_RUNTIME=1`, so it
-> covers Claude alone. A different check was planned and was not shipped as of 2026-10-23: the
-> launcher records its PID namespace (`/proc/self/ns/pid`) and refuses a launch whose namespace
-> differs. Codex sets no generic marker, so only the namespace check would reach Codex. Open
-> choice for the project owner: ship the namespace check, or record the marker-only check as
-> the decision. Source: `work:harness-sandbox-network`.
+**Scope correction:** the work item's final design revision proposed comparing
+`/proc/self/ns/pid`, but the implementation brief explicitly replaced that mechanism with a
+tuple of known sandbox environment markers, initially only Claude's `SANDBOX_RUNTIME=1`.
+Phase 1 therefore covers Claude alone by decision, not by accident. Codex exposes no generic
+sandbox marker; its child-launch path remains deferred to the execution-policy work above.
+Source: `work:harness-sandbox-network`.
 
 ## D-codex-child-spawn: Codex children cannot launch yet {#d-codex-child-spawn}
 
