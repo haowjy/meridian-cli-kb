@@ -59,20 +59,21 @@ that put `app.sock` under an ad-hoc test root failed the first release-on-main
 preflight after PR #575 (run `38586754232`).
 
 The socket directory is shared by every project and outlives every runner, so a
-SIGKILLed runner leaves its socket behind and spawn-directory cleanup cannot
-find it: the socket path is not under the runtime root, and the root may
-already be gone (most leaked sockets observed on one host came from deleted
-pytest roots). Recovery happens when the next control server starts: it removes
-the current user's control sockets that are at least two minutes old and
-refuse a nonblocking *datagram* connect with `ECONNREFUSED`. A bound stream
-socket answers that probe with `EPROTOTYPE` on Linux and macOS before the
-kernel looks at listen or backlog state, so a runner paused between `bind` and
-`listen`, or a listener with a full backlog, is never mistaken for a dead one.
-A stream connect was rejected as the probe because macOS refuses a live
-listener whose backlog is full. Mechanism and exclusions:
-`lib/streaming/.context/CONTEXT.md` in meridian-cli (branch
-`stale-control-sockets`, unmerged as of 2026-10-23; until it lands, abandoned
-sockets accumulate).
+SIGKILLed runner leaves its socket behind. Spawn-directory cleanup never sees it:
+that cleanup works under the runtime root, the socket lives outside it, and the
+root may already be gone (most leaked sockets observed on one host came from
+deleted pytest roots). Recovery runs when a runner starts its control-socket
+server: it removes the current user's control sockets that are at least two
+minutes old and refuse a nonblocking *datagram* connect with `ECONNREFUSED`,
+which means no process holds a socket bound to that file. A live stream socket
+answers the same probe with `EPROTOTYPE` on Linux and macOS, because the kernel
+checks socket type before listen or backlog state; a runner paused between
+`bind` and `listen`, or a listener with a full backlog, therefore survives. Do
+not swap in a stream connect as the probe: macOS refuses a live listener whose
+backlog is full, which would delete a running spawn's endpoint. Eligibility
+rules and the recheck before unlink live in `lib/streaming/.context/CONTEXT.md`
+in meridian-cli. Status: on branch `stale-control-sockets`, unmerged as of
+2026-10-23; released versions still accumulate abandoned sockets.
 
 **`origin.json`** is `{path, created_at}`, written once with
 `write_model_once` (staged file, linked into place). Its mtime is the

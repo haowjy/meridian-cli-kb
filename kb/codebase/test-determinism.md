@@ -197,33 +197,35 @@ inject the interleaving at the seam the property is about.
 
 ## Patches Stop at the Interpreter Boundary
 
-A pytest fixture or `monkeypatch.setattr` changes module state in the pytest
+A pytest fixture or `monkeypatch.setattr` changes a module object in the pytest
 process only. A test that launches a new Python interpreter (`python -m
-meridian`, a driver script, a background runner the CLI starts) gets the
-production value in that child. Environment variables do cross, so
+meridian`, a driver script, a background runner the CLI starts) gets a fresh
+import with the production value. Environment variables do cross, so
 `MERIDIAN_HOME` and `_MERIDIAN_RUNTIME_DIR` isolate children; a module constant
 with no environment override does not.
 
-The control-socket root is such a constant: `/tmp/meridian-<uid>`, shared by
-every process the user runs. The session fixture in `tests/conftest.py`
-redirects it to a short private directory, but the launch-lock crash tests
-start CLI and runner interpreters through `tests/support/launch_lock_driver.py`
-and SIGKILL them on purpose, so their sockets landed in the real user
-directory and were never removed. They made up 59 of the 69 control sockets
-found there on one host.
+The control-socket root (`_POSIX_SOCKET_ROOT` in
+`lib/streaming/control_socket.py`, `/tmp/meridian-<uid>` in production) is such
+a constant, shared by every process the user runs. The session fixture in
+`tests/conftest.py` redirects it to a short private directory, for the pytest
+process alone. The launch-lock crash tests (`tests/platform/test_launch_lock.py`)
+run the CLI and its runner as separate interpreters through
+`tests/support/launch_lock_driver.py` and SIGKILL them on purpose, so their
+sockets landed in the real user directory and were never removed. They made up
+59 of the 69 control sockets found there on one host.
 
 To isolate such a child, pass the patched value in an environment variable
-and have the child apply the same patch before it runs Meridian: the launch-lock
-driver does this for both its CLI and worker modes, and
-`tests/integration/cli/test_spawn_report.py` runs the CLI through
-`python -c` that patches first. The other pattern is a test-only `sitecustomize`
-every child inherits (the `--runner-history=off` trap in `tests/AGENTS.md`);
-it was not used for sockets, to avoid intercepting every child for one
-constant. When a test deliberately kills a process, isolation is the only
-thing keeping its residue out of shared user directories: the killed process
-cleans up nothing.
+and have every child interpreter apply the same patch before it runs Meridian:
+the launch-lock driver does this in each process it starts, and
+`tests/integration/cli/test_spawn_report.py` runs the CLI through a `python -c`
+that patches first. The heavier alternative is a test-only `sitecustomize`,
+which every child imports at startup (the `--runner-history=off` trap in
+`tests/AGENTS.md` works this way); for a single constant, explicit propagation
+was preferred over intercepting every child. A deliberately killed process
+cleans up nothing, so for these tests isolation is what keeps residue out of
+shared user directories.
 
-(Branch `stale-control-sockets` in meridian-cli, unmerged as of 2026-10-23.)
+Status: branch `stale-control-sockets` in meridian-cli, unmerged as of 2026-10-23.
 
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 
