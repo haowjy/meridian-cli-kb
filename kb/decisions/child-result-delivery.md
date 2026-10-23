@@ -1,8 +1,8 @@
 # Decisions: Child Result Delivery
 
 Why a Claude primary gets its forgotten background children's results from a
-mod that calls Meridian, why consumption is shared with `spawn wait`, and why
-the shared record lives in the parent's spawn directory.
+mod that calls Meridian, why owed discovery shares each delivery route's
+consumption evidence, and how concurrent delivery is arbitrated across a chat.
 Current mechanism: [Child result delivery](../concepts/child-result-delivery.md).
 
 ---
@@ -103,13 +103,17 @@ leaves the lead where it was without one, needing an explicit wait.
   when nothing changed is the planned fix, never a correctness input.
 - Pi adopts `collect` and the background-only filter (#718).
 
+The one-record statement describes the original Claude/CLI design. The later
+[bounded no-arg wait decision](#d-no-arg-wait-owed-bounded) made owed discovery
+also honor Pi's native admission receipts and explicit cleared IDs, and made a
+chat-scoped claim the concurrency authority.
+
 ---
 
 ## D-claude-delivery-header-only: automatic delivery carries lookup headers, not reports (2026-10) {#d-claude-delivery-header-only}
 
-**Status:** lead decision in `work:read-consumes` (Decision 3), implemented on
-the unmerged meridian-cli branch `fix/header-only-delivery` at `bb3438717`; not
-yet on `main`.
+**Status:** lead decision in `work:read-consumes` (Decision 3). Shipped in
+meridian-cli v0.12.8 (PR #743, `53038dbba`).
 
 ### Problem
 
@@ -167,9 +171,9 @@ command when the lead needs the report.
 
 ## D-no-arg-wait-owed-bounded: no-arg wait returns a bounded header-only owed batch (2026-10) {#d-no-arg-wait-owed-bounded}
 
-**Status:** lead decisions in `work:read-consumes` (Decisions 4 and 5),
-implemented on the unmerged meridian-cli branch `fix/header-only-delivery`; not
-yet on `main`.
+**Status:** lead decisions in `work:read-consumes` (Decisions 4 and 5), with
+review corrections from `spawn:p9156`; implemented on the unmerged meridian-cli
+branch `fix/owed-wait` at `e9fac2a78`, not yet on `main`.
 
 ### Problem
 
@@ -186,24 +190,41 @@ an unbounded stale backlog into one model turn.
 - **No-arg wait adds terminal children from collect's owed scope.** A primary
   owns background direct children across every primary generation of its chat;
   a nested caller owns only its own background direct children. Active
-  transitive-descendant discovery is unchanged.
+  transitive-descendant discovery is unchanged. Both paths subtract CLI
+  observations, Pi native-delivery receipts and Pi cleared IDs, so a result
+  delivered or dismissed in Pi is not replayed by the CLI.
 - **Only the already-finished part is capped.** Target resolution takes at most
   the oldest 32 owed terminal rows, the same member bound as collect. Active
   targets are never capped; excess finished rows remain owed for the next wait
   or collection.
-- **Classification belongs to target resolution.** A carried classification,
-  not a status check at render time, decides output policy. Children already
-  finished use the shared collect header (outcome, worker, failure, distinct
-  task directory, and `spawn show` lookup). Children active at resolution keep
-  ordinary wait output and their requested report body after wait blocks for
-  them.
-- **The existing JSON shape carries the distinction.** Owed-finished entries
-  omit `report_body`, including under `--full`; no parallel public output model
-  or schema field is added.
+- **Classification belongs to the result model.** Target resolution places
+  already-finished rows in `owed_spawns` and rows active then in `spawns`; a
+  later status check cannot change classes. Owed rows use the shared collect
+  header (outcome, worker, failure, distinct task directory, and `spawn show`
+  lookup). Blocked-on rows keep ordinary wait output and their requested report
+  body after wait blocks for them.
+- **Owed delivery is not waited work.** Run counts, single-result compatibility
+  fields, fail-fast, aggregate failure and the CLI exit code use only
+  `spawns`. A failed owed row still says `failed` in its header but does not make
+  an otherwise successful no-arg wait fail.
+- **JSON names both classes.** `spawns` carries blocked-on results and
+  `owed_spawns` carries late delivery. Owed entries omit `report_body`, including
+  under `--full`; consumers need not infer the class from a null field.
 - **Consumption stays with wait.** An observing wait leases the combined target
   set and consumes terminal rows on return. `--no-observe` uses the same scope,
   cap, and rendering but neither leases nor consumes, so its oldest batch may
   repeat.
+- **One renewable chat claim arbitrates owed headers.** Wait and collect reserve
+  under `spawn-delivery/<chat>.json`, so collectors and resumed primary
+  generations cannot both select the same result. Collect's IDs are exclusive;
+  wait makes only owed-at-resolution IDs exclusive so active barriers may
+  overlap. After the initial
+  compatibility lease write they re-read durable consumption and other leases;
+  durable observation is written before a claim is removed. Claude renews its
+  claim while it owns unadmitted text, releases it when submission does not
+  happen, and lets it expire after a crash. Per-primary wait reservations in
+  `observed-spawns.json` remain a projection for Pi and older builds, not the
+  arbitration authority.
 
 ### Rejected
 
@@ -216,6 +237,9 @@ an unbounded stale backlog into one model turn.
   the synchronization barrier.
 - **Reclassify from terminal status while rendering.** A child that was active
   when the wait claimed it would lose the full report it waited to return.
+- **Use per-primary observation leases as the only claim.** A resumed chat has
+  several primary directories; separate locks cannot prevent two generations
+  from selecting the same owed header.
 
 ---
 

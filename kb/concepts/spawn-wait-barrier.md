@@ -6,8 +6,8 @@ orchestration. After launching background subagents, the orchestrator runs
 completes before producing a final answer.
 
 Status: the bounded owed-result extension below is implemented on the unmerged
-meridian-cli branch `fix/header-only-delivery`; `main` still selects active rows
-only. See [D-no-arg-wait-owed-bounded](../decisions/child-result-delivery.md#d-no-arg-wait-owed-bounded).
+meridian-cli branch `fix/owed-wait`; `main` still selects active rows only. See
+[D-no-arg-wait-owed-bounded](../decisions/child-result-delivery.md#d-no-arg-wait-owed-bounded).
 
 ---
 
@@ -18,9 +18,9 @@ meridian spawn wait
 ```
 
 With no positional spawn IDs, `wait` discovers the caller's active wait set and,
-on the bounded-delivery branch, terminal background children still owed to that
-caller. Active discovery is lineage-scoped: all spawns at any nesting depth
-inherit the same root chat ID.
+on `fix/owed-wait`, terminal background children still owed to that caller.
+Active discovery is lineage-scoped: all spawns at any nesting depth inherit the
+same root chat ID.
 
 **Discovery filters:**
 
@@ -28,7 +28,7 @@ inherit the same root chat ID.
 |---|---|
 | Owner chat (`owner_chat_id`, else `chat_id`) `== MERIDIAN_CHAT_ID` | Only spawns belonging to this chat tree |
 | Active set | `queued`, `running`, or `finalizing`; never capped |
-| Owed finished set (unmerged branch) | Oldest 32 terminal, unconsumed, unleased background direct children; excess stays owed |
+| Owed finished set (`fix/owed-wait`) | Oldest 32 terminal, unconsumed, unclaimed background direct children; excess stays owed |
 | Self-exclusion | The current spawn (`MERIDIAN_SPAWN_ID`) is excluded from the wait set |
 | **Descendant-scoping** | When called from a nested spawn, only descendants of the caller are included (not siblings, ancestors, or the primary session) |
 
@@ -47,16 +47,29 @@ The SQL filter keeps discovery within that bar.
 
 The owed set comes from the same `owed.py` scope and authoritative snapshot as
 Claude's hidden `spawn collect`. A primary reads direct background children and
-observations across every primary generation in its chat. A nested caller owns
-only its own direct background children, while its active set remains the
-transitive descendant projection. Foreground, archived, retired, historical,
-missing, quarantined, consumed, and live-leased rows are not owed targets.
+consumption across every primary generation in its chat. That consumption is
+the union of CLI observations, Pi native-delivery receipts, and Pi cleared IDs.
+A nested caller owns only its own direct background children, while its active
+set remains the transitive descendant projection. Foreground, archived,
+retired, historical, missing, quarantined, consumed, and live-claimed rows are
+not owed targets.
 
 Whether a target was already finished is decided once, when the target set is
-resolved. Those rows use collect's status/worker/failure/task-dir/show header and
-omit `report_body` even for JSON `--full`. Rows active at resolution keep normal
-wait output and full reports after they finish. A normal wait leases the combined
-set and consumes every terminal result it returns; `--no-observe` does neither.
+resolved. Those **owed** rows use collect's status/worker/failure/task-dir/show
+header and appear in JSON under `owed_spawns`, with no `report_body` even for
+`--full`. Rows active at resolution are the **blocked-on** class: they stay in
+`spawns`, keep normal wait output and full reports after they finish, and alone
+drive run counts, single-result compatibility fields, fail-fast, aggregate
+failure and the CLI exit code. Thus a failed owed header does not make a wait
+fail.
+
+A normal no-arg wait reserves owed headers in one renewable chat-scoped claim,
+then rechecks durable consumption and other leases before returning them. It
+also projects leases into `observed-spawns.json` for Pi and older readers and
+consumes every terminal result it returns. The claim is the cross-generation
+arbitration authority; the per-primary observation leases are compatibility
+state. `--no-observe` does neither. See
+[Child result delivery](child-result-delivery.md#consumption-and-arbitration).
 
 If no pending spawns exist, the command returns immediately with a clean no-op
 message. That answer requires complete history-index coverage. Discovery reads
@@ -145,6 +158,10 @@ meridian spawn wait --fail-fast p2404 p2408
 `--fail-fast` exits as soon as any spawn in the wait set reaches `failed` or
 `timed_out`, without waiting for the remaining spawns to finish. The output
 includes which spawns triggered the early exit and which are still pending.
+On the owed-aware branch, only the blocked-on `spawns` class participates. A
+failed result that was already terminal when no-arg target resolution ran is
+delivery, not a failure reached while this wait blocked, and cannot trigger
+fail-fast or exit 1.
 
 **Trigger statuses:** `failed` and `timed_out` only. `cancelled` does not
 trigger fail-fast -- cancellation keeps existing aggregate-exit behavior where
@@ -269,8 +286,9 @@ per-spawn ID tracking required.
 
 A lead that ignores the obligation and goes idle is not stuck on every harness:
 interactive Claude primaries and Pi sessions get owed results delivered as a new turn. Each wait
-records what it returned as consumed in `observed-spawns.json`, so those
-watchers don't deliver it a second time. See
+records what it returned as consumed in `observed-spawns.json`; owed discovery
+also honors Pi delivery receipts and explicit dismissals, so another route does
+not replay it. See
 [Child result delivery](child-result-delivery.md).
 
 ---
