@@ -163,7 +163,7 @@ turn. These probes used Meridian's generated file; `default.rules` was restored 
 written there would be lost, and Codex loads project rules only for trusted projects), and a
 per-invocation `-c` config key (Codex has none for rules).
 
-## D-network-field: profile `network` is decided, not shipped {#d-network-field}
+## D-network-field: profile `network` is decided; projection is implemented {#d-network-field}
 
 **Decided (owner, 2026-10-23):** a profile may set `network: allow | deny`. The field governs
 the agent's shell only: whether its commands may open connections to the internet, to host
@@ -180,12 +180,26 @@ the first value set, in the order CLI flag, overlay, profile, then settings. A `
 would be a second spelling of `allow`, and a higher layer that wrote it would silently reopen a
 profile's `deny`. Unset is the only default state.
 
-**Planned projection:**
+**Implemented on the unmerged Phase 3 branch** (2026-10-23; first supported Mars release
+expected to be 0.18.0):
 
-| `network` | Claude | Codex | OpenCode, Pi |
+| `network` | Claude | Codex | OpenCode, Pi, Cursor |
 |---|---|---|---|
 | `allow` | `allowedDomains` `*`, `localhost`, `127.0.0.1`; `allowLocalBinding`; `allowAllUnixSockets` | `workspace-write`: `network_access=true`. `read-only`: unsupported, reported | Always on |
 | `deny` | No domains | Off (default) | Not enforced, reported |
+
+`danger-full-access` cannot enforce deny on any harness. Codex `read-only` cannot enforce
+explicit allow; unset remains offline and is not reported as a user-requested gap. Claude
+Linux deny is partial: private TCP loopback remains reachable, and `approval: never` can
+bypass the proxy's network restriction. Claude Linux allow can reach host services through
+the sandbox proxy only when clients bypass `NO_PROXY` (for curl, `--noproxy ''`). The dry-run
+report marks these cases partial or unsupported rather than native. Pi's report was covered
+by existing projection tests, not a live Pi launch; macOS and Cursor were not exercised live.
+
+Codex `sandbox_workspace_write.network_access` is still a deprecated native-config passthrough
+for one release and wins over the portable field during that warning period; reserve it in the
+following release. The field is carried through optional bundle/snapshot fields without a
+schema bump, so bundles from released Mars versions that omit it remain readable as unset.
 
 Claude reaches host services on Linux only through its proxy, and the sandbox's `NO_PROXY`
 makes most clients skip it. Observed: `curl --noproxy ''` with `localhost` in `allowedDomains`
@@ -193,8 +207,9 @@ works. Meridian's dry-run reports this as partial.
 
 **Supersedes** the 2026-10-22 rejection of a first-class `network` profile field in
 [bundle-field-consumption.md](bundle-field-consumption.md). Today Codex `workspace-write` is offline
-by default; the `allow` default would make it online, so the user-facing upgrade note must say so. Meridian
-requires the Mars release that carries the field before it projects the field.
+by default; the `allow` default makes it online, so the user-facing upgrade note explains
+`network: deny` as the way to preserve offline behavior. Meridian requires the Mars release
+that carries the field before users can author it.
 
 ## Open questions
 
@@ -224,4 +239,7 @@ changed the platform-rule shape (`spawn:p9047`), the Codex rules POC (`spawn:p90
 Claude excluded-command probe and Phase 1 live runs (`spawn:p9060`–`spawn:p9068`), the
 Meridian-owned Codex rules and confirmation probes (`spawn:p9087`–`spawn:p9089`), and the
 PID-namespace probes (`spawn:p9096`–`spawn:p9107`). Claude host-localhost and proxy behavior
-comes from probes recorded in the same work item's research notes.
+comes from probes recorded in the same work item's research notes. Phase 3 implementation and
+live verification are on unmerged meridian-cli commits `21df98c3f..996a58533`; see
+`work:harness-sandbox-network/verification.md#phase-3-verification` for command evidence and
+known limits.
