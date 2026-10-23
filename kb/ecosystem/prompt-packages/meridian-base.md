@@ -1,84 +1,92 @@
 # meridian-base
 
-**meridian-base** is the foundation package that turns a bare Meridian install into a functional multi-agent coordination system. It provides the orchestrator, subagent, KB agents, and the core skills that every other package builds on.
+meridian-base is the root prompt package: the shared workers (explorer,
+session miner, generic subagent, knowledge agents, cold reader), the
+coordination and writing skills that agents in every other package load, the
+model-alias catalog, a few hooks, and bootstrap docs. It has no lead of its
+own. Leads live in the packages that need them, such as
+[meridian-dev-workflow](meridian-dev-workflow.md).
 
-**Package version:** 0.10.0  
-**Source:** `../prompts/meridian-base/`  
-**Key dependency:** `meridian-prompter` (provides `prompt-principles`)
+**Source:** `../prompts/meridian-base/`. The README lists the agents, skills
+and model aliases, and `CHANGELOG.md` dates each change.
 
-## Agents
+**Published dependencies:** none. meridian-prompter is a local dependency
+only ([why](overview.md#prompter-is-local-not-a-foundation)).
 
-### Coordination
+Checked against the package source on 2026-10-23.
 
-~~**`meridian-default-orchestrator`**~~ *(removed in v0.7.20)* — was the minimal orchestrator for planning, delegating, and evaluating subagent work.
+## Why It Has No Lead
 
-~~**`meridian-subagent`**~~ *(removed in v0.7.20)* — was the default execution agent for scoped repo-local tasks.
+Up to 0.7.19 the package shipped `meridian-default-orchestrator` and
+`meridian-subagent`. 0.7.20 removed both: "Real work routes through
+specialized agents… the orchestrator carried no `subagents` roster, so under
+capability-gated spawn injection it would ship without an agent inventory
+anyway." A lead is only useful with a roster of agents it can spawn, and
+choosing that roster is a domain decision, so leads belong to domain
+packages.
 
-### Knowledge Base
+A generic `@subagent` returned in 0.7.37 for tasks no specialist fits. Its
+body is one line; the caller's brief carries the work.
 
-**`kb-lead`** — captures durable knowledge into the KB after work ships, research lands, or decisions are made. Model: `deepseek`. Spawn with `--from` for conversation context, `-f` for source material. Resolves KB path via `meridian context kb`, reads `index.md` first, integrates into existing pages, mines conversation history for decisions, runs `meridian kg check` and `meridian mermaid check` before committing.  
-Skills: `meridian-spawn`, `kb-conventions`, `md-validation`, `session-mining`, `decision-log`, `shared-workspace`, `llm-writing`, `intent-modeling`.
+## Why Spawning and Work Items Aren't Skills
 
-**`kb-maintainer`** — structural health agent for document trees. Model: `deepseekflash`. Treats docs like code: splits oversized docs, merges thin docs, creates folder structure, fixes cross-references, flags staleness. Defaults to the KB (`meridian context kb`) or accepts an explicit `-f` target.  
-Skills: `meridian-spawn`, `kb-conventions`, `md-validation`, `shared-workspace`.
+The package once shipped `meridian-spawn` and `meridian-work-coordination`
+skills. 0.7.22 deleted `meridian-spawn`: "Spawn doctrine now lives in
+meridian itself." Meridian injects the spawn contract into each launch, and
+`meridian spawn -h` is the on-demand reference. Work-item handling folded
+into `/work-artifacts`, whose lifecycle detail sits in a resource rather than
+the body, because only the agent that started a work item manages its state.
+CLI mechanics stay with the CLI, so the package never drifts from the CLI
+version it runs on.
 
-### Exploration and History
+## Domain-Neutral Since 0.11.0
 
-**`explorer`** — cheap, fast, read-only codebase exploration. Model: `deepseekflash`. Uses `rg`, `cat`, `find`, `git show`, `git log`. Reports facts with file/line references. Does not edit.
+From 0.11.0, base skills speak of "the project's files" and "the same
+change" rather than code and branches. Rules for code projects (branches,
+merges, code as ground truth) moved to `knowledge-layers/resources/code.md`,
+which `@kb-lead` loads in a code project. Non-code packages such as
+creative-writing-skills build on base, so base can't assume git or a test
+suite.
 
-**`session-miner`** — mines conversation transcripts for decisions, rejected alternatives, intent, and constraints. Model: `deepseekflash`. Passes `--from <spawn-id>` or `--from $MERIDIAN_CHAT_ID` to target a session. Reports substance, not transcript noise. Structures findings by type (decisions, rejected alternatives, constraints, open questions).  
-Skills: `session-mining`, `intent-modeling`, `llm-writing`.
+## Knowledge Agents
 
-## Skills
+- **`@kb-lead`** writes durable knowledge itself, into `.context/`, the KB,
+  and `docs/`, and removes what has gone stale. Writing used to be split off:
+  `@kb-writer` was removed in 0.7.3 ("KB writing folded into `@kb-lead`"),
+  and meridian-dev-workflow's `@tech-writer` folded into it in 0.11.4. One
+  writer means one agent judges where each fact belongs.
+- **`@kb-maintainer`** handles structure: links, moves, splits and the
+  graph. It does not author content.
+- **`@cold-reader`** (0.11.3) reads text that will outlive the work as a
+  reader who wasn't there, and reports where that reader stalls. It exists
+  because writers can't see their own conversational bleed.
 
-### Delegation and Coordination
+## Model Aliases
 
-**`meridian-spawn`** — the core delegation skill. Covers `-a` vs `-m`, `-f` for scoped context, `--from` for prior reasoning, `--bg` + `meridian spawn wait` for parallelism, inject-before-cancel for steering, `meridian session log/search` for transcript reading, `meridian spawn files` for staging exact changed files, and prompt variables. Background spawns (`--bg`) must always be drained with `meridian spawn wait` before responding or ending a turn. See `resources/advanced-commands.md` for continue/fork, cancel, stats, dry-run.
+Aliases live here so every package resolves `opus` or `luna` the same way.
+They change as the model market changes, and the README table is
+regenerated from `mars.toml` by `scripts/models_table.py`, so read the
+README instead of copying it. Shifts that break old prompts and notes:
 
-**`meridian-work-coordination`** — work-item lifecycle and artifact placement. Orchestrators own work state: create/switch work items before repo work starts, keep status visible, commit artifacts frequently. Rule: this work item → work dir; project-wide → KB.
+- Aliases are family matchers that resolve to the newest model in the
+  family. The pinned-version aliases (`opus46`, `opus48`, `gpt55`, `gpt54`)
+  were removed between 0.7.40 and 0.10.18, and `gpt`/`gptmini` were removed
+  in 0.11.5. The GPT family is now `sol`, `terra`, `luna` and `astra`.
+- `deepseek` has meant V4 Flash since 0.10.9, and `deepseekflash` is gone.
+  Pro is `deepseekpro`.
+- `sonnet` was removed in 0.7.26 and later restored.
+- `fable` is for escalation only and is never a default (0.11.8).
 
-**`meridian-privilege-escalation`** — how to increase permissions per spawn without changing the agent profile. Least-privilege escalation first; targeted fixes before broad overrides. Covers Codex sandbox tiers, approval modes, model/harness switching.
+An alias name copied from an older note or prompt may no longer resolve.
 
-**`shared-workspace`** — safety rules for concurrent agents and humans. Initial orientation: `meridian context`, `meridian work`, `git status`. Forbids destructive resets and stash flows. Stage only files you changed (`meridian spawn files` for exact lists).
+## Tool Allowlists
 
-### Knowledge and Writing
-
-**`kb-conventions`** — the five-layer KB model and wiki structural rules. Single concept per document, `index.md` as entry point, overview docs per directory, relative linking, explicit invariants, mermaid for spatial relationships. Flags human-review issues with `> [!FLAG]`. Depends on `/llm-writing`.
-
-**`md-validation`** — markdown and Mermaid validation workflow. Commands: `meridian kg`, `meridian kg check`, `meridian kg graph`, `meridian mermaid check`. Flow: quick stats → broken-link gate → diagram validation → fix/re-run.
-
-**`decision-log`** — captures decisions while reasoning is fresh. Records: human intent, derived goal, choice made, rejected alternatives. Rejected alternatives are usually the most valuable part. Skips boilerplate. Depends on `/intent-modeling`.
-
-**`session-mining`** — recovers decisions and constraints from conversation history. Starts from `$MERIDIAN_CHAT_ID`, delegates bulk reading to `@session-miner`, lists all sessions for a work item. Skips when artifacts already hold the rationale.
-
-**`llm-writing`** — guards against common LLM writing failure modes: fluent-but-purpose-free prose, label-summaries without explanation, evidence-free conclusions, smoothing uncertainty, conversational register in documents. Depends on `/intent-modeling`.
-
-**`intent-modeling`** — interpret human direction before acting. Prevents literal over-reading of directional corrections. When "stop doing X" means "less X, more Y", reads the context to tell which. Checks for systematic misalignments.
-
-**`agent-management`** — delegation discipline, convergence loops, escalation. Spawns are the unit of substantive action; artifacts are state; in-memory reasoning evaporates. Resources: `convergence.md` (stop conditions, loop patterns, deferral rules), `escalation.md` (redesign brief template, `design-problem` vs `scope-problem`).
-
-## Model Alias Catalog
-
-Defined in `mars.toml`, available to all agents in packages that depend on `meridian-base`:
-
-| Alias | Model | Harness | Character |
-|---|---|---|---|
-| `composer` | composer-2.5 | cursor | Strong, cheap coding model |
-| `deepseek` | deepseek-v4-pro | — | Cheap, good text coder for constrained tasks |
-| `deepseekflash` | deepseek-v4-flash | — | Cheapest for mechanical tasks; fast, low cost |
-| `opus46` | claude-opus-4-6 | claude | Best at inferring human intent; preferred for interactive primaries |
-| `opus47` | claude-opus-4-7 | claude | Strong agentic coder and UI/UX design |
-| `opus48` | claude-opus-4-8 | claude | Best at long-horizon orchestration and managing large numbers of subagents |
-| `gpt55` | gpt-5.5 | codex | Strongest executor; literal instruction-following. Has `prompting` guidance. |
-| `gpt54` | gpt-5.4 | — | Good all-around; especially thorough reviewer |
-| `gptmini` | gpt-5.x-mini | — | Fast and cheap; bulk exploration and simple tasks |
-| `gpt` | gpt-5* (match) | — | Strong coding model family (leaf models, not orchestrators) |
-| `fable` | claude*fable* (match) | claude | Most capable for complex tasks |
-| `opus` | claude*opus* (match) | claude | Latest opus catch-all; prefer pinned versions |
-
-> **`sonnet` alias removed (v0.7.26+).** The `sonnet` model alias was deleted — no agents still referenced it after migrating `session-explorer` → `session-miner` to `deepseekflash` and `kb-writer` → `kb-lead` to `deepseek`.
-
-> **`gpt55` prompting guidance (v0.7.26+).** `gpt55` is the only alias with a `prompting` field: "Outcome-first executor. Include the north-star goal, success criteria, relevant high-level context, constraints, expected output shape, and concrete verification: how to prove the goal is met and what evidence to report." See `mars models prompting gpt55`.
+Meridian treats a profile whose bash permissions are all scoped allows
+(`bash(meridian spawn *)`, `bash(rg *)`) as an allowlist and denies every
+other command. In 0.11.11–0.11.14 this left explorers and session miners
+refused `ls`, `pwd` and `git log`, and a dead-code explorer had every bash
+call denied. A read-only profile with scoped allows has to list each
+ordinary read command it needs.
 
 ## Hooks
 
@@ -91,38 +99,36 @@ the installed path, and merges entries into target config files.
 | Hook | Fragment | Native events | Target | Purpose |
 |---|---|---|---|---|
 | `deny-generic-agent` | `claude.json` | `PreToolUse` (matcher `"Agent"`) | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) |
-| `deny-interactive-prompts` | `codex.json` | `PreToolUse` (matcher `"Bash"`) | `.codex` | Blocks interactive prompts in Codex sandbox |
+| `deny-interactive-prompts` | `codex.json` | `PreToolUse` (matcher `"Bash"`) | `.codex` | Blocks interactive-prone auth commands in Codex unless a non-interactive guard is present |
 | `context-autosync` | `claude.json` | `SubagentStop`, `SessionEnd` | `.claude` | Pushes stranded context-repo commits at session end and after subagent work |
 
 **`context-autosync`** closes a gap where meridian's builtin `git-autosync`
 fires only on meridian lifecycle events (by default `spawn.finished`,
-`work.activated` and `work.done`). Commits created after the last such event -- typically
-knowledge capture by an Agent-tool subagent as a session's final act -- sit
-stranded locally until the next meridian event. This hook fires at Claude
-`SessionEnd` (with `timeout: 30`) and `SubagentStop`, discovers each enabled
+`work.activated` and `work.done`). Commits created after the last such event,
+typically knowledge capture by an Agent-tool subagent as a session's final
+act, sit stranded locally until the next meridian event. This hook fires at
+Claude `SessionEnd` (with `timeout: 30`, because Claude's default SessionEnd
+timeout could kill it mid-run) and `SubagentStop`, discovers each enabled
 `git-autosync:*` instance via `meridian hooks list` (the single runtime
-authority -- no parallel config parsing), and runs them. It is a no-op
+authority, with no parallel config parsing), and runs them. It is a no-op
 without autosync config.
 
-Requires mars-agents 0.12.0+ (D91 fragment schema). Migrated from the D90
-per-target event schema in v0.10.0.
+The fragment schema needs mars-agents 0.12.0 or later. The package migrated
+to it from the D90 per-target event schema in 0.10.0.
 
-## Package Composition Patterns
+## Bootstrap Docs
 
-The package's composition logic, inferred from skill assignments:
-
-| Agent type | Core skills |
-|---|---|
-| Orchestrator | `meridian-spawn` + `meridian-work-coordination` + `agent-management` + `shared-workspace` |
-| Subagent | `shared-workspace` |
-| KB agents | `kb-conventions` + `md-validation` + `decision-log` + `intent-modeling` + `llm-writing` |
-| Session miner | `session-mining` + `intent-modeling` + `llm-writing` |
-| Explorer | none (thin shell) |
+`bootstrap/` holds setup guides: `context-setup`, `harness-setup`,
+`meridian-guide`, `project-knowledge` and `workspace-setup`.
 
 ## Related
 
-- [overview.md](overview.md) — package model and composition
-- [meridian-dev-workflow.md](meridian-dev-workflow.md) — dev workflow package built on top of this
-- [meridian-prompter.md](meridian-prompter.md) — prompt engineering package (dependency of this one)
-- [../../concepts/spawn-lifecycle.md](../../concepts/spawn-lifecycle.md) — spawn state machine
-- [../../codebase/guide.md](../../codebase/guide.md) — meridian-cli codebase navigation
+- [overview.md](overview.md) — the package graph and its traps
+- [meridian-dev-workflow.md](meridian-dev-workflow.md) — the development leads built on this package
+- [meridian-prompter.md](meridian-prompter.md) — prompt engineering, which depends on this package
+- [../../concepts/hooks-and-plugins.md](../../concepts/hooks-and-plugins.md) — the hook system these hooks plug into
+
+## Provenance
+
+- Audit of the package source against this page: `spawn:p9065`
+- Rewrite: `chat:c8796`

@@ -118,4 +118,4 @@ project root, not the current directory. Consumers pick up a release with
 ## Provenance
 
 - Audit of the package sources against this page: `spawn:p9065`
-- Rewrite: `chat:c8779` follow-up, prompt-dev session
+- Rewrite: `chat:c8796`

@@ -2,13 +2,15 @@
 
 `meridian-benchmark-agents` is the benchmark-runner prompt package: it exists to run externally specified coding-agent eval tasks unattended, optimize for verifier-backed acceptance, and report comparable evidence across configured harnesses and models.
 
-**Source:** `../prompts/meridian-benchmark-agents/`  
-**Role:** benchmark orchestration and verifier-driven implementation attempts  
-**Dependencies:** `meridian-base`, `meridian-dev-workflow`
+**Source:** `../prompts/meridian-benchmark-agents/`. The README and agent files hold models and setup; `skills/benchmark-methodology/` holds the run contract and report schema.
+
+**Dependencies:** meridian-base `>=0.10.11, <0.11.0` and meridian-dev-workflow `>=0.13.6, <0.14.0`. These pins exclude the current releases, so the package can't be installed beside them until the pins move ([overview](overview.md#traps)).
+
+Checked against the package source on 2026-10-23.
 
 ## Why It Is Separate
 
-Benchmark runs need a different success function from product-development work. `product-lead` and `tech-lead` are designed to preserve product quality: they capture intent, design carefully, maintain docs, manage architecture taste, and route post-implementation QA/KB work. Those priorities are actively wrong for fixed benchmark tasks where the evaluator has already specified the requirement.
+Benchmark runs need a different success function from product-development work. `product-lead` and `tech-lead` are designed to preserve product quality: they capture intent, design carefully, staff review by risk, and capture knowledge after the change. Those priorities are actively wrong for fixed benchmark tasks where the evaluator has already specified the requirement.
 
 The benchmark package therefore uses benchmark-specific agents:
 
@@ -17,6 +19,8 @@ The benchmark package therefore uses benchmark-specific agents:
 | `benchmark-lead` | Primary orchestrator for one externally specified benchmark task. Chooses configured benchmark profiles, delegates bounded attempts, verifies, and reports comparable evidence. |
 | `benchmark-runner` | Generic bounded implementation attempt. Optimizes for verifier pass with a minimal task-scoped diff. |
 | `benchmark-claude-runner` | Claude-qualified bounded implementation attempt. Exists so Claude Code can discover a native benchmark subagent when native Claude delegation is useful. |
+
+The package still depends on meridian-dev-workflow for specialists such as `@prober` and `@reviewer` and skills such as `/testing`; what it does not reuse is the dev leads as the benchmark lead path.
 
 The key boundary is not "less rigor". It is a different optimization target: verifier-accepted behavior first, then minimal task-scoped diff, then cost/time traceability and honest failure evidence.
 
@@ -42,35 +46,21 @@ The package uses `[settings.meridian.agent_copy]` with `harnesses = ["claude"]` 
 
 This is deliberate. `.mars/agents/` remains Meridian's compiled read surface, but Claude Code's native subagent discovery only sees `.claude/agents/`. The benchmark package needs both surfaces when evaluating composed harness behavior involving Claude-native delegation.
 
-Validated behavior from the initial scaffold: source-package `mars check`, `mars validate`, and `mars sync` were clean; a downstream smoke consumer materialized the `.mars` benchmark agents and `.claude/agents/benchmark-claude-runner.md`.
+At the initial scaffold (0.1.1, 2026-07-09), source-package `mars check`, `mars validate`, and `mars sync` were clean; a downstream smoke consumer materialized the `.mars` benchmark agents and `.claude/agents/benchmark-claude-runner.md`.
 
 ## Reporting And README Claims
 
 Benchmark README claims should stay runner-agnostic until real benchmark runs exist. It is valid to say the package supports DeepSWE, Terminal-Bench, or local verifiers as externally specified task sources. It is not valid to claim improved pass rate, lower cost, or superior harness composition without actual run data.
 
-Every benchmark report should include these fields when available: task identifier and source, working directory or benchmark environment, verifier command or source, profiles/model aliases used, attempts including failures, final verifier result, changed files and diff summary, elapsed time, token/cost fields, invalid shortcuts avoided or suspected risks, failure reason when not accepted, and artifact paths.
+The report fields are defined in `skills/benchmark-methodology/resources/report-schema.md`.
 
 The likely headline comparison metric is cost per accepted task: total run cost divided by verifier-accepted benchmark tasks. Treat it as a future evaluation metric, not a current result claim.
-
-## Vocabulary
-
-| Term | Meaning |
-|---|---|
-| Benchmark task | An externally specified coding task with an evaluator or verifier. The agent should not reinterpret the requirement or ask the human to restate it. |
-| Verifier | The benchmark-provided mechanism that decides whether a task is solved. Passing it is the primary success signal, but the agent must not edit or game it. |
-| Benchmark orchestrator | The primary agent that owns one benchmark task from prompt to final report. |
-| Benchmark subagent | A bounded implementation profile optimized for benchmark execution, optionally emitted as a Claude-native subagent when harness-qualified. |
-| Configured agent profile | A named profile with configured model, harness, tools, and prompt. Runtime routing selects among profiles; it does not create new aliases. |
-| Bounded attempt | One coherent solve pass ending in a verifier run, a blocker, or a recorded stop decision. |
-| Minimal task-scoped diff | The smallest safe patch that satisfies observable benchmark behavior, excluding broad refactors, docs churn, style-only cleanup, and unrelated maintainability work. |
-| Cost/time traceability | Enough run metadata to compare benchmark policies: profiles, models, elapsed time, token/cost fields, attempts, and accepted/failed status. |
-| Cost per accepted task | Total run cost divided by the number of verifier-accepted benchmark tasks. |
 
 ## Related
 
 - [overview.md](overview.md) — prompt package model and composition
 - [meridian-base.md](meridian-base.md) — model-alias authority and foundation agents
-- [meridian-dev-workflow.md](meridian-dev-workflow.md) — product-development workflow that benchmark agents intentionally do not reuse as the benchmark lead path
+- [meridian-dev-workflow.md](meridian-dev-workflow.md) — the development package whose specialists this package uses but whose leads it does not
 - [../../concepts/package-management/targeting.md](../../concepts/package-management/targeting.md) — `.mars/` read surface and native harness directory projection
 - [../../decisions/package-management.md](../../decisions/package-management.md) — package-management decisions behind targeting and source discovery
 
@@ -78,3 +68,4 @@ The likely headline comparison metric is cost per accepted task: total run cost 
 
 - Work item: `work:mellow-hollow-brood`
 - Prior session: `chat:c4841`, primary spawn `p4901`
+- Refresh against current source: `spawn:p9064`, `chat:c8796`
