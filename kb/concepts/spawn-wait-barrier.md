@@ -96,16 +96,16 @@ explicit-ID invocations:
 
 ```
 Waiting for 3 pending spawn(s) for chat c123:
-  spawn  agent     model        status      desc
-  p2404  explorer  gpt-5.4      running     Design mermaid check style warnings
-  p2408  reviewer  claude-opus  finalizing  Review design package
-  p2410  -         -            running     Probe CLI behavior
+  spawn  agent     model        status
+  p2404  explorer  gpt-5.4      running
+  p2408  reviewer  claude-opus  finalizing
+  p2410  -         -            running
 ```
 
 Identity comes first (spawn, agent, full model ID) so an orchestrator can
 record who it is waiting on without a separate lookup; missing values render
-as `-` so columns stay aligned. `spawn children` uses the same column order
-plus `duration`.
+as `-` so columns stay aligned. Descriptions are omitted to keep repeated wait
+output token-efficient. `spawn children` uses the same columns plus `duration`.
 
 The wait set is **frozen at discovery time**. Spawns that become queued after
 discovery are not added. This is intentional: the orchestrator controls when to
