@@ -64,7 +64,11 @@ Meridian projects context roots (work, work_archive, kb, and extra context dirs)
 
 **Why this is load-bearing:** Codex (bubblewrap) bind-mounts every projected root at exec time. If a source path is missing, `bwrap` aborts the **entire exec namespace** — every command in the worker fails, not just operations targeting the missing path. A not-yet-created context dir (commonly `work_archive` before the first archive) would silently break all command execution while the spawn still reported `succeeded` (see [terminal status semantics](../concepts/harness-abstraction.md#event-semantics-and-terminal-outcomes)).
 
-Critically, a sandbox-broken worker cannot run **any** Meridian command either — including `meridian spawn done` — so it cannot self-report the failure. Only the harness-written report survives (Codex `-o` flag), with the blocker described in prose.
+Critically, a sandbox-broken worker cannot run commands that remain in the sandbox. A
+standalone `meridian spawn ...` may still escape for a spawn-capable Claude launch or through
+Codex's user rules file, but neither route is universal and the rules-file projection itself
+may fail. Launch correctness cannot rely on a control command recovering this state. The
+harness-written report (Codex `-o` flag) remains the reliable evidence channel.
 
 **Implementation:** Missing context roots are skipped at debug log level, not warning. A missing context dir is the normal pre-archive state — it must not pollute stderr on every launch.
 

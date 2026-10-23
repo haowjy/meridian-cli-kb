@@ -285,7 +285,11 @@ after the profile's rules:
   Claude also excludes the spawn launch from its Bash sandbox, so a standalone spawn
   survives the shell call; that escape and its limits are in
   [sandbox-platform-access.md](sandbox-platform-access.md#d-sandbox-spawn-escape).
-  Codex cannot grant shell-command matches and reports these grants as unsupported.
+  Codex cannot project arbitrary shell-command matches. Under a constrained sandbox,
+  Meridian's user-wide execpolicy file grants the `meridian spawn` prefix to every session
+  using that Codex home; the other requested matches remain ordinary shell calls. The scope
+  and tradeoff are in
+  [D-codex-child-spawn](sandbox-platform-access.md#d-codex-child-spawn).
 
 ## D-codex-sandbox-inference-deleted: an unset sandbox is the harness default {#d-codex-sandbox-inference-deleted}
 

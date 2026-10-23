@@ -6,9 +6,9 @@ write state, and a child spawn must outlive the shell call that launched it. Pro
 should not have to know any of this. Meridian grants what its control plane needs wherever the
 harness can express the grant, and `--dry-run` reports each grant, or its absence, per harness.
 
-**Status (as of 2026-10-23):** Claude grants: implemented, not yet merged to `main`. Codex
-child spawns and the profile `network` field: not done, and no release is set for either.
-Each decision below says which.
+**Status (as of 2026-10-23):** Claude and Codex grants are implemented on
+`feat/sandbox-network`, not yet merged to `main`. The profile `network` field is not done,
+and no release is set for it. Each decision below says which.
 
 **Where the mechanism lives.** Platform command grants and the rule that owns them:
 [tool-permissions.md](tool-permissions.md#d-permission-platform-rules). Which paths a
@@ -20,9 +20,9 @@ Per-harness compiles: `src/meridian/lib/harness/projections/.context/CONTEXT.md`
 | Grant | Claude | Codex | OpenCode, Pi |
 |---|---|---|---|
 | Project lock directory writable | Yes: projected as a root, so `--add-dir` (observed: `task-dir` and a lock acquisition succeed under `workspace-write`) | Yes under `workspace-write`, through the same projected roots (not live-tested) | n/a: no sandbox |
-| Meridian commands allowed (completion, read-only, spawn) | Exact and prefix `Bash(...)` allows | Not grantable: Codex has no shell-command allow rule; a planned execution-policy rule is in [D-codex-child-spawn](#d-codex-child-spawn) | Native shell or extension allows |
-| Child spawn leaves the shell sandbox | Yes, for a standalone `meridian spawn` in a spawn-capable profile | Not yet (planned, below) | n/a: no sandbox |
-| Compound launch refused | Yes | No: Codex sets no sandbox marker that Meridian reads | n/a: no sandbox |
+| Meridian commands allowed (completion, read-only, spawn) | Exact and prefix `Bash(...)` allows | The `meridian spawn` prefix through a user-wide execution-policy rule; other command grants are not expressible | Native shell or extension allows |
+| Child spawn leaves the shell sandbox | Yes, for a standalone `meridian spawn` in a spawn-capable profile | Yes, for a standalone `meridian spawn` in every session using the Codex home | n/a: no sandbox |
+| Compound launch refused | Yes on Linux, by PID-namespace comparison | Yes on Linux, by the same comparison | n/a: same namespace |
 
 A compound launch is a `meridian spawn` inside a shell line that also contains `&&`, a pipe,
 `$()`, or a leading `VAR=` assignment. A spawn-capable profile is one that declares
@@ -74,7 +74,8 @@ runs unsandboxed and its detached child survives the shell call.
 **Why:** Claude's sandbox runs commands in their own PID namespace and kills detached
 children when the call ends. A child spawn is a detached worker, so inside the sandbox it
 dies with the shell. Excluding the launch is the only way its worker finishes. The excluded
-process also drops Claude's `SANDBOX_RUNTIME` marker (observed in a probe).
+process remains in the launcher's host PID namespace; a sandboxed command runs in another
+namespace.
 
 **Why only `meridian spawn` and only spawn-capable profiles:** `meridian *` would have let
 any sandboxed profile run `config set`, `work delete` or `mars …` unconfined. The grant is
@@ -102,44 +103,61 @@ section. Spawn IDs are in provenance.
 
 ## D-sandbox-compound-refusal: a compound launch fails before it starts {#d-sandbox-compound-refusal}
 
-**Decided:** `meridian spawn` create and continue refuse to run when Claude's sandbox marker
-(`SANDBOX_RUNTIME=1`) is set. The error says to run `meridian spawn` as a standalone shell
-command. `meridian spawn done` and `meridian spawn rearm` are not refused: they must work in
-compound form, through the state roots above. Dry-run is not refused.
+**Decided:** before it launches a harness, Meridian records its own
+`/proc/self/ns/pid` link in `_MERIDIAN_LAUNCHER_PID_NAMESPACE`. A `meridian spawn` create or
+continue compares that value with its current namespace and refuses when they differ. Every
+nested Meridian launcher replaces the value with its own namespace. The error says to run
+`meridian spawn` as a standalone shell command. `meridian spawn done`, `rearm`, help, and dry
+run are not refused.
 
-**Why:** without the refusal, a compound launch starts a worker that the shell's exit
-kills, and the parent sees no error. A failure before any state is written is the only
-signal the agent gets, and the message names the rule it must follow.
+**Why:** a sandbox that kills detached children isolates the shell in another PID namespace.
+The namespace comparison tests that failure condition directly across Claude and Codex;
+harness-specific markers do not. Without the refusal, a compound launch starts a worker the
+shell's exit kills, and the parent sees no useful error. The CLI checks on its import-cheap
+startup path before Mars loads, then the operations layer repeats the guard for non-CLI
+callers. This keeps the corrective message ahead of lower-level sandbox failures and child
+state writes.
 
-**Scope correction:** the work item's final design revision proposed comparing
-`/proc/self/ns/pid`, but the implementation brief explicitly replaced that mechanism with a
-tuple of known sandbox environment markers, initially only Claude's `SANDBOX_RUNTIME=1`.
-Phase 1 therefore covers Claude alone by decision, not by accident. Codex exposes no generic
-sandbox marker; its child-launch path remains deferred to the execution-policy work above.
+**Platform limit:** if the launch environment has no recorded value or procfs does not expose
+the current namespace, Meridian skips the comparison. This is the expected path on macOS.
+The mechanism does not claim to detect a sandbox there.
+
+**Evidence:** the host and a Claude excluded command shared `pid:[4026531836]`; sandboxed
+Claude and Codex commands used different namespaces. Live compound calls under both harnesses
+were refused with exit 1 and no child; standalone Claude, Codex, and Pi nesting succeeded.
 Source: `work:harness-sandbox-network`.
 
-## D-codex-child-spawn: Codex children cannot launch yet {#d-codex-child-spawn}
+## D-codex-child-spawn: Codex uses one user-wide spawn rule {#d-codex-child-spawn}
 
-**Current:** under Codex's workspace-write sandbox a child spawn cannot launch. Two causes
-were found. The sandbox kills the detached worker. Mars (the package manager Meridian calls
-to build launch bundles) also fails on its wait-timeout path: its `SIGCHLD` self-pipe write
-gets `EPERM` under Codex's restricted network. The `--dry-run` report says child spawns cannot
-launch under Codex's sandbox. Codex's read-only sandbox cannot write, so `spawn done` cannot
-run there either, and the completion confirmation turn (the follow-up prompt that asks a child
-to confirm its report) is skipped
+**Implemented on the unmerged branch:** before a Codex launch whose resolved sandbox is
+`read-only` or `workspace-write`, Meridian ensures that the launch environment's
+`$CODEX_HOME/rules/meridian.rules` contains exactly:
+
+```text
+# This file is owned and rewritten by Meridian.
+prefix_rule(pattern=["meridian", "spawn"], decision="allow")
+```
+
+It resolves the Codex home from the final launch environment, byte-compares existing content,
+and uses an atomic replacement only when the file differs. It never edits another rules file.
+A write failure does not prevent the Codex launch; the permission report says the spawn command
+remains sandboxed and includes the error. Dry-run reports the projection without writing it.
+
+The rule lets a standalone `meridian spawn ...` run outside Codex's shell sandbox. It fixes
+both observed causes of nested failure: the sandbox would kill the detached worker, and Mars's
+wait-timeout path gets `EPERM` writing its `SIGCHLD` self-pipe under Codex's restricted
+network. It also lets `meridian spawn done` take Meridian's state lock under `read-only`, so
+read-only Codex again gets the ordinary completion-confirmation turn
 ([D-completion-channel](completion-drain.md#d-completion-channel)).
 
-**Decided, not shipped:** before a sandboxed Codex spawn launches, Meridian writes a
-Meridian-owned `$CODEX_HOME/rules/meridian.rules` containing one execution-policy rule,
-`prefix_rule(pattern=["meridian","spawn"], decision="allow")`. The file name is unrelated to the
-`codex_rules` bundle field, which Mars no longer emits. A probe with `codex exec` 0.163.0 showed that rule
-lets a workspace-write child launch and survive, and lets a read-only agent run `spawn done`.
-The probe used a rule saved by an interactive approval, not Meridian's file, so the
-Meridian-written file is untested.
-
 **Cost:** Codex has no per-launch rules layer, so the rule applies to the user's interactive
-Codex sessions and to every sandboxed Codex agent, not only spawn-capable ones. The
-user-facing docs must say so when this ships.
+Codex sessions and every Codex agent using that home, not only spawn-capable ones. The dry-run
+report and user-facing docs state that scope.
+
+**Evidence:** with the matching line removed from the owner's `default.rules`, a
+workspace-write `gpt-6-luna` parent launched child p9088, which finished with `child-ok`.
+Read-only p9089 ran `meridian spawn done` with exit 0 and received the actual confirmation
+turn. These probes used Meridian's generated file; `default.rules` was restored byte-for-byte.
 
 **Rejected:** a project `.codex/rules/` file (Mars regenerates that directory on sync, so a rule
 written there would be lost, and Codex loads project rules only for trusted projects), and a
@@ -180,8 +198,6 @@ requires the Mars release that carries the field before it projects the field.
 
 ## Open questions
 
-- **Whether Codex children can launch without the rules file.** Codex has no per-invocation
-  rule carrier, so the answer is the rules file or no Codex children.
 - **`subagents:` is not enforced at spawn creation.** A spawn-capable profile can launch any
   registered agent, and the escape above lets a sandboxed launch run that agent unsandboxed.
   Enforcement was deferred to a tracked issue; no tracking issue is recorded in this KB.
@@ -198,13 +214,14 @@ Linux, Claude Code 2.1.309, Codex CLI 0.163.0. Recheck when either version chang
 | OS sandbox covers | Bash only. Edit and Write are governed by tool rules; WebFetch and WebSearch run outside the sandbox | Every shell command |
 | Detached child survives the shell call | No | No in sandbox; yes with full access |
 | Per-command escape | `excludedCommands`, simple commands only | Execution-policy `prefix_rule` with `allow` |
-| Sandbox environment marker | `SANDBOX_RUNTIME=1` | None generic (`CODEX_SANDBOX_NETWORK_DISABLED` only) |
+| Sandbox PID namespace | Different from the launcher; an excluded command stays in the launcher's namespace | Different from the launcher; an execpolicy-allowed command runs outside it |
 | Shell network switch | Domain allowlist through a proxy | One boolean, which also gates host localhost and sockets |
 
 ## Provenance
 
 `work:harness-sandbox-network`: the owner's design approval, the structure review that
-changed the platform-rule shape (`spawn:p9047`), the Codex rules probe (`spawn:p9048`), the
-Claude excluded-command probe and live runs of the Claude grants (`spawn:p9060`–`spawn:p9068`),
-and the verification log. Claude host-localhost and proxy behavior comes from probes recorded
-in the same work item's research notes.
+changed the platform-rule shape (`spawn:p9047`), the Codex rules POC (`spawn:p9048`), the
+Claude excluded-command probe and Phase 1 live runs (`spawn:p9060`–`spawn:p9068`), the
+Meridian-owned Codex rules and confirmation probes (`spawn:p9087`–`spawn:p9089`), and the
+PID-namespace probes (`spawn:p9096`–`spawn:p9107`). Claude host-localhost and proxy behavior
+comes from probes recorded in the same work item's research notes.
