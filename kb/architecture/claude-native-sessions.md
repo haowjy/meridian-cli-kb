@@ -62,7 +62,8 @@ message content are never read as identity.
 
 A resume or fork source is the source chat's recorded `(native_store, id)`
 (`SessionRequest.source_native_store`). Before exec, Claude preparation
-(`harness/claude_preflight.py:ensure_claude_session_accessible`) opens exactly
+(`harness/claude_sessions.py:ensure_claude_session_accessible`, called from the
+adapter's `prepare_prelaunch`) opens exactly
 `<recorded store>/<id>.jsonl`:
 
 - It validates the file's first line (`validate_claude_session_file`): its
@@ -300,7 +301,9 @@ are schema/reference checks, not native-content restoration. Native transcripts 
 never rewritten.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
-`harness/claude_inbox.py` (primary inject, PR #668), `harness/claude_sessions.py`, `harness/claude_preflight.py`,
+`harness/claude_inbox.py` (primary inject, PR #668), `harness/claude_sessions.py` (source seeding), `harness/claude_settings.py`
+(settings-file allows read at bind). PR #736, open as of 2026-10-23, moves both
+out of `harness/claude_preflight.py`, which `main` still has.
 `launch/native_run.py`, `state/session_store.py` (`get_or_create_observed_chat`),
 `state/session_identity.py` (`live_observer_for_chat`), and
 `claude_runtime/meridian-session-boundary/`. Tests:

@@ -3,6 +3,18 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-23 — Completion report contract, channel-less holds, socket anchor
+
+`work:completion-hardening`. New records in [completion-drain](decisions/completion-drain.md):
+D-completion-report-contract (#725's real cause; "latest text wins" rejected) and
+D-completion-channel (read-only Codex skips the confirmation turn), both unmerged as of this date.
+[Drain plans](architecture/drain-plans.md) and [coordination](architecture/completion-drain-coordination.md)
+describe the retained report and the channel-less hold. The read-only Codex open question in
+[tool-permissions](decisions/tool-permissions.md) narrows to profiles with no `sandbox`. Control sockets:
+[project identity](architecture/state-system/project-identity.md) and the state overview now say
+`/tmp/meridian-<uid>` and why (PR #735, v0.12.2). [Claude native sessions](architecture/claude-native-sessions.md)
+names `claude_sessions.py`/`claude_settings.py` for PR #736.
+
 ## 2026-10-22 — Profile tool permissions shipped
 
 meridian-cli v0.12.0 (PR #730) and Mars 0.17.0 (mars-agents PR #179). Status lines that said
