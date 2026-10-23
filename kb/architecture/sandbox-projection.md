@@ -14,7 +14,8 @@ Child sandboxes may receive:
 - **System temp** — platform temp directory
 
 Child sandboxes **shall not** receive the whole `~/.meridian/` tree, nor `~/.meridian/projects/`
-itself. The global user home is not projected. This is a fixed constraint, not a tunable.
+itself, apart from the lock directory listed above. The global user home is not projected. This
+is a fixed constraint, not a tunable.
 
 The lock directory is shared across projects, so it is a wider grant than the runtime root:
 a sandboxed agent can reach another project's lock file. [Decisions](../decisions/sandbox-platform-access.md#d-sandbox-state-roots)
@@ -38,7 +39,7 @@ flowchart TD
 | Class | Examples | Nested policy |
 |---|---|---|
 | Per-project runtime state | `~/.meridian/projects/<uuid>/...` | Already projected — no change |
-| Project lifetime lock | `~/.meridian/projects/.locks/<id>.lock` | Directory projected, created at bind (see Fixed Projection Constraint) |
+| Project lifetime lock | `~/.meridian/projects/.locks/<id>.lock` | Directory projected, created by launch binding (see Fixed Projection Constraint) |
 | Repo/context state | work, kb, archive roots, context git clones | Already projected — no change |
 | Automatic global cache | `doctor-cache.json`, background global scan | **Delete** — expensive automatic global work is wrong |
 | Cheap per-project repairs | Stale session lock cleanup, orphan run reconciliation | **Keep** — daemon thread, current project root only |
@@ -67,7 +68,7 @@ Critically, a sandbox-broken worker cannot run **any** Meridian command either �
 
 **Implementation:** Missing context roots are skipped at debug log level, not warning. A missing context dir is the normal pre-archive state — it must not pollute stderr on every launch.
 
-**The lock directory is created, not filtered:** bind creates `~/.meridian/projects/.locks/` before projecting it, so the filter never drops it. A missing directory would abort Codex's namespace the same way a missing context root does.
+**The lock directory is created, not filtered:** launch binding creates `~/.meridian/projects/.locks/` before projecting it, so the filter never drops it. A missing directory would abort Codex's namespace the same way a missing context root does.
 
 **Git clone roots are unaffected:** `_collect_git_context_clone_roots` returns configured clone roots for git-backed context entries. These are intentionally still projected even when the clone hasn't happened yet — they exist on disk by launch time after `mars sync`.
 
@@ -94,7 +95,7 @@ Autosync lock files live in `~/.meridian/locks`, not projected in nested sandbox
 - Existing `TimeoutError` handling is unchanged
 - No new projection paths added
 
-**Why not project `~/.meridian/locks`?** (The projects `.locks` directory above is projected despite the same kind of risk; see its decision.) Projecting `~/.meridian/locks` as shared writable creates cross-project interference — any nested child could create arbitrary lock files or hold them to force autosync skips. Also, lock identity is derived from clone paths that depend on user config which may not be visible in nested contexts — projecting the lock dir would not guarantee correct serialization anyway.
+**Why not project `~/.meridian/locks`?** (The projects `.locks` directory above is projected despite the same kind of risk; see its [decision](../decisions/sandbox-platform-access.md#d-sandbox-state-roots).) Projecting `~/.meridian/locks` as shared writable creates cross-project interference — any nested child could create arbitrary lock files or hold them to force autosync skips. Also, lock identity is derived from clone paths that depend on user config which may not be visible in nested contexts — projecting the lock dir would not guarantee correct serialization anyway.
 
 ### Gap 3: User Config Read (Wrap — Best-Effort + Warning)
 

@@ -11,8 +11,9 @@ Mars 0.17.0 (mars-agents PR #179); the Meridian
 side requires Mars ≥ 0.17.0 and stops with "install mars >= 0.17.0" against an
 older binary.
 
-**Not yet on `main`.** The Meridian-commands rule below and the sandbox behavior it depends
-on are implemented on branch `feat/sandbox-network`. Their rationale is in
+**Not yet on `main`.** v0.12.0 shipped the completion grants only. The read-only and spawn
+grants of the Meridian-commands rule below, and the sandbox behavior they depend on, are
+implemented on branch `feat/sandbox-network`. Their rationale is in
 [sandbox-platform-access.md](sandbox-platform-access.md).
 
 **Where the mechanism lives.** User-facing semantics and the per-harness table:
@@ -274,8 +275,9 @@ after the profile's rules:
     completion, and live Claude refused `spawn done` even with no profile rules.
   - *Read-only:* Meridian's inspection commands (`spawn list`, `session search`,
     `work current`, `task-dir`, and similar). Profiles that listed them by hand missed
-    some, so the list is Meridian's to keep. Mutating forms stay out, such as
-    `task-dir set`, `session index` and `spawn wait`. The exact list lives in
+    some, so the list is Meridian's to keep. A command is listed only when it writes no
+    Meridian state and starts no work, so mutating forms stay out, such as `task-dir set`,
+    `session index`, and `spawn wait` (which records a consumption). The exact list lives in
     `src/meridian/lib/launch/permissions.py`.
   - *Spawn:* `meridian spawn` launch commands, granted only to a profile that can spawn
     (declares `subagents`).
