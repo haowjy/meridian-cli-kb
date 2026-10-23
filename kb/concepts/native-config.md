@@ -25,10 +25,10 @@ harness-overrides:
   codex:
     model_reasoning_effort: high   # reserved: Meridian sets this from top-level effort, so it is skipped
     sandbox_workspace_write:
-      network_access: true          # applied as -c sandbox_workspace_write.network_access=true
+      network_access: true          # deprecated exception for one warning release; use top-level network
 ```
 
-For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, and `tools` remain the Mars semantic controls, and a passthrough key never overrides a setting Meridian computes from them.
+For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, `tools`, and `network` remain the Mars semantic controls. A passthrough key normally never overrides a setting Meridian computes from them; the deprecated Codex network key is the one warning-release exception described below.
 
 ---
 
@@ -39,7 +39,7 @@ Harness passthrough and portable policy are independent concerns:
 | Concern | Schema location | Mars role | Meridian role | Portable? |
 |---------|----------------|-----------|---------------|-----------|
 | Tool policy | top-level `tools`, `disallowed-tools` (MCP as `mcp(...)` rules inside them) | Parse, validate, resolve into typed `tools.rules` with each harness's native names | Compile per harness into flags, settings, config agent or extension, and report gaps ([tool permissions](../decisions/tool-permissions.md)) | Yes |
-| Execution policy | top-level `effort`, `approval`, `sandbox`, `autocompact*` | Parse, validate, resolve into bundle `execution_policy` fields | Project per harness at launch time | Yes |
+| Execution policy | top-level `effort`, `approval`, `sandbox`, `network`, `autocompact*` | Parse, validate, resolve into bundle `execution_policy` fields | Project per harness at launch time | Yes |
 | Harness passthrough | `harness-overrides.<harness>` | Validate outer mapping and serializability only | Apply as written on Codex; report not applied elsewhere ([bundle fields](../decisions/bundle-field-consumption.md#d-native-config-codex-only)) | No |
 
 A key inside `harness-overrides.<harness>` does not replace the top-level field with the same name. If a profile has both top-level `tools` and `harness-overrides.codex.tools`, the top-level value controls `bundle.tools`; the override value is preserved in `execution_policy.native_config.tools`, and Meridian passes it to Codex as the literal Codex key `tools`. Meridian does not read it as tool policy.
@@ -114,9 +114,14 @@ harness-overrides:
       network_access: true
 ```
 
-Projected: `codex ... -c sandbox_workspace_write.network_access=true`
+Projected during its warning release: `codex ... -c
+sandbox_workspace_write.network_access=true`. This key is deprecated in favor of top-level
+`network`. Meridian resolves its value once in the Codex permission compile: a boolean still
+wins for compatibility, a matching value reports native, a conflict reports partial, and a
+non-boolean warns and is not treated as allow. The next release reserves the key and removes
+this exception.
 
-Keys Meridian computes itself (model, reasoning effort, compaction, sandbox, approval,
+Other keys Meridian computes itself (model, reasoning effort, compaction, sandbox, approval,
 writable roots, notify, web search, `features.*`, `agents.*`) are skipped with a report
 line, so a passthrough cannot undo the profile's sandbox or tool switches. Keys `-c` cannot
 address and values TOML cannot hold are reported unsupported; nothing in the block fails the

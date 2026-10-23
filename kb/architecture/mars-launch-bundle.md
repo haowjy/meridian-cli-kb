@@ -131,16 +131,20 @@ refresh follows **`ProbeRefreshMode`** from the same **`ModelsRefreshControl`** 
     "effort": "high",
     "approval": "auto",
     "sandbox": "workspace-write",
+    "network": "deny",
     "autocompact": null,
     "autocompact_pct": 80,
     "timeout": null,
     "native_config": {
-      "sandbox_workspace_write": { "network_access": true }
+      "sandbox_workspace_write": { "network_access": false }
     }
   }
 }
 ```
 
+`network` is `allow`, `deny`, or null. Current producers also provide
+`provenance.network_source`; if that key is absent, Meridian identifies a pre-0.18 Mars
+bundle, warns, and projects no portable network setting so the harness keeps its default.
 `native_config` is omitted (`skip_serializing_if = None`) when no native config
 is declared. Meridian applies it on Codex only; see
 [../concepts/native-config.md](../concepts/native-config.md). `autocompact` is a token

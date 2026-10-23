@@ -60,7 +60,10 @@ What Codex skips, each with its own report line:
   sandbox mode, approval policy, writable roots, notify, web search, and the
   `features.*` and `agents.*` tables). The block may add siblings to these but
   never replaces them; otherwise a passthrough could undo the profile's
-  sandbox or tool switches.
+  sandbox or tool switches. The deprecated
+  `sandbox_workspace_write.network_access` key is a one-release exception: its value is
+  resolved once during Codex permission compilation, a boolean still wins with a warning,
+  and a non-boolean warns without being treated as allow. The next release reserves it.
 - **Keys `-c` cannot address:** any component of the dotted key path that
   contains a dot, `=`, quote, whitespace or control character.
 - **Values outside what Codex `-c` takes:** Meridian encodes booleans, int64
@@ -72,16 +75,18 @@ that is not reserved, including model providers and MCP server commands. A
 package that carries a `harness-overrides` block is trusted code, the same as
 any hook it installs.
 
-**Evidence:** a live probe showed `-c sandbox_workspace_write.network_access=true`
-enables network under `workspace-write`.
+**Evidence:** a live probe showed the deprecated `-c
+sandbox_workspace_write.network_access=true` enables network under `workspace-write`; the
+portable top-level `network` field now owns the replacement projection.
 
 **Rejected (2026-10-22):** a first-class `network` profile field. Only Codex and Claude's
 sandbox have a network knob and they are spelled differently; passthrough
 covers the need.
 
-> **Superseded (2026-10-23):** the owner decided on a `network` profile field, decided
-> but not shipped. See [sandbox-platform-access.md](sandbox-platform-access.md#d-network-field).
-> Until it ships, passthrough remains the only way to set Codex's network key.
+> **Superseded (2026-10-23):** the owner decided on a `network` profile field, implemented
+> on the unmerged combined branch. See
+> [sandbox-platform-access.md](sandbox-platform-access.md#d-network-field). The passthrough
+> key survives for one warning release only.
 
 ## D-compaction-projected: thresholds reach each harness's own knob {#d-compaction-projected}
 
