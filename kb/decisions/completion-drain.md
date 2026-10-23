@@ -13,12 +13,13 @@ D4). **Implementation status:** on branch `completion-hardening`, which closes
 [#725](https://github.com/haowjy/meridian-cli/issues/725); not merged as of
 2026-10-23.
 
-A hold child's report is the reply that formed the candidate `done` accepts.
+A child under the completion hold ([drain plans](../architecture/drain-plans.md#resident-completion))
+reports the reply that formed the candidate `done` accepts.
 When a successful turn becomes the first candidate, the drain captures that
 turn's text, and finalization prefers it over anything the child writes later,
 including its answer to the confirmation turn. A granted `rearm` drops the
 candidate and its text, so the next candidate captures again. The confirmation
-text now states this plainly: the previous reply is kept as the report; if it is
+message says so: the previous reply is kept as the report; if it is
 final, run `meridian spawn done` and end the turn; if more work remains,
 including waiting on background tasks or spawns, run `meridian spawn rearm`
 first, then finish with a complete report.
@@ -48,8 +49,8 @@ confirmation turn also paid for a report rewrite nothing kept.
 
 **Known gap.** With an exhausted `resident_rearm_budget`, a child cannot rearm,
 so text from work it does after a confirmation never replaces the retained
-report. The refusal tells it to run `done`. Tracked in the streaming
-`.context/FUTURE`; revisit if exhausted budgets appear in practice.
+report. The refusal tells it to run `done`. Tracked in meridian-cli
+`src/meridian/lib/streaming/.context/FUTURE`; revisit if exhausted budgets appear in practice.
 
 ## D-completion-channel: a child that cannot signal completion gets no confirmation turn (2026-10-23) {#d-completion-channel}
 
@@ -79,8 +80,10 @@ are read-only Codex and among the most-spawned.
 
 - *Remove only the `done`/`rearm` sentence from the message.* The cost is the
   turn, not the sentence.
-- *Give Codex a writable path or a non-filesystem signal channel.* Buys nothing
-  a read-only child needs.
+- *Give Codex a writable path or a non-filesystem signal channel.* The channel
+  would let the child answer, but a read-only child never has descendant spawns
+  or surviving background work for `rearm` to hold for, so it would only ever
+  answer `done`.
 - *Model the missing channel as requested-then-failed confirmation flags.*
   Capability is named state on the profile; confirmation settlement derives
   from it.
@@ -88,7 +91,8 @@ are read-only Codex and among the most-spawned.
 **Residual.** A Codex profile with no `sandbox` keeps the confirmation turn even
 when Codex's own default is read-only, because Meridian does not read the
 user's Codex config ([sandbox inference deleted](tool-permissions.md#d-codex-sandbox-inference-deleted)).
-No shipped profile omits `sandbox`. Tracked in the harness `.context/FUTURE`.
+No shipped profile omits `sandbox`. Tracked in meridian-cli
+`src/meridian/lib/harness/.context/FUTURE`.
 
 **Provenance (both decisions):** `work:completion-hardening` `decisions.md`
 D1, D2, D4, D5; `evidence/725-root-cause.md` (`spawn:p8966`),

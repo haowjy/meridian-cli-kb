@@ -302,8 +302,9 @@ never rewritten.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
 `harness/claude_inbox.py` (primary inject, PR #668), `harness/claude_sessions.py` (source seeding), `harness/claude_settings.py`
-(settings-file allows read at bind). PR #736, open as of 2026-10-23, moves both
-out of `harness/claude_preflight.py`, which `main` still has.
+(settings-file allows read at bind). PR #736, open as of 2026-10-23, moves source seeding
+and the settings reader there from `harness/claude_preflight.py`, which `main`
+still has.
 `launch/native_run.py`, `state/session_store.py` (`get_or_create_observed_chat`),
 `state/session_identity.py` (`live_observer_for_chat`), and
 `claude_runtime/meridian-session-boundary/`. Tests:

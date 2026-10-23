@@ -52,9 +52,9 @@ Do not bind an AF_UNIX socket at a path under the runtime root: `sun_path`
 holds about 107 bytes (103 on macOS). `control_socket_path()` hashes into the
 fixed `/tmp/meridian-<uid>/` for this reason, never `$TMPDIR`: macOS's 48-byte
 `$TMPDIR` pushed the path to 107 bytes, and a per-process `$TMPDIR` (nix-shell,
-sandboxes, CI) made the runner and the inject client compute different paths.
-Launches project that directory into harness sandboxes so a sandboxed runner can
-bind its socket (PR #735, v0.12.2). Three `test_signal_canceller` tests
+sandboxes, CI) made the runner and the `meridian spawn inject` client compute different paths.
+Launches add that directory to each harness sandbox's writable roots so a
+sandboxed runner can bind its socket (PR #735, v0.12.2). Three `test_signal_canceller` tests
 that put `app.sock` under an ad-hoc test root failed the first release-on-main
 preflight after PR #575 (run `38586754232`).
 

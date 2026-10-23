@@ -81,9 +81,9 @@ report; a granted `rearm` drops the captured text with the candidate. The
 confirmation message tells the child exactly this
 ([report contract](../decisions/completion-drain.md#d-completion-report-contract)).
 
-**A hold without a completion-signal channel skips confirmation.** When the
-connection reports that the child cannot write completion signals (Codex under
-an explicit `read-only` sandbox), the hold keeps the same evidence, blocker and
+**A hold without a completion-signal channel skips confirmation.** `done` and
+`rearm` write Meridian state under its lock. When the connection reports that
+the child cannot write there (Codex under an explicit `read-only` sandbox), the hold keeps the same evidence, blocker and
 deadline policy but sends no confirmation, reads no signals, and accepts a ready
 candidate directly ([D-completion-channel](../decisions/completion-drain.md#d-completion-channel)).
 This and the empty accepted-signal set below are settled but, as of

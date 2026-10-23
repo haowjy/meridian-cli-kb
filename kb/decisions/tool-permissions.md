@@ -299,8 +299,8 @@ Current behavior is reported in `--dry-run`.
   outside it. An explicit `sandbox: read-only` now skips the confirmation turn
   ([D-completion-channel](completion-drain.md#d-completion-channel), unmerged
   as of 2026-10-23). A profile with no `sandbox` still gets the confirmation
-  under Codex's own read-only default, since Meridian does not read Codex's
-  config. No shipped profile omits `sandbox`.
+  under Codex's own read-only default: Meridian does not read Codex's config, so
+  it cannot know an unset sandbox resolves to read-only. No shipped profile omits `sandbox`.
 
 ## Provenance
 
