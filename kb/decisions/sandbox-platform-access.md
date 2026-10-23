@@ -95,10 +95,11 @@ needs to outlive the shell. Spawn capability is computed from the profile at pre
 carried on the prepared launch, because continue and fork relaunch from a saved snapshot that
 has no profile.
 
-**Why only sandboxes Meridian projected:** a profile with `sandbox: default` gets no
-exclusion, even when the user turned on Claude's sandbox in their own settings. Such a caller
-has no guardrail record, so an exclusion would let it escape a sandbox it never declared with
-no check on the child. Its nested launches get the compound-launch refusal instead; the fix is
+**Why only sandboxes Meridian projected:** under `sandbox: default` (or no `sandbox`),
+Meridian passes Claude no sandbox settings and leaves the choice to the user's own Claude
+config. Such a caller is not floored by the [guardrail](#d-delegation-floor), so if the user
+had turned Claude's sandbox on, an exclusion would let the agent escape it with no check on
+the child. Meridian adds no exclusion there. Its nested launches get the compound-launch refusal instead; the fix is
 to set `sandbox:` in the profile.
 
 **Consequence the profile author must accept:** the excluded `meridian` process bypasses the
@@ -145,10 +146,9 @@ the prompt, background, model, agent, prompt file, continue, fork, a harness sho
 
 ## D-delegation-floor: escaped child launches get a CLI guardrail {#d-delegation-floor}
 
-> [!FLAG] **Needs human review.** This is the implementing lead's choice. The lead asked the
-> owner whether a sandboxed spawner may launch a less-confined child, got no answer within
-> ten minutes, and took the conservative option. The rejected alternatives below are still
-> open to the owner.
+> [!FLAG] **Needs human review.** Provisional: not owner-approved. Whether a sandboxed
+> spawner may launch a less-confined child is the owner's call. This is the conservative
+> option, the easiest to loosen; the rejected alternatives below remain open.
 
 **Current choice:** a caller Meridian launched under `read-only` or `workspace-write` carries
 a guardrail in its caller record: sandbox, spawn capability, and a network deny floor only
@@ -167,8 +167,9 @@ harness and sandbox that enforce it.
 
 **Why:** Claude's exclusion and Codex's rule move a standalone `meridian spawn` outside the
 caller's sandbox so its worker survives, which would otherwise let any sandboxed spawner run
-`meridian spawn --sandbox danger-full-access …`. The `meridian-privilege-escalation` skill
-teaches agents exactly that retry. The guardrail stops escalation through the CLI. It is
+`meridian spawn --sandbox danger-full-access …`. Meridian's `meridian-privilege-escalation` skill
+tells an agent blocked by a sandbox to retry with a less-confined sandbox, so this is the
+retry agents are taught. The guardrail stops escalation through the CLI. It is
 deliberately **not confinement against an adversarial agent**: the escaped process reads
 inputs a sandboxed agent can write (the background-worker request, session records that name
 `CODEX_HOME`, project `meridian.toml` hooks, workspace config, other spawns' control state).

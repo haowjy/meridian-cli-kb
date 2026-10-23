@@ -139,15 +139,18 @@ the released number.
   The main checkout and three other worktrees got a "0.17.0" that accepted `--network`; a
   gate reviewer noticed the flag before anyone trusted a result.
 
-**The rule:** never write over a file in `.venv/bin/`. To run a dev build through a venv,
-give it a new inode in that one venv (`rm .venv/bin/mars && cp <dev build> .venv/bin/mars`)
-and restore it the same way when done, or use a throwaway venv. Prepending `PATH` does not
+**The rule:** never write over a file in `.venv/bin/`. Prefer a throwaway venv for a dev
+build. When it must go through an existing venv, give it a new inode there:
+`rm .venv/bin/mars && cp <dev build> .venv/bin/mars`. `rm` removes only this venv's link, so
+the cached original and every other venv keep the released binary. Restore with the
+reinstall below. Prepending `PATH` does not
 work: `resolve_mars_executable()` prefers the venv's `mars`. After any doubt, check the link
 count and hash against another venv (`stat -c %h`, `sha256sum`), not the version string.
 
-**Repair:** `uv cache clean mars-agents`, then in each affected venv
-`uv pip install --reinstall --no-deps mars-agents==<released version>` (or
-`uv sync --reinstall-package mars-agents`). Confirm the binary lacks the dev-only flag.
+**Repair:** `uv cache clean mars-agents`, then in each venv that shares the inode (every
+checkout and worktree of the project, plus any other venv on that Mars version)
+`uv pip install --reinstall --no-deps mars-agents==<version pinned in pyproject.toml>`, or
+`uv sync --reinstall-package mars-agents`. Confirm the binary lacks the dev-only flag.
 
 ## Codex runs `meridian` from the login shell's `PATH`
 
@@ -160,9 +163,9 @@ environment was stripped) was wrong.
 
 **The rule:** when a Codex agent must run a branch's CLI, call it by absolute path
 (`<worktree>/.venv/bin/meridian spawn …`) in the agent's prompt, and check which build ran
-(its version or a behavior only the branch has). For a top-level probe, a `BASH_ENV` file
-that prepends the worktree's `bin` after login also works; nested launches cannot pass
-`BASH_ENV` through `--env`, so they still need the absolute path.
+(its version or a behavior only the branch has). A `BASH_ENV` file that prepends the
+worktree's `bin` after login also worked for a top-level probe, but the absolute path is the
+form that does not depend on what the login profile does.
 
 ## Pushing through a long pre-push gate
 
