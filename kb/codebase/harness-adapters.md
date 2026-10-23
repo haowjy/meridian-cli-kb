@@ -246,6 +246,24 @@ verbatim — there is no Python-side guidance renderer.
 
 See [../concepts/harness-abstraction.md](../concepts/harness-abstraction.md#claude-native-agent-routing) for the full policy.
 
+## Claude Launch Env
+
+`ClaudeAdapter.project_launch_env()` sets `CLAUDE_CODE_PROMPT_CACHE_TTL=5m` for
+every non-interactive spawn (`not spec.interactive`, so `spawn --continue`
+included) and `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` when the spec carries one.
+Unlike Pi's `env_defaults`, this is a forced override: it is merged after
+inherited, `[env]` and `--env` values, so a primary's inherited one-hour TTL
+cannot leak into its spawns. Interactive primaries get no TTL from Meridian,
+and Claude's built-in subagent TTL is untouched.
+
+Why five minutes: Claude treats `claude -p` as a main conversation, which on
+subscription usage writes the one-hour cache at a higher price. Short-lived
+agents rarely reuse a cache that long; the cost is a cache rebuild when a spawn
+waits more than five minutes. No quota saving has been measured. Claude's
+`settings.json` `env` block is reapplied after launch and still beats the
+injected value. User-facing scope and precedence live in the project's
+`docs/harness-integration.md` (Claude: prompt caching).
+
 ## Pi-Specific Notes
 
 **Dual launch path.** Pi is the only harness with fully separate launch configurations per role:

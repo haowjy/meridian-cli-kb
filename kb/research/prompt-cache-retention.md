@@ -24,7 +24,7 @@ endpoint; their applicability still needs checking.
 
 | Harness | Idle retention by default | Can the user extend it? | Source |
 |---|---|---|---|
-| Claude Code | 1 h or 5 min, per session. Each transcript cache write records `ephemeral_1h` or `ephemeral_5m`, so the TTL can be read from the transcript instead of assumed. | Claude Code settings; not verified here | Claude Code transcripts; planning session `chat:c7275` |
+| Claude Code | 1 h or 5 min, per session. Each transcript cache write records `ephemeral_1h` or `ephemeral_5m`, so the TTL can be read from the transcript instead of assumed. | `CLAUDE_CODE_PROMPT_CACHE_TTL` (env, Claude Code 2.1.242+) or the `promptCacheTtl` setting chooses the main-conversation TTL; `claude -p` counts as a main conversation, 1 h by default on subscription usage. Built-in subagents use `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`. | Claude Code transcripts; planning session `chat:c7275`; [Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself) |
 | Pi | **5 min** (short retention) on Anthropic. Other providers differ; see [Pi providers](#pi-providers). | `PI_CACHE_RETENTION=long` → Anthropic `cache_control.ttl: "1h"`, OpenAI `prompt_cache_retention: "24h"`. Not on the `openai-codex` provider: Pi 1.1.0's `openai-codex-responses.js` sends only `prompt_cache_key` and ignores the variable. | Pi `docs/environment-variables.md`; `packages/ai/test/cache-retention.test.ts`; installed Pi 1.1.0 (`chat:c7347`) |
 | Codex CLI | Signed-in Codex: indefinite retention on resumption per the owner-supplied OpenAI statement. API-key sessions follow the API contract. | No Codex retention setting was found in the inspected `rust-v0.161.0` schema; API capability is not proof of a CLI setting. | `work:child-completion` K9; inspected Codex source |
 | OpenCode | Anthropic: **5 min**. It sends `cache_control: {type: "ephemeral"}` without a `ttl` (`packages/llm/src/cache-policy.ts:40-41`). OpenAI-compatible routes get no inline cache hints and rely on provider defaults. | No built-in config key. The internal `CachePolicy.ttlSeconds` needs caller or plugin code. | `anomalyco/opencode` at `v1.18.34` |
@@ -124,6 +124,12 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   5-minute default. That buys a one-hour Anthropic cache at the higher write
   price. See
   [D-pi-cache-retention](../decisions/idle-notifications.md#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention).
+- **Claude spawns get short retention.** Meridian forces
+  `CLAUDE_CODE_PROMPT_CACHE_TTL=5m` on non-interactive Claude spawns; primaries
+  keep Claude's own setting. That avoids the one-hour write price for
+  short-lived agents, at the cost of a cold cache after a wait longer than five
+  minutes. See
+  [Harness adapters](../codebase/harness-adapters.md#claude-launch-env).
 - **Spawn-wait yield.** The 3000-second default is an operational caller
   checkpoint, not a cache-lifetime model. Child completion inherits the calling
   harness's setting by default but uses an independent deadline. See
