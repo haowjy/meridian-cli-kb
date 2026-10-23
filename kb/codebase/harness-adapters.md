@@ -259,7 +259,9 @@ and Claude's built-in subagent TTL is untouched.
 Why five minutes: Claude treats `claude -p` as a main conversation, which on
 subscription usage writes the one-hour cache at a higher price. Short-lived
 agents rarely reuse a cache that long; the cost is a cache rebuild when a spawn
-waits more than five minutes. No quota saving has been measured. Claude's
+waits more than five minutes
+([Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself)).
+No quota saving has been measured. Claude's
 `settings.json` `env` block is reapplied after launch and still beats the
 injected value. User-facing scope and precedence live in the project's
 `docs/harness-integration.md` (Claude: prompt caching).
