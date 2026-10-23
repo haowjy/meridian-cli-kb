@@ -61,9 +61,10 @@ What Codex skips, each with its own report line:
   `features.*` and `agents.*` tables). The block may add siblings to these but
   never replaces them; otherwise a passthrough could undo the profile's
   sandbox or tool switches. The deprecated
-  `sandbox_workspace_write.network_access` key is a one-release exception: its value is
-  resolved once during Codex permission compilation, a boolean still wins with a warning,
-  and a non-boolean warns without being treated as allow. The next release reserves it.
+  `sandbox_workspace_write.network_access` key is a one-release exception: a boolean wins
+  with a warning only when the ordinary emitter can produce its addressable, TOML-encoded
+  `-c` pair. An unemitted candidate is reported ignored and leaves the portable projection
+  in place. The next release reserves it.
 - **Keys `-c` cannot address:** any component of the dotted key path that
   contains a dot, `=`, quote, whitespace or control character.
 - **Values outside what Codex `-c` takes:** Meridian encodes booleans, int64

@@ -145,8 +145,9 @@ refresh follows **`ProbeRefreshMode`** from the same **`ModelsRefreshControl`** 
 `network` is `allow`, `deny`, or null. Current producers also provide
 `provenance.network_source`; if that key is absent, Meridian identifies a pre-0.18 Mars
 bundle, warns, and projects no portable network setting so the harness keeps its default.
-`native_config` is omitted (`skip_serializing_if = None`) when no native config
-is declared. Meridian applies it on Codex only; see
+The child guardrail alone treats that unknown effective state as allow rather than assuming the
+native default enforced deny. `native_config` is omitted (`skip_serializing_if = None`) when no
+native config is declared. Meridian applies it on Codex only; see
 [../concepts/native-config.md](../concepts/native-config.md). `autocompact` is a token
 count and `autocompact_pct` a percentage; how each harness applies them:
 [D-compaction-projected](../decisions/bundle-field-consumption.md#d-compaction-projected).

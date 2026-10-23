@@ -6,12 +6,12 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 ## 2026-10-23 — Sandbox platform access decisions
 
 `work:harness-sandbox-network`. New page [decisions/sandbox-platform-access.md](decisions/sandbox-platform-access.md)
-records what Meridian grants a sandboxed launch: the exact pre-created project lifetime lock,
-the Meridian-commands platform rule, the Claude and Codex child-spawn escapes and their limits,
-PID-namespace compound-launch refusal, and the gate A delegation-floor correction: a
-Meridian-launched child cannot be less confined than its caller, while top-level and
-non-Meridian shells carry no floor. It also records the separately implemented, unmerged
-profile `network` field. [Tool permissions](decisions/tool-permissions.md) and
+records what Meridian grants a sandboxed launch: the exact project lifetime lock created only
+during real-launch materialization, the Meridian-commands platform rule, the Claude and Codex
+child-spawn escapes and their limits, PID-namespace compound-launch refusal, and the final gate
+A delegation guardrail. The guardrail rejects direct CLI widening for constrained callers but
+is not adversarial confinement. It also records the unmerged profile `network` field, including
+the final gate B effective-network and deprecated Codex-override decisions. [Tool permissions](decisions/tool-permissions.md) and
 [sandbox projection](architecture/sandbox-projection.md) were updated to match. The
 2026-10-22 rejection of a `network` field in
 [bundle field consumption](decisions/bundle-field-consumption.md) is marked superseded.

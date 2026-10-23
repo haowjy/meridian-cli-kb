@@ -116,10 +116,11 @@ harness-overrides:
 
 Projected during its warning release: `codex ... -c
 sandbox_workspace_write.network_access=true`. This key is deprecated in favor of top-level
-`network`. Meridian resolves its value once in the Codex permission compile: a boolean still
-wins for compatibility, a matching value reports native, a conflict reports partial, and a
-non-boolean warns and is not treated as allow. The next release reserves the key and removes
-this exception.
+`network`. A boolean wins for compatibility only when the ordinary native-config emitter can
+address its segmented key and encode the value as a well-formed `-c` pair. A matching emitted
+value reports native and a conflict reports partial. A literal dotted key, null, non-boolean,
+empty map, or other unemitted candidate is reported ignored and leaves the portable network
+projection in place. The next release reserves the key and removes this exception.
 
 Other keys Meridian computes itself (model, reasoning effort, compaction, sandbox, approval,
 writable roots, notify, web search, `features.*`, `agents.*`) are skipped with a report

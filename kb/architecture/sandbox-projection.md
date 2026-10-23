@@ -16,9 +16,10 @@ Child sandboxes **shall not** receive the whole `~/.meridian/` tree or
 `~/.meridian/projects/` itself. The global user home and the shared project-lock directory are
 not projected. This is a fixed constraint, not a tunable.
 
-Launch binding instead pre-creates the exact current-project lifetime lock. POSIX lock
-acquisition opens an existing file read-only, so a nested command can coordinate without a
-writable grant to the directory shared by every project. See the
+Runtime materialization creates the exact current-project lifetime lock after the pure launch
+bind and before the harness starts. POSIX lock acquisition opens an existing file read-only, so
+a nested command can coordinate without a writable grant to the directory shared by every
+project. Dry-run binds do not create it. See the
 [decision](../decisions/sandbox-platform-access.md#d-sandbox-state-roots).
 
 The design question is therefore not "how do we make user home writable?" but "which global paths are actually valid in nested execution, and how should each class of path behave?"
@@ -39,7 +40,7 @@ flowchart TD
 | Class | Examples | Nested policy |
 |---|---|---|
 | Per-project runtime state | `~/.meridian/projects/<uuid>/...` | Already projected — no change |
-| Project lifetime lock | `~/.meridian/projects/.locks/<id>.lock` | Exact file pre-created by launch binding; existing file opened read-only on POSIX; shared directory not projected |
+| Project lifetime lock | `~/.meridian/projects/.locks/<id>.lock` | Exact file created during real-launch materialization; existing file opened read-only on POSIX; shared directory not projected |
 | Repo/context state | work, kb, archive roots, context git clones | Already projected — no change |
 | Automatic global cache | `doctor-cache.json`, background global scan | **Delete** — expensive automatic global work is wrong |
 | Cheap per-project repairs | Stale session lock cleanup, orphan run reconciliation | **Keep** — daemon thread, current project root only |
@@ -72,9 +73,10 @@ harness-written report (Codex `-o` flag) remains the reliable evidence channel.
 
 **Implementation:** Missing context roots are skipped at debug log level, not warning. A missing context dir is the normal pre-archive state — it must not pollute stderr on every launch.
 
-**The lifetime lock is not a projected root:** launch binding creates the exact current-project
-file before the child starts. It therefore does not participate in context-root existence
-filtering, and the shared directory receives no writable projection.
+**The lifetime lock is not a projected root:** real-launch materialization creates the exact
+current-project file after binding and before the child starts. It therefore does not
+participate in context-root existence filtering, and the shared directory receives no writable
+projection.
 
 **Git clone roots are unaffected:** `_collect_git_context_clone_roots` returns configured clone roots for git-backed context entries. These are intentionally still projected even when the clone hasn't happened yet — they exist on disk by launch time after `mars sync`.
 
