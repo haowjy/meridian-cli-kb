@@ -83,14 +83,14 @@ That was never true for consumers.
 
 ## Traps
 
-- **Most packages don't pin their dependencies.** With no `version`, mars
-  resolves a dependency to its latest release, so a breaking release of
-  meridian-base or meridian-dev-workflow reaches autoresearch,
-  meridian-benchmark-agents, microct-analysis and meridian-prompter
-  directly. meridian-dev-workflow still pins meridian-base to 0.11.x. The
-  pins were removed on 2026-10-23 because the old ranges (`<0.11.0`,
-  `<0.14.0`) had stopped admitting current releases and nobody had raised
-  them.
+- **Pins track the current minor and have to be raised by hand.** Each
+  dependent package pins meridian-base and meridian-dev-workflow to their
+  current minor (for example `>=0.11.0, <0.12.0`), so patch releases flow
+  through and a new minor does not. Each new minor of meridian-base or
+  meridian-dev-workflow means raising every dependent's pin and releasing
+  it. Until 2026-10-23 several packages still pinned `<0.11.0` and
+  `<0.14.0`, which no longer admitted the current releases, because nobody
+  had raised them.
 - **meridian-benchmark-agents has never been published.** Its checkout has
   no git remote, so no project can install it from a URL.
 - **jupyter-workbench's manifest predates the current schema.** It lists

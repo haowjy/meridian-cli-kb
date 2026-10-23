@@ -9,7 +9,7 @@ description. Each agent's own file states its model, tools and method.
 `CHANGELOG.md` dates each change, and `AGENTS.md` covers releasing and
 editing.
 
-**Dependencies:** meridian-base (unpinned, so the latest release), filtered to the
+**Dependencies:** meridian-base (`>=0.11.0, <0.12.0`), filtered to the
 skills its agents load (`explore-and-engage`, `grill`,
 `grill-with-evidence`, `intent-modeling`, `llm-writing`, `notify`,
 `session-mining`). It requires mars 0.14.0 or later. Other packages

@@ -4,7 +4,7 @@
 
 **Source:** `../prompts/meridian-benchmark-agents/`. The README and agent files hold models and setup; `skills/benchmark-methodology/` holds the run contract and report schema.
 
-**Dependencies:** meridian-base and meridian-dev-workflow, unpinned, so each resolves to its latest release. The package has never been published: its checkout has no git remote ([overview](overview.md#traps)).
+**Dependencies:** meridian-base (`>=0.11.0, <0.12.0`) and meridian-dev-workflow (`>=0.15.0, <0.16.0`). The package has never been published: its checkout has no git remote ([overview](overview.md#traps)).
 
 Checked against the package source on 2026-10-23.
 
