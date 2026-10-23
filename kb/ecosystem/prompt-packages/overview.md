@@ -1,115 +1,121 @@
 # Prompt Packages Overview
 
-Prompt packages are the unit of agent distribution in the Meridian ecosystem. Each package bundles agent profiles, skills, and resource docs into a versioned, composable artifact that `meridian mars sync` materializes into the harness-native directories (`.claude/`, `.codex/`, `.opencode/`) a project uses.
+A prompt package is a mars source repo of agent profiles, skills, hooks and
+bootstrap docs. `meridian mars sync` resolves a project's packages and
+compiles them into `.mars/`, which Meridian reads at spawn time, and copies
+them into whichever harness directories the project lists as targets. How
+mars resolves, compiles and targets is documented under
+[package management](../../concepts/package-management/overview.md); this
+page covers the packages themselves: which exist, how they depend on each
+other, and the traps in that graph.
 
-## Package Model
+Checked against the package sources on 2026-10-23.
+
+## Where Each Fact Lives
+
+Each package's README lists its agents and skills, and each agent or skill
+file states its own model, tools and method. meridian-base's README carries
+the model-alias table, generated from its `mars.toml`. Its `CHANGELOG.md`
+dates every change. Read those for inventories. The KB pages for each
+package hold what no repo file says: why the package has its shape, what it
+used to be, and what trips agents up.
+
+The KB used to copy inventories. Within a few months its package pages
+described agents, skills and model aliases that had been deleted, and they
+misled agents that trusted them. So these pages link instead.
+
+## The Package Graph
+
+Sources live in sibling checkouts under `../prompts/<package>/`.
 
 ```mermaid
 graph TD
-    PKG[Package<br/>mars.toml + agents/ + skills/]
-    MARS[mars compiler]
-    CL[.claude/]
-    CX[.codex/]
-    OC[.opencode/]
+    MB["meridian-base<br/>shared workers, coordination skills, model aliases"]
+    MDW["meridian-dev-workflow<br/>dev leads, specialists, lifecycle skills"]
+    MPR["meridian-prompter<br/>prompt engineering"]
+    MBA["meridian-benchmark-agents<br/>unattended benchmark runs"]
+    AR["autoresearch<br/>research loops"]
+    CWS["creative-writing-skills<br/>fiction agents"]
+    WS["writing-sync<br/>Drive/Docs sync skills"]
+    MCA["microct-analysis<br/>micro-CT agents"]
+    MCR["microct-arena<br/>consumer workspace"]
+    JW["jupyter-workbench<br/>notebook skills"]
 
-    PKG --> MARS
-    MARS --> CL
-    MARS --> CX
-    MARS --> OC
+    MDW --> MB
+    MPR -->|"selected skills only"| MB
+    MBA --> MB
+    MBA --> MDW
+    AR --> MB
+    AR --> MDW
+    CWS --> MB
+    CWS --> WS
+    MCA --> MDW
+    MCR -.->|"local path"| MCA
+    MB -.->|"local only"| MPR
+    MDW -.->|"local only"| MPR
+    MCA -.->|"local only"| MPR
+    CWS -.->|"local only"| MPR
 ```
 
-A package's source layout:
+Solid arrows are published `[dependencies]`: a project that installs the
+package gets them too. Dashed arrows are `[local-dependencies]`, which mars
+resolves when someone works inside that package's checkout but does not
+export to consumers.
 
-```
-mars.toml           — package metadata, dependencies, model aliases, generation targets
-agents/             — agent profile .md files (YAML frontmatter + system prompt body)
-skills/
-  <skill-name>/
-    SKILL.md        — skill body (loaded into agent context on trigger)
-    resources/      — supplementary reference docs, loaded on demand
-bootstrap/          — one-time setup scripts for harness-specific features
-```
+meridian-base is the root. Every other Meridian-flavored package builds on
+it, directly or through meridian-dev-workflow. writing-sync and
+jupyter-workbench stand alone. Domain packages are covered in
+[domain-packages.md](../domain-packages.md).
 
-**`agents/` and `skills/` are source.** The generated `.mars/`, `.claude/`, `.codex/` trees are output — never edited directly.
+## Prompter Is Local, Not a Foundation
 
-## Composition: How Skills Shape Agent Behavior
+Several packages list meridian-prompter as a local dependency, so a prompt
+author editing meridian-base or meridian-dev-workflow can run `prompt-dev`
+and load `/prompt-principles` inside that checkout. Because the edge is
+local, nobody who installs those packages receives prompter. A project gets
+`/prompt-principles` only by declaring meridian-prompter itself, as
+meridian-cli's `mars.toml` does. The published edge runs the other way:
+meridian-prompter depends on meridian-base, filtered to the handful of skills
+its agents load.
 
-Agent bodies are thin role shells. Reusable doctrine lives in skills and is loaded into an agent's prompt at launch time. This prevents duplication: when multiple agents need the same knowledge, it lives in one skill file, not copy-pasted across every agent body.
+Older KB text called prompter "a dependency of both base and dev-workflow."
+That was never true for consumers.
 
-```mermaid
-graph LR
-    A[Agent Profile<br/>role + frontmatter]
-    S1[skill-A<br/>SKILL.md]
-    S2[skill-B<br/>SKILL.md]
-    R1[resources/]
+## Traps
 
-    A -->|loads| S1
-    A -->|loads| S2
-    S1 --> R1
-```
+- **Stale version pins.** meridian-benchmark-agents and autoresearch pin
+  meridian-base `<0.11.0` and meridian-dev-workflow `<0.14.0`, and
+  microct-analysis pins meridian-dev-workflow `<0.14.0`. Current releases are
+  meridian-base 0.11.x and meridian-dev-workflow 0.15.x, so these packages
+  can't be installed alongside them until their pins move.
+- **jupyter-workbench's manifest predates the current schema.** It lists
+  skills as `[[package.skills]]` path entries, where other packages rely on
+  directory discovery.
+- **microct-arena is a workspace, not a distributable package.** It points
+  at a local microct-analysis worktree so a human can drive those agents by
+  hand.
+- **meridian-prompter has no README.** Its [KB page](meridian-prompter.md)
+  is its main description.
 
-The composition pattern:
+## Releasing and Consuming
 
-| Layer | Contains | Who reads it |
-|---|---|---|
-| Agent frontmatter | model, harness, approval, skills list | meridian at spawn time |
-| Agent body | role, behavioral rules, output contract | the spawned agent |
-| Skill body | reusable methodology or doctrine | the spawned agent (on load) |
-| Skill resources | deep reference material | the agent (on demand) |
-
-Skills use **progressive disclosure**:
-- **Metadata** (~100 words in frontmatter) — always visible to callers via agent descriptions
-- **Body** (<500 lines) — loaded when the skill is triggered
-- **Resources** — only loaded when the agent needs them for depth
-
-## Packages in the Ecosystem
-
-Four packages compose the Meridian agent layer:
-
-| Package | Role | Key dependency |
-|---|---|---|
-| `meridian-base` | Coordination primitives — orchestrator, subagent, KB agents, core skills | `meridian-prompter` |
-| `meridian-dev-workflow` | Dev lifecycle agents — design, planning, implementation, review, QA | `meridian-base`, `meridian-prompter` |
-| `meridian-prompter` | Prompt engineering — `prompt-dev`, `prompt-reviewer`, `prompt-tester`, principles doctrine | `meridian-base` |
-| `meridian-benchmark-agents` | Unattended benchmark agents — verifier-driven orchestration and bounded attempts | `meridian-base`, `meridian-dev-workflow` |
-
-`meridian-base` is the foundation. `meridian-dev-workflow` adds the full dev workflow on top. `meridian-prompter` adds prompt-specific tooling and is a dependency of both. `meridian-benchmark-agents` is separate from the dev workflow because benchmark runs optimize for verifier-backed acceptance and comparable run evidence, not product-development polish.
-
-## Model Aliases
-
-Model aliases are defined in `mars.toml` and centralized in `meridian-base`. They decouple agent profiles from concrete model names:
-
-| Alias | Backend | Best for |
-|---|---|---|
-| `gpt55` / `gpt` | GPT-5.5 / GPT-5.4 (Codex harness) | Implementation, review, judgment |
-| `opus` | Claude Opus 4.6 (Claude harness) | Orchestration, design, frontend, creative work |
-| `sonnet` | Claude Sonnet (Claude harness) | Writing, documentation, balanced reasoning |
-| `codex` | GPT-codex (Codex harness) | Backend implementation, faithful execution |
-| `gptmini` | GPT-5.x-mini (Codex harness) | Bulk exploration, simple tasks |
-
-Agent profiles reference aliases (`model: gpt55`), not concrete model strings. Aliases are resolved at launch time by the mars compiler.
-
-## Release Workflow
-
-Each package is independently versioned and released:
-
-```bash
-# From the package source repo root:
-meridian mars version patch --push    # bump, commit, tag, push
-```
-
-Consuming projects update their package reference and re-sync:
-
-```bash
-meridian mars add <package>@<version>
-meridian mars sync
-```
+Each package's `AGENTS.md` gives the release command. From a Meridian
+session, pass the package root explicitly (`meridian -C "$PWD" mars version
+patch --push`), because nested `meridian` commands resolve the session's
+project root, not the current directory. Consumers pick up a release with
+`meridian mars add <package>@<version>` followed by `meridian mars sync`.
 
 ## Related
 
-- [meridian-base.md](meridian-base.md) — core agent and skill inventory
-- [meridian-dev-workflow.md](meridian-dev-workflow.md) — dev orchestration topology
-- [meridian-prompter.md](meridian-prompter.md) — prompt engineering cycle
-- [meridian-benchmark-agents.md](meridian-benchmark-agents.md) — unattended benchmark workflow agents
-- [prompt-principles.md](prompt-principles.md) — 4-level prompt doctrine
-- [../../concepts/package-management/overview.md](../../concepts/package-management/overview.md) — package manager concepts
+- [meridian-base.md](meridian-base.md) — the root package
+- [meridian-dev-workflow.md](meridian-dev-workflow.md) — development leads and lifecycle
+- [meridian-prompter.md](meridian-prompter.md) — prompt engineering
+- [meridian-benchmark-agents.md](meridian-benchmark-agents.md) — benchmark runs
+- [prompt-principles.md](prompt-principles.md) — the prompt-engineering doctrine
+- [../domain-packages.md](../domain-packages.md) — domain packages
+- [../../concepts/package-management/overview.md](../../concepts/package-management/overview.md) — how mars resolves, compiles and targets packages
+
+## Provenance
+
+- Audit of the package sources against this page: `spawn:p9065`
+- Rewrite: `chat:c8779` follow-up, prompt-dev session
