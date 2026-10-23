@@ -83,11 +83,16 @@ That was never true for consumers.
 
 ## Traps
 
-- **Stale version pins.** meridian-benchmark-agents and autoresearch pin
-  meridian-base `<0.11.0` and meridian-dev-workflow `<0.14.0`, and
-  microct-analysis pins meridian-dev-workflow `<0.14.0`. Current releases are
-  meridian-base 0.11.x and meridian-dev-workflow 0.15.x, so these packages
-  can't be installed alongside them until their pins move.
+- **Most packages don't pin their dependencies.** With no `version`, mars
+  resolves a dependency to its latest release, so a breaking release of
+  meridian-base or meridian-dev-workflow reaches autoresearch,
+  meridian-benchmark-agents, microct-analysis and meridian-prompter
+  directly. meridian-dev-workflow still pins meridian-base to 0.11.x. The
+  pins were removed on 2026-10-23 because the old ranges (`<0.11.0`,
+  `<0.14.0`) had stopped admitting current releases and nobody had raised
+  them.
+- **meridian-benchmark-agents has never been published.** Its checkout has
+  no git remote, so no project can install it from a URL.
 - **jupyter-workbench's manifest predates the current schema.** It lists
   skills as `[[package.skills]]` path entries, where other packages rely on
   directory discovery.
