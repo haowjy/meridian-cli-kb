@@ -63,11 +63,11 @@ once more when it returns after successful initial discovery. An initial
 discovery-pending checkpoint has no baseline and omits the trailer. Children that entered scope after the initial
 discovery are appended under `Since this wait started:` and exposed separately
 as `since_started_spawns`: scoped active rows outside the blocked-on set, plus
-owed terminal rows that finished after the wait began and were not among its
-initial owed rows. The latter filter runs before the 32-row cap, so an old
-backlog cannot hide a new completion. These rows are advisory: wait neither
-blocks on, leases, consumes, counts, nor fails because of them. Busy or
-deadline-exhausted return discovery silently omits the section. Explicit-ID
+owed terminal rows whose ids the initial discovery never saw (including rows
+the 32-row cap held back), excluded before the cap so an old backlog cannot
+hide a new completion. These rows are advisory: wait neither blocks on, leases,
+consumes, counts, nor fails because of them. Any failure in return discovery
+omits the section, because the wait consumes its results regardless. Explicit-ID
 waits do not perform it. Rationale:
 [D-no-arg-wait-since-started](../decisions/child-result-delivery.md#d-no-arg-wait-since-started).
 

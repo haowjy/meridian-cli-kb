@@ -299,18 +299,21 @@ failed.
 - **Rediscover once at return through the existing target resolver.** There is
   no query shape specific to the trailer and no discovery in the poll loop.
 - **Running means current active scope outside the original blocked-on set.**
-  Finished means newly owed terminal children that finished after wait start
-  and were absent from its blocked-on and initial owed sets. The completion-time
-  filter precedes the 32-row owed cap, so older held-back results cannot occupy
-  the new-completion batch.
+  Finished means owed terminal children whose ids the start-of-wait discovery
+  never saw: not blocked on, and not among its finished owed ids, counting the
+  rows the 32-row cap held back. That exclusion runs before the cap, so an old
+  backlog cannot crowd out a new completion. Membership, not finish time: a
+  first draft compared `finished_at` with the wait's start and dropped children
+  that crashed with no recorded finish time (review p9267).
 - **The trailer is not delivery.** Its rows are not waited on, leased, consumed,
   counted, or included in fail-fast, aggregate failure, or exit-code decisions.
   `--no-observe` has the same trailer. JSON exposes `since_started_spawns`.
 - **Status text must not hide failure.** Active lifecycle states render
   `running`, successful completion renders `finished`, and other terminal rows
   keep `failed`, `timed_out`, or `cancelled`.
-- **Return discovery is best effort.** History-index contention or deadline
-  exhaustion omits the trailer and never turns a successful wait into failure.
+- **Return discovery is best effort.** Any state or index failure omits the
+  trailer and never fails the wait: the wait's `finally` consumes its results
+  regardless, so raising there would lose them.
 
 ### Rejected
 
