@@ -21,14 +21,19 @@ flags, the Mars bundle object and the report-only harness-config warnings are on
 (`feat/network-field`) released and a Mars pin bump before merge.
 
 **Who decided what.** The owner ruled that Meridian owns its CLI's permission surface. On the
-network, the owner ruled the three modes, the host sets, the launch flags, the
-sandbox-derived default, and that permission-like settings combine across configuration
-surfaces. Everything else on this page is the implementing lead's current choice, made after
-probes and reviews. That includes the child guardrail and every network-side choice beneath
-the owner's rulings: limiting the merge rule to permission sets, the bundle object, how each
-harness projects a host set, and keeping user harness config out of the guardrail. The owner
-was asked about the guardrail and about user harness config and has not answered; none of
-these choices is owner-approved.
+network the owner set the direction in their own words and agreed to the lead's proposals,
+with hedges: sandboxed shells offline by default but `danger-full-access` online, a way to
+set a project default or a host allowlist, adding it to Mars and Meridian now, and merging
+settings across configuration surfaces (quotes in
+[D-network-field](#d-network-field) and
+[D-permission-set-merge](tool-permissions.md#d-permission-set-merge)). Those are current
+choices the owner agreed to, not invariants. Everything else on this page is the implementing
+lead's current choice, made after probes and reviews: the child guardrail, and every
+network-side choice beneath the owner's direction (the three-mode field shape, limiting the
+merge rule to permission sets, the bundle object, how each harness projects a host set, and
+keeping user harness config out of the guardrail). The owner was asked about the guardrail
+and about user harness config and has not answered; none of these lead choices is
+owner-approved.
 
 **Where the mechanism lives.** Platform command grants and the rule that owns them:
 [tool-permissions.md](tool-permissions.md#d-permission-platform-rules). Which paths a
@@ -188,6 +193,16 @@ A whole-system review proved a guardrail-compliant child could still run an agen
 as the full user. Each tighter round found the next forged input, so the claim was narrowed
 rather than chased. Issue #747 owns real confinement and holds the input table.
 
+**Compatibility:** the parser ignores unknown keys, so a newer build's record still parses. A
+record without `pid_namespace` or `sandbox` is invalid and refused; a missing `spawn` counts
+as no spawn capability. A missing network key, and the older persisted value `allow`, mean no
+network floor, so an upgrade does not retroactively constrain an already-running caller.
+
+**Rejected:** declared roles (enforce `subagents:` membership, issue #742, and forbid widening
+flags; a declared child could still be less confined), accepting and documenting the escape,
+and an earlier adversarial frame that also compared approval, workspace write roots and loader
+environment keys.
+
 ### Network inputs: projected policy only {#guardrail-network-inputs}
 
 **Current choice:** the network compared for both caller and child is a pure, harness-owned
@@ -206,8 +221,8 @@ checked are listed in meridian-cli `src/meridian/lib/harness/AGENTS.md`.
 Meridian's CLI. The user's harness config applies to caller and child alike, so it gives the
 agent no new CLI lever, and an agent that rewrites files is #747's problem. Feeding that config
 into the guardrail turned it into a *prediction* of harness enforcement, and that prediction
-needs an open-ended model of how each harness loads config. Four review rounds each found a
-layer the model missed: a Claude user proxy port bypasses the domain filter and its denies;
+needs an open-ended model of how each harness loads config. Each review round found a layer
+the model missed: a Claude user proxy port bypasses the domain filter and its denies;
 Codex user domains apply only while its proxy runs; a trusted project's `.codex/config.toml`
 widens the map; Codex also reads `.codex/config.toml` from parent directories. Every missed
 layer failed open. A whole-system review called this frame rot and the lead accepted the
@@ -224,16 +239,6 @@ verdict.
 
 The option taken is the "warn only" one the lead offered the owner as recommended; the owner
 has not answered.
-
-**Compatibility:** the parser ignores unknown keys, so a newer build's record still parses. A
-record without `pid_namespace` or `sandbox` is invalid and refused; a missing `spawn` counts
-as no spawn capability. A missing network key, and the older persisted value `allow`, mean no
-network floor, so an upgrade does not retroactively constrain an already-running caller.
-
-**Rejected:** declared roles (enforce `subagents:` membership, issue #742, and forbid widening
-flags; a declared child could still be less confined), accepting and documenting the escape,
-and an earlier adversarial frame that also compared approval, workspace write roots and loader
-environment keys.
 
 ## D-codex-child-spawn: Codex uses one user-wide spawn rule {#d-codex-child-spawn}
 
@@ -273,9 +278,9 @@ has none for rules).
 
 ## D-network-field: modes, host sets and sandbox-derived default {#d-network-field}
 
-**Decided (owner, 2026-10-24):** `network` is `allow`, `deny`, or `allowlist`, with a
-separate allow set and deny set of hosts. It governs the agent's shell only: built-in web
-tools stay under `tools: web`. A project default and a launch flag exist alongside the
+**Current choice (owner-agreed, 2026-10-24):** `network` is `allow`, `deny`, or `allowlist`,
+with a separate allow set and deny set of hosts. It governs the agent's shell only: built-in
+web tools stay under `tools: web`. A project default and a launch flag exist alongside the
 profile field. Leaving the mode unset follows the sandbox:
 
 | Sandbox | Unset `network` means |
@@ -284,14 +289,24 @@ profile field. Leaving the mode unset follows the sandbox:
 | `danger-full-access` | online: full access includes the network |
 | unset or `default` (harness-native) | Meridian projects nothing; the harness decides |
 
+The owner rejected the earlier default with "'no profile in the packages wants its shell
+offline' - not true, there's tons of reasons to have it offline", and gave the audiences: "I
+generally want to allow network access to most of my agents, some, like explorer i dont want
+network access, but then I think most companies if they used this, wouldn't want network
+access by default". On the lead's first proposal (unset is offline everywhere): "but... it
+depends, danger full access does mean network shoudl be alloweed". On a project default:
+"maybe there should be a way to set default net work on, or an allowlist of domains or
+something in mars.toml? or meridian.toml? or somewhere else?", then "I think we should add in
+this stuff to mars + meridian etc." The three-mode shape, the host grammar and the flag
+names are the lead's.
+
 **Why sandboxed means offline:** a sandbox is a confinement request, and there are many
 reasons to keep a confined shell offline: exfiltration by a prompt-injected agent reading
 untrusted content, accidental side effects (pushes, API calls, local services), supply-chain
-installs, and reproducibility. Companies adopting Meridian would expect it. The owner wants
-most of their own agents online and some offline; their leads, coders, reviewers and probers run
-under `danger-full-access` and stay online, explorer stays offline with no edit, and the
-sandboxed roles that need the network declare it. "No network keys" is not enough for offline:
-Claude with no network keys under `--dangerously-skip-permissions` reached the network, so
+installs, and reproducibility. The default serves both audiences the owner named: the
+owner's leads, coders, reviewers and probers run under `danger-full-access` and stay online,
+explorer stays offline with no edit, and the sandboxed roles that need the network declare
+it. "No network keys" is not enough for offline: Claude with no network keys under `--dangerously-skip-permissions` reached the network, so
 unset projects the same keys as `deny` (Claude `strictAllowlist`, Codex
 `network_access=false`).
 
@@ -340,9 +355,9 @@ pair invalidly), and a single tagged value in the bundle (`"deny"` or `{allow, d
 cannot express an unset mode that still carries host sets. One resolver writing the object
 keeps the no-invalid-pairing property. An old Mars bundle without
 `provenance.network_source` is a hard composition error naming the required Mars version and
-telling the user to upgrade Meridian (which prefers its bundled Mars over `PATH`). It replaced
-an earlier warn-and-use-harness-defaults path; both fail safe, and the error deletes a
-second code path.
+telling the user to upgrade Meridian (which prefers its bundled Mars over `PATH`). Warning
+and falling back to harness defaults was rejected: both fail safe, and the error leaves one
+code path instead of two.
 
 ### Projection {#network-projection}
 
@@ -423,7 +438,8 @@ Recheck when either harness's sandbox or proxy changes.
 ## Provenance
 
 `work:harness-sandbox-network` (design, plan, research per harness, verification). Owner
-rulings: `chat:c8765`, 2026-10-23. Structure review `spawn:p9047`; Codex rules POC
+rulings: `chat:c8765`, 2026-10-23; owner direction on the network and settings merge:
+`chat:c8788` (tech-lead `spawn:p9046`), 2026-10-24; owner quotes mined in `spawn:p9319`. Structure review `spawn:p9047`; Codex rules POC
 `spawn:p9048`; Claude escape and Phase 1 runs `spawn:p9060`–`spawn:p9068`; Codex rule and
 confirmation probes `spawn:p9087`–`spawn:p9089`; PID-namespace probes
 `spawn:p9096`–`spawn:p9107`. Guardrail: gate A security review `spawn:p9112`, second round

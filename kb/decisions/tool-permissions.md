@@ -258,8 +258,11 @@ docs, changelog and upgrade note say `'*': deny`.
 
 ## D-permission-set-merge: permission sets add across surfaces {#d-permission-set-merge}
 
-**Decided (owner, 2026-10-24):** configuration combines across surfaces, shipped in the same
-Mars minor release as the `network` field, with tools following the same rule.
+**Owner direction (2026-10-24), a trial:** "btw, when i say 'mars.toml' etc, i mean we
+shoudl be merging stuff across the different surfaces of configuration"; "i think... if we
+make it a new minor version, we can try to make sure tools and other lists should follow?";
+"ok, i think i am okay with a minor upgrade for mars". The owner also asked "is there a way
+to not merge... if we wanted to...?", which the replace form answers.
 
 **Current choice (lead, not owner-approved):** the combining rule applies to four permission
 sets only: tool grants, tool denies, network allow hosts and network deny hosts. On those
