@@ -228,8 +228,8 @@ the restriction.
 deprecated for agents and skills. Mars still accepts it, turns each entry into
 an `allow` rule (its 0.16.0 behavior), adds no deny, and raises a deprecation
 warning. "Only these tools" is written as a map with `'*': deny` plus allows.
-A project's `mars.toml` tool overlay `allowed` list likewise replaces the
-profile's `allow` rules and makes no allowlist.
+A project's `mars.toml` tool overlay `allowed` list likewise adds `allow`
+rules and makes no allowlist ([D-permission-set-merge](#d-permission-set-merge)).
 
 **Supersedes** the owner ruling of 2026-10-21 that a list means exactly those
 tools (Mars adding `*: deny`). That ruling's wire field, the rule `origin` Mars
@@ -255,6 +255,47 @@ and raises no deprecation warning. A foreign skill's `allowed-tools` lifts to
 
 Meridian reads only the typed `tools.rules`, so this needed no Meridian code change; its
 docs, changelog and upgrade note say `'*': deny`.
+
+## D-permission-set-merge: permission sets add across surfaces {#d-permission-set-merge}
+
+**Decided (owner, 2026-10-24):** configuration combines across surfaces, shipped in the same
+Mars minor release as the `network` field, with tools following the same rule.
+
+**Current choice (lead, not owner-approved):** the combining rule applies to four permission
+sets only: tool grants, tool denies, network allow hosts and network deny hosts. On those
+sets, a plain list adds to what lower surfaces gave (union, canonicalised and deduplicated),
+and `{ replace = [...] }` discards lower surfaces' entries for that set before higher
+surfaces add again. A package profile cannot replace a deny set, and denies win over allows
+at enforcement. Surfaces, low to high: user config, `mars.toml` `[settings]`,
+`mars.local.toml` `[settings]`, profile, overlay, CLI. CLI host flags only add. Every other
+list keeps its old rule. The authoritative statement is Mars `docs/config/mars-toml.md`
+("Default merge semantics").
+
+**Why only permission sets:** an inventory of every list in Mars found that the others
+already have the combining rule their meaning needs. `harness_order`, `targets`,
+`model-policies` and fallback models are ordered, so a union has no defined order. `[models.*]`,
+`[agents.*]` and `[skills.*]` are keyed entries whose most specific surface replaces the whole
+entry, and the owner's own local model pins depend on that. `subagents` and `fanout` are set on
+one surface. `catalog_providers` and similar lists are configuration choices, not grants, so
+nothing accumulates. The owner's configs (every `mars.local.toml` across eight repos) set
+only scalars and `harness_order` in overlays, so nothing depended on set replacement.
+
+**Why a profile cannot replace a deny set:** package profiles sit above the consumer's
+`[settings]`, so a replaceable deny would let a package erase a company's denies. Replacing an
+allow set only narrows, so profiles may do it. Consumer surfaces (user config, `mars.toml`,
+`mars.local.toml`, overlays) may replace anything they own; to lift a deny, edit the surface
+that set it.
+
+**Behaviour change:** an overlay's `tools.allowed` and `tools.disallowed` used to replace the
+profile's lists; they now add. `{ replace = [...] }` restores replacement. Mars warns on the
+constructs whose meaning changed (a non-empty plain overlay tool list, and a `mars.toml` tool
+list for an entry that also has a `mars.local.toml` block) rather than simulating the old
+resolution and comparing, which was deleted as extra machinery.
+
+**Rejected:** union for every list (breaks ordered and keyed lists); replacing deny sets from
+any surface (lets a package erase consumer denies); merging a project and a local overlay
+field by field (changes model routing, which relies on whole-entry replacement); a CLI replace
+form (a narrower one-off list uses `--network allowlist` with an overlay or profile).
 
 ## D-permission-platform-rules: Meridian's own rules hold under any profile {#d-permission-platform-rules}
 

@@ -129,7 +129,7 @@ Anything that writes through that path (`cp dev-build .venv/bin/mars`, a build s
 opens it for writing) changes the binary everywhere, while `mars --version` still prints
 the released number.
 
-**It has happened twice.**
+**It has happened three times.**
 - *2026-10-14 (`work:two-tier-identity` I20).* A prober brief said `cp target/debug/mars
   .venv/bin/mars`. The cached "0.15.0" became a 116 MB debug build with a `--fallback-root`
   flag in all four stack worktrees. For hours every smoke ran with a flag no released Mars
@@ -138,6 +138,9 @@ the released number.
   `network` field selected its dev build through the worktree's `.venv/bin/mars` in place.
   The main checkout and three other worktrees got a "0.17.0" that accepted `--network`; a
   gate reviewer noticed the flag before anyone trusted a result.
+- *2026-10-24 (`work:harness-sandbox-network`, final gate).* A reviewer of the same work
+  wrote its dev build over a shared `.venv/bin/mars` again, a day after the rule below was
+  written into that work's design. It was restored before results were trusted.
 
 **The rule:** never write over a file in `.venv/bin/`. Prefer a throwaway venv for a dev
 build. When it must go through an existing venv, give it a new inode there:
@@ -146,6 +149,13 @@ the cached original and every other venv keep the released binary. Restore with 
 reinstall below. Prepending `PATH` does not
 work: `resolve_mars_executable()` prefers the venv's `mars`. After any doubt, check the link
 count and hash against another venv (`stat -c %h`, `sha256sum`), not the version string.
+
+**Mitigation that holds:** a venv installed with `--link-mode=copy` has its own copy of
+every executable (link count 1), so writing over its `mars` touches no other venv. After the
+third occurrence the lead's worktrees for that work were reinstalled this way. Other venvs
+on the machine still share the cache inode (link counts of 33 were common on 2026-10-24),
+and the project does not set a link mode, so the hazard stands for any worktree created
+with the default.
 
 **Repair:** `uv cache clean mars-agents`, then in each venv that shares the inode (every
 checkout and worktree of the project, plus any other venv on that Mars version)

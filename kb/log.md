@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-24 — Shell network decisions reconciled with the final design
+
+`work:harness-sandbox-network`. [Sandbox platform access](decisions/sandbox-platform-access.md)
+now records why a sandboxed shell is offline by default and the rejected defaults, the bundle
+object and its rejected shapes, and the per-harness projection. The guardrail compares
+projected policy only; user harness config that widens the network is a report-only warning,
+with exact modelling and detect-then-assume-open recorded as rejected. Every network-side
+choice beneath the owner's rulings is marked not owner-approved.
+[Tool permissions](decisions/tool-permissions.md) gains D-permission-set-merge (the four
+permission sets add across surfaces; why the rule stops there) and drops the stale claim that
+an overlay tool list replaces the profile's.
+[Dogfooding PR builds](lessons/dogfooding-pr-builds.md) records the third `.venv/bin/mars`
+overwrite and the `--link-mode=copy` mitigation.
+
+---
 ## 2026-10-24 — Child-result delivery checked against merged PRs #743 and #751
 
 `work:read-consumes`. [Child result delivery](concepts/child-result-delivery.md),

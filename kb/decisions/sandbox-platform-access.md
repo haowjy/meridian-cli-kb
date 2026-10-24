@@ -198,8 +198,9 @@ Claude user settings and Codex `config.toml` files (user and project, including 
 directories) can widen what the harness actually enforces. Meridian detects the widening keys
 it knows about on a best-effort basis and names the file in a dry-run and launch warning. That
 warning never changes the projected policy, the report line or the guardrail. Meridian does
-not edit or override users' harness files. The keys checked are listed in meridian-cli
-`src/meridian/lib/harness/AGENTS.md`.
+not edit or override users' harness files
+([D-claude-settings-files-kept](tool-permissions.md#d-claude-settings-files-kept)). The keys
+checked are listed in meridian-cli `src/meridian/lib/harness/AGENTS.md`.
 
 **Why:** the guardrail's job is the one stated above: stop an agent widening a child through
 Meridian's CLI. The user's harness config applies to caller and child alike, so it gives the
