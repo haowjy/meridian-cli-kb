@@ -58,6 +58,18 @@ results stay consumed. Collect can also deliver an owed child once more if its
 last check ran just before the wait leased it
 ([accepted duplicates and losses](child-result-delivery.md#accepted-duplicates-and-losses)).
 
+The blocked-on set stays frozen, but a no-arg wait performs the same discovery
+once more when it returns. Children that entered scope after the initial
+discovery are appended under `Since this wait started:` and exposed separately
+as `since_started_spawns`: scoped active rows outside the blocked-on set, plus
+owed terminal rows that finished after the wait began and were not among its
+initial owed rows. The latter filter runs before the 32-row cap, so an old
+backlog cannot hide a new completion. These rows are advisory: wait neither
+blocks on, leases, consumes, counts, nor fails because of them. Busy or
+deadline-exhausted return discovery silently omits the section. Explicit-ID
+waits do not perform it. Rationale:
+[D-no-arg-wait-since-started](../decisions/child-result-delivery.md#d-no-arg-wait-since-started).
+
 If no pending spawns exist, the command returns immediately with a clean no-op
 message. That answer requires complete history-index coverage. Discovery reads
 the index for at most `QUERY_TIMEOUT` (2 s), even when the wait budget is 3000 s,
@@ -131,7 +143,8 @@ still append the description.
 
 The wait set is **frozen at discovery time**. Spawns that become queued after
 discovery are not added. This is intentional: the orchestrator controls when to
-open a new barrier, not the barrier itself.
+open a new barrier, not the barrier itself. A no-arg wait only reports such
+children in its advisory return trailer; it never moves them into this barrier.
 
 ---
 
@@ -300,7 +313,9 @@ explicit timeout invocations; it must not shorten normal checkpoint-mode waits.
 The wait set is collected once at the start of the `wait` invocation and not
 updated as spawns are launched afterward. This is by design: the orchestrator
 controls the boundary between "launching phase" and "barrier phase." A barrier
-that auto-expands is unpredictable and can delay completion indefinitely.
+that auto-expands is unpredictable and can delay completion indefinitely. The
+one return-time rediscovery reports later children without changing that set or
+its exit decision.
 
 ### Vanished spawns in no-arg discovery
 

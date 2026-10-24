@@ -276,6 +276,52 @@ an unbounded stale backlog into one model turn.
 
 ---
 
+## D-no-arg-wait-since-started: report later children without expanding the barrier (2026-10) {#d-no-arg-wait-since-started}
+
+**Status:** owner decision in `work:wait-since-started` (2026-10-24);
+implemented but not yet merged on meridian-cli `feat/wait-since-started`.
+
+### Problem
+
+A no-arg wait freezes its blocked-on set at initial discovery. A child launched
+after that point was neither waited on nor mentioned, even if it finished before
+the wait returned. The fixed barrier remained correct, but its output could look
+like the whole work tree had settled while newer work was still running or had
+failed.
+
+### Decision
+
+- **Keep the barrier fixed; append an advisory trailer.** Every completed,
+  fail-fast, or checkpoint no-arg return lists in-scope children that appeared
+  while it ran under `Since this wait started:`. Explicit-ID waits do not.
+- **Rediscover once at return through the existing target resolver.** There is
+  no query shape specific to the trailer and no discovery in the poll loop.
+- **Running means current active scope outside the original blocked-on set.**
+  Finished means newly owed terminal children that finished after wait start
+  and were absent from its blocked-on and initial owed sets. The completion-time
+  filter precedes the 32-row owed cap, so older held-back results cannot occupy
+  the new-completion batch.
+- **The trailer is not delivery.** Its rows are not waited on, leased, consumed,
+  counted, or included in fail-fast, aggregate failure, or exit-code decisions.
+  `--no-observe` has the same trailer. JSON exposes `since_started_spawns`.
+- **Status text must not hide failure.** Active lifecycle states render
+  `running`, successful completion renders `finished`, and other terminal rows
+  keep `failed`, `timed_out`, or `cancelled`.
+- **Return discovery is best effort.** History-index contention or deadline
+  exhaustion omits the trailer and never turns a successful wait into failure.
+
+### Rejected
+
+- **Add later children to the blocked-on set.** A producer could extend the
+  barrier indefinitely and make its exit timing depend on work launched after
+  the caller chose what to wait for.
+- **Tell the caller to run wait again.** The owner explicitly chose no hint
+  line; the section reports state without prescribing another blocking action.
+- **A second query shape or per-poll discovery.** Either would drift from the
+  primary-chat/nested-subtree scope or add repeated index cost to the hot loop.
+
+---
+
 ## D-observed-spawns-location: the consumption record lives in the parent's spawn directory (2026-10) {#d-observed-spawns-location}
 
 **Status:** lead decision after correctness and version-skew review
