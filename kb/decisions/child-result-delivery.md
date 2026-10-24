@@ -113,8 +113,16 @@ Existing observation leases remain the only temporary coordination state.
 
 ## D-claude-delivery-header-only: automatic delivery carries lookup headers, not reports (2026-10) {#d-claude-delivery-header-only}
 
-**Status:** lead decision in `work:read-consumes` (Decision 3). Shipped in
-meridian-cli v0.12.8 (PR #743, `53038dbba`).
+**Status:** current choice, set by the owner in `chat:c8820`
+(`work:read-consumes`). Shipped in meridian-cli v0.12.8 (PR #743, `53038dbba`).
+
+The owner's words: header-only came from "also I don't think the plugin should
+show the full report... it should just return [the pasted delivery header] the
+top part"; the lead chose the exact lines kept. Keeping reads pure came from
+"tbh... shouldn't spawn wait just be enough...?", which reversed the owner's
+earlier "i think show should be an ack tho?" and "yeah, i think session log
+should count as well". The framing of the repeat as an accepted one-ping cost
+is the lead's.
 
 ### Problem
 
@@ -149,6 +157,10 @@ tradeoff.
 - **Pi is unchanged.** Its TypeScript renderer continues to deliver bounded
   report excerpts under Pi's delivery contract.
 
+> [!FLAG] **Needs human review**
+> Open: should Pi deliveries also become header-only? The lead asked twice in
+> `chat:c8820`; the owner did not answer, so nothing changed for Pi.
+
 ### Consequence
 
 A lead that directly reads a finished child can receive one later header-only
@@ -172,9 +184,14 @@ the explicit lookup command when the lead needs the report.
 
 ## D-no-arg-wait-owed-bounded: no-arg wait returns a bounded header-only owed batch (2026-10) {#d-no-arg-wait-owed-bounded}
 
-**Status:** lead decisions in `work:read-consumes` (Decisions 4–6), with review
-corrections from `spawn:p9156` and `spawn:p9230`; implemented on the unmerged
-meridian-cli branch `fix/owed-wait`, not yet on `main`.
+**Status:** current choices, `work:read-consumes`, with review corrections
+from `spawn:p9156` and `spawn:p9230`. Merged to meridian-cli `main` in PR #751
+(`54ca93606`).
+
+Sharing collect's owed definition with no-arg wait was the lead's proposal; the
+owner agreed with "yeah, add it into that pr" (`chat:c8820`). Header-only owed
+rows, the 32-row cap, and dropping the claim subsystem are the lead's calls; the
+owner did not weigh in on them.
 
 ### Problem
 
@@ -223,6 +240,15 @@ an unbounded stale backlog into one model turn.
   consumption and leases immediately before returning; wait does not recheck
   after acquiring its lease. If those actions cross, one duplicate header can
   appear. That short, occasional duplicate is accepted.
+
+### Consequences
+
+- A collect whose final check ran just before a wait leased the same child, or
+  a delivery the mod already held or queued when the wait started, yields one
+  duplicate header.
+- Wait consumes in its `finally`, before the CLI prints. A wait killed in
+  between loses its output, and the results stay consumed. This predates owed
+  delivery; owed rows now share it.
 
 ### Rejected
 

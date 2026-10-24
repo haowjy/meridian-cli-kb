@@ -6,10 +6,9 @@ extension, or Claude's `meridian-spawn-watch` mod. Owed discovery reads the
 durable consumption evidence each route already owns; there is no separate
 claim subsystem for result delivery.
 
-Status: all three routes have shipped (the Claude route in v0.11.9, PR #724),
-and Claude's header-only delivery shipped in v0.12.8 (PR #743). Bounded owed
-results in no-arg wait are implemented on the unmerged `fix/owed-wait` branch.
-Rationale and rejected designs:
+Status: done. The Claude route shipped in v0.11.9 (PR #724), Claude's
+header-only delivery in v0.12.8 (PR #743), and owed results in no-arg wait
+merged in PR #751 (`54ca93606`). Rationale and rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
@@ -112,10 +111,13 @@ extension reads the observation file with its own schema
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
 schema change moves both.
 
-Fetching a result is not itself consuming it. `spawn show`, `spawn report
-show`, and `session log` remain pure reads. A terminal result returned by
-`spawn wait` is consumed unless the caller supplies `--no-observe`; `spawn
-ack` is the other command that records consumed ids.
+Only two commands consume: `spawn wait`, for the terminal results it returns
+(unless the caller passes `--no-observe`), and `spawn ack`. Reading a result is
+not consuming it. `spawn show`, `spawn report show`, and `session log` stay
+pure reads, so a lead that reads a finished child with `spawn show` instead of
+waiting on it can still get one header-only Claude delivery for it later. That
+ping is the accepted cost of keeping reads free of locks and writes
+([D-claude-delivery-header-only](../decisions/child-result-delivery.md#d-claude-delivery-header-only)).
 
 ### Transition from `pi-bash/`
 
@@ -149,25 +151,40 @@ lease and records the terminal spawns it returned as observed. A watcher that
 sees a live lease leaves those ids alone; if the wait is killed, the lease dies
 with it and the ids are owed again.
 
-On the unmerged `fix/owed-wait` branch, target resolution also asks `owed.py`
-for terminal children from the shared owed scope. That step snapshots the
-scope, keeps finished rows, subtracts the active blocked-on ids, and takes at
-most the oldest 32. The result classes stay separate: owed rows are late
-delivery, not work this invocation waits for. They are included in the existing
-observation lease, but the unchanged wait loop and its pending table contain
-blocked-on ids only. The existing `finally` consumes owed rows and terminal
-blocked-on rows together.
+A no-arg wait also returns the caller's **owed** children: those already
+finished when the wait resolved its targets, from the same `owed.py` definition
+`spawn collect` uses. Without this, a child that finished just before the wait
+started was invisible to it, and the Claude mod delivered it after the lead
+thought it had drained everything. Owed rows are late delivery, not work this
+wait blocked on, so they differ from blocked-on rows in three ways:
 
-Owed rows render through collect's header-only formatter and appear in JSON as
-`owed_spawns`, with no `report_body` even under `--full`. Blocked-on rows remain
-in `spawns` and keep ordinary wait output and their requested report body after
-the wait blocks for them. Only blocked-on rows drive run counts, single-result
-compatibility fields, fail-fast, aggregate failure, and the CLI exit code. An
-old failed owed child therefore remains visibly failed without making an
-otherwise successful wait fail. Excess owed rows stay eligible for the next
-normal wait or collection.
-`--no-observe` makes the same selection and rendering but creates no lease or
-consumption record, so it can return the same oldest batch again.
+- they render as collect renders them, a header plus `meridian spawn show <id>`,
+  never the report body;
+- at most the oldest 32 come per wait; the rest stay owed for the next wait or
+  collection;
+- they sit in a separate `owed_spawns` field and never count toward fail-fast,
+  run counts, or the exit code, so an old failed child doesn't fail a wait.
+
+The wait leases owed rows with its blocked-on rows and consumes both on exit.
+`--no-observe` returns the same batch without leasing or consuming it.
+Field-level contract: meridian-cli `src/meridian/lib/ops/spawn/.context/CONTEXT.md`
+("No-Arg Wait Scoping").
+
+## Accepted duplicates and losses
+
+Delivery is at-least-once, and one duplicate header is the accepted price
+wherever closing a window would need new coordination state. The known windows:
+
+| Window | Result |
+|---|---|
+| Lead read a finished child with `spawn show` and never waited on it | One later header-only Claude delivery |
+| A collect passed its final consumption check just before a wait leased the same child | One duplicate header: the wait returns it and the mod delivers it |
+| The mod already holds or has queued a delivery when a wait starts | That delivery still arrives; the wait's lease does not recall it |
+| A damaged consumption file is skipped | Results it recorded can be delivered once more |
+| `spawn wait` is killed after its `finally` records consumption but before the CLI prints | Those results are recorded as consumed but never shown; no route delivers them again |
+
+The last row is a loss, not a duplicate. It predates owed delivery, and owed
+rows now share it.
 
 ## Claude: the `meridian-spawn-watch` mod
 
@@ -198,17 +215,14 @@ one at once: those results are already late. Otherwise it waits until the whole
 owed set has finished, as `spawn wait` would. Leased ids are skipped while the
 lease lives, never treated as a reason to exit. Just before returning it
 re-reads consumption and leases, so a wait or ack that took a result meanwhile
-drops it from the batch. A wait can still lease an id just after that final
-check, producing one duplicate header; this short race is accepted instead of
-adding chat-scoped claim state, commands, or plugin protocol. The broader
-plugin-held-but-unacknowledged window already has the same at-least-once
-tradeoff. Collect consumes nothing, and exits when its parent process
+drops it from the batch; a wait that leases just after that check still gets a
+duplicate ([accepted](#accepted-duplicates-and-losses)). Collect consumes
+nothing, and exits when its parent process
 changes (Claude died) or when it is killed. A delivery carries at most 32
 results. Each member contains its identity and
 terminal outcome, worker, failure when present, distinct task directory, and
 the exact `meridian spawn show <id>` lookup command. `collect` reads no report
-bodies and has no report-byte budget. Pi keeps its separate TypeScript renderer
-and bounded report excerpts.
+bodies and has no report-byte budget.
 
 **The mod** starts `collect` 2 s after a main-loop `turn.complete` with reason
 `answer`, and at `session.start` (a resumed or reloaded session is idle with
@@ -250,6 +264,14 @@ of its own spawn, and delivers results at idle (`sendMessage` with a new turn)
 and at tool-bearing turn boundaries (native steer). It records exact native
 admission in `delivery-receipts.json` rather than trusting the send's return.
 Mechanism: [Pi runtime coordination](../architecture/pi-runtime/coordination.md).
+
+Pi still renders its own deliveries in TypeScript with bounded report excerpts
+(meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), while
+Claude delivery and owed wait rows are header-only.
+
+> [!FLAG] **Needs human review**
+> Open question: should Pi deliveries also become header-only? The owner was
+> asked twice and has not answered, so Pi stays as it is.
 
 ## Known gaps
 

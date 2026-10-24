@@ -3,6 +3,19 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-24 — Child-result delivery checked against merged PRs #743 and #751
+
+`work:read-consumes`. [Child result delivery](concepts/child-result-delivery.md),
+[spawn wait barrier](concepts/spawn-wait-barrier.md) and
+[its decisions](decisions/child-result-delivery.md) now describe owed no-arg wait
+as merged rather than branch-only, and link to the spawn ops `.context/` for the
+field-level contract instead of restating it. A new table lists the accepted
+duplicate and loss windows, including wait consuming before it prints. Who set
+each choice is corrected: the owner set header-only delivery and pure reads,
+agreed to the shared owed scope, and has not answered whether Pi should go
+header-only (flagged open).
+
+---
 ## 2026-10-23 — Sandbox platform access reconciled against both branches
 
 `work:harness-sandbox-network`. [Sandbox platform access](decisions/sandbox-platform-access.md)
