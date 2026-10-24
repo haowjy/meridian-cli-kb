@@ -154,6 +154,8 @@ tradeoff.
   do not record consumption and gain no observation flag. Consumption remains
   with terminal results returned by `spawn wait` unless `--no-observe` is used,
   and with `spawn ack` after the Claude delivery turn starts.
+  [D-cancel-consumes](#d-cancel-consumes) later added a cancel that reports
+  `cancelled`.
 - **Pi is unchanged.** Its TypeScript renderer continues to deliver bounded
   report excerpts under Pi's delivery contract.
 
@@ -324,6 +326,73 @@ failed.
   line; the section reports state without prescribing another blocking action.
 - **A second query shape or per-poll discovery.** Either would drift from the
   primary-chat/nested-subtree scope or add repeated index cost to the hot loop.
+
+---
+
+## D-cancel-consumes: a cancel that reports `cancelled` consumes the child's result (2026-10-24) {#d-cancel-consumes}
+
+**Status:** current choice, `work:cancel-consumes-owed`, after review
+`spawn:p9347`. Open as meridian-cli PR #762.
+
+The owner reported the bug, pointing at a Claude delivery of a cancel the lead
+had issued itself: "another duplicate thing here..." and "because of our claude
+plugin". Putting the fix in core, and the review's simplifications, are the
+lead's calls.
+
+### Problem
+
+A lead that ran `meridian spawn cancel pN` on its own background child was later
+sent a Claude `meridian-spawn-watch` turn saying pN was cancelled. The cancel
+command had already told it that. The original Claude design listed "children
+the lead cancelled itself are delivered as cancelled" as an accepted edge case
+without a reason. Pi's extension reads the same consumption sources and had the
+same duplicate.
+
+### Decision
+
+- **`spawn cancel` writes an observation, the way `spawn wait` and `spawn ack`
+  do.** When the outcome is `cancelled` (this cancel landed, or the child was
+  already cancelled), it records the child id in `observed-spawns.json` under
+  the calling spawn. `spawn cancel-all` does the same for each child it
+  cancels. Claude and Pi both stop delivering it, because both read that file.
+- **No ownership check.** Readers union only the observations of the owner's
+  parent scope, so recording under any caller consumes exactly the caller's
+  own children. A cancel by a nested non-owner or from a plain terminal leaves
+  the owner's delivery intact. Checking ownership would have cost a
+  history-index query per cancel and could miss when chat ids disagree.
+- **Only `cancelled` consumes.** A cancel that finds the child already
+  succeeded or failed returns that status but never shows the result, so the
+  lead is still owed it. A `finalizing` cancel is still delivered after the
+  child finishes.
+- **Best effort.** An OS error on the write is logged and the cancel still
+  returns its result. The cost is one possible repeated notice.
+
+### Rejected
+
+- **Filter cancelled rows in the Claude mod.** The mod reports facts; core
+  decides what counts as consumed
+  ([D-claude-spawn-watch](#d-claude-spawn-watch)). It would also have left Pi
+  unfixed.
+- **Skip every `cancelled` row in owed discovery.** A child cancelled by
+  someone else (the user from a terminal, `cancel-all --include-others`, a
+  timeout) must still reach its lead.
+
+### Pattern
+
+This is the third fix in a row where a command's account of a lead's children
+disagreed with what automatic delivery sent next. No-arg wait omitted children
+that had already finished, which delivery then sent after the lead thought it
+had drained everything
+([D-no-arg-wait-owed-bounded](#d-no-arg-wait-owed-bounded), PR #751). It also
+omitted children launched while it ran
+([D-no-arg-wait-since-started](#d-no-arg-wait-since-started), #753). Cancel
+showed an outcome without recording it.
+
+When a command reports a child's terminal outcome to its lead, decide whether
+it consumes, and add it to
+[consumption sources](../concepts/child-result-delivery.md#consumption-sources)
+if it does. Pure reads (`spawn show`, `spawn report show`, `session log`) do
+not, by [D-claude-delivery-header-only](#d-claude-delivery-header-only).
 
 ---
 
