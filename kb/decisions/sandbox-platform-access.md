@@ -13,17 +13,18 @@ Meridian, invisibly to the author. The **harness projection** turns both into na
 settings and reports what it cannot enforce. The owner asked for this split: "what stuff we
 need to pass in by default so prompt authors don't have to learn too much about meridian".
 
-**Status (2026-10-23): unmerged.** The grants, escapes, compound-launch refusal and child
-guardrail are on meridian-cli PR #750 (`feat/sandbox-network`). Profile `network` projection
-and the network part of the guardrail are on the stacked `feat/sandbox-network-projection`,
-which also needs the Mars `network` field (mars-agents PR #182, first release expected 0.18.0)
-and a Mars pin bump before it merges.
+**Status (2026-10-24): unmerged.** The grants, escapes, compound-launch refusal and child
+guardrail are on meridian-cli PR #750 (`feat/sandbox-network`). Network projection is on the
+stacked `feat/sandbox-network-projection`; allowlists, host-set CLI overrides and the current
+Mars bundle object are on `feat/network-allowlist`, stacked above it. They depend on the Mars
+`feat/network-field` branch (mars-agents PR #182) and a Mars pin bump before merge.
 
-**Who decided what.** The owner ruled two points: `network` defaults to allow ("yes, default
-allow") and Meridian owns its CLI's permission surface ("yes, thats honestly better").
-Everything else on this page is the implementing lead's current choice, made after probes
-and reviews; the owner has not addressed it. The child guardrail in particular was put to the
-owner as an uncertain call and has had no answer.
+**Who decided what.** The owner ruled that Meridian owns its CLI's permission surface and,
+after first choosing default-allow, replaced that choice with the three network modes, host
+sets, launch flags and sandbox-derived default recorded below. Everything else on this page
+is the implementing lead's current choice, made after probes and reviews; the owner has not
+addressed it. The child guardrail in particular was put to the owner as an uncertain call and
+has had no answer.
 
 **Where the mechanism lives.** Platform command grants and the rule that owns them:
 [tool-permissions.md](tool-permissions.md#d-permission-platform-rules). Which paths a
@@ -39,7 +40,7 @@ the caller record and its checks in `src/meridian/lib/core/caller_boundary.py`.
 | Meridian commands allowed (completion, read-only, spawn) | Exact and prefix `Bash(...)` allows | Only the `meridian spawn` prefix, through a user-wide execution-policy rule; other command grants are not expressible | Native shell or extension allows |
 | Child spawn leaves the shell sandbox | For a standalone `meridian spawn` in a spawn-capable profile, when the sandbox is one Meridian projected (`read-only` or `workspace-write`) | For a standalone `meridian spawn` in every session using the Codex home, once any spawn-capable constrained launch has written the rule | n/a: no sandbox |
 | Completion signals (`spawn done`, `rearm`) under `read-only` | Yes | Only through the spawn rule; a read-only profile without spawn capability skips the confirmation turn | n/a |
-| Nested child authority | A Meridian-launched constrained caller cannot select a less-confined child or weaken an authored, enforced network deny | Same when the caller was launched by Meridian; a direct Codex session has no floor | Same floor, without a sandbox escape |
+| Nested child authority | A Meridian-launched constrained caller cannot select a less-confined child or a network policy outside the caller's effective host policy | Same when the caller was launched by Meridian; a direct Codex session has no floor | Same floor, without a sandbox escape |
 | Compound launch refused | Yes on Linux, by PID-namespace comparison | Yes on Linux, by the same comparison | n/a: same namespace |
 
 A compound launch is a `meridian spawn` inside a shell line that also contains `&&`, a pipe,
@@ -151,19 +152,21 @@ the prompt, background, model, agent, prompt file, continue, fork, a harness sho
 > option, the easiest to loosen; the rejected alternatives below remain open.
 
 **Current choice:** a caller Meridian launched under `read-only` or `workspace-write` carries
-a guardrail in its caller record: sandbox, spawn capability, and a network deny floor only
-when the caller authored `network: deny` and its harness enforces it. Nested create, continue,
-fork and their dry runs refuse:
+a guardrail in its caller record: sandbox, spawn capability, and the caller's harness-effective
+network policy. The network value round-trips the exact allow and deny host sets. Nested
+create, continue, fork and their dry runs refuse:
 
 - any launch when the caller lacks spawn capability;
 - a child whose sandbox is weaker than the caller's (`--yolo` included);
-- a child whose effective network is allow under a deny floor;
+- a child whose effective network is not contained by the caller's: the child must preserve
+  every caller deny, and a finite caller requires the child's allow set to be a subset
+  by canonical host-string identity (wildcards are not expanded for containment);
 - harness-native passthrough arguments that could replace Meridian's resolved policy.
 
 Approval, workspace roots and `--env` values are not compared. Top-level, `default` and
-`danger-full-access` callers carry no floor. The refusal names the remedy: a child that omits
-`network` or allows it must set `network: deny`; a child that already says deny must use a
-harness and sandbox that enforce it.
+`danger-full-access` callers carry no floor. A refusal reports both compact host policies so
+the caller can remove extra allowed hosts, preserve required denies, or select a stricter
+child profile.
 
 **Why:** Claude's exclusion and Codex's rule move a standalone `meridian spawn` outside the
 caller's sandbox so its worker survives, which would otherwise let any sandboxed spawner run
@@ -180,8 +183,7 @@ rather than chased. Issue #747 owns real confinement and holds the input table.
 **Compatibility:** the parser ignores unknown keys, so a newer build's record still parses. A
 record without `pid_namespace` or `sandbox` is invalid and refused; a missing `spawn` counts
 as no spawn capability. A missing network key, and the older persisted value `allow`, mean no
-network floor: the default is now allow, and reading a missing key as deny would refuse the
-children of every caller launched before an upgrade.
+network floor, so an upgrade does not retroactively constrain an already-running caller.
 
 **Rejected:** declared roles (enforce `subagents:` membership, issue #742, and forbid widening
 flags; a declared child could still be less confined), accepting and documenting the escape,
@@ -224,57 +226,50 @@ workspace-write parent launched a child that finished, and a read-only agent ran
 Codex loads project rules only for trusted projects), and a per-invocation `-c` key (Codex
 has none for rules).
 
-## D-network-field: profile `network`, default allow {#d-network-field}
+## D-network-field: modes, host sets and sandbox-derived default {#d-network-field}
 
-**Decided (owner, 2026-10-23):** a profile may set `network: allow | deny`. It governs the
-agent's shell only: whether its commands may connect to the internet, to host services, or to
-local sockets. Built-in web tools stay under `tools: web`. Unset resolves to `allow`. The owner
-started from "I think architects should be able to have internet access tho (to do research)"
-and approved the default with "yes, default allow".
+**Decided (owner, 2026-10-24):** `network` is `allow`, `deny`, or `allowlist`; a separate
+allow set and deny set carry exact hosts, IP addresses and wildcard hosts. It governs the
+agent's shell only: built-in web tools stay under `tools: web`. Leaving the mode unset follows
+the sandbox: `read-only` and `workspace-write` are offline, `danger-full-access` is online,
+and an unset/default sandbox stays harness-native. This supersedes the 2026-10-23 choice that
+unset always meant allow.
 
-**Why `allow` is the default:** every `workspace-write` profile in the shipped prompt
-packages does work that needs the network or does not care. The rejected default, "whatever
-the harness does", meant one profile was online on OpenCode and Pi and offline on Claude and
-Codex. Authors who want isolation write `deny` and see it in the profile.
+There is no `network: default` spelling. Mode is a scalar resolved by precedence; permission
+sets add across surfaces, with an explicit replacement form where the owning surface permits
+it, and denies win. Mars owns that resolution. The current profile keys, merge rules and host
+grammar are documented in Mars's `docs/config/agent-profiles.md`; Meridian receives only the
+resolved object and raw launch additions (`--network`, repeatable `--network-allow`, and
+repeatable `--network-deny`).
 
-**Why there is no `network: default` value:** Mars resolves policy layers by the first value
-set (CLI `--network`, overlay, overlay model policy, profile, profile model policy, settings
-model policy). A `default` value would be a second spelling of `allow`, and a higher layer
-that wrote it would silently reopen a profile's `deny`. Unset is the only default state.
+**One typed value after the bundle boundary.** Mars emits
+`{mode: allow|deny|allowlist|null, allow: [...], deny: [...]}`. Meridian parses it once to
+`Allow(deny)` or `Hosts(allow, deny)`; `Hosts(\u2205)` is deny. A null mode applies the sandbox
+default while retaining the deny set. The permission report, native projector and child
+guardrail all consume that same value rather than resolving a second mode/list pairing.
 
-**Mars validates only `network` strictly.** A non-string value such as `network: false` is an
-error at every input (frontmatter, model policy, overlay, CLI). The same fail-open still
-exists for `sandbox`, `approval` and `effort`: a non-string value silently becomes unset.
-Fixing the whole class in this change grew a second enum validator and deprecation code in
-about fifteen places, so it was cut to a follow-up: one execution-enum table in Mars config
-that every input reads, with a one-release warning for the older keys. Native Codex lowering
-reports `network` as Dropped, so a Codex agent invoked outside Meridian keeps Codex's default.
+**Projection:**
 
-**Projection** (on `feat/sandbox-network-projection`):
-
-| `network` | Claude | Codex | OpenCode, Pi, Cursor |
+| Effective policy | Claude | Codex | OpenCode, Pi, Cursor |
 |---|---|---|---|
-| `allow` | Under `read-only`/`workspace-write`, `sandbox.network` gets `allowedDomains` `*`, `localhost`, `127.0.0.1`, plus `allowLocalBinding` and `allowAllUnixSockets` (both ignored by Claude at the top level) | `workspace-write`: explicit `network_access=true`. `read-only`: an authored `allow` is unsupported and reported; unset stays offline and reports native | Already unrestricted |
-| `deny` | Under `read-only`/`workspace-write`, `sandbox.network.strictAllowlist=true` | `workspace-write`: explicit `network_access=false`, so a user's `config.toml` cannot open it. `read-only`: offline | Not enforced, reported |
+| `Allow(\u2205)` | Under `read-only`/`workspace-write`, allow all destinations and local services | `workspace-write`: `network_access=true` | Already unrestricted |
+| `Allow(deny)` | As above plus `deniedDomains` | Network proxy with `"*"="allow"` plus deny entries; local services remain reachable, so partial | Denies not enforced, reported |
+| `Hosts(allow, deny)` | Strict allowlist with `allowedDomains` and `deniedDomains`; `**.x` becomes `x` plus `*.x` | `workspace-write`: network proxy with one inline domain map; local services remain reachable, so partial | Not enforced, reported |
+| `Hosts(\u2205)` | Strict allowlist with no external hosts | `workspace-write`: `network_access=false` | Not enforced, reported |
 
-Effective network is one harness-owned function of sandbox, authored network, whether the
-bundle carries network, and native config. The permission report and the guardrail both use
-it. Approval and tool rules are deliberately not inputs. Claude's `strictAllowlist` is what
-makes that possible: probes showed a deny that only listed no domains still let traffic out
-under some approval modes, while `strictAllowlist` (or `deniedDomains: ["*"]`) blocked it. The
-rejected alternative made effective network a compile output checked at bind, which would have
-split the guardrail across two checks.
+Codex `read-only` stays offline and reports a nonempty allow request unsupported.
+`danger-full-access` cannot enforce restrictions. For a finite Claude policy,
+`allowLocalBinding` and `allowAllUnixSockets` are explicitly false unless `localhost` or
+`127.0.0.1` is allowed; either host enables Claude's coarse switches for all local binding
+and Unix sockets. User-level Claude `allowedDomains` widen its effective set, while denies
+win, so the report and guardrail use that effective set. On Linux, host localhost is reached
+through Claude's proxy (`curl --noproxy ''`), while private sandbox loopback makes a strict
+deny partial.
 
-`danger-full-access` cannot enforce deny on any harness. Claude's deny is partial on Linux
-because processes in one sandbox share a private loopback, Claude's own settings can add
-domains, and an excluded `meridian spawn` runs outside. Claude's Linux allow reaches host
-services only through its proxy, and the sandbox's `NO_PROXY` makes most clients skip it
-(curl needs `--noproxy ''`); the injected guidance says so when it applies.
-
-**Old Mars keeps old behavior.** A current bundle carries `provenance.network_source`. A
-bundle without it comes from Mars before 0.18: Meridian warns, projects no network setting,
-and leaves the harness default, so an authored `deny` cannot fail open on an old Mars. The
-guardrail treats that unknown state as allow.
+Effective network remains one harness-owned function of sandbox, the typed policy, native
+config, and (for Claude) user settings. Approval and tool rules are deliberately not inputs.
+An old Mars bundle without `provenance.network_source` is a hard composition error naming
+Mars 0.18.0 rather than a fallback to harness defaults.
 
 **Codex passthrough key.** For one warning release, a profile's
 `harness-overrides.codex.sandbox_workspace_write.network_access` boolean wins over the
@@ -282,9 +277,9 @@ portable field when Meridian can emit it as a `-c` pair; anything else is report
 the portable value stands. The next release reserves the key. See
 [native-config](../concepts/native-config.md).
 
-**Upgrade impact:** unset now means online for Claude `read-only`/`workspace-write` and Codex
-`workspace-write`, which were offline. The upgrade note tells authors to write `network: deny`
-to keep them offline. Continued sessions are re-resolved under the new default.
+**Upgrade impact:** a constrained sandbox with no network mode is offline, including a
+primary whose `sandbox` comes from Meridian config. Profiles that need shell network declare
+`network: allow` or an allowlist. Continued sessions are re-resolved under this default.
 
 **Supersedes** the 2026-10-22 rejection of a `network` profile field in
 [bundle-field-consumption.md](bundle-field-consumption.md).
@@ -310,7 +305,8 @@ Whether other roles that use `danger-full-access` only for network or spawning s
 
 ## Harness facts these decisions rest on
 
-Linux, Claude Code 2.1.309, Codex CLI 0.163.0. Recheck when either version changes.
+Linux, Claude Code 2.1.309, Codex CLI 0.163.0; the domain-proxy POC used Codex 0.164.0.
+Recheck when either harness's sandbox or proxy changes.
 
 | Fact | Claude | Codex |
 |---|---|---|
@@ -318,7 +314,7 @@ Linux, Claude Code 2.1.309, Codex CLI 0.163.0. Recheck when either version chang
 | Detached child survives the shell call | No | No in sandbox; yes with full access |
 | Per-command escape | `excludedCommands`, simple commands only | Execution-policy `prefix_rule` with `allow` |
 | Sandbox PID namespace | Different from the launcher; an excluded command stays in the launcher's | Different from the launcher; an allowed command runs outside it |
-| Shell network switch | Domain allowlist through a proxy; `strictAllowlist` for a hard deny | One boolean, which also gates host localhost and sockets |
+| Shell network switch | Domain allowlist through a proxy; `strictAllowlist` for a hard deny | Workspace-write boolean plus a domain proxy map; localhost remains reachable under the proxy |
 | Read-only writes | Everything except roots Meridian denies | Nothing; `--add-dir` is ignored |
 
 ## Provenance
@@ -329,5 +325,7 @@ rulings: `chat:c8765`, 2026-10-23. Structure review `spawn:p9047`; Codex rules P
 confirmation probes `spawn:p9087`–`spawn:p9089`; PID-namespace probes
 `spawn:p9096`–`spawn:p9107`. Guardrail: gate A security review `spawn:p9112`, second round
 `spawn:p9153`/`spawn:p9154`, whole-system review `spawn:p9223`. Network gates:
-`spawn:p9242`/`spawn:p9243`, then `spawn:p9246`/`spawn:p9247`. Mars validation scope:
-`spawn:p9058`, `spawn:p9080`.
+`spawn:p9242`/`spawn:p9243`, then `spawn:p9246`/`spawn:p9247`. Allowlist design and evidence:
+`spawn:p9263`–`spawn:p9266`, Mars implementation `spawn:p9268`, Meridian implementation
+artifact `work:harness-sandbox-network/meridian-network-allowlist-implementation.md`. Mars
+validation scope: `spawn:p9058`, `spawn:p9080`.

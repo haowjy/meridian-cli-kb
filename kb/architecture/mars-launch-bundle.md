@@ -131,7 +131,11 @@ refresh follows **`ProbeRefreshMode`** from the same **`ModelsRefreshControl`** 
     "effort": "high",
     "approval": "auto",
     "sandbox": "workspace-write",
-    "network": "deny",
+    "network": {
+      "mode": "allowlist",
+      "allow": ["github.com", "*.github.com"],
+      "deny": ["uploads.github.com"]
+    },
     "autocompact": null,
     "autocompact_pct": 80,
     "timeout": null,
@@ -142,12 +146,14 @@ refresh follows **`ProbeRefreshMode`** from the same **`ModelsRefreshControl`** 
 }
 ```
 
-`network` is `allow`, `deny`, or null. Current producers also provide
-`provenance.network_source`; if that key is absent, Meridian identifies a pre-0.18 Mars
-bundle, warns, and projects no portable network setting so the harness keeps its default.
-The child guardrail alone treats that unknown effective state as allow rather than assuming the
-native default enforced deny. `native_config` is omitted (`skip_serializing_if = None`) when no
-native config is declared. Meridian applies it on Codex only; see
+`network` is one resolved object:
+`{"mode":"allow"|"deny"|"allowlist"|null,"allow":[...],"deny":[...]}`. Mars resolves
+mode by precedence, combines the permission sets, canonicalizes hosts, and drops inert sets.
+Meridian parses the object once to its typed network policy. A null mode applies the
+sandbox-derived default while retaining denies. Current producers also provide
+`provenance.network_source`; without that key Meridian rejects the pre-0.18 bundle and names
+the required Mars version rather than guessing a harness default. `native_config` is omitted
+(`skip_serializing_if = None`) when no native config is declared. Meridian applies it on Codex only; see
 [../concepts/native-config.md](../concepts/native-config.md). `autocompact` is a token
 count and `autocompact_pct` a percentage; how each harness applies them:
 [D-compaction-projected](../decisions/bundle-field-consumption.md#d-compaction-projected).
