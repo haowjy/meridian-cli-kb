@@ -279,7 +279,7 @@ an unbounded stale backlog into one model turn.
 ## D-no-arg-wait-since-started: report later children without expanding the barrier (2026-10) {#d-no-arg-wait-since-started}
 
 **Status:** owner decision in `work:wait-since-started` (2026-10-24);
-implemented but not yet merged on meridian-cli `feat/wait-since-started`.
+open as meridian-cli #753.
 
 ### Problem
 
