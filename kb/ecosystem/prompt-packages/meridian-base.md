@@ -98,7 +98,6 @@ the installed path, and merges entries into target config files.
 
 | Hook | Fragment | Native events | Target | Purpose |
 |---|---|---|---|---|
-| `deny-generic-agent` | `claude.json` | `PreToolUse` (matcher `"Agent"`) | `.claude` | Blocks Claude's bundled generic agents (`Explore`, `Plan`, etc.) |
 | `deny-interactive-prompts` | `codex.json` | `PreToolUse` (matcher `"Bash"`) | `.codex` | Blocks interactive-prone auth commands in Codex unless a non-interactive guard is present |
 | `context-autosync` | `claude.json` | `SubagentStop`, `SessionEnd` | `.claude` | Pushes stranded context-repo commits at session end and after subagent work |
 
