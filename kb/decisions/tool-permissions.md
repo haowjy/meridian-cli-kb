@@ -264,6 +264,8 @@ make it a new minor version, we can try to make sure tools and other lists shoul
 "ok, i think i am okay with a minor upgrade for mars". The owner also asked "is there a way
 to not merge... if we wanted to...?", which the replace form answers.
 
+**Status:** implemented on mars-agents PR #182, unreleased.
+
 **Current choice (lead, not owner-approved):** the combining rule applies to four permission
 sets only: tool grants, tool denies, network allow hosts and network deny hosts. On those
 sets, a plain list adds to what lower surfaces gave (union, canonicalised and deduplicated),
@@ -271,7 +273,7 @@ and `{ replace = [...] }` discards lower surfaces' entries for that set before h
 surfaces add again. A package profile cannot replace a deny set, and denies win over allows
 at enforcement. Surfaces, low to high: user config, `mars.toml` `[settings]`,
 `mars.local.toml` `[settings]`, profile, overlay, CLI. CLI host flags only add. Every other
-list keeps its old rule. The authoritative statement is Mars `docs/config/mars-toml.md`
+list keeps list replacement or whole-entry replacement. The authoritative statement is Mars `docs/config/mars-toml.md`
 ("Default merge semantics").
 
 **Why only permission sets:** an inventory of every list in Mars found that the others
@@ -286,8 +288,8 @@ only scalars and `harness_order` in overlays, so nothing depended on set replace
 **Why a profile cannot replace a deny set:** package profiles sit above the consumer's
 `[settings]`, so a replaceable deny would let a package erase a company's denies. Replacing an
 allow set only narrows, so profiles may do it. Consumer surfaces (user config, `mars.toml`,
-`mars.local.toml`, overlays) may replace anything they own; to lift a deny, edit the surface
-that set it.
+`mars.local.toml`, overlays) may replace anything they own; to remove a deny, delete it from
+the surface that set it.
 
 **Behaviour change:** an overlay's `tools.allowed` and `tools.disallowed` used to replace the
 profile's lists; they now add. `{ replace = [...] }` restores replacement. Mars warns on the

@@ -150,12 +150,11 @@ reinstall below. Prepending `PATH` does not
 work: `resolve_mars_executable()` prefers the venv's `mars`. After any doubt, check the link
 count and hash against another venv (`stat -c %h`, `sha256sum`), not the version string.
 
-**Mitigation that holds:** a venv installed with `--link-mode=copy` has its own copy of
-every executable (link count 1), so writing over its `mars` touches no other venv. After the
-third occurrence the lead's worktrees for that work were reinstalled this way. Other venvs
-on the machine still share the cache inode (link counts of 33 were common on 2026-10-24),
-and the project does not set a link mode, so the hazard stands for any worktree created
-with the default.
+**Mitigation that holds:** install any venv that will run a dev build with
+`--link-mode=copy` (or `UV_LINK_MODE=copy`). It gets its own copy of every executable (link
+count 1), so writing over its `mars` touches no other venv. The project does not set a link
+mode, so a worktree created with uv's default shares the cache inode; on 2026-10-24 most
+meridian-cli worktrees showed a link count of 33. The rule above stays necessary for those.
 
 **Repair:** `uv cache clean mars-agents`, then in each venv that shares the inode (every
 checkout and worktree of the project, plus any other venv on that Mars version)

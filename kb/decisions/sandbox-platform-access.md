@@ -170,8 +170,8 @@ create, continue, fork and their dry runs refuse:
 - any launch when the caller lacks spawn capability;
 - a child whose sandbox is weaker than the caller's (`--yolo` included);
 - a child whose projected network is not contained by the caller's: the child must keep
-  every caller deny, even when the caller allows everything else, and a finite caller
-  requires the child's allow set to be a subset by canonical host-string identity
+  every caller deny, even when the caller allows everything else, and a caller with a host
+  allowlist requires the child's allow set to be a subset by canonical host-string identity
   (wildcards are not expanded for containment). A child that allows nothing is contained by
   any caller;
 - harness-native passthrough arguments that could replace Meridian's resolved policy.
