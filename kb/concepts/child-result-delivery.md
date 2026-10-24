@@ -152,8 +152,8 @@ sees a live lease leaves those ids alone; if the wait is killed, the lease dies
 with it and the ids are owed again.
 
 A no-arg wait also returns the caller's **owed** children: those already
-finished when the wait resolved its targets, from the same `owed.py` definition
-`spawn collect` uses. Without this, a child that finished just before the wait
+finished when the wait resolved its targets, under the same
+[owed rule](#what-a-lead-is-owed) `spawn collect` applies (`owed.py`). Without this, a child that finished just before the wait
 started was invisible to it, and the Claude mod delivered it after the lead
 thought it had drained everything. Owed rows are late delivery, not work this
 wait blocked on, so they differ from blocked-on rows in three ways:
@@ -166,7 +166,8 @@ wait blocked on, so they differ from blocked-on rows in three ways:
   run counts, or the exit code, so an old failed child doesn't fail a wait.
 
 The wait leases owed rows with its blocked-on rows and consumes both on exit.
-`--no-observe` returns the same batch without leasing or consuming it.
+`--no-observe` returns the same batch but takes no lease and records no
+consumption, so the next wait or collect can return those results again.
 Field-level contract: meridian-cli `src/meridian/lib/ops/spawn/.context/CONTEXT.md`
 ("No-Arg Wait Scoping").
 
@@ -183,8 +184,8 @@ wherever closing a window would need new coordination state. The known windows:
 | A damaged consumption file is skipped | Results it recorded can be delivered once more |
 | `spawn wait` is killed after its `finally` records consumption but before the CLI prints | Those results are recorded as consumed but never shown; no route delivers them again |
 
-The last row is a loss, not a duplicate. It predates owed delivery, and owed
-rows now share it.
+The last row is a loss, not a duplicate: wait records consumption before it
+writes output, for blocked-on and owed rows alike.
 
 ## Claude: the `meridian-spawn-watch` mod
 
@@ -270,8 +271,10 @@ Pi still renders its own deliveries in TypeScript with bounded report excerpts
 Claude delivery and owed wait rows are header-only.
 
 > [!FLAG] **Needs human review**
-> Open question: should Pi deliveries also become header-only? The owner was
-> asked twice and has not answered, so Pi stays as it is.
+> Open question: should Pi deliveries also become header-only? Undecided; until
+> the owner decides, Pi keeps its excerpts. Deciding means choosing between a Pi
+> lead getting the report in the delivery (and again if it already read it) and
+> a short ping it must follow with `spawn show`.
 
 ## Known gaps
 

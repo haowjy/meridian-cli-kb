@@ -158,8 +158,9 @@ tradeoff.
   report excerpts under Pi's delivery contract.
 
 > [!FLAG] **Needs human review**
-> Open: should Pi deliveries also become header-only? The lead asked twice in
-> `chat:c8820`; the owner did not answer, so nothing changed for Pi.
+> Open: should Pi deliveries also become header-only? Undecided; Pi keeps its
+> excerpts until the owner decides. The lead asked twice in `chat:c8820` without
+> an answer.
 
 ### Consequence
 
@@ -243,12 +244,13 @@ an unbounded stale backlog into one model turn.
 
 ### Consequences
 
-- A collect whose final check ran just before a wait leased the same child, or
-  a delivery the mod already held or queued when the wait started, yields one
-  duplicate header.
-- Wait consumes in its `finally`, before the CLI prints. A wait killed in
-  between loses its output, and the results stay consumed. This predates owed
-  delivery; owed rows now share it.
+- Collect's last consumption check and wait's lease are separate steps, so a
+  wait that leases a child just after collect checked it returns the same child
+  collect delivers: one duplicate header. A delivery the mod already holds or
+  has queued when a wait starts arrives too.
+- Wait records consumption before the CLI prints, for blocked-on and owed rows
+  alike. A wait killed in between loses its output, and the results stay
+  consumed.
 
 ### Rejected
 
