@@ -360,10 +360,11 @@ same duplicate.
   own children. A cancel by a nested non-owner or from a plain terminal leaves
   the owner's delivery intact. Checking ownership would have cost a
   history-index query per cancel and could miss when chat ids disagree.
-- **Only `cancelled` consumes.** A cancel that finds the child already
-  succeeded or failed returns that status but never shows the result, so the
-  lead is still owed it. A `finalizing` cancel is still delivered after the
-  child finishes.
+- **Only `cancelled` consumes.** For a cancelled child the cancel's output is
+  the whole result. A cancel that finds the child already succeeded or failed
+  prints only that status, not the report or failure the lead needs, so the
+  lead is still owed it. A `finalizing` cancel is delivered after the child
+  finishes.
 - **Best effort.** An OS error on the write is logged and the cancel still
   returns its result. The cost is one possible repeated notice.
 

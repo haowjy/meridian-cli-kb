@@ -113,8 +113,8 @@ extension reads the observation file with its own schema
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
 schema change moves both.
 
-Three commands consume, each because its output already told the lead the
-outcome:
+Three command families consume, each because its output already told the lead
+the outcome:
 
 - `spawn wait`, for the terminal results it returns (unless the caller passes
   `--no-observe`);
@@ -122,10 +122,11 @@ outcome:
 - `spawn cancel` and `spawn cancel-all`, for each child whose cancel reports
   `cancelled`, recorded under the calling spawn
   ([D-cancel-consumes](../decisions/child-result-delivery.md#d-cancel-consumes)).
-  A cancel that reports `finalizing`, or finds the child already succeeded or
-  failed, consumes nothing: its output did not show the final result. A cancel
-  run from a plain terminal has no calling spawn and records nothing, so the
-  lead still hears about it.
+  A `cancelled` outcome is itself the child's final result. A cancel that
+  reports `finalizing`, or finds the child already succeeded or failed, prints
+  only that status, not the child's report or failure, so the lead is still
+  owed the result. A cancel run outside any spawn (a user's shell) has no
+  calling spawn and records nothing, so the lead still hears about it.
 
 Recording under the caller is safe for any caller, because readers union only
 the observations of the owner's parent scope. A nested spawn that cancels the
@@ -201,7 +202,8 @@ wherever closing a window would need new coordination state. The known windows:
 | A collect passed its final consumption check just before a wait leased the same child | One duplicate header: the wait returns it and the mod delivers it |
 | The mod already holds or has queued a delivery when a wait starts | That delivery still arrives; the wait's lease does not recall it |
 | A damaged consumption file is skipped | Results it recorded can be delivered once more |
-| A cancel's observation write fails (OS error, or the caller's spawn directory is gone) | The cancel still succeeds; the cancelled child can be delivered once || `spawn wait` is killed after its `finally` records consumption but before the CLI prints | Those results are recorded as consumed but never shown; no route delivers them again |
+| A cancel's observation write fails (OS error, or the caller's spawn directory is gone) | The cancel still succeeds; the cancelled child can be delivered once |
+| `spawn wait` is killed after its `finally` records consumption but before the CLI prints | Those results are recorded as consumed but never shown; no route delivers them again |
 
 The last row is a loss, not a duplicate: wait records consumption before it
 writes output, for blocked-on and owed rows alike.
