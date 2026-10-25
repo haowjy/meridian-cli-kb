@@ -58,7 +58,7 @@ Fields in the IR:
 | `completion_contract` | SYSTEM_INSTRUCTION | Bounded goal contract from `--goal TEXT`; empty when no goal given |
 | `supplemental_documents` | SYSTEM_INSTRUCTION | Typed `PromptDocument`s: loaded skills (full bodies), then bootstrap docs |
 | `available_skills` | SYSTEM_INSTRUCTION | On-demand skills, listed by name only |
-| `guidance_blocks` | SYSTEM_INSTRUCTION | `CompositionBlock`s sorted by phase then priority: agent inventory (spawn-capable profiles), one capability section, its late-bound directory lines, the spawn behavior contract (spawn-capable profiles), and optional harness guidance |
+| `guidance_blocks` | SYSTEM_INSTRUCTION | `CompositionBlock`s sorted by phase then priority: agent inventory (spawn-capable profiles), Meridian-skill triggers, one late-bound capability/directory section, subagent prompting and spawn behavior (spawn-capable profiles), and optional harness guidance |
 | `report_instruction` | SYSTEM_INSTRUCTION | "Write a report at the end" directive |
 | `passthrough_system_fragments` | SYSTEM_INSTRUCTION | Explicit `--append-system-prompt` args |
 | `user_task_prompt` | USER_TASK_PROMPT | Raw user request (template-substituted) |
@@ -238,7 +238,7 @@ Loaded skills reach the agent the same way on every harness and both surfaces
 `_resolve_primary_projection()` always set `supplemental_documents` from
 `compose_skill_prompt_documents(loaded_skills)`. Projection then renders them
 into the system prompt after the agent profile. Bind-time re-projection
-(`_reproject_context_env_at_bind`) rebuilds from the same composed content, so
+(`_reproject_capabilities_at_bind`) rebuilds from the same composed content, so
 skills survive bind without special handling. On replay, loaded skills come only from
 the launch policy snapshot's `loaded_skills`; a snapshot without them replays
 with none, and Meridian never looks skills up again.
@@ -273,10 +273,9 @@ The `inventory` guidance block is populated from the Mars
 launch-bundle `prompt_surface.inventory_prompt` field. Mars owns rendering of the
 `# Meridian Agents` block, including harness-aware delegation guidance, native-agent
 sections, model metadata, and `model-invocable` filtering. Meridian does not rebuild
-the inventory. It passes the bundle text through except for two exact producer tips:
-the command-substitution prompt-path recipe (incompatible with standalone Meridian
-shell calls) and the duplicate `--bg`/wait reminder. Unknown preface prose remains
-opaque and intact, including backup/native-fanout semantics.
+or filter the inventory; bundle text passes through verbatim. Producer defects are
+fixed in Mars (including mars-agents #190), not string-matched in Meridian. Unknown
+preface prose therefore remains opaque and intact.
 
 `build_guidance_blocks()` (`launch/spawn_guidance.py`) adds the inventory, together
 with spawn capability lines and the spawn contract, only when the agent has spawn
@@ -295,18 +294,34 @@ without re-rendering it.
 ## Meridian Capability Guidance
 
 Every profile receives one `# Meridian capabilities` section that maps the
-capability vocabulary used by prompt packages to the CLI command and its help.
-Work item/directory, source checkout, KB, transcripts, notification, document
-validation, primary handoff, and access-floor lines are always present. Delegation,
-agent inventory, subagent prompting, and model-catalog/prompting lines remain gated
-on `has_spawn_capability(profile)`.
+capability vocabulary used by prompt packages to CLI commands. Preparation stores one
+empty typed block; `_reproject_capabilities_at_bind()` renders it once after spawn
+capability, the actual control root, task checkout, work/KB/extra-context directories,
+and run/chat identities are bound. There is no compose-time directory rendering.
 
-The section is split internally only so bind can replace its directory lines with
-the final work and task paths. It is one visible Markdown section on every harness:
-Claude, Codex, OpenCode, and Pi project it as system instruction; Cursor's default
-inline projection places it ahead of the task. Keeping capability discovery in this
-one surface lets prompt packages name what an agent needs without embedding Meridian
-syntax themselves.
+Work items, sessions, notification, document/link/guidance graphs, source checkout,
+KB, and identities are always present. Delegation, prompt-file creation with
+`meridian work path`, checkout mutation, agent inventory, subagent prompting, and
+model-catalog/prompting remain gated on `has_spawn_capability(profile)`. The command
+permission rule follows the same gate: `work path` may create directories beneath the
+work root and is not granted to leaf profiles.
+
+The single visible section projects as system instruction on Claude, Codex, OpenCode,
+Pi, and Cursor. Keeping capability discovery here lets prompt packages name what an
+agent needs without embedding Meridian syntax themselves.
+
+## Bundled Meridian Skills
+
+Every launch also receives `# Meridian skills`, a short trigger index generated from
+package data under `meridian.skills`. `meridian skills list` exposes the same names and
+descriptions (structured under `--json`); `meridian skills NAME [RESOURCE-PATH]` prints
+the selected Markdown after confining resource paths to that skill folder. Optional
+`spawn-only: true` frontmatter gates a trigger on delegation capability.
+
+These are binary-owned operational skills, so they name concrete Meridian commands
+and flags. They do not enter Mars `load`/`available` or a harness's native skill list,
+and they must not depend on package-specific agents or skills. Package skills remain
+on the normal Mars/harness path.
 
 See [model-resolution/agent-profiles.md](model-resolution/agent-profiles.md#model-invocable-true--false)
 for the field semantics.

@@ -80,7 +80,11 @@ root cause `spawn:p14151`; streaming-harness probe `spawn:p14155`.
 
 **Why:** The primary CLI path previously called the full factory twice — once for `--dry-run` preview, once for real execution. The split makes the prepare-once/bind-N pattern explicit and enforced.
 
-**`PreparedLaunchSurface`** — public frozen dataclass carrying everything spawn-stable (resolved request, harness, composition warnings, agent inventory, context prompt). Explicitly excludes runtime-only values (spawn ID, report path, env, argv, permissions). The exclusion is the invariant — bind-phase code cannot accidentally depend on preparation-phase values.
+**`PreparedLaunchSurface`** — public frozen dataclass carrying everything spawn-stable
+(resolved request, harness, composition warnings, agent inventory, and a typed empty
+capability placeholder). It explicitly excludes runtime-only values (spawn ID, report
+path, env, argv, permissions). The exclusion is the invariant — bind-phase code cannot
+accidentally depend on preparation-phase values.
 
 **`RuntimeBindings`** — frozen dataclass for bind-phase inputs: `spawn_id`, `report_output_path`, `runtime_work_id`, `chat_id`, `forked_harness_session_id`, `plan_overrides`, `dry_run`.
 
@@ -103,10 +107,10 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 **Why:** `execution_cwd` was overloaded — one field served double duty as both config authority and task directory. When a spawn originates from a nested directory these concerns diverge: config authority stays at repo root while the agent operates in the subdirectory.
 
 **Behavior (updated 2026-10, unmerged `feat/capability-guidance`):**
-`bind_launch_context()` sets `MERIDIAN_TASK_DIR`, refreshes the source-checkout
-line inside the single capability section with the final logical task cwd, and
-re-projects the composed prompt. It does not append a second task-directory block
-after projection.
+`bind_launch_context()` sets `MERIDIAN_TASK_DIR`, renders the entire single capability
+section with the final control root, logical task cwd, work context, and run identity,
+then re-projects the composed prompt. It does not compose or append a separate
+task-directory block.
 
 **continue/fork authority:** `ClaudeSessionAccessSource` carries `source_control_root` and `target_control_root` instead of `source_cwd`. Legacy records fall back to current launch `control_root`.
 
@@ -201,16 +205,33 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 **Decision (2026-06, PR #314):** The agent inventory prompt is bundle-only. Mars renders `prompt_surface.inventory_prompt`. There is no Python fallback renderer.
 
-**Calibration (2026-10, unmerged `feat/capability-guidance`):** Meridian removes
-two exact producer tips whose behavior now has a single owner: the
-command-substitution prompt-path recipe and the duplicate `--bg`/wait reminder.
-Everything else passes through, including unknown preface prose. This narrow
-exception removes a contradiction without making Python a second inventory
-renderer.
+**Calibration (2026-10, unmerged `feat/capability-guidance`):** Meridian passes the
+inventory through verbatim. Stale producer guidance is fixed at its Mars owner (see
+mars-agents #190), never by exact-string filtering in the consumer.
 
 **Why single-owner:** A dual-renderer creates divergence risk. Mars already owns the `.mars/` directory schema, profile scanning, and agent-copy; inventory rendering is a natural extension.
 
 **Resume/snapshot persistence:** `bundle_inventory_prompt` on `LaunchPolicySnapshot` so inventory survives without re-calling mars.
+
+---
+
+### D-bundled-meridian-skills: Meridian-owned operations guidance versions with the CLI
+
+**Status:** unmerged (`feat/capability-guidance`).
+
+**Decision:** Operational judgment whose subject is Meridian ships as package data
+under `meridian.skills`. Every launch receives a compact trigger index generated from
+the skills' `name`, `description`, and optional `spawn-only` frontmatter. Agents read a
+skill or resource with the read-only `meridian skills` command; package skills keep
+Mars and harness-native loading.
+
+Binary-owned skills may name the commands and flags implemented by that same release.
+They cannot depend on package-specific agent or skill names. The capability section
+stays the short discovery pointer; the skill carries judgment and detailed mechanics.
+
+**Why:** Moving Meridian syntax out of reusable packages removes runtime coupling, but
+removing it from binary-owned guidance would leave flags hidden by compact help with no
+owner. Versioning code and its operational instructions together keeps them aligned.
 
 ---
 
