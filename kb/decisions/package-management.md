@@ -1019,9 +1019,9 @@ or Codex starts loading plugin agents.
 
 **Status:** Current choice. The owner raised the idea and agreed to the
 lead's form of it ("yeah, I think load these skills is acceptable",
-`chat:c9019`). Implemented on the local mars-agents branch
-`feat/skills-lowering`, which has no PR yet; it lands after PR #193 and before
-the first published plugin.
+`chat:c9019`). Implemented in mars-agents PR #194 (`feat/skills-lowering`,
+draft, stacked on #193); it lands after #193 and before the first published
+plugin.
 
 **Decision:** An agent's `skills: {load, available}` lowers per harness from
 one policy in the per-harness agent lowerer, used by both `mars sync` and
