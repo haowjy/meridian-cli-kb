@@ -1,5 +1,8 @@
 # Architecture: Launch System
 
+> **Status:** Capability-guidance details below describe unmerged
+> `meridian-cli` branch `feat/capability-guidance` (`work:package-transferability`).
+
 The launch system is the composition and execution layer between the policy layer (`ops/spawn/`) and the mechanism layer (harness adapters, state stores). It has one job: turn a caller's intent into a running subprocess, then record what happened.
 
 ## Central Seam: Prepare/Bind
@@ -101,8 +104,16 @@ The split captures the divergence between *where project config lives* and *wher
 
 **`bind_launch_context()` behavior when `task_cwd` is set:**
 1. Sets `MERIDIAN_TASK_DIR` in the child process's environment to the `task_cwd` value.
-2. Appends a `# Source-edit directory` block to the agent's system prompt when actual process cwd cannot be set to task_cwd (`LaunchDirectoryContext.requires_task_cwd_instruction`).
-3. Runs `_is_task_cwd_covered_by_projection()` before adding task_cwd as a workspace root to avoid redundant projection.
+2. Rebuilds the late-bound directory lines inside `# Meridian capabilities`
+   with the final task and work paths, then re-projects the composed prompt through
+   the selected harness.
+3. Includes an external task directory in workspace projection when the harness
+   has an active projection channel; otherwise it emits `task_cwd_not_projected`.
+
+There is no post-projection source-directory append. The capability line is the
+single instruction surface: it identifies `MERIDIAN_TASK_DIR`, warns that shell
+cwd may be `MERIDIAN_PROJECT_DIR`, and directs source operations through the task
+directory.
 
 **Spawn and session records** persist both fields: `control_root` (config authority) and `task_cwd` (nullable, task directory intent). `execution_cwd` remains as a legacy alias for the actual process cwd (`child_cwd`).
 
@@ -182,10 +193,12 @@ See [../concepts/reference-resolution.md](../concepts/reference-resolution.md) f
 
 | Harness | Behavior |
 |---------|----------|
-| Pi / OpenCode / Codex / Cursor | Actual process cwd = `task_cwd` |
-| Claude `-p` (legacy) | Process cwd = `control_root`; task-cwd instruction injected into system prompt |
+| Claude / Codex / OpenCode / Pi / Cursor | Harness process cwd remains `control_root`; `MERIDIAN_TASK_DIR` identifies the logical source checkout |
 
-When `task_cwd` is outside `control_root`, it must be included in workspace projection so the harness sandbox grants filesystem access. If the harness cannot project the path, the fallback (instruction injection) applies.
+When `task_cwd` is outside `control_root`, active workspace projection includes it
+so the harness sandbox can grant filesystem access. Capability guidance tells the
+agent which directory to use but is not a permission fallback: a harness without
+projection still receives a `task_cwd_not_projected` warning.
 
 See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for rationale on all design decisions.
 

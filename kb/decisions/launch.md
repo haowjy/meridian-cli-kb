@@ -1,5 +1,8 @@
 # Decisions: Launch Composition and Policy
 
+> **Status:** Capability-guidance amendments below describe unmerged
+> `meridian-cli` branch `feat/capability-guidance` (`work:package-transferability`).
+
 This page owns decisions about preparing, binding, and composing a launch.
 Managed-process ownership, session/wait behavior, and harness compatibility now
 have separate records so independently changing concerns remain discoverable.
@@ -99,7 +102,11 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 **Why:** `execution_cwd` was overloaded — one field served double duty as both config authority and task directory. When a spawn originates from a nested directory these concerns diverge: config authority stays at repo root while the agent operates in the subdirectory.
 
-**Behavior (updated 2026-06, PR #318):** When `task_cwd` differs from `control_root`, `bind_launch_context()` sets `MERIDIAN_TASK_DIR` env var and injects a system prompt block stating the task directory.
+**Behavior (updated 2026-10, unmerged `feat/capability-guidance`):**
+`bind_launch_context()` sets `MERIDIAN_TASK_DIR`, refreshes the source-checkout
+line inside the single capability section with the final logical task cwd, and
+re-projects the composed prompt. It does not append a second task-directory block
+after projection.
 
 **continue/fork authority:** `ClaudeSessionAccessSource` carries `source_control_root` and `target_control_root` instead of `source_cwd`. Legacy records fall back to current launch `control_root`.
 
@@ -190,9 +197,16 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 ---
 
-### D-mars-owns-inventory: Mars renders agent inventory; Meridian embeds verbatim
+### D-mars-owns-inventory: Mars renders agent inventory; Meridian preserves its semantics
 
-**Decision (2026-06, PR #314):** The agent inventory prompt is bundle-only. Mars renders `prompt_surface.inventory_prompt`. Meridian embeds it verbatim. There is no Python fallback renderer.
+**Decision (2026-06, PR #314):** The agent inventory prompt is bundle-only. Mars renders `prompt_surface.inventory_prompt`. There is no Python fallback renderer.
+
+**Calibration (2026-10, unmerged `feat/capability-guidance`):** Meridian removes
+two exact producer tips whose behavior now has a single owner: the
+command-substitution prompt-path recipe and the duplicate `--bg`/wait reminder.
+Everything else passes through, including unknown preface prose. This narrow
+exception removes a contradiction without making Python a second inventory
+renderer.
 
 **Why single-owner:** A dual-renderer creates divergence risk. Mars already owns the `.mars/` directory schema, profile scanning, and agent-copy; inventory rendering is a natural extension.
 
@@ -347,6 +361,26 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 **Why:** The spawn usage contract was previously only in the opt-in `meridian-spawn` skill. Across three incidents, the model never loaded that skill — context prioritization buried it. Making the contract always-injected eliminates the opt-in gap. The gate on `subagents` ensures leaf agents don't waste context on spawn instructions.
 
 **Contract as first-class composition block:** Delivered as `spawn_contract_prompt` — a first-class block in `ComposedLaunchContent`, rendered separately from inventory to prevent snapshot round-trip duplication.
+
+### D-capability-command-mapping: Packages name capabilities; launch guidance maps commands (2026-10, unmerged) {#d-capability-command-mapping}
+
+**Decision:** Prompt-package prose names portable capabilities — the work
+directory, KB, past sessions, notifying the human, or validating diagrams — and
+does not teach Meridian syntax. Meridian launch composition injects one compact
+capability section that maps each phrase to its command and `-h` entry point.
+
+The general rows are present on every profile. Delegation, agent inventory,
+subagent prompting, and model-specific prompting remain behind the existing spawn
+capability gate. Behavioral invariants that help alone cannot enforce stay in the
+prompt: standalone Meridian shell calls, draining `--bg` spawns, never
+background-wrapping a launch, and the confirm-completion handshake.
+
+**Why:** Shared prompt packages are imported into runtimes that may have app tools
+instead of Meridian or even a shell. Embedding CLI syntax makes their judgment
+non-portable and duplicates command help. Keeping the mapping at Meridian's launch
+boundary gives Meridian agents the concrete operation while leaving package prose
+usable elsewhere. The consolidation also prevents separately rendered task/work
+instructions from drifting or inflating every prompt.
 
 ---
 
