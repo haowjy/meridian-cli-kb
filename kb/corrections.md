@@ -104,6 +104,12 @@ Seen once. Each moves into the table on its second occurrence.
 - **Advanced a structural change without the strict maintainability
   review.** `chat:c8514` 2026-10-21 "did we have /thermo-nuclear-review
   review?"
+- **Pasted the owner's chat lines into a design doc.** A design doc states
+  each decision in its own words; verbatim quotes with their provenance go
+  in the mining report and the KB decision record. `chat:c9182` 2026-10-25
+  "why... are those quotes even there lol" (after a session-miner pass, the
+  lead had copied the owner's typed lines, typos included, into the work
+  item's `design/decisions.md`).
 - **Didn't record repeated corrections.** `chat:c7796` 2026-10-15 "aren't
   repeated mistakes supposed to be recorded into the kb...?" Enforced by
   `doc:` base `@kb-lead` and this register.

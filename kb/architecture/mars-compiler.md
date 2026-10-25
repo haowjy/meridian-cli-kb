@@ -231,34 +231,22 @@ for the D91 decision.
 compiler. It resolves through the publish lens, then calls the same
 `prepare_target_state` step sync uses (graph → filtered, renamed, validated
 `TargetState`), and lowers agents, skills, exported hooks and exported MCP
-through the per-harness lowerers into fresh plugin trees. Five requested
-harnesses map to three physical identities: Claude/Codex/Grok share Claude,
-while Cursor and OpenCode have their own. It never calls
-`compile()`, never writes `mars.lock`, and never probes installed harnesses.
+through the per-harness lowerers into up to three plugin trees: Claude
+(read by Claude, Codex and Grok), Cursor and OpenCode. Each tree takes the
+target selection of one harness's sync root (`.claude/`, `.cursor/`,
+`.opencode/`) and that harness's lowerer. It never calls `compile()`,
+never writes `mars.lock`, and never probes installed harnesses.
 Any change to filtering, renames, collision handling or agent lowering
 therefore changes plugin output too; that is intended, since a plugin must hold
-what sync installs. Scope and rationale:
+what sync installs. The differences are where a plugin loader differs from
+a project install: the Claude tree drops agent fields Claude ignores in
+plugins, and writes MCP environment pass-throughs as `env_vars` for Codex
+while sync keeps the native form. Scope
+and rationale:
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
-Mechanism: mars-agents `src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`
-(unmerged `f3/integration` through `1d348a3`).
-
-Publication does not make a strict copy of every package checkout. A typed
-inventory carries only selected item roots and eligible MCP definitions;
-filtered-out non-hook items and repo tooling are never traversed. Hook roots
-remain in staging because removed-schema compatibility is intentionally checked
-before filters. Manifestless foreign declarations are narrowed to selected
-items before rediscovery. The same typed root inventory feeds the offline input
-fingerprint, which excludes generated catalogs so the first configured build
-cannot make the second appear stale.
-
-Configured publication owns the output directory wholesale but only three
-repo-root files: the Claude and Cursor marketplace catalogs and OpenCode's root
-`package.json`. The sentinel allowlists those names at read time, records a
-catalog parent only when Mars created it, and permits retiring that directory
-only when empty. Explicit `--out` has no repo-root files and may live in an
-ignored CI directory. OpenCode hooks are shipped despite a heuristic
-default-export warning; the generated runtime imports each fragment from an
-in-memory data URL and isolates each load/setup failure.
+Mechanism (staging, ownership, recovery, the OpenCode runtime): mars-agents
+`src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`, on
+`release/v0.19.0`, not yet released.
 
 ## Cleanup Notes Moved Out
 

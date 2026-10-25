@@ -115,7 +115,7 @@ target using these precedence rules:
 Depth is the shortest distance from the consumer (`ResolvedGraph::dependency_depths()`).
 `graph.order` is alphabetical, so declaration order comes from `mars.toml`.
 Depth-first ranking is [D103](../../decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24),
-on unmerged mars-agents PR #193.
+on mars-agents `release/v0.19.0`, not yet released.
 See [D99](../../decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24).
 
 **Hook selection** — target construction applies dependency filters, exported

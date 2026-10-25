@@ -20,14 +20,17 @@ and [compiler pipeline](concepts/package-management/compiler-pipeline.md)
 now rank by depth; [self-source selection](concepts/package-management/self-source-selection.md)
 records the plugin-tree discovery skip.
 
-The final F3 build gate reconciled D100 with the multi-harness implementation:
-five harnesses map to Claude, Cursor and OpenCode tree identities; configured
-publication owns only three allowlisted repo-root files; selected typed item/MCP
-inventory bounds strict staging and fingerprinting; and generated catalogs are
-never fingerprint inputs. OpenCode hook export recognition is warn-only because
-the generated runtime isolates each fragment. Version/check integration remains
-in separate lanes. Source: `work:harness-plugin-export`, mars-agents
-`f3/integration` `1d348a3`.
+Updated after the multi-harness build settled: D100 now records the
+three trees for five harnesses, the owner's words and hedges behind the
+harness set, the release-time contracts (output confinement, the three
+allowlisted root files, raw plugin metadata at load, git rollback) and the
+open default-harness question (mars-agents#211).
+[harness-plugin-loading.md](research/harness-plugin-loading.md) gained Grok
+and live results: Codex plugin MCP is callable but takes env only through
+`env_vars`. D101–D103 statuses name `release/v0.19.0` and PR #197. The
+compiler page's plugin section now links mars-agents `src/build/` docs
+instead of restating them. Source: `work:harness-plugin-export`,
+`chat:c9182`, `spawn:p9533`, `spawn:p9535`.
 
 ---
 ## 2026-10-24 — MCP selection joined target state
