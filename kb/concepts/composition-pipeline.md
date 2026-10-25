@@ -1,8 +1,5 @@
 # Composition Pipeline
 
-> **Status:** Capability-guidance details below describe unmerged
-> `meridian-cli` branch `feat/capability-guidance` (`work:package-transferability`).
-
 Every spawn involves assembling content — skills, agent profile, user prompt,
 reference files, prior output — and delivering it to the harness in the right
 form. Each harness has its own channels: Claude reads an appended system prompt
@@ -291,6 +288,9 @@ Resume and snapshot replay carry the rendered bundle inventory on the launch pol
 snapshot (`bundle_inventory_prompt`) so a resumed session uses the same inventory text
 without re-rendering it.
 
+See [model-resolution/agent-profiles.md](model-resolution/agent-profiles.md#model-invocable-true--false)
+for the field semantics.
+
 ## Meridian Capability Guidance
 
 Every profile receives one `# Meridian capabilities` section that maps the
@@ -299,8 +299,9 @@ empty typed block; `_reproject_capabilities_at_bind()` renders it once after spa
 capability, the actual control root, task checkout, work/KB/extra-context directories,
 and run/chat identities are bound. There is no compose-time directory rendering.
 
-Work items, sessions, notification, document/link/guidance graphs, source checkout,
-KB, and identities are always present. Delegation, prompt-file creation with
+Work items, sessions, document/link/guidance graphs, source checkout, KB, and
+identities are always present. Notifying the human appears only for `mode: primary`
+profiles. Delegation, prompt-file creation with
 `meridian work path`, checkout mutation, agent inventory, subagent prompting, and
 model-catalog/prompting remain gated on `has_spawn_capability(profile)`. The command
 permission rule follows the same gate: `work path` may create directories beneath the
@@ -312,19 +313,23 @@ agent needs without embedding Meridian syntax themselves.
 
 ## Bundled Meridian Skills
 
-Every launch also receives `# Meridian skills`, a short trigger index generated from
-package data under `meridian.skills`. `meridian skills list` exposes the same names and
-descriptions (structured under `--json`); `meridian skills NAME [RESOURCE-PATH]` prints
-the selected Markdown after confining resource paths to that skill folder. Optional
-`spawn-only: true` frontmatter gates a trigger on delegation capability.
+Every launch also receives `# Meridian skills`, one trigger line per skill shipped in
+the wheel under `meridian.skills` (`<name>__meridian/`). `build_guidance_blocks()`
+drops a skill whose frontmatter says `mode: primary` unless the profile's `mode` is
+`primary`. Today only `sessions__meridian` reaches every agent; `escalation`, `handoff`,
+`notify`, `prompt-authoring`, and `work` reach primary-mode profiles (leads) only.
 
-These are binary-owned operational skills, so they name concrete Meridian commands
-and flags. They do not enter Mars `load`/`available` or a harness's native skill list,
-and they must not depend on package-specific agents or skills. Package skills remain
-on the normal Mars/harness path.
+`meridian skills NAME [RESOURCE-PATH]` prints a skill under the same `# Skill:` header
+and folder line an injected skill gets, so the agent treats it as loaded; resource paths
+are confined to the skill folder. `meridian skills list` gives names and descriptions
+(`--json` for structured output).
 
-See [model-resolution/agent-profiles.md](model-resolution/agent-profiles.md#model-invocable-true--false)
-for the field semantics.
+Bundled skills name concrete Meridian commands and flags, and never depend on a
+package's agents or skills. They do not enter Mars `load`/`available` or a harness's
+native skill list; package skills stay on the normal Mars/harness path. Why they ship
+with the binary, the naming, and the gate:
+[D-bundled-meridian-skills](../decisions/launch.md#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli).
+Installing them into `.mars/skills/` through Mars is designed but not built.
 
 ---
 

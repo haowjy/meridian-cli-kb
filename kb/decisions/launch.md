@@ -1,8 +1,5 @@
 # Decisions: Launch Composition and Policy
 
-> **Status:** Capability-guidance amendments below describe unmerged
-> `meridian-cli` branch `feat/capability-guidance` (`work:package-transferability`).
-
 This page owns decisions about preparing, binding, and composing a launch.
 Managed-process ownership, session/wait behavior, and harness compatibility now
 have separate records so independently changing concerns remain discoverable.
@@ -106,7 +103,7 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 
 **Why:** `execution_cwd` was overloaded — one field served double duty as both config authority and task directory. When a spawn originates from a nested directory these concerns diverge: config authority stays at repo root while the agent operates in the subdirectory.
 
-**Behavior (updated 2026-10, unmerged `feat/capability-guidance`):**
+**Behavior (updated 2026-10, meridian-cli v0.14.3):**
 `bind_launch_context()` sets `MERIDIAN_TASK_DIR`, renders the entire single capability
 section with the final control root, logical task cwd, work context, and run identity,
 then re-projects the composed prompt. It does not compose or append a separate
@@ -205,7 +202,7 @@ and [native session binding](../architecture/native-session-binding.md#one-attem
 
 **Decision (2026-06, PR #314):** The agent inventory prompt is bundle-only. Mars renders `prompt_surface.inventory_prompt`. There is no Python fallback renderer.
 
-**Calibration (2026-10, unmerged `feat/capability-guidance`):** Meridian passes the
+**Calibration (2026-10, meridian-cli v0.14.3):** Meridian passes the
 inventory through verbatim. Stale producer guidance is fixed at its Mars owner (see
 mars-agents #190), never by exact-string filtering in the consumer.
 
@@ -217,21 +214,71 @@ mars-agents #190), never by exact-string filtering in the consumer.
 
 ### D-bundled-meridian-skills: Meridian-owned operations guidance versions with the CLI
 
-**Status:** unmerged (`feat/capability-guidance`).
+**Status:** shipped in meridian-cli v0.14.3–v0.14.6 (PRs #767, #770, #771). meridian-base
+0.12.0 deleted the package copies it replaced (`notify`, `session-mining`,
+`meridian-privilege-escalation`, and the work-item mechanics of `work-artifacts`).
 
-**Decision:** Operational judgment whose subject is Meridian ships as package data
-under `meridian.skills`. Every launch receives a compact trigger index generated from
-the skills' `name`, `description`, and optional `spawn-only` frontmatter. Agents read a
-skill or resource with the read-only `meridian skills` command; package skills keep
-Mars and harness-native loading.
+**Decision:** Guidance whose subject is Meridian itself ships inside the Meridian wheel
+(`src/meridian/skills/<name>__meridian/`), not in a prompt package. The set is
+`escalation`, `handoff`, `notify`, `sessions`, `work`, and `prompt-authoring` (agent and
+skill file formats). Every launch gets a `# Meridian skills` section with one trigger
+line per skill, and agents read a skill or one of its resources with
+`meridian skills NAME [RESOURCE]`. Package skills keep Mars and harness-native loading.
+The colocated contract (frontmatter, naming, trimming rule) is
+`src/meridian/skills/AGENTS.md`; user docs are `docs/agent-profiles.md`.
 
-Binary-owned skills may name the commands and flags implemented by that same release.
-They cannot depend on package-specific agent or skill names. The capability section
-stays the short discovery pointer; the skill carries judgment and detailed mechanics.
+Bundled skills may name the commands and flags of the release they ship in, since they
+version with it. They may not depend on package-specific agent or skill names. The
+capabilities section stays the short pointer; the skill carries the judgment.
 
-**Why:** Moving Meridian syntax out of reusable packages removes runtime coupling, but
-removing it from binary-owned guidance would leave flags hidden by compact help with no
-owner. Versioning code and its operational instructions together keeps them aligned.
+**Why:** Moving Meridian syntax out of reusable packages (see
+[D-capability-command-mapping](#d-capability-command-mapping)) removes runtime coupling,
+but that judgment still needs an owner. Shipped with the binary, it changes in the same
+release as the commands it explains, so a package needs no `requires-meridian` bump to
+stay accurate.
+
+**Naming (current choice):** every bundled skill is `<name>__meridian`, copying Mars's
+`name__source` spelling for cross-source collisions. Recalling that Mars puts the source
+last, the owner settled on the suffix ("oh... isn't it `meridian__notify` ...? or is
+meridian added at the end?"). Rejected: reserving the plain names (a generic name like
+`notify` would keep blocking package skills of that name); `meridian__notify` (breaks the
+Mars convention and sorts by source instead of name); renaming only on collision (the
+name would change from one profile to the next).
+
+**Gating (current choice):** a bundled skill's optional `mode: primary` frontmatter shows
+its trigger only to profiles whose `mode` is `primary`, including a primary-mode profile
+launched as a spawn. `handoff`, `notify`, `work`, `escalation`, and `prompt-authoring`
+are primary-only; `sessions` reaches every agent. The `meridian notify` capability line
+uses the same gate. When the lead proposed a new `audience` field, the owner pointed at
+the field that already existed ("uh... we have an audience field...?", then "we have
+mode: primary"). Rejected: the `spawn-only` marker v0.14.3 shipped, which hid triggers
+only from agents that cannot delegate; reviewers and `@kb-lead` can delegate but report
+to their caller, not the human, so notify and handoff reached them. Also rejected: a new
+`audience` field (a second word for `mode`).
+
+**Reading looks like loading (current choice):** `meridian skills NAME` prints the
+skill under the same `# Skill:` header and folder line an injected skill gets, through
+the shared renderer, so an agent treats a read skill as loaded. The owner's words: "read
+form permanent for agents I think... it should basically be the same as activating a
+normal skill?" A general `meridian skill <name>` for package skills was scrapped
+(meridian-cli #766).
+
+**Lesson:** the first cut of the moved skills trimmed flag syntax and took the judgment
+with it: escalation's symptom-to-fix scenarios (try `--network allowlist` before
+`--network allow` for a port bind; ask the human before `--yolo`), notify's rule to raise
+an uncertain call before more work builds on it, sessions' advice to mine before
+compaction. A review against the meridian-base originals restored it in v0.14.5. Compare
+a trimmed skill against its original before shipping it.
+
+**Planned, not built:** installing bundled skills through Mars (`mars provide`, a
+machine-local `.mars/provided.lock`, and a package-level `uses-providers` declaration),
+so they live in `.mars/skills/` beside package skills and package agents can list them.
+The design is settled in the package-transferability work item
+(`design/mars-provided-sources.md`); Mars has no implementation, and the meridian-cli
+side is on the unmerged branch `feat/provided-skills`. Until it lands, bundled skills
+are read from the wheel only.
+
+**Provenance:** `work:package-transferability`, `chat:c9186`.
 
 ---
 
@@ -383,16 +430,26 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 
 **Contract as first-class composition block:** Delivered as `spawn_contract_prompt` — a first-class block in `ComposedLaunchContent`, rendered separately from inventory to prevent snapshot round-trip duplication.
 
-### D-capability-command-mapping: Packages name capabilities; launch guidance maps commands (2026-10, unmerged) {#d-capability-command-mapping}
+### D-capability-command-mapping: Packages name capabilities; launch guidance maps commands (2026-10, v0.14.3) {#d-capability-command-mapping}
 
 **Decision:** Prompt-package prose names portable capabilities — the work
 directory, KB, past sessions, notifying the human, or validating diagrams — and
 does not teach Meridian syntax. Meridian launch composition injects one compact
-capability section that maps each phrase to its command and `-h` entry point.
+`# Meridian capabilities` section that maps each phrase to its command and `-h`
+entry point. Shipped in meridian-cli v0.14.3 (#767); meridian-base 0.12.0,
+meridian-dev-workflow 0.15.15, creative-writing-skills 0.5.19, and meridian-prompter
+0.5.12 rewrote their prose to the capability wording.
 
-The general rows are present on every profile. Delegation, agent inventory,
-subagent prompting, and model-specific prompting remain behind the existing spawn
-capability gate. Behavioral invariants that help alone cannot enforce stay in the
+Package text follows four rules: name the capability, never the command ("check the
+live model catalog", not `meridian mars models list`; "the work directory", not
+`$MERIDIAN_ACTIVE_WORK_DIR`); refer to skills as `/name` and agents as `@name`; keep
+the judgment and drop text whose only job is syntax; leave frontmatter runtime policy
+such as `tools:` allowlists alone, since it is not prose.
+
+Most rows are present on every profile. `meridian notify` appears only for
+`mode: primary` profiles (see [D-bundled-meridian-skills](#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli)).
+Delegation, agent inventory, subagent prompting, and model-specific prompting remain
+behind the existing spawn capability gate. Behavioral invariants that help alone cannot enforce stay in the
 prompt: standalone Meridian shell calls, draining `--bg` spawns, never
 background-wrapping a launch, and the confirm-completion handshake.
 

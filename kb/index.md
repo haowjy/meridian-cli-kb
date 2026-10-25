@@ -286,7 +286,6 @@ The broader Meridian ecosystem: companion repos, their roles, and how they compo
 - [ecosystem/prompt-packages/meridian-base.md](ecosystem/prompt-packages/meridian-base.md) — Root package: shared workers, coordination skills, model aliases, hooks; why it has no lead and spawning isn't a skill
 - [ecosystem/prompt-packages/meridian-dev-workflow.md](ecosystem/prompt-packages/meridian-dev-workflow.md) — Dev package: leads, specialists, lifecycle skills; how the fixed pipeline became risk-staffed leads, and retired pieces not to revive
 - [ecosystem/prompt-packages/meridian-prompter.md](ecosystem/prompt-packages/meridian-prompter.md) — Prompt engineering package: prompt-dev, reviewer, tester, researchers; proportional verification; depends on base (others reference it locally only)
-- [ecosystem/prompt-packages/meridian-benchmark-agents.md](ecosystem/prompt-packages/meridian-benchmark-agents.md) — Benchmark package: unattended verifier-driven benchmark orchestration, bounded attempts, Claude-native subagent materialization, and reporting guardrails
 - [ecosystem/prompt-packages/prompt-principles.md](ecosystem/prompt-packages/prompt-principles.md) — How the `/prompt-principles` skill is organized (body plus level resources), and claims it dropped
 
 ### Jupyter Workbench

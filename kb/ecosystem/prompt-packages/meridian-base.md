@@ -33,11 +33,22 @@ body is one line; the caller's brief carries the work.
 The package once shipped `meridian-spawn` and `meridian-work-coordination`
 skills. 0.7.22 deleted `meridian-spawn`: "Spawn doctrine now lives in
 meridian itself." Meridian injects the spawn contract into each launch, and
-`meridian spawn -h` is the on-demand reference. Work-item handling folded
-into `/work-artifacts`, whose lifecycle detail sits in a resource rather than
-the body, because only the agent that started a work item manages its state.
-CLI mechanics stay with the CLI, so the package never drifts from the CLI
-version it runs on.
+`meridian spawn -h` is the on-demand reference. CLI mechanics stay with the
+CLI, so the package never drifts from the CLI version it runs on.
+
+0.12.0 (2026-10-25) finished that move. `notify`, `session-mining`,
+`meridian-privilege-escalation`, and the work-item start, attach, and finish
+mechanics of `/work-artifacts` were deleted; Meridian ships them as bundled
+`*__meridian` skills
+([D-bundled-meridian-skills](../../decisions/launch.md#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli)).
+What stayed is the half that holds outside Meridian: `/work-artifacts` keeps
+work-directory orientation, decision placement, and divergence guidance;
+`/handoff` keeps the transition-brief judgment. Base prose names capabilities
+("notify the human", "past sessions") rather than commands, because
+meridian-flow imports base into agents that have app tools and no shell
+([D-capability-command-mapping](../../decisions/launch.md#d-capability-command-mapping)).
+0.12.0 requires Meridian 0.14.5 or later, the release that supplies those
+skills.
 
 ## Domain-Neutral Since 0.11.0
 

@@ -12,9 +12,9 @@ roles, which lead hands off to which, the end-to-end lifecycle, and the agent an
 skill tables with default models. Review lanes and stop conditions live in
 `skills/agent-staffing/resources/reviewers.md`.
 
-**Dependencies:** meridian-base (`>=0.11.4, <0.12.0`), which supplies the
+**Dependencies:** meridian-base (`>=0.11.4, <0.13.0`), which supplies the
 shared workers including `@kb-lead` and `@cold-reader`. It requires mars
-0.14.0 or later. meridian-prompter is a local dependency only.
+0.18.0 and Meridian 0.14.5 or later. meridian-prompter is a local dependency only.
 
 Checked against the package source on 2026-10-23.
 
@@ -76,7 +76,6 @@ captured knowledge. What went was running every check on every change.
 
 - [overview.md](overview.md) — the package graph and its traps
 - [meridian-base.md](meridian-base.md) — shared workers and model aliases this package builds on
-- [meridian-benchmark-agents.md](meridian-benchmark-agents.md) — benchmark runs, which use this package's specialists but not its leads
 - [prompt-principles.md](prompt-principles.md) — the doctrine behind "leads spend context on decisions"
 
 ## Provenance

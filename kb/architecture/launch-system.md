@@ -1,8 +1,5 @@
 # Architecture: Launch System
 
-> **Status:** Capability-guidance details below describe unmerged
-> `meridian-cli` branch `feat/capability-guidance` (`work:package-transferability`).
-
 The launch system is the composition and execution layer between the policy layer (`ops/spawn/`) and the mechanism layer (harness adapters, state stores). It has one job: turn a caller's intent into a running subprocess, then record what happened.
 
 ## Central Seam: Prepare/Bind

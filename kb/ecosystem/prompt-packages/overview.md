@@ -33,7 +33,6 @@ graph TD
     MB["meridian-base<br/>shared workers, coordination skills, model aliases"]
     MDW["meridian-dev-workflow<br/>dev leads, specialists, lifecycle skills"]
     MPR["meridian-prompter<br/>prompt engineering"]
-    MBA["meridian-benchmark-agents<br/>unattended benchmark runs"]
     AR["autoresearch<br/>research loops"]
     CWS["creative-writing-skills<br/>fiction agents"]
     WS["writing-sync<br/>Drive/Docs sync skills"]
@@ -43,8 +42,6 @@ graph TD
 
     MDW --> MB
     MPR -->|"selected skills only"| MB
-    MBA --> MB
-    MBA --> MDW
     AR --> MB
     AR --> MDW
     CWS --> MB
@@ -90,9 +87,16 @@ That was never true for consumers.
   meridian-dev-workflow means raising every dependent's pin and releasing
   it. Until 2026-10-23 several packages still pinned `<0.11.0` and
   `<0.14.0`, which no longer admitted the current releases, because nobody
-  had raised them.
-- **meridian-benchmark-agents has never been published.** Its checkout has
-  no git remote, so no project can install it from a URL.
+  had raised them. When meridian-base went to 0.12.0, its dependents widened
+  their pins to `<0.13.0` in the same round.
+- **A package that drops content Meridian now supplies must require that
+  Meridian first.** It sets `requires-meridian` to the release that ships the
+  replacement, then releases. meridian-base 0.12.0 deleted its Meridian-specific
+  skills and requires Meridian 0.14.5, which bundles them
+  ([D-bundled-meridian-skills](../../decisions/launch.md#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli)).
+- **meridian-benchmark-agents is parked.** Its checkout holds only a README
+  saying what the package was for and how to revive it (the full package is
+  at commit `a23b22c`); it was never published and has no git remote.
 - **jupyter-workbench's manifest predates the current schema.** It lists
   skills as `[[package.skills]]` path entries, where other packages rely on
   directory discovery.
@@ -115,7 +119,6 @@ project root, not the current directory. Consumers pick up a release with
 - [meridian-base.md](meridian-base.md) — the root package
 - [meridian-dev-workflow.md](meridian-dev-workflow.md) — development leads and lifecycle
 - [meridian-prompter.md](meridian-prompter.md) — prompt engineering
-- [meridian-benchmark-agents.md](meridian-benchmark-agents.md) — benchmark runs
 - [prompt-principles.md](prompt-principles.md) — the prompt-engineering doctrine
 - [../domain-packages.md](../domain-packages.md) — domain packages
 - [../../concepts/package-management/overview.md](../../concepts/package-management/overview.md) — how mars resolves, compiles and targets packages

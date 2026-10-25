@@ -3,6 +3,25 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-25 — Packages name capabilities; Meridian ships its own skills
+
+`work:package-transferability`, shipped in meridian-cli v0.14.3–v0.14.6 and
+meridian-base 0.12.0.
+[D-bundled-meridian-skills](decisions/launch.md#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli)
+rewritten as shipped: `<name>__meridian` naming, `mode` gating (the
+`spawn-only` marker is gone), reads that print the injected-skill header, the
+trimmed-judgment lesson, and the owner's words and rejected alternatives.
+[D-capability-command-mapping](decisions/launch.md#d-capability-command-mapping)
+gained the package-text rules. Unmerged-branch banners removed from
+[composition pipeline](concepts/composition-pipeline.md),
+[launch system](architecture/launch-system.md) and the launch decisions.
+Package pages updated for meridian-base 0.12.0, prompter 0.5.12 and the widened
+pins; the parked meridian-benchmark-agents page deleted (its repo README
+records how to revive it). Vocabulary gained *bundled skill* and *capability*;
+the corrections register gained the `audience`-field occurrence. Mars-provided
+skills are recorded as planned only.
+
+---
 ## 2026-10-25 — Plugin builds, skills lowering, rename naming, depth precedence
 
 `work:harness-plugin-export`. New decision records

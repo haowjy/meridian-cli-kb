@@ -9,10 +9,10 @@ description. Each agent's own file states its model, tools and method.
 `CHANGELOG.md` dates each change, and `AGENTS.md` covers releasing and
 editing.
 
-**Dependencies:** meridian-base (`>=0.11.0, <0.12.0`), filtered to the
+**Dependencies:** meridian-base (`>=0.11.0, <0.13.0`), filtered to the
 skills its agents load (`explore-and-engage`, `grill`,
-`grill-with-evidence`, `intent-modeling`, `llm-writing`, `notify`,
-`session-mining`). It requires mars 0.14.0 or later. Other packages
+`grill-with-evidence`, `intent-modeling`, `llm-writing`). It requires mars
+0.18.0 and Meridian 0.14.6 or later. Other packages
 reference prompter only as a local dependency, so a project gets it only by
 declaring it, as meridian-cli does
 ([why](overview.md#prompter-is-local-not-a-foundation)).
@@ -31,8 +31,12 @@ Checked against the package source on 2026-10-23.
 - **`python-tool-writer`** builds a deterministic tool when a library can do
   a job more reliably than an agent.
 - **Skills:** `/prompt-principles` (the doctrine; see
-  [prompt-principles.md](prompt-principles.md)), `/prompt-review`, and the
-  Meridian format skills `/agent-artifacts` and `/skill-artifacts`.
+  [prompt-principles.md](prompt-principles.md)), `/prompt-review`, and
+  `/agent-artifacts` and `/skill-artifacts`. Since 0.5.12 the last two are
+  short pointers to Meridian's bundled `prompt-authoring__meridian`, which
+  holds the agent and skill file formats and versions with the CLI. They stay
+  as pointers until package agents can list a bundled skill directly; prompt
+  craft (`/prompt-principles`, `/prompt-review`) stays here.
 
 prompt-dev also staffs meridian-base's `@cold-reader`, `@explorer` and
 `@session-miner`.
@@ -62,6 +66,7 @@ evaluation guide no longer demands a run for every edit.
 | 0.5.0 (2026-10-15) | Leads may implement; prompt-level principles folded into the skill body | Delegate what spends decision context or needs an independent check, and do small fixes directly. The prompt-level principles govern every line, "so it loads instead of waiting to be opened." |
 | 0.5.1 (2026-10-17) | Each meaning gets one home; `resources/meridian.md` deleted | Meridian specifics moved into `/agent-artifacts` and `/skill-artifacts`, so the loading-field list exists once. |
 | 0.5.6 (2026-10-22) | Verify Proportionally; the tester is no longer a default gate | Checks "scale with uncertainty and consequences." |
+| 0.5.12 (2026-10-25) | `/agent-artifacts` and `/skill-artifacts` point to `prompt-authoring__meridian` | Format details about Meridian and Mars version with the binary that implements them. |
 
 ## Related
 
