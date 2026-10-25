@@ -7,9 +7,11 @@ only results no command already put in that lead's context. Owed discovery
 reads the durable consumption evidence each route already owns; there is no
 separate claim subsystem for result delivery.
 
-Status: done. The Claude route shipped in v0.11.9 (PR #724), Claude's
-header-only delivery in v0.12.8 (PR #743), and owed results in no-arg wait
-merged in PR #751 (`54ca93606`). Rationale and rejected designs:
+Status: the Claude route shipped in v0.11.9 (PR #724), Claude's header-only
+delivery in v0.12.8 (PR #743), and owed results in no-arg wait merged in PR
+#751 (`54ca93606`). Consumption for cancel and CLI surfaces that print terminal
+reports is implemented on unmerged PR #762 (`9ffcaff7c`). Rationale and
+rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
 ```mermaid
@@ -104,7 +106,7 @@ reader that looked only at the current primary would deliver the child again
 at every idle. Recording a sibling under a nested non-owner is harmless because
 the real parent's owed reader never consults that nested caller's observations.
 
-Writes take the primary's published-spawn lock, the per-spawn lock every
+Writes take the caller's published-spawn lock, the per-spawn lock every
 writer of a file in `spawns/<id>/` takes. That lock refuses a spawn whose
 `state.json` is missing or quarantined (unreadable and set aside by the spawn
 repository), so a write never recreates a directory that pruning or archiving
@@ -119,8 +121,8 @@ extension reads the observation file with its own schema
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
 schema change moves both.
 
-Four command families consume, each because its output already put the child's
-result in the calling spawn's context:
+These command paths record consumption once a result has been put in the
+calling spawn's context:
 
 - `spawn wait`, for the terminal results it returns (unless the caller passes
   `--no-observe`);
@@ -157,9 +159,10 @@ while keeping its header-only automatic delivery
 ([D-shown-results-consume](../decisions/child-result-delivery.md#d-shown-results-consume)).
 
 Cancel/show/report-show share one best-effort observation helper. It makes one
-non-blocking lock attempt after display; contention, a read-only runtime, or
-another OS write failure logs a warning and leaves the command's output intact.
-That result can be delivered once more after a failed observation.
+non-blocking lock attempt; the show surfaces call it after emitting the report.
+Contention, a read-only runtime, or another OS write failure logs a warning and
+leaves the command's output intact. That result can be delivered once more
+after a failed observation.
 
 ### Transition from `pi-bash/`
 

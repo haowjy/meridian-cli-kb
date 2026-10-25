@@ -220,7 +220,7 @@ are:
 | File | Authority |
 |---|---|
 | `bash-records.json` | Bash task facts, wait-consumption marker, and unresolved execution/storage evidence. |
-| `observed-spawns.json` | Durable explicit wait observations plus process-owned temporary wait leases. Not Pi-private: `spawn wait` on every harness and Claude's `spawn ack` write it, and Claude's `spawn collect` reads it across a chat's primaries ([child result delivery](../../concepts/child-result-delivery.md)). Python's owner is `lib/state/spawn_observations.py`. For one minor release Pi also reads the old `pi-bash/<parent>/` copy and writers mirror to it ([transition](../../concepts/child-result-delivery.md)). |
+| `observed-spawns.json` | Durable caller-scoped result observations plus process-owned temporary wait leases. Not Pi-private: `spawn wait`, Claude's `spawn ack`, cancelled outcomes, and CLI show surfaces that print terminal reports write it; Claude and Pi delivery read it ([child result delivery](../../concepts/child-result-delivery.md)). Python's owner is `lib/state/spawn_observations.py`. For one minor release Pi also reads the old `pi-bash/<parent>/` copy and writers mirror to it ([transition](../../concepts/child-result-delivery.md)). |
 | `delivery-receipts.json` | Exact native message admission and work membership. |
 | `delivery-observations.json` | Exact matching public RPC events observed by Python. |
 | `delivery-fault.json` | Bounded diagnostics for scan, admission, and persistence failures, separate from task execution. |

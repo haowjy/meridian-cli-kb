@@ -7,7 +7,7 @@ Decision records explain why durable architectural choices were made — what al
 | Page | Coverage |
 |---|---|
 | [completion-drain.md](completion-drain.md) | When a managed child may publish: candidate-scoped confirmation, shared native/descendant evidence, caller-derived deadlines and truthful signal capability |
-| [child-result-delivery.md](child-result-delivery.md) | How a Claude lead that didn't wait gets its background children's results: core-owned `spawn collect`/`spawn ack` called by a mod, one consumption record with `spawn wait` read across the chat (D-claude-spawn-watch); the record in the parent's spawn directory (D-observed-spawns-location) |
+| [child-result-delivery.md](child-result-delivery.md) | How a lead that didn't wait gets its background children's results: core-owned Claude `spawn collect`/`spawn ack`, a shared caller-scoped consumption record for wait/cancel/result-show surfaces, and the rule that internal or summary reads do not consume; the record lives in the caller's spawn directory |
 | [primary-inject.md](primary-inject.md) | How `spawn inject` reaches a primary: Claude through Claude Code's inbox socket, not a mod (D-claude-primary-inbox, #665); other harnesses on #498 |
 | [pi-runtime.md](pi-runtime.md) | Pi live execution ownership, exact notification delivery evidence, and bounded cross-store failure |
 | [idle-notifications.md](idle-notifications.md) | Core idle policy, stretch lifecycle, which harnesses report running work (D-idle-running-work-reporters), Meridian reopen as a user return, session role, adapter-hosting rationale, config namespaces, Pi primaries on long cache retention, structural-debt pointers, and verification gaps. Current mechanism: [idle-adapters.md](../architecture/idle-adapters.md). |

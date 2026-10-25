@@ -113,16 +113,19 @@ Existing observation leases remain the only temporary coordination state.
 
 ## D-claude-delivery-header-only: automatic delivery carries lookup headers, not reports (2026-10) {#d-claude-delivery-header-only}
 
-**Status:** current choice, set by the owner in `chat:c8820`
-(`work:read-consumes`). Shipped in meridian-cli v0.12.8 (PR #743, `53038dbba`).
+**Status:** the header-only choice is current, set by the owner in `chat:c8820`
+(`work:read-consumes`) and shipped in meridian-cli v0.12.8 (PR #743,
+`53038dbba`). Its original pure-report-read tradeoff is superseded by
+[D-shown-results-consume](#d-shown-results-consume).
 
 The owner's words: header-only came from "also I don't think the plugin should
 show the full report... it should just return [the pasted delivery header] the
-top part"; the lead chose the exact lines kept. Keeping reads pure came from
-"tbh... shouldn't spawn wait just be enough...?", which reversed the owner's
-earlier "i think show should be an ack tho?" and "yeah, i think session log
-should count as well". The framing of the repeat as an accepted one-ping cost
-is the lead's.
+top part"; the lead chose the exact lines kept. The owner then accepted keeping
+reads pure with "tbh... shouldn't spawn wait just be enough...?", reversing the
+earlier "i think show should be an ack tho?". The lead framed the repeat as an
+accepted one-ping cost. On 2026-10-24 the owner clarified that this was a cost
+tradeoff, not an invariant: spawn-watch exists to stand in for a forgotten
+wait, and should not announce a terminal result a command already showed.
 
 ### Problem
 
@@ -150,12 +153,12 @@ tradeoff.
 - **`spawn collect` does not read report files.** The report-byte budget and
   cross-member budget-sharing machinery are deleted. The existing 32-child
   cap remains.
-- **Reads remain reads.** `spawn show`, `spawn report show`, and `session log`
-  do not record consumption and gain no observation flag. Consumption remains
-  with terminal results returned by `spawn wait` unless `--no-observe` is used,
-  and with `spawn ack` after the Claude delivery turn starts.
+- **Report reads remained reads at the time (superseded).** `spawn show`,
+  `spawn report show`, and `session log` originally recorded nothing.
   [D-cancel-consumes](#d-cancel-consumes) later added a cancel that reports
-  `cancelled`.
+  `cancelled`; [D-shown-results-consume](#d-shown-results-consume) then added
+  CLI show surfaces that print a terminal report body. `session log` remains a
+  pure diagnostic read.
 - **Pi is unchanged.** Its TypeScript renderer continues to deliver bounded
   report excerpts under Pi's delivery contract.
 
@@ -166,19 +169,22 @@ tradeoff.
 
 ### Consequence
 
-A lead that directly reads a finished child can receive one later header-only
-Claude delivery for it. This duplicate is accepted: it is short, preserves
-pure reads and the existing durable consumption protocol, and points back to
-the explicit lookup command when the lead needs the report.
+Header-only delivery keeps the fallback small. Before
+[D-shown-results-consume](#d-shown-results-consume), a lead that directly read a
+finished child could receive the lookup header later. A terminal report shown
+by the CLI now suppresses that fallback; summary-only and internal reads still
+do not.
 
 ### Rejected and superseded
 
-- **Record consumption from report and transcript reads.** An earlier
+- **Record consumption from every report and transcript read.** An earlier
   work-item decision proposed opt-in op parameters and default-on CLI
   `--observe` flags, with terminal-child and transcript-final-entry checks. It
-  was superseded before implementation because it made unrelated read surfaces
-  share delivery policy and lock-taking write failure modes to avoid only a
-  short duplicate header.
+  was superseded before implementation because it made unrelated internal read
+  surfaces share delivery policy and lock-taking write failure modes. The
+  narrower [D-shown-results-consume](#d-shown-results-consume) later put the
+  policy only at CLI surfaces that actually print a terminal report, with no
+  new flag and a non-blocking best-effort write.
 - **Keep bounded report excerpts in Claude delivery.** That preserves the
   costly duplicate that motivated read-consumption and keeps report I/O plus
   budget-sharing machinery on every automatic delivery.
@@ -365,8 +371,10 @@ same duplicate.
   prints only that status, not the report or failure the lead needs, so the
   lead is still owed it. A `finalizing` cancel is delivered after the child
   finishes.
-- **Best effort.** An OS error on the write is logged and the cancel still
-  returns its result. The cost is one possible repeated notice.
+- **Best effort and non-blocking.** Cancel uses the shared shown-result helper,
+  which makes one zero-timeout lock attempt. Contention, a read-only runtime,
+  a missing caller record, or another write error does not replace the cancel
+  result; the cost is one possible repeated notice.
 
 ### Rejected
 
@@ -392,8 +400,75 @@ showed an outcome without recording it.
 When a command reports a child's terminal outcome to its lead, decide whether
 it consumes, and add it to
 [consumption sources](../concepts/child-result-delivery.md#consumption-sources)
-if it does. Pure reads (`spawn show`, `spawn report show`, `session log`) do
-not, by [D-claude-delivery-header-only](#d-claude-delivery-header-only).
+if it does. [D-shown-results-consume](#d-shown-results-consume) generalizes this
+rule to CLI reads that put a terminal report body in the caller's context.
+
+---
+
+## D-shown-results-consume: a terminal result printed to the caller consumes (2026-10-24) {#d-shown-results-consume}
+
+**Status:** owner decision, `work:cancel-consumes-owed`. Implemented on the
+unmerged meridian-cli PR #762 branch (`9ffcaff7c`).
+
+The owner clarified the purpose of automatic delivery: "I just wanted basically
+a way for `meridian spawn wait` to run even if the llm forget [sic]."
+Spawn-watch and Pi delivery are fallbacks for a forgotten wait, not independent
+notifications that should repeat a result already put in the lead's context.
+The earlier wait-and-ack-only rule was a cost tradeoff, not an invariant.
+
+### Problem
+
+After [D-claude-delivery-header-only](#d-claude-delivery-header-only), a lead
+could run `spawn show` or `spawn report show`, receive a finished child's full
+report, and later receive that child's automatic lookup header. The repeat was
+small, but it contradicted the fallback's purpose. Making every internal report
+read consume would instead suppress delivery for operations that never show the
+result to the lead, including context references and wait rendering.
+
+### Decision
+
+- **A Meridian command that puts a finished child's result in front of its
+  calling spawn consumes it.** `spawn show` records a terminal child only when
+  its emitted representation includes a non-empty report body. `spawn report
+  show` records a terminal child in text or JSON because both representations
+  contain the report.
+- **The rule lives at the output surface, not in the read operations.** The
+  CLI records after it emits. `spawn_show_sync()` and `report_show_sync()` stay
+  pure for MCP, UI, context composition, and other internal callers. There is
+  no new observation flag.
+- **What was not shown remains owed.** Active children, `spawn show`'s default
+  JSON summary, `spawn status` even with `--full`, report search, `session log`,
+  file reads, and `--from` context references do not record. A command outside
+  a spawn has no calling spawn id and records nothing.
+- **Agent mode does not imply sparse output.** In a managed agent session,
+  `spawn show` and `spawn report show` default to text. Thus ordinary `spawn
+  show` includes the report and consumes; explicit JSON `spawn show` is
+  summary-only unless `--full` adds the report. Report-show contains the report
+  in either format.
+- **One caller-scoped helper covers cancel and both show surfaces.** It writes
+  `observed_add` under the caller exactly as wait and ack do. Owed readers
+  consult only an owner's parent scope, so an unrelated nested caller's record
+  cannot suppress the real owner's delivery.
+- **Display wins over bookkeeping.** The show surfaces emit before calling the
+  helper, which makes one observation attempt with a zero-timeout lock.
+  Contention, a read-only runtime, a missing caller row, or another reachable
+  write failure is logged; the command keeps the report it already printed. A
+  failed record can cause one later fallback delivery.
+
+### Rejected
+
+- **Record inside the show/report operations.** Those operations serve
+  internal callers that do not put the result in the lead's session. Coupling
+  them to delivery would make a read for one purpose erase another caller's
+  notification.
+- **Treat any lookup as consumption.** A status, search hit, active-child row,
+  or summary without the report has not given the lead the finished result.
+- **Add `--observe` / `--no-observe` flags.** Whether the output contains the
+  result already determines the behavior; another mode would expose delivery
+  bookkeeping instead of one semantic rule.
+- **Wait or retry for the observation lock.** A read command must remain useful
+  against a contended or read-only runtime. Duplicate fallback is safer than
+  blocking or discarding the report.
 
 ---
 

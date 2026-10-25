@@ -3,6 +3,19 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-24 — Child-result fallback reframed around what the caller saw
+
+`work:cancel-consumes-owed`. The owner clarified that spawn-watch and Pi
+delivery stand in for a forgotten `spawn wait`; wait-and-ack-only consumption
+was a cost choice, not an invariant. [Child result delivery](concepts/child-result-delivery.md)
+and [its decisions](decisions/child-result-delivery.md) now record the rule
+implemented on unmerged meridian-cli PR #762 (`9ffcaff7c`): cancelled outcomes
+and terminal report bodies printed by `spawn show` / `spawn report show` consume
+under the caller. Internal operations, active rows, summary-only show,
+status/search/session/context-reference reads, and no-caller invocations do not.
+The display-path observation is shared, non-blocking, and best effort.
+
+---
 ## 2026-10-24 — Shell network decisions reconciled with the final design
 
 `work:harness-sandbox-network`. [Sandbox platform access](decisions/sandbox-platform-access.md)
