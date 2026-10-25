@@ -15,7 +15,7 @@ graph TD
     AGENTS["compile agents\nsrc/compiler/agents/"]
     SKILLS["compile skills + variants\nsrc/compiler/skills/\nsrc/compiler/variants.rs"]
     CE["compile_config_entries()\nsrc/compiler/config_entries/"]
-    CE_RESOLVE["resolve.rs\nbuild current entry set"]
+    CE_RESOLVE["resolve.rs\nresolve MCP names"]
     RETAIN["surface_ownership::retention\nRemovalPlan + WritePermit"]
     HOOKS["compile hooks\nsrc/compiler/hooks/"]
     MCP["compile MCP servers\nsrc/compiler/mcp/"]
@@ -48,7 +48,7 @@ src/compiler/
     lower.rs           ← profile → materialized agent file
   config_entries/
     mod.rs             ← entry: compile_config_entries()
-    resolve.rs         ← build current entry set from packages
+    resolve.rs         ← MCP name-collision resolution
   hooks/
     mod.rs             ← hook lowering, per-target platform-aware commands
   mcp/
@@ -95,13 +95,13 @@ into per-harness projection format for target sync.
 
 ### Config Entries (`compiler/config_entries/`)
 
-Handles MCP server and hook config entries written into harness-native config
-files (`.mcp.json`, `settings.json`, `codex_mcp.json`, etc.).
+Handles MCP server and selected hook config entries written into harness-native
+config files (`.mcp.json`, `settings.json`, `codex_mcp.json`, etc.).
 
-Two sub-phases:
+MCP and hooks reach this lane differently:
 
-**resolve.rs** — builds the current entry set from all packages in the resolved
-graph. Resolves name collisions using precedence rules:
+**MCP discovery and `resolve.rs`** — builds the MCP entry set from packages in
+the resolved graph and resolves name collisions using precedence rules:
 
 | Collision | Winner |
 |---|---|
@@ -109,10 +109,18 @@ graph. Resolves name collisions using precedence rules:
 | Dependency A vs. dependency B | Earlier in `mars.toml [dependencies]` declaration order wins, later dropped with warning |
 | Same-scope alphabetically | Alphabetically first source; both named in warning |
 
-Note: `graph.order` in the dependency graph is alphabetical, not declaration
-order. Declaration-order precedence for dep-vs-dep collisions is implemented by
-reading `mars.toml` directly. See [architecture/mars-compiler.md](../../architecture/mars-compiler.md)
-for rationale.
+`graph.order` is alphabetical, not declaration order. MCP dep-vs-dep precedence
+therefore uses the dependency declaration order from `mars.toml`.
+
+**Hook selection** — target construction applies dependency filters, exported
+visibility, target scope, collisions, and the local overlay once. It carries the
+selected parsed hook in `TargetState`. Preflight and both lowering modes consume
+that selection; `config_entries` does not rediscover or re-resolve hooks. Two
+selected dependency providers are a hard collision, while a local hook shadows a
+dependency with a warning. The selection survives an install skip so sync can
+issue the real post-install missing-directory warning. A plugin build can lower
+the same selection with its own hook-root mapping and no project install. See
+[D98](../../decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24).
 
 **Ownership retention** — after desired entries are resolved,
 `surface_ownership::retention::RemovalPlan` compares them with lock-v3 records,
@@ -122,11 +130,13 @@ seam; there is no `config_entries/stale.rs` module.
 
 ### Hooks (`compiler/hooks/`)
 
-Discovers per-target native fragment files. MergeJson targets (Claude, Codex,
+Parses per-target native fragment files. MergeJson targets (Claude, Codex,
 Cursor) validate native event keys and merge exact JSON entries. File targets
 (OpenCode and Pi) substitute `${MARS_HOOK_DIR}` and materialize TypeScript
-files. `preflight_config_entries()` validates all hook surfaces before apply so
-an invalid fragment cannot leave partial state.
+files. `preflight_config_entries()` validates selected fragments before apply so
+an invalid fragment cannot leave partial state. Removed-schema compatibility
+validation still parses dependency hooks during target construction, including
+filtered transitive sources, without selecting them for emission.
 
 ### MCP Servers (`compiler/mcp/`)
 
@@ -155,14 +165,15 @@ how the lock feeds the diff phase on the next sync.
 
 ## Invariants
 
-- **I-1: Compiler reads selected state only** — resolved dependencies and
-  selected self inputs are assembled before materialization; compiler lanes do
-  not independently rediscover source content.
+- **I-1: Hook selection has one owner** — target construction selects hooks;
+  preflight and lowering consume that value rather than rediscovering source
+  hooks. MCP discovery remains in config entries because MCP has no installed
+  content selection.
 - **I-2: All writes are atomic** — tmp+rename, lock-guarded.
 - **I-3: Target sync is per-target non-fatal** — a failure in one harness target
   records a warning and continues; sibling targets are not aborted.
-- **I-4: Declaration order for dep-vs-dep collisions** — graph traversal order is
-  not used; `mars.toml` is re-read for precedence.
+- **I-4: Declaration order for MCP dep-vs-dep collisions** — graph traversal
+  order is not used; dependency declaration order supplies precedence.
 - **I-5: Windows filename safety** — filename validation rejects Windows-invalid
   and reserved device names on all platforms before any write.
 
@@ -170,7 +181,7 @@ how the lock feeds the diff phase on the next sync.
 
 - Entry point: `src/compiler/mod.rs` lines 35–96
 - Agent emission policy: `src/compiler/mod.rs` lines 99–217
-- Config-entry resolution: `src/compiler/config_entries/resolve.rs`
+- MCP config-entry resolution: `src/compiler/config_entries/resolve.rs`
 - Ownership retention: `src/surface_ownership/retention.rs`
 - Hook compilation (native events): `src/compiler/hooks/mod.rs`
 - MCP lowering: `src/compiler/mcp/mod.rs`
@@ -181,5 +192,5 @@ how the lock feeds the diff phase on the next sync.
 
 - [targeting.md](targeting.md) — where compiled output lands and how harness projection works
 - [sync-model.md](sync-model.md) — diff → plan → apply cycle that wraps the compiler
-- [architecture/mars-compiler.md](../../architecture/mars-compiler.md) — MCP/hook collision rationale, config-entry provenance in the lock
+- [architecture/mars-compiler.md](../../architecture/mars-compiler.md) — hook selection, MCP collision rationale, config-entry provenance in the lock
 - [decisions/package-management.md](../../decisions/package-management.md) — decisions behind the compiler design

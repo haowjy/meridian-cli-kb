@@ -44,9 +44,19 @@ For mechanism, see:
 
 ### D36: MCP/hook collision precedence matches agent precedence (local wins, declaration order)
 
-**Decision:** MCP server and hook name collisions resolve via: local (`_self`) beats dependency; among dependencies, declaration order in `mars.toml [dependencies]` wins; alphabetical source name breaks ties within the same scope.
+> **Partially superseded:** D98 replaces the hook half of this decision. The MCP
+> precedence below remains current.
 
-**Why:** Users already understand "local shadows dependency" from agent behavior. Applying the same model to MCP/hooks requires zero new concepts. Previous behavior (abort on any collision) was overly strict — same-name-from-different-packages is common and has an obvious resolution.
+**Original decision:** MCP server and hook name collisions resolve via: local
+(`_self`) beats dependency; among dependencies, declaration order in
+`mars.toml [dependencies]` wins; alphabetical source name breaks ties within
+the same scope.
+
+**Current scope:** That precedence remains the MCP rule. Hooks now follow D98:
+selected dependency collisions are errors, and the project-local overlay may
+shadow a dependency.
+
+**Why:** Users already understand "local shadows dependency" from agent behavior. Applying the same model required zero new concepts. For MCP, aborting on every collision was overly strict — same-name servers from different packages have an unambiguous winner.
 
 **Implementation note:** `graph.order` is alphabetical, not declaration order — declaration-order precedence requires reading `mars.toml` directly.
 
@@ -353,7 +363,7 @@ as a preview tool.
 
 **Why:** Multi-package installs commonly share item names (e.g. `meridian-dev-workflow` and `creative-writing-skills` both defining `agents/web-researcher.md`). Hard-erroring blocks legitimate use; first-wins creates an ordering dependency on mars.toml declaration order for collision outcomes. Rename-both is unambiguous — the user always knows which package an item came from — and needs no precedence rule for the collision itself.
 
-**Gating:** Auto-rename applies only to same-kind (Agent|Skill) groups where every collider has a distinct source. Same-source collisions, mixed-kind groups, and hook/MCP/bootstrap collisions remain hard errors. Hooks use a separate first-wins policy at the target-lowering layer (D36).
+**Gating:** Auto-rename applies only to same-kind (Agent|Skill) groups where every collider has a distinct source. Same-source collisions, mixed-kind groups, and hook/MCP/bootstrap collisions remain hard errors. A project-local hook may shadow a dependency hook; two selected dependency hooks remain a hard error (D98).
 
 **Frontmatter rewriting:** A unified `RenameIndex` + `apply_renames` pass rewrites `skills:` and `subagents:` frontmatter refs. Same-source copy wins; prune-before-rewrite ensures ref resolution sees post-prune state.
 
@@ -777,6 +787,52 @@ Mars's content walk-up can find an unrelated ancestor `mars.toml` (for example
 resolved roots.
 
 Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
+
+---
+
+### D98: The target build is the only hook-selection authority (2026-10-24)
+
+**Status:** Owner-settled in `work:harness-plugin-export`; implemented and
+verified on the unmerged `mars-agents` plugin-refactors branch.
+
+**Decision:** The target build selects one parsed hook per target-scoped
+canonical destination after dependency filters, exported visibility and
+collision handling. It carries that hook, its source package and ordering
+metadata in `TargetState`. Config-entry preflight, merge-mode lowering and
+file-mode lowering consume this value; they do not rediscover hooks or choose a
+second winner.
+
+Two selected dependencies providing the same hook remain a hard collision. A
+project-local hook overlays a dependency hook and emits the existing shadow
+warning. MCP is unchanged: it has no installed content surface, so config-entry
+discovery remains its one selection path and D36 remains its collision policy.
+
+**Why:** Installation and config-entry discovery previously answered "which
+hooks does this project have?" independently. Dependency filters applied only
+to installation. A filtered provider could therefore win lowering, fail the
+installed-directory check, suppress the provider that was actually installed,
+and emit a false warning. Copying filter predicates into config entries would
+leave two mechanisms to drift again; looking up the provider from an installed
+directory would make selection unavailable to plugin builds, which lower into a
+fresh tree with no project install.
+
+`TargetState`'s selected hook is intent, not installation proof. If an unmanaged
+canonical destination prevents installation, the selection survives so sync's
+post-target-sync directory/hash check still emits the genuine not-installed
+warning. Plugin builds instead provide their plugin-root hook path to the same
+pure lowering function.
+
+**Rejected alternatives:**
+
+- Duplicate the dependency filter in config-entry discovery — fixes one repro
+  while preserving two selection authorities.
+- Reconstruct the winner from `mars.lock` or an installed directory — no value
+  exists before installation, so plugin builds cannot use it.
+- Keep hook collision precedence in `config_entries/resolve.rs` — selected
+  dependency collisions already fail during target construction and local
+  overlay already chose the winner; another loser-warning path is unreachable.
+
+Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md#config-entry-selection-and-collisions).
 
 ---
 

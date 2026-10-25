@@ -24,7 +24,7 @@ src/compiler/
     lower.rs          # profile → materialized agent file
   config_entries/     # extracted module (Phase 3b refactor)
     mod.rs            # entry point: compile_config_entries()
-    resolve.rs        # build current entry set from packages
+    resolve.rs        # MCP name-collision resolution
   hooks/
     mod.rs            # fragment discovery, event validation, substitution
   mcp/
@@ -50,8 +50,10 @@ seam was redesigned (see below).
 
 ```mermaid
 graph TD
-    TOML["mars.toml + resolved sources"] --> PREFLIGHT["preflight_config_entries()
-validate all hook surfaces"]
+    TOML["mars.toml + resolved sources"] --> TARGET["build TargetState
+canonical items + selected hooks"]
+    TARGET --> PREFLIGHT["preflight_config_entries()
+validate selected hook fragments"]
     PREFLIGHT --> COMPILE["compiler lanes
 agents / skills / MCP / hooks"]
     COMPILE --> DESIRED["desired files and config entries"]
@@ -65,18 +67,22 @@ retain evidence on failure"]
     WRITE --> LOCK["finalize mars.lock v3"]
 ```
 
-Config-entry preflight runs before apply so an invalid native hook fragment
-cannot partially mutate canonical or target state. Stale ownership is not a
-compiler submodule: `surface_ownership::retention::RemovalPlan` compares prior
-and desired records, partitions them by `(target_root, Surface)`, and gates
-replacement writes with `WritePermit`.
+Target construction parses hook schemas, applies dependency filters and exported
+visibility, rejects dependency collisions, then carries the selected parsed hook
+in `TargetState`. Config-entry preflight validates those selected native fragments
+before apply, so an invalid fragment cannot partially mutate canonical or target
+state. Stale ownership is not a compiler submodule:
+`surface_ownership::retention::RemovalPlan` compares prior and desired records,
+partitions them by `(target_root, Surface)`, and gates replacement writes with
+`WritePermit`.
 
-## MCP/Hook Conflict Resolution
+## Config-Entry Selection and Collisions
 
-When two packages declare MCP servers or hooks with the same name for the
-same target root, the compiler resolves the collision rather than aborting.
+MCP servers have no canonical installed directory. `config_entries` is therefore
+their only selection path: it discovers eligible MCP items, applies visibility,
+and resolves same-name collisions per target.
 
-**Precedence model** (matches agent precedence — zero new concepts for users):
+**MCP precedence:**
 
 | Scenario | Winner | Behavior |
 |---|---|---|
@@ -84,18 +90,28 @@ same target root, the compiler resolves the collision rather than aborting.
 | Dependency A vs. dependency B | Earlier in `mars.toml [dependencies]` | Later dropped with warning |
 | Same-scope collision | Alphabetically first source | Warning names both sources |
 
-**Critical finding:** `graph.order` in the dependency graph is **alphabetical**,
-not declaration order. To implement declaration-order precedence for
-dependency-vs-dependency collisions, the resolver reads declaration order
-directly from `mars.toml` rather than trusting graph traversal order.
+`graph.order` in the dependency graph is **alphabetical**, not declaration
+order. MCP dependency precedence therefore comes from the declaration order in
+`mars.toml`, not graph traversal order.
 
-**Why local wins:** Users already understand "local shadows dependency"
-from agent behavior. The same mental model applied to MCP/hooks requires
-zero new concepts.
+Hooks use the target build's content selection instead. Dependency filters and
+exported visibility run before the target-scoped canonical destination is chosen.
+Two selected dependencies that provide the same hook for one target are a hard
+collision; a project-local hook overlays the dependency winner and emits the
+ordinary shadow warning. `TargetState` retains the parsed hook, its source
+package, and ordering metadata. Preflight, merge-mode lowering and file-mode
+lowering all consume that value; none rediscovers or independently chooses hooks.
 
-**Previous behavior:** Any name collision aborted config-entry compilation
-with a warning. This was overly strict — same-name-from-different-packages
-is common and has an obvious resolution.
+The selection records intent rather than proof of installation. If an unmanaged
+canonical path blocks the selected hook, the content item may be pruned while the
+selection remains available for the post-target-sync installed-directory check.
+That is what preserves the genuine not-installed warning without letting a
+filtered or shadowed loser produce one.
+
+This split matters to plugin builds: they can lower the pure target selection
+with a plugin-root hook path and no project install. Sync adds the installed-dir
+check after target copying. See
+[D98](../decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24).
 
 ---
 

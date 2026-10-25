@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-24 — Hook selection given one authority
+
+`work:harness-plugin-export`. [D98](decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24)
+records target construction as the only hook-selection authority: preflight and
+both lowering modes consume its parsed selection, while MCP keeps its sole
+config-entry discovery path. [Mars compiler architecture](architecture/mars-compiler.md)
+and the [compiler pipeline](concepts/package-management/compiler-pipeline.md)
+were corrected to separate MCP precedence from hook collision behavior and to
+remove the stale claim that `config_entries/resolve.rs` selects hooks.
+
+---
 ## 2026-10-24 — Child-result fallback reframed around what the caller saw
 
 `work:cancel-consumes-owed`. The owner clarified that spawn-watch and Pi
