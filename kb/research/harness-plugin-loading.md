@@ -1,31 +1,34 @@
 # How harnesses load plugins
 
-There is no shared plugin format. Claude Code's format is the richest, and
-Codex can install a Claude-format plugin from a Claude catalog, so one
-Claude-format tree serves both. OpenCode needs a JavaScript module and cannot
-add agents. Cursor documents its own format but was never probed. Mars's
-`mars build plugin` therefore emits three physical trees: shared Claude for
-Claude/Codex/Grok, native Cursor, and executable OpenCode. Its scope and rationale are in
-[D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
+There is no shared plugin format, but one Claude-format tree goes a long way:
+Claude Code, Codex and Grok all install the same `.claude-plugin/` tree from a
+Claude catalog. Cursor has its own manifest, hook token and MCP file. OpenCode
+loads only a JavaScript module and cannot add agents. Mars's
+`mars build plugin` therefore writes three trees (Claude, Cursor, OpenCode) for
+five harnesses; scope and rationale are in
+[D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24),
+and the generated support and verification tables are in mars-agents
+`README.md` § Plugins.
 
-Versions probed on 2026-10-24: Claude Code 2.1.310, Codex CLI 0.164.0,
-OpenCode 2.1.3. Codex and OpenCode findings were also read from source at
-those tags. Each probe ran in an isolated home with only auth files copied.
+Versions probed, 2026-10-24 and 2026-10-25: Claude Code 2.1.310, Codex CLI
+0.164.0, Grok 1.0.40 and 1.0.70, OpenCode 2.1.3 (source) and 2.1.4 (live).
+Cursor CLI 2026.10.22 installed but refused every plugin command without an
+account, so every Cursor fact here comes from Cursor's docs and published JSON
+schemas. Each probe ran in an isolated home with only auth files copied.
 Recheck a fact before relying on it against a later harness version.
 
 ## At a glance
 
-| | Claude Code | Codex CLI | OpenCode | Cursor |
-|---|---|---|---|---|
-| Plugin manifest | `.claude-plugin/plugin.json` (only `name` required) | own `.codex-plugin/plugin.json`, or reads Claude's and Cursor's | JS module: `package.json` + default export with `setup` | `.cursor-plugin/plugin.json` (documented, unprobed) |
-| Catalog | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json`, and also reads `.claude-plugin/marketplace.json` | path or npm entry in `opencode.json` | documented, unprobed |
-| Skills | loaded, named `<plugin>:<skill>` | loaded, named `<plugin>:<skill>` | not from a plugin dir; registered via JS, or read from `.claude/skills` and `.agents/skills` | — |
-| Agents | loaded, with a field allowlist (below) | **not loaded** | **cannot register a new agent** | — |
-| Hooks | `hooks/hooks.json` | reads `hooks/hooks.json` | in-process JS callbacks only | — |
-| MCP | `.mcp.json` | listed by `codex mcp`, **not callable** by the agent | separate config | names approved as `plugin-<p>-<s>` |
-| Commands | loaded | migrated into generated skills | — | — |
-| Plugin-root variable | `${CLAUDE_PLUGIN_ROOT}` | `PLUGIN_ROOT`, and honours `CLAUDE_PLUGIN_ROOT` | none | `CURSOR_PLUGIN_ROOT`, and `CLAUDE_PLUGIN_ROOT` in MCP |
-| Plugin `dependencies` | resolved (see below) | ignored | — | — |
+| | Claude Code | Codex CLI | Grok | OpenCode | Cursor (docs only) |
+|---|---|---|---|---|---|
+| Manifest | `.claude-plugin/plugin.json` (only `name` required) | own `.codex-plugin/plugin.json`, or reads Claude's and Cursor's | reads Claude's; no Grok files needed | JS module: `package.json` + default export | `.cursor-plugin/plugin.json` |
+| Catalog | `.claude-plugin/marketplace.json` | `.agents/plugins/`, then `.claude-plugin/`, then `.cursor-plugin/` | Claude's; the plugin must sit inside the catalog's directory | git or path entry in `opencode.json` | `.cursor-plugin/marketplace.json` |
+| Skills | loaded as `<plugin>:<skill>` | loaded as `<plugin>:<skill>` | loaded as `<plugin>:<skill>`, with `resources/` | registered by the module's `setup` | documented |
+| Agents | loaded, with a field allowlist | **not loaded** | loaded; subagents preload `skills:` | **cannot add an agent** | documented |
+| Hooks | `hooks/hooks.json` | reads `hooks/hooks.json` | reads `hooks/hooks.json` | in-process JS only | `hooks/hooks.json`, Cursor event names |
+| MCP | `.mcp.json` | `.mcp.json`, callable; env only through `env_vars` | `.mcp.json` | registered by `setup` as `<plugin>:<server>` | `mcp.json` |
+| Plugin-root variable | `${CLAUDE_PLUGIN_ROOT}` | `PLUGIN_ROOT`, and `CLAUDE_PLUGIN_ROOT` | `GROK_PLUGIN_ROOT`, and `CLAUDE_PLUGIN_ROOT` | none | `${CURSOR_PLUGIN_ROOT}` |
+| Plugin `dependencies` | resolved (see below) | ignored | not probed | — | — |
 
 ## Claude Code
 
@@ -66,6 +69,8 @@ or enable plugins.
 **Validation.** `claude plugin validate <dir>` is authoritative. Unknown
 top-level manifest keys warn and are stripped; strict nested objects can fail
 validation, so Mars keeps its ownership sentinel out of `marketplace.json`.
+`file://` marketplace URLs are rejected; a local directory or a local git
+checkout works.
 
 **Plugin dependencies.** A plugin can declare `dependencies` on other
 plugins. A dependency listed in the same marketplace installs and enables
@@ -81,9 +86,11 @@ Codex ignores them.
 Codex looks for a root Agent Plugins `plugin.json`, then
 `.codex-plugin/plugin.json`, `.claude-plugin/plugin.json` and
 `.cursor-plugin/plugin.json`. Its legacy parser accepts Claude manifests and
-does not reject unknown fields. Installation copies the tree into a cache
-under `CODEX_HOME` and writes enablement into user config, so a fresh clone
-is never self-contained.
+does not reject unknown fields. Catalogs are searched in the order
+`.agents/plugins/`, `.claude-plugin/`, `.cursor-plugin/`, so with a Cursor
+catalog beside the Claude one Codex still installs the Claude tree.
+Installation copies the tree into a cache under `CODEX_HOME` and writes
+enablement into user config, so a fresh clone is never self-contained.
 
 What a Claude-format tree gets on Codex:
 
@@ -95,7 +102,13 @@ What a Claude-format tree gets on Codex:
   do nothing. A plugin also cannot install loose `.codex/agents/*.toml` into a
   user's project. Mars prints one warning that Codex plugin users get skills
   and hooks but not agents; users who want the agents install with mars.
-- **MCP servers are registered but not callable** in 0.164.0.
+- **MCP servers are callable**, but environment reaches them only one way.
+  Codex forwards a variable listed by bare name in `env_vars`. It passes
+  `"env": {"X": "${X}"}` and `$X` through literally, and a server with no
+  `env` does not inherit the parent environment. Claude and Grok accept the
+  same `env_vars` file, so the shared tree uses it for same-name
+  pass-throughs. An earlier probe reported plugin MCP as listed but not
+  callable; a later run on the same version called it.
 - **`commands/*.md` are migrated** into generated skills under
   `.codex-plugin/migrated-command-skills/`.
 - **Plugin `dependencies` are ignored**, whether declared in `plugin.json`
@@ -103,33 +116,75 @@ What a Claude-format tree gets on Codex:
 
 A Codex-only hook (a `codex.json` fragment with no Claude fragment) cannot
 ride the shared tree; it would need a Codex-own tree with
-`.codex-plugin/plugin.json` and `${PLUGIN_ROOT}`. When both catalogs list the
-same plugin name, which one Codex prefers is unprobed.
+`.codex-plugin/plugin.json` and `${PLUGIN_ROOT}`.
+
+## Grok
+
+Grok installs the Claude tree as built, with no Grok-specific files, and
+picks it when a Cursor catalog and an OpenCode `package.json` sit beside the
+Claude catalog. The plugin must be inside the catalog's directory: a catalog
+entry pointing at `../plugin` registers but exposes nothing. Live sessions ran
+a qualified skill and read its `resources/`, ran a plugin agent as a subagent
+with its `skills:` preloaded, fired `SessionEnd` and `SubagentStop` hooks with
+`CLAUDE_PLUGIN_ROOT` set, and called a plugin MCP server that received its
+value through `env_vars`.
+
+Grok rejects `mcpServers`, `hooks` and `permissionMode: bypassPermissions`
+in plugin agents; the Claude tree already drops all three, because Claude
+ignores them in plugin agents too. `grok plugin details` counts component
+directories, not components. How Grok treats a Claude model name such as
+`model: opus` is unobserved; the live turns chose the model at session level.
 
 ## OpenCode
 
-OpenCode's plugin is executable JS: a `package.json` plus a default export
-whose `setup` can register skills, commands and MCP from bundled files under
-`pkg:name` ids, locating its files through `import.meta.url`. A plugin
+OpenCode's plugin is executable JS: a `package.json` plus a module whose
+default export is `{id, setup}`. `setup` can register skills, commands and
+MCP from bundled files, locating them through `import.meta.url`. A plugin
 directory of `skills/`, `agents/` and `commands/` is not read, and the agent
 editor has no `add`, so a plugin cannot create agents. No plugin-root
-variable exists. OpenCode already reads `.claude/skills` and `.agents/skills`
-from projects, so mars-installed users have skills without a plugin. A
-project `opencode.json` may point at a relative plugin path, which loads in
-place from a fresh home. Mars's generated `index.mjs` imports each targeted
-hook from an in-memory TypeScript data URL and isolates every load/setup call.
-The build's default-export recognizer is advisory: an unrecognized fragment is
-warned about but still ships for runtime validation.
+variable exists.
+
+- **Skills** registered from bundled files load with working `resources/`.
+- **MCP** registered as `<plugin>:<server>` in OpenCode's
+  `{type: "local", command: [cmd, ...args]}` shape is callable; the model
+  sees the colon as `_`. Server processes start in the user's project, so
+  package-relative `args` break.
+- **Hooks** are in-process callbacks; `hooks/hooks.json` is not read. A hook
+  module must default-export `{id, setup}`. The named-export shape fails with
+  `Plugin must export a default definition with an id and an effect or setup
+  function`. This also breaks the `opencode.ts` fragments `mars sync`
+  documents (mars-agents#198).
+- **Git install** (`opencode plugin add git+…`) honors the root
+  `package.json`'s `main` and `files`, so a repo can expose one subdirectory
+  as the package.
+
+OpenCode already reads `.claude/skills` and `.agents/skills` from projects,
+so mars-installed users have skills without a plugin. A project
+`opencode.json` may point at a relative plugin path, which loads in place
+from a fresh home. How Mars's generated `index.mjs` registers the tree and
+isolates each hook is in mars-agents `src/build/.context/CONTEXT.md`.
 
 ## Cursor
 
-No `cursor-agent` binary was available, so everything here is from
-documentation and a CLI changelog claim that Cursor imports Claude plugins.
+Everything here is from Cursor's documentation and published schemas.
 Cursor's own format is `.cursor-plugin/plugin.json` with skills, rules,
-agents, commands, hooks and MCP. Hooks receive `CURSOR_PLUGIN_ROOT`; MCP
-expands `CURSOR_PLUGIN_ROOT` and `CLAUDE_PLUGIN_ROOT` but not
-`PLUGIN_ROOT`. Mars emits that documented native tree but labels Cursor
-plugin support docs-only until a live probe confirms the loader behavior.
+agents, commands, hooks and MCP. A root `plugin.json` (the "Agent Plugins"
+form) carries only skills and MCP. Hooks receive `${CURSOR_PLUGIN_ROOT}`;
+the docs don't list `CLAUDE_PLUGIN_ROOT` as a hook alias, so Claude hook
+commands can't be assumed to resolve. MCP lives in `mcp.json` under
+`mcpServers` with `${env:VAR}`. The CLI adds marketplaces from a git URL
+but has no install subcommand; installs go through the Customize UI, and
+`agent --plugin-dir <dir>` loads a tree for local development. Mars-built
+manifests and catalogs pass Cursor's published `plugin.schema.json` and
+`marketplace.schema.json`; nothing has run on the binary.
+
+## One repository, several loaders
+
+Claude and Grok run a local-marketplace plugin in place, inside the
+checkout. A root `package.json` written for OpenCode therefore governs every
+`.js` file in the Claude tree too: `"type": "module"` turns CommonJS hook
+scripts and MCP servers into ESM and breaks them. Mars's root `package.json`
+declares no `type`, and its OpenCode entry is `index.mjs`.
 
 ## Sources
 
@@ -140,6 +195,14 @@ OpenCode loader source at rust-v0.164.0 and v2.1.3), `spawn:p9288`
 (published formats), `spawn:p9297` (OpenCode JS registration),
 `spawn:p9305` (project-local enablement), `spawn:p9328` (Claude
 cross-marketplace dependencies), `spawn:p9329` (Claude agent `skills:`
-preload), `spawn:p9340` (same-marketplace dependencies). Claude plugin
-references: [plugin components](https://code.claude.com/docs/en/plugins/components),
+preload), `spawn:p9340` (same-marketplace dependencies), `spawn:p9473`,
+`spawn:p9478` and `spawn:p9479` (Grok install and live turns),
+`spawn:p9474` (Cursor docs and account wall), `spawn:p9475` and
+`spawn:p9477` (OpenCode package, hooks, MCP, git install), `spawn:p9480`
+(the `type: module` break), `spawn:p9533` (live verification of built
+trees, Cursor schema validation), `spawn:p9535` (Grok MCP and Codex
+environment forms). Claude plugin references:
+[plugin components](https://code.claude.com/docs/en/plugins/components),
 [subagent frontmatter](https://code.claude.com/docs/en/sub-agents#frontmatter-reference).
+Codex `env_vars` parsing:
+[plugin_config.rs](https://github.com/openai/codex/blob/main/codex-rs/codex-mcp/src/plugin_config.rs).
