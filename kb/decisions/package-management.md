@@ -793,7 +793,8 @@ Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
 ### D98: The target build is the only hook-selection authority (2026-10-24)
 
 **Status:** Owner-settled in `work:harness-plugin-export`; implemented and
-verified on the unmerged `mars-agents` plugin-refactors branch.
+verified on the unmerged `mars-agents` plugin-refactors branch. Its temporary
+MCP exception is superseded by D99.
 
 **Decision:** The target build selects one parsed hook per target-scoped
 canonical destination after dependency filters, exported visibility and
@@ -804,8 +805,8 @@ second winner.
 
 Two selected dependencies providing the same hook remain a hard collision. A
 project-local hook overlays a dependency hook and emits the existing shadow
-warning. MCP is unchanged: it has no installed content surface, so config-entry
-discovery remains its one selection path and D36 remains its collision policy.
+warning. D99 later moved MCP discovery into the same target state while retaining
+D36's collision policy in the per-target lowerer.
 
 **Why:** Installation and config-entry discovery previously answered "which
 hooks does this project have?" independently. Dependency filters applied only
@@ -831,6 +832,52 @@ pure lowering function.
 - Keep hook collision precedence in `config_entries/resolve.rs` — selected
   dependency collisions already fail during target construction and local
   overlay already chose the winner; another loser-warning path is unreachable.
+
+Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md#config-entry-selection-and-collisions).
+
+---
+
+### D99: MCP selection joins target state (2026-10-24)
+
+**Status:** Owner-settled in `work:harness-plugin-export`; implemented and
+verified on the unmerged `mars-agents` `feat/plugin-build` branch at `cd558e3`.
+
+**Decision:** Target construction is the only package-discovery and visibility
+authority for effectful config entries. Alongside D98's hooks, it discovers each
+source's MCP manifests once and carries every eligible parsed MCP item plus its
+managed-target scope in `TargetState`. Config-entry preflight and lowering consume
+that state instead of rediscovering MCP manifests.
+
+MCP collision handling does not move. Per-target lowering keeps D36's first-wins
+behavior and warning text: project `_self` precedes dependencies, and dependency
+precedence comes from `mars.toml` declaration order rather than alphabetical
+`graph.order`. Candidates with no managed target and discovery failures remain in
+target state so environment and discovery warnings occur in the same phases and
+order as before.
+
+Hook and MCP manifest loaders parse visibility into one `Visibility` enum. An
+unknown value warns and becomes local, preserving its previous package-boundary
+effect. Downstream selection compares only with `Visibility::Exported`.
+
+**Why:** MCP had the same split-authority problem D98 removed for hooks: preflight
+and compile each scanned the resolved packages and applied visibility separately.
+A plugin build needs the flattened MCP set before it has a project installation,
+and a second discovery path would let sync and build disagree. Carrying the parsed
+candidates in target state gives both consumers the same value without changing
+collision or diagnostic behavior.
+
+**Kept open:** A dependency `exclude = [...]` filter continues to admit every MCP
+server from that source. Applying exclusion by server name is a separate
+user-visible policy decision, not part of this structural change.
+
+**Rejected alternatives:**
+
+- Let preflight and compile continue to discover MCP independently — leaves two
+  authorities for the plugin build to reproduce.
+- Resolve MCP collisions during target construction — unnecessary for a shared
+  selection seam and risks changing established first-wins warnings.
+- Interpret `exclude` as MCP names during the move — combines a behavior change
+  with a selection refactor and silently changes existing consumers.
 
 Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md#config-entry-selection-and-collisions).
 

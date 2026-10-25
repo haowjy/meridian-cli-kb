@@ -3,12 +3,24 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-24 — MCP selection joined target state
+
+`work:harness-plugin-export`. [D99](decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24)
+extends D98's single-selection-authority rule to MCP manifests: target
+construction now carries parsed, visibility-filtered MCP candidates for
+preflight and lowering while per-target first-wins collisions stay unchanged.
+The [Mars compiler architecture](architecture/mars-compiler.md) and
+[compiler pipeline](concepts/package-management/compiler-pipeline.md) now record
+the typed visibility boundary, diagnostic-order compatibility constraints, and
+the still-open MCP-name exclusion policy.
+
+---
 ## 2026-10-24 — Hook selection given one authority
 
 `work:harness-plugin-export`. [D98](decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24)
 records target construction as the only hook-selection authority: preflight and
-both lowering modes consume its parsed selection, while MCP keeps its sole
-config-entry discovery path. [Mars compiler architecture](architecture/mars-compiler.md)
+both lowering modes consume its parsed selection. Its temporary MCP exception was
+superseded by D99. [Mars compiler architecture](architecture/mars-compiler.md)
 and the [compiler pipeline](concepts/package-management/compiler-pipeline.md)
 were corrected to separate MCP precedence from hook collision behavior and to
 remove the stale claim that `config_entries/resolve.rs` selects hooks.

@@ -100,8 +100,11 @@ config files (`.mcp.json`, `settings.json`, `codex_mcp.json`, etc.).
 
 MCP and hooks reach this lane differently:
 
-**MCP discovery and `resolve.rs`** — builds the MCP entry set from packages in
-the resolved graph and resolves name collisions using precedence rules:
+**MCP selection and `resolve.rs`** — target construction discovers each source
+once, applies source filters and exported visibility, and carries the parsed MCP
+candidates plus their managed targets in `TargetState`. Preflight and config
+lowering consume that state. `resolve.rs` resolves same-name candidates per
+target using these precedence rules:
 
 | Collision | Winner |
 |---|---|
@@ -111,6 +114,7 @@ the resolved graph and resolves name collisions using precedence rules:
 
 `graph.order` is alphabetical, not declaration order. MCP dep-vs-dep precedence
 therefore uses the dependency declaration order from `mars.toml`.
+See [D99](../../decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24).
 
 **Hook selection** — target construction applies dependency filters, exported
 visibility, target scope, collisions, and the local overlay once. It carries the
@@ -121,6 +125,11 @@ dependency with a warning. The selection survives an install skip so sync can
 issue the real post-install missing-directory warning. A plugin build can lower
 the same selection with its own hook-root mapping and no project install. See
 [D98](../../decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24).
+
+Hook and MCP loaders parse visibility into the shared `Visibility` enum. Unknown
+values warn and become local, which preserves the previous package-boundary result
+without leaving downstream string comparisons. Dependency `exclude` filters do
+not yet match individual MCP names; that user-facing choice remains open.
 
 **Ownership retention** — after desired entries are resolved,
 `surface_ownership::retention::RemovalPlan` compares them with lock-v3 records,
@@ -165,10 +174,10 @@ how the lock feeds the diff phase on the next sync.
 
 ## Invariants
 
-- **I-1: Hook selection has one owner** — target construction selects hooks;
-  preflight and lowering consume that value rather than rediscovering source
-  hooks. MCP discovery remains in config entries because MCP has no installed
-  content selection.
+- **I-1: Effectful selection has one owner** — target construction selects hooks
+  and MCP candidates; preflight and lowering consume those values rather than
+  rediscovering source config entries. MCP collision resolution remains in the
+  per-target lowerer.
 - **I-2: All writes are atomic** — tmp+rename, lock-guarded.
 - **I-3: Target sync is per-target non-fatal** — a failure in one harness target
   records a warning and continues; sibling targets are not aborted.

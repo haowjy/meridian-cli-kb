@@ -51,7 +51,7 @@ seam was redesigned (see below).
 ```mermaid
 graph TD
     TOML["mars.toml + resolved sources"] --> TARGET["build TargetState
-canonical items + selected hooks"]
+canonical items + selected hooks/MCP"]
     TARGET --> PREFLIGHT["preflight_config_entries()
 validate selected hook fragments"]
     PREFLIGHT --> COMPILE["compiler lanes
@@ -67,20 +67,27 @@ retain evidence on failure"]
     WRITE --> LOCK["finalize mars.lock v3"]
 ```
 
-Target construction parses hook schemas, applies dependency filters and exported
-visibility, rejects dependency collisions, then carries the selected parsed hook
-in `TargetState`. Config-entry preflight validates those selected native fragments
-before apply, so an invalid fragment cannot partially mutate canonical or target
-state. Stale ownership is not a compiler submodule:
+Target construction parses hook and MCP schemas, applies dependency filters and
+exported visibility, and carries the selected parsed entries in `TargetState`.
+It resolves hook collisions there; MCP candidates stay source-ordered until the
+per-target lowerer applies first-wins collision precedence. Config-entry preflight
+validates the selected native fragments before apply, so an invalid fragment
+cannot partially mutate canonical or target state. Stale ownership is not a
+compiler submodule:
 `surface_ownership::retention::RemovalPlan` compares prior and desired records,
 partitions them by `(target_root, Surface)`, and gates replacement writes with
 `WritePermit`.
 
 ## Config-Entry Selection and Collisions
 
-MCP servers have no canonical installed directory. `config_entries` is therefore
-their only selection path: it discovers eligible MCP items, applies visibility,
-and resolves same-name collisions per target.
+Hooks and MCP servers share one selection path. Target construction discovers
+each source once, applies its package-boundary rules, and records the parsed item
+in `TargetState`. Preflight and config lowering consume that state; neither scans
+package directories again.
+
+MCP servers have no canonical installed directory, so a selected MCP value carries
+the managed target roots where it applies rather than a `TargetItem`. Same-name
+MCP candidates remain unresolved until per-target lowering:
 
 **MCP precedence:**
 
@@ -94,7 +101,13 @@ and resolves same-name collisions per target.
 order. MCP dependency precedence therefore comes from the declaration order in
 `mars.toml`, not graph traversal order.
 
-Hooks use the target build's content selection instead. Dependency filters and
+Selection preserves diagnostic compatibility as well as output. Eligible MCP
+items remain in `TargetState` even when none of their declared targets is managed,
+so the all-item environment check still sees them. Discovery failures are carried
+and reported at the same preflight and compile phases as before, and `_self`
+candidates precede dependencies so warning order does not change.
+
+Hooks also use the target build's content selection. Dependency filters and
 exported visibility run before the target-scoped canonical destination is chosen.
 Two selected dependencies that provide the same hook for one target are a hard
 collision; a project-local hook overlays the dependency winner and emits the
@@ -108,10 +121,18 @@ selection remains available for the post-target-sync installed-directory check.
 That is what preserves the genuine not-installed warning without letting a
 filtered or shadowed loser produce one.
 
+Both manifest loaders convert `visibility` to `Visibility::Local` or
+`Visibility::Exported`. An unknown value warns and becomes local, preserving the
+old package-boundary behavior while making the typo visible; downstream code
+never interprets visibility strings. Dependency `exclude = [...]` still does not
+match MCP names: it leaves every MCP server from that source eligible. Whether to
+change that user-visible behavior remains an open compiler-local decision.
+
 This split matters to plugin builds: they can lower the pure target selection
 with a plugin-root hook path and no project install. Sync adds the installed-dir
 check after target copying. See
-[D98](../decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24).
+[D98](../decisions/package-management.md#d98-the-target-build-is-the-only-hook-selection-authority-2026-10-24)
+and [D99](../decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24).
 
 ---
 
