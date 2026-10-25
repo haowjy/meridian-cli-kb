@@ -3,8 +3,9 @@
 There is no shared plugin format. Claude Code's format is the richest, and
 Codex can install a Claude-format plugin from a Claude catalog, so one
 Claude-format tree serves both. OpenCode needs a JavaScript module and cannot
-add agents. Cursor documents Claude-plugin import but was never probed. Mars's
-`mars build plugin` builds that one Claude-format tree for Claude and Codex; its scope and rationale are in
+add agents. Cursor documents its own format but was never probed. Mars's
+`mars build plugin` therefore emits three physical trees: shared Claude for
+Claude/Codex/Grok, native Cursor, and executable OpenCode. Its scope and rationale are in
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
 
 Versions probed on 2026-10-24: Claude Code 2.1.310, Codex CLI 0.164.0,
@@ -115,7 +116,10 @@ editor has no `add`, so a plugin cannot create agents. No plugin-root
 variable exists. OpenCode already reads `.claude/skills` and `.agents/skills`
 from projects, so mars-installed users have skills without a plugin. A
 project `opencode.json` may point at a relative plugin path, which loads in
-place from a fresh home.
+place from a fresh home. Mars's generated `index.mjs` imports each targeted
+hook from an in-memory TypeScript data URL and isolates every load/setup call.
+The build's default-export recognizer is advisory: an unrecognized fragment is
+warned about but still ships for runtime validation.
 
 ## Cursor
 
@@ -124,8 +128,8 @@ documentation and a CLI changelog claim that Cursor imports Claude plugins.
 Cursor's own format is `.cursor-plugin/plugin.json` with skills, rules,
 agents, commands, hooks and MCP. Hooks receive `CURSOR_PLUGIN_ROOT`; MCP
 expands `CURSOR_PLUGIN_ROOT` and `CLAUDE_PLUGIN_ROOT` but not
-`PLUGIN_ROOT`. Mars refuses `cursor` as a plugin harness until a probe
-confirms what a Claude tree gets.
+`PLUGIN_ROOT`. Mars emits that documented native tree but labels Cursor
+plugin support docs-only until a live probe confirms the loader behavior.
 
 ## Sources
 

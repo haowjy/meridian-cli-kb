@@ -125,6 +125,7 @@ Full reference: `meridian mars --help`.
 | Command | Purpose |
 |---|---|
 | `meridian mars sync` | Fetch sources, compile, materialize to `.mars/` and harness dirs |
+| `mars build plugin [PATH] [--out DIR]` | Build the package's full resolved graph as one logical multi-harness plugin; configured builds also publish loader metadata at the repo root |
 | `meridian mars add <source>` | Add a dependency to `mars.toml` and sync |
 | `meridian mars upgrade` | Upgrade dependencies to latest versions |
 | `meridian mars list` | List installed agents and skills |

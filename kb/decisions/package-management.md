@@ -892,33 +892,37 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 ### D100: A package publishes one plugin holding its full resolved graph (2026-10-24)
 
 **Status:** Owner-settled in `work:harness-plugin-export` (`chat:c9019`).
-Partly done: `mars build plugin` is implemented on unmerged mars-agents PR
-#193, stacked on PR #189. Building during `mars version`, the `[plugin]`
-table, the root catalog and `mars check` staleness warnings are not built yet.
+The build and publication side is implemented and gated on the unmerged
+mars-agents `f3/integration` branch through `1d348a3`. `mars version` integration
+and `mars check` remain separate lanes.
 
-**Decision:** A package with a plugin builds **one** Claude-format plugin
-under its own name. The plugin holds exactly what `mars sync` installs in the
-package's own checkout: its own agents and skills plus its dependencies',
-under the package's own `[dependencies.x]` filters, renames and visibility
-rules. Dependency items share the building package's namespace: a
-meridian-base skill ships in meridian-dev-workflow's plugin as
-`meridian-dev-workflow:<skill>`. The plugin declares no plugin
-`dependencies`, and the catalog lists no dependency plugins. An author who
-wants to ship less narrows the graph with the filters a mars consumer already
-uses; there is no plugin-only selection rule. The owner described the target
-as the full graph "like cw does now", meaning creative-writing-skills'
-hand-built plugin, which already ships dependency content inside one plugin.
+**Decision:** A package with a plugin builds **one logical plugin** under its
+own name, holding exactly what `mars sync` installs in the package's own
+checkout: its own agents and skills plus its dependencies', under the
+package's `[dependencies.x]` filters, renames and visibility rules. Five
+requested harnesses map to three physical trees: Claude/Codex/Grok share the
+Claude tree; Cursor and OpenCode each have their own. Dependency items share
+the building package's namespace: a meridian-base skill ships in
+meridian-dev-workflow's plugin as `meridian-dev-workflow:<skill>`. The plugin
+declares no plugin dependencies, and the catalogs list no dependency plugins.
+An author who wants to ship less narrows the graph with the filters a Mars
+consumer already uses; there is no plugin-only selection rule. The owner
+described the target as the full graph "like cw does now", meaning
+creative-writing-skills' hand-built plugin, which already ships dependency
+content inside one plugin.
 
-Plugins are rebuilt on every `mars version` and committed with the release.
-`mars build plugin` is the same build for development and CI. Codex installs
-the same tree from the same root catalog
+Plugins are to be rebuilt on every `mars version` and committed with the
+release. `mars build plugin` is the same build for development and CI. Codex
+installs the Claude tree from the same root catalog
 ([harness facts](../research/harness-plugin-loading.md)).
 
-Content findings are diagnostics, not failures. The owner wants plugin
-diagnostics about Meridian and Mars terms to be "warnings, never errors": a
-plugin may run where neither is installed, so the author should see the text,
-but the author decides. Errors are kept for configuration, IO, write safety,
-and graphs `mars sync` would also refuse.
+Support and lossiness findings are diagnostics. Invalid authored schema remains
+fatal where the shared target pipeline would refuse it; plugin-only wording
+must not claim a fallback was used when publication stops. Diagnostics about
+Meridian and Mars terms remain warnings: a plugin may run where neither is
+installed, so the author should see the text, but the author decides. Errors
+are also kept for configuration, IO, write safety, and graphs `mars sync` would
+refuse.
 
 The rest follows from the plugin being a published artifact rather than a
 project install:
@@ -936,6 +940,15 @@ project install:
   uses, then lowers through the existing per-harness lowerers. It never
   installs into a temporary project, which would pull in the lock, ownership
   records, host probes and absolute hook paths.
+- **Publication stages the selected surface, not the checkout.** A typed
+  inventory of selected item roots and MCP definitions is shared with the root
+  fingerprint. All hook roots stay available for strict pre-filter schema
+  validation; filtered manifestless metadata is rewritten to the selected
+  inventory. The strict walker materializes in-package links and rejects an
+  escaping link or special file inside the selected surface, while repo
+  tooling and filtered-out items are not walked. Flat-root skills add
+  publication-only exclusions for tooling, generated root metadata and
+  top-level special nodes without changing sync.
 
 **Contracts other code must respect.** These are what make a committed plugin
 safe to rebuild and check; their mechanism is documented beside the code in
@@ -953,13 +966,21 @@ mars-agents `src/build/AGENTS.md`, `src/build/.context/CONTEXT.md` and
   dependencies with their manifest version) and one hash per file. A
   non-empty directory without a valid sentinel is refused; rebuilds stage in
   a sibling directory and swap under a cross-process lock.
+- **Repo-root ownership is closed.** Configured builds may own only
+  `.claude-plugin/marketplace.json`, `.cursor-plugin/marketplace.json`, and
+  `package.json`; any other sentinel key is invalid before planning. A catalog
+  parent is retired only when the sentinel says Mars created it and it is now
+  empty. Explicit `--out` builds write no root files and may use a gitignored
+  CI directory; configured builds retain rule-attributed gitignore checks.
+  Recovery removes a staging sibling only when it is empty or Mars-owned.
 - **The input fingerprint is the authored view, recomputable offline.** It
-  hashes the root package's own sources as staging reads them (generated
-  trees skipped, UTF-8 text normalized from CRLF to LF, `.bat`/`.cmd`
-  exempt) plus the output-affecting `mars.toml` tables, with `version`
-  removed from `[package]`. It never resolves dependencies, so `mars check`
-  can call a committed plugin stale without the network. A dependency
-  release does not change it; the sentinel's dependency versions cover that.
+  hashes the typed root-package item/MCP inventory and authored bytes staging
+  reads (generated trees and generated root catalogs skipped, UTF-8 text
+  normalized from CRLF to LF) plus the output-affecting `mars.toml` tables,
+  with `version` removed from `[package]`. It never resolves
+  dependencies, so `mars check` can call a committed plugin stale without the
+  network. A dependency release does not change it; the sentinel's dependency
+  versions cover that.
 
 **Why one plugin of the whole graph:** An earlier design built one plugin per
 graph package, linked by plugin `dependencies`, and chose which dependency
@@ -984,34 +1005,23 @@ deadset on cw". Those features are out; cw can migrate to this build later.
 | Plugin extras, standalone variants, `--adopt` | cw-specific; a hand-built tree is replaced in a reviewed commit instead |
 | `mars build plugin` as the only entry point | Releases would ship stale plugins |
 | `mars sync` builds and enables plugins | Codex needs a user-cache install and Claude an absolute marketplace path, so a project cannot enable a plugin by itself |
-| Output under `dist/` | Commonly gitignored, and marketplaces install from the tagged commit |
+| Configured output under `dist/` | Commonly gitignored, and marketplaces install configured output from the tagged commit; explicit `--out dist/...` remains valid for CI/path installs |
 | Sentinel key inside `marketplace.json` | Claude validates nested objects strictly |
 | Reuse the `mars export` name | It already means compile-plan JSON |
 
-> [!FLAG] **Needs human review**
-> Five release-phase questions are open with the owner. The design proceeds
-> on the recommendation in brackets; none is settled, and none blocks
-> `mars build plugin`.
+The release-phase questions are now settled in the build: `[plugin]` defaults
+to `dir = "plugin"`, package-derived identity and all five harnesses;
+`[package]` carries author/homepage/license metadata; root ownership is
+sentinel-checked; and exported dependency hooks ship subject to ordinary
+filters and fragment/support diagnostics. The `requires-mars` check and
+version-command integration remain in their dedicated lanes.
 
-- `[plugin]` defaults [`dir = "plugin"`, name and marketplace from the package
-  name, `harnesses = ["claude"]`; `mars version` builds whenever `[plugin]` is
-  present, `--no-plugins` skips].
-- New `[package]` keys `authors`, `homepage`, `license` for the manifest and
-  the catalog's required `owner` [add them].
-- Mars owning the root catalog whole and refusing to overwrite one it didn't
-  write [yes].
-- `mars check` warning when a package has `[plugin]` but a `requires-mars`
-  floor below the first plugin-aware mars, which raises the floor for its
-  consumers too [warn].
-- Dependency exported hooks shipping by default: meridian-dev-workflow's
-  plugin would run meridian-base's `context-autosync` and
-  `deny-interactive-prompts` for users without Meridian [ship, flagged by the
-  warning for Meridian and Mars terms in shipped text; narrow with
-  `[dependencies.x] exclude`].
+**Revisit when:** a new harness cannot map to one of the three tree identities,
+or a loader change means sharing the Claude tree no longer preserves behavior.
 
-**Revisit when:** a harness needs content the Claude tree can't carry (a
-Codex-only hook, a Cursor probe that fails), which calls for a second tree;
-or Codex starts loading plugin agents.
+**Provenance:** final build gate `work:harness-plugin-export`; mars-agents
+`f3/integration` commit `1d348a3`; correctness and structural re-reviews plus
+runtime probes recorded in `work:harness-plugin-export/f3-gate-round2-fixes.md`.
 
 ---
 

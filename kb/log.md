@@ -7,9 +7,8 @@ Tracks structural changes to this knowledge base — new pages, reorganizations,
 
 `work:harness-plugin-export`. New decision records
 [D100](decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24)
-(one plugin per package holding its full resolved graph, with the
-generated-tree and fingerprint contracts and the five owner questions still
-open), [D101](decisions/package-management.md#d101-agent-skills-lower-by-harness-capability-2026-10-24)
+(one logical plugin per package holding its full resolved graph),
+[D101](decisions/package-management.md#d101-agent-skills-lower-by-harness-capability-2026-10-24)
 (capability-aware skills lowering),
 [D102](decisions/package-management.md#d102-renamed-agents-and-skills-answer-to-their-installed-name-2026-10-24)
 (renamed items carry their installed name) and
@@ -20,6 +19,15 @@ precedence tables in the [compiler architecture](architecture/mars-compiler.md)
 and [compiler pipeline](concepts/package-management/compiler-pipeline.md)
 now rank by depth; [self-source selection](concepts/package-management/self-source-selection.md)
 records the plugin-tree discovery skip.
+
+The final F3 build gate reconciled D100 with the multi-harness implementation:
+five harnesses map to Claude, Cursor and OpenCode tree identities; configured
+publication owns only three allowlisted repo-root files; selected typed item/MCP
+inventory bounds strict staging and fingerprinting; and generated catalogs are
+never fingerprint inputs. OpenCode hook export recognition is warn-only because
+the generated runtime isolates each fragment. Version/check integration remains
+in separate lanes. Source: `work:harness-plugin-export`, mars-agents
+`f3/integration` `1d348a3`.
 
 ---
 ## 2026-10-24 — MCP selection joined target state
