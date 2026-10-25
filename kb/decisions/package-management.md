@@ -993,7 +993,8 @@ project install:
 **Contracts other code must respect.** These make a committed plugin safe
 to rebuild, check and release. Their mechanism is documented beside the
 code in mars-agents `src/build/AGENTS.md`, `src/build/.context/CONTEXT.md`,
-`src/config/AGENTS.md` and `src/discover/.context/CONTEXT.md`.
+`src/config/AGENTS.md` and `src/discover/.context/CONTEXT.md` (on the
+`release/v0.19.0` line until it ships).
 
 - **A directory holding a valid `.mars-plugin.json` is generated output,
   never authored input**, at any depth in any package. Discovery, MCP
@@ -1019,8 +1020,8 @@ code in mars-agents `src/build/AGENTS.md`, `src/build/.context/CONTEXT.md`,
   `mars.toml` loads; the plugin build validates them once. So a malformed
   author or unknown harness can't break `mars sync` or `mars list` for the
   package or its consumers, and `config::save` writes back what was read.
-  Typing them at load caused the same class of finding in three review
-  rounds.
+  When these values were typed at load, every new validation rule became a
+  way for publishing metadata to break ordinary config loading.
 - **A release rolls back through git.** The commit being released from is
   the snapshot: before writing, every touched path outside `<dir>` must be
   tracked and clean at HEAD, or absent, and rollback never deletes an
@@ -1063,7 +1064,7 @@ build later.
 | `mars build plugin` as the only entry point | Releases would ship stale plugins |
 | `mars sync` builds and enables plugins | Codex needs a user-cache install and Claude an absolute marketplace path, so a project cannot enable a plugin by itself |
 | Configured output under `dist/` | Commonly gitignored, and marketplaces install from the tagged commit. `--out dist/…` stays valid for CI |
-| A hand-built rollback that keeps the previous tree until the tag | Git already holds it at HEAD; two review rounds of ordering fixes showed the mechanism was wrong |
+| A hand-built rollback that keeps the previous tree until the tag | Git already holds the previous state at HEAD; a second copy needed its own crash-safe restore ordering, which is where the bugs were |
 | Typing plugin metadata when `mars.toml` loads | Let publishing metadata break sync and list, and made `config::save` lossy |
 | Sentinel key inside `marketplace.json` | Claude validates nested objects strictly |
 | Reuse the `mars export` name | It already means compile-plan JSON |
@@ -1071,7 +1072,8 @@ build later.
 > [!FLAG] **Needs human review**
 > - **Does a new harness join the default `harnesses`?** Today the default
 >   is all five; adding a sixth harness would silently add a tree to every
->   package that relies on it. Open as mars-agents#211.
+>   package that relies on it. Open as
+>   [mars-agents#211](https://github.com/haowjy/mars-agents/issues/211).
 > - **Choices built as recommended without an explicit yes.** The owner
 >   was offered the release defaults (`dir = "plugin"`, name and
 >   marketplace from the package, all five harnesses, `--no-plugins`), the
@@ -1082,12 +1084,14 @@ build later.
 >   took as acceptance. The warnings-not-errors extension beyond term
 >   checks is likewise unconfirmed.
 
-**Known gaps** (mars-agents issues): #198, OpenCode hook fragments in the
-named-export shape `mars sync` documents don't load; #199, the OpenCode sync
-adapter's MCP key, unconfirmed; #201, a dry run leaves an untracked `.mars/`;
-#202, root files and the output directory publish in two steps, not one;
-#204, no portable token for MCP server files shipped in the package; #210,
-structural cleanups left in the build.
+**Known gaps** (mars-agents issues): [#198](https://github.com/haowjy/mars-agents/issues/198), OpenCode hook fragments in the
+named-export shape `mars sync` documents don't load; [#199](https://github.com/haowjy/mars-agents/issues/199), the OpenCode sync
+adapter may write MCP under a key OpenCode doesn't read (found by reading
+source, not yet run); [#201](https://github.com/haowjy/mars-agents/issues/201), a dry run leaves an untracked `.mars/`; [#202](https://github.com/haowjy/mars-agents/issues/202), root
+files and the output directory publish in two steps, so a crash between them
+leaves them out of step until the next build; [#204](https://github.com/haowjy/mars-agents/issues/204), no portable token for MCP
+server files shipped in the package; [#210](https://github.com/haowjy/mars-agents/issues/210), structural cleanups in the build
+(two tree registries, README prose that can drift from support state).
 
 **Revisit when:** a harness can't be served by one of the three trees (a
 Codex-only hook needs a Codex tree); Codex starts loading plugin agents; a

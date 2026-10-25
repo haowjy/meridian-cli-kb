@@ -8,7 +8,8 @@ loads only a JavaScript module and cannot add agents. Mars's
 five harnesses; scope and rationale are in
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24),
 and the generated support and verification tables are in mars-agents
-`README.md` § Plugins.
+`README.md` § Plugin Distribution (on the `release/v0.19.0` line, not yet
+released).
 
 Versions probed, 2026-10-24 and 2026-10-25: Claude Code 2.1.310, Codex CLI
 0.164.0, Grok 1.0.40 and 1.0.70, OpenCode 2.1.3 (source) and 2.1.4 (live).
@@ -131,8 +132,7 @@ value through `env_vars`.
 
 Grok rejects `mcpServers`, `hooks` and `permissionMode: bypassPermissions`
 in plugin agents; the Claude tree already drops all three, because Claude
-ignores them in plugin agents too. `grok plugin details` counts component
-directories, not components. How Grok treats a Claude model name such as
+ignores them in plugin agents too. How Grok treats a Claude model name such as
 `model: opus` is unobserved; the live turns chose the model at session level.
 
 ## OpenCode
@@ -147,13 +147,14 @@ variable exists.
 - **Skills** registered from bundled files load with working `resources/`.
 - **MCP** registered as `<plugin>:<server>` in OpenCode's
   `{type: "local", command: [cmd, ...args]}` shape is callable; the model
-  sees the colon as `_`. Server processes start in the user's project, so
-  package-relative `args` break.
+  sees the colon as `_`. Server processes start in the user's project
+  directory, and there is no plugin-root variable, so an `args` path
+  relative to the package resolves against the project and misses.
 - **Hooks** are in-process callbacks; `hooks/hooks.json` is not read. A hook
   module must default-export `{id, setup}`. The named-export shape fails with
   `Plugin must export a default definition with an id and an effect or setup
   function`. This also breaks the `opencode.ts` fragments `mars sync`
-  documents (mars-agents#198).
+  documents ([mars-agents#198](https://github.com/haowjy/mars-agents/issues/198)).
 - **Git install** (`opencode plugin add git+…`) honors the root
   `package.json`'s `main` and `files`, so a repo can expose one subdirectory
   as the package.
