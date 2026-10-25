@@ -446,7 +446,9 @@ live model catalog", not `meridian mars models list`; "the work directory", not
 the judgment and drop text whose only job is syntax; leave frontmatter runtime policy
 such as `tools:` allowlists alone, since it is not prose.
 
-Most rows are present on every profile. `meridian notify` appears only for
+The rows live in `src/meridian/lib/launch/spawn_guidance.py`. Work items, past
+sessions, link/diagram validation, the source checkout, and the KB are present on
+every profile. `meridian notify` appears only for
 `mode: primary` profiles (see [D-bundled-meridian-skills](#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli)).
 Delegation, agent inventory, subagent prompting, and model-specific prompting remain
 behind the existing spawn capability gate. Behavioral invariants that help alone cannot enforce stay in the
@@ -454,7 +456,8 @@ prompt: standalone Meridian shell calls, draining `--bg` spawns, never
 background-wrapping a launch, and the confirm-completion handshake.
 
 **Why:** Shared prompt packages are imported into runtimes that may have app tools
-instead of Meridian or even a shell. Embedding CLI syntax makes their judgment
+instead of Meridian or even a shell. The driving case is meridian-flow, a separate app
+that imports creative-writing-skills and meridian-base into agents with no shell. Embedding CLI syntax makes their judgment
 non-portable and duplicates command help. Keeping the mapping at Meridian's launch
 boundary gives Meridian agents the concrete operation while leaving package prose
 usable elsewhere. The consolidation also prevents separately rendered task/work

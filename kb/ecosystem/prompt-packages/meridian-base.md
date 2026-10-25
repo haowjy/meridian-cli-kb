@@ -45,7 +45,7 @@ What stayed is the half that holds outside Meridian: `/work-artifacts` keeps
 work-directory orientation, decision placement, and divergence guidance;
 `/handoff` keeps the transition-brief judgment. Base prose names capabilities
 ("notify the human", "past sessions") rather than commands, because
-meridian-flow imports base into agents that have app tools and no shell
+meridian-flow, a separate app runtime, imports base into agents that have app tools and no shell
 ([D-capability-command-mapping](../../decisions/launch.md#d-capability-command-mapping)).
 0.12.0 requires Meridian 0.14.5 or later, the release that supplies those
 skills.

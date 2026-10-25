@@ -316,7 +316,7 @@ agent needs without embedding Meridian syntax themselves.
 Every launch also receives `# Meridian skills`, one trigger line per skill shipped in
 the wheel under `meridian.skills` (`<name>__meridian/`). `build_guidance_blocks()`
 drops a skill whose frontmatter says `mode: primary` unless the profile's `mode` is
-`primary`. Today only `sessions__meridian` reaches every agent; `escalation`, `handoff`,
+`primary`. As of v0.14.6 only `sessions__meridian` reaches every agent; `escalation`, `handoff`,
 `notify`, `prompt-authoring`, and `work` reach primary-mode profiles (leads) only.
 
 `meridian skills NAME [RESOURCE-PATH]` prints a skill under the same `# Skill:` header
@@ -329,7 +329,8 @@ package's agents or skills. They do not enter Mars `load`/`available` or a harne
 native skill list; package skills stay on the normal Mars/harness path. Why they ship
 with the binary, the naming, and the gate:
 [D-bundled-meridian-skills](../decisions/launch.md#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli).
-Installing them into `.mars/skills/` through Mars is designed but not built.
+Installing them into `.mars/skills/` through Mars is designed but not built; the
+decision record says where the design lives.
 
 ---
 
