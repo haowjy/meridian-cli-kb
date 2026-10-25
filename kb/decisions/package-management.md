@@ -979,7 +979,7 @@ deadset on cw". Those features are out; cw can migrate to this build later.
 
 | Option | Why not |
 |---|---|
-| One plugin per graph package, linked by `dependencies` | Owner correction; Codex ignores dependencies |
+| One plugin per graph package, linked by `dependencies` | Owner correction; Codex ignores dependencies, and Claude cross-marketplace dependencies need the user to register the other marketplace first |
 | Select dependency items by following references | Owner correction: the graph defines content |
 | Plugin extras, standalone variants, `--adopt` | cw-specific; a hand-built tree is replaced in a reviewed commit instead |
 | `mars build plugin` as the only entry point | Releases would ship stale plugins |
@@ -988,8 +988,10 @@ deadset on cw". Those features are out; cw can migrate to this build later.
 | Sentinel key inside `marketplace.json` | Claude validates nested objects strictly |
 | Reuse the `mars export` name | It already means compile-plan JSON |
 
-**Open with the owner** (the design proceeds on the recommendation in
-brackets; none is settled):
+> [!FLAG] **Needs human review**
+> Five release-phase questions are open with the owner. The design proceeds
+> on the recommendation in brackets; none is settled, and none blocks
+> `mars build plugin`.
 
 - `[plugin]` defaults [`dir = "plugin"`, name and marketplace from the package
   name, `harnesses = ["claude"]`; `mars version` builds whenever `[plugin]` is
@@ -1004,7 +1006,8 @@ brackets; none is settled):
 - Dependency exported hooks shipping by default: meridian-dev-workflow's
   plugin would run meridian-base's `context-autosync` and
   `deny-interactive-prompts` for users without Meridian [ship, flagged by the
-  term warning; narrow with `[dependencies.x] exclude`].
+  warning for Meridian and Mars terms in shipped text; narrow with
+  `[dependencies.x] exclude`].
 
 **Revisit when:** a harness needs content the Claude tree can't carry (a
 Codex-only hook, a Cursor probe that fails), which calls for a second tree;
@@ -1026,8 +1029,8 @@ plugin builds:
 
 - `load` goes into the native `skills:` field where the harness preloads it
   (Claude and Cursor subagents). `available` never goes there.
-- Every other gap gets one generated paragraph appended after the authored
-  body: `available` skills on every harness, `load` skills where no native
+- Where native preload can't carry the intent, one generated paragraph is
+  appended after the authored body: `available` skills on every harness, `load` skills where no native
   preload exists (Codex, OpenCode, Pi), and `load` skills on Claude as well.
   Its text is "Load these skills before starting, unless they are already in
   your context: /a, /b. Load these skills when the task fits: /c, /d."
@@ -1045,8 +1048,8 @@ a session agent, which does not; "unless they are already in your context"
 covers both.
 
 **Rejected:** inlining `load` skill text into agents where the harness has no
-preload, the original form of the idea. Every current target already
-discovers skills natively, so `/name` resolves. Inlined text breaks skill
+preload. Every harness Mars targets (Claude, Codex, Cursor, OpenCode, Pi)
+already discovers skills natively, so `/name` resolves. Inlined text breaks skill
 `resources/` paths, which are relative to the skill directory and which
 `${CLAUDE_PLUGIN_ROOT}` does not reach inside agent bodies; it also copies
 each skill into every agent and goes stale against it. Inlining stays the
@@ -1063,8 +1066,8 @@ gate (`work:harness-plugin-export`). Implemented on unmerged mars-agents PR
 **Decision:** When an explicit `rename` or a cross-source collision
 (`coder` → `coder__base`) renames an agent or skill, its frontmatter `name:`
 becomes the installed name, and `subagents:` and `skills:` references follow.
-Native-agent sync prunes every prior file it claimed that this run did not
-emit, so the pre-rename `.claude/agents/coder.md` is removed (files Mars
+Native-agent sync deletes every native agent file it recorded as its own in
+an earlier sync and did not emit this time, so the pre-rename `.claude/agents/coder.md` is removed (files Mars
 didn't create are never touched).
 
 **Why:** Both collision copies used to keep `name: coder`, and Claude loaded

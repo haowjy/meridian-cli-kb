@@ -4,7 +4,7 @@ There is no shared plugin format. Claude Code's format is the richest, and
 Codex can install a Claude-format plugin from a Claude catalog, so one
 Claude-format tree serves both. OpenCode needs a JavaScript module and cannot
 add agents. Cursor documents Claude-plugin import but was never probed. Mars's
-`mars build plugin` targets this shape; its scope and rationale are in
+`mars build plugin` builds that one Claude-format tree for Claude and Codex; its scope and rationale are in
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
 
 Versions probed on 2026-10-24: Claude Code 2.1.310, Codex CLI 0.164.0,
@@ -16,8 +16,8 @@ Recheck a fact before relying on it against a later harness version.
 
 | | Claude Code | Codex CLI | OpenCode | Cursor |
 |---|---|---|---|---|
-| Plugin manifest | `.claude-plugin/plugin.json` (only `name` required) | own `.codex-plugin/plugin.json`, or reads Claude's and Cursor's | JS module: `package.json` + default export with `setup` | `.cursor-plugin/plugin.json` (docs) |
-| Catalog | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json`, and also reads `.claude-plugin/marketplace.json` | path or npm entry in `opencode.json` | (docs) |
+| Plugin manifest | `.claude-plugin/plugin.json` (only `name` required) | own `.codex-plugin/plugin.json`, or reads Claude's and Cursor's | JS module: `package.json` + default export with `setup` | `.cursor-plugin/plugin.json` (documented, unprobed) |
+| Catalog | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json`, and also reads `.claude-plugin/marketplace.json` | path or npm entry in `opencode.json` | documented, unprobed |
 | Skills | loaded, named `<plugin>:<skill>` | loaded, named `<plugin>:<skill>` | not from a plugin dir; registered via JS, or read from `.claude/skills` and `.agents/skills` | — |
 | Agents | loaded, with a field allowlist (below) | **not loaded** | **cannot register a new agent** | — |
 | Hooks | `hooks/hooks.json` | reads `hooks/hooks.json` | in-process JS callbacks only | — |
