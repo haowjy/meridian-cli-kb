@@ -1,10 +1,11 @@
 # Child Result Delivery
 
-A lead that launches `meridian spawn --bg` learns each child's result by one of
-three routes: its own `meridian spawn wait`, Pi's `meridian-spawn-watch`
-extension, or Claude's `meridian-spawn-watch` mod. Owed discovery reads the
-durable consumption evidence each route already owns; there is no separate
-claim subsystem for result delivery.
+A lead that launches `meridian spawn --bg` can learn a child's result directly
+from a Meridian command or from Pi's/Claude's `meridian-spawn-watch` fallback.
+The watchers exist for a lead that forgot `spawn wait`; they should announce
+only results no command already put in that lead's context. Owed discovery
+reads the durable consumption evidence each route already owns; there is no
+separate claim subsystem for result delivery.
 
 Status: done. The Claude route shipped in v0.11.9 (PR #724), Claude's
 header-only delivery in v0.12.8 (PR #743), and owed results in no-arg wait
@@ -18,6 +19,7 @@ flowchart LR
     C["Claude meridian-spawn-watch<br/>(mod) runs spawn collect"]
     A["meridian spawn ack"]
     X["meridian spawn cancel"]
+    S["spawn show / report show<br/>(terminal report body)"]
     O[("spawns/&lt;primary&gt;/<br/>observed-spawns.json")]
     R[("pi-bash/&lt;primary&gt;/<br/>receipts + cleared ids")]
     W -- "lease while waiting,<br/>observed on exit" --> O
@@ -28,6 +30,7 @@ flowchart LR
     C -- "after the delivered<br/>turn starts" --> A
     A -- "observed ids" --> O
     X -- "ids it reported<br/>cancelled" --> O
+    S -- "ids whose report<br/>the caller saw" --> O
 ```
 
 ## Which route a lead has
@@ -72,7 +75,9 @@ again (#718).
 There is no single consumption file shared by every route. Owed discovery
 unions three kinds of evidence for every relevant primary generation:
 
-- current and legacy `observed-spawns.json`: ids consumed by CLI wait or ack;
+- current and legacy `observed-spawns.json`: ids consumed by CLI commands that
+  showed the result (wait, ack, a completed cancel, or a terminal report-body
+  show);
 - `delivery-receipts.json`: exact Pi native admission;
 - `cleared-spawns.json`: results the user dismissed in Pi.
 
@@ -91,12 +96,13 @@ things:
   counts only while that exact process is alive, so a killed wait stops
   covering its ids.
 
-Writers record under the caller's own primary spawn id: `spawn wait` and
-`spawn ack` both do. Readers that decide what is owed must read the consumption
-sources of every primary in the chat. A lead that handled a child before a
-crash, then resumed under a new primary, has that evidence under the old
-primary. A reader that looked only at the current primary would deliver the
-child again at every idle.
+Writers record under the calling spawn id. Readers that decide what is owed
+read only the owner's parent scope: every primary generation in a primary
+chat, or the nested caller alone. A lead that handled a child before a crash,
+then resumed under a new primary, has that evidence under the old primary. A
+reader that looked only at the current primary would deliver the child again
+at every idle. Recording a sibling under a nested non-owner is harmless because
+the real parent's owed reader never consults that nested caller's observations.
 
 Writes take the primary's published-spawn lock, the per-spawn lock every
 writer of a file in `spawns/<id>/` takes. That lock refuses a spawn whose
@@ -113,8 +119,8 @@ extension reads the observation file with its own schema
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), so a
 schema change moves both.
 
-Three command families consume, each because its output already told the lead
-the outcome:
+Four command families consume, each because its output already put the child's
+result in the calling spawn's context:
 
 - `spawn wait`, for the terminal results it returns (unless the caller passes
   `--no-observe`);
@@ -126,18 +132,34 @@ the outcome:
   reports `finalizing`, or finds the child already succeeded or failed, prints
   only that status, not the child's report or failure, so the lead is still
   owed the result. A cancel run outside any spawn (a user's shell) has no
-  calling spawn and records nothing, so the lead still hears about it.
+  calling spawn and records nothing, so the lead still hears about it;
+- `spawn show`, only when the CLI output actually includes a non-empty report
+  body and the child is terminal. Managed agent mode defaults this command to
+  text, so its ordinary output consumes. Explicit JSON is summary-only by
+  default and does not; `--full` adds the body and consumes;
+- `spawn report show`, when the child is terminal, in text or JSON because
+  both formats include the report.
 
 Recording under the caller is safe for any caller, because readers union only
 the observations of the owner's parent scope. A nested spawn that cancels the
 primary's child records under itself, and the primary is still delivered the
 cancellation.
 
-Reading a result is not consuming it. `spawn show`, `spawn report show`, and `session log` stay
-pure reads, so a lead that reads a finished child with `spawn show` instead of
-waiting on it can still get one header-only Claude delivery for it later. That
-ping is the accepted cost of keeping reads free of locks and writes
-([D-claude-delivery-header-only](../decisions/child-result-delivery.md#d-claude-delivery-header-only)).
+Consumption belongs to the CLI surface that emitted the body, not the internal
+read operation. `spawn_show_sync()` and `report_show_sync()` remain pure for
+MCP, UI, context-reference, wait-rendering and other internal callers. `spawn
+status` (even `--full`), report search, `session log`, file reads, `--from`
+context references, summary-only show, active children, and invocations without
+a caller spawn id do not record consumption. This surface rule supersedes the
+pure-report-read part of
+[D-claude-delivery-header-only](../decisions/child-result-delivery.md#d-claude-delivery-header-only),
+while keeping its header-only automatic delivery
+([D-shown-results-consume](../decisions/child-result-delivery.md#d-shown-results-consume)).
+
+Cancel/show/report-show share one best-effort observation helper. It makes one
+non-blocking lock attempt after display; contention, a read-only runtime, or
+another OS write failure logs a warning and leaves the command's output intact.
+That result can be delivered once more after a failed observation.
 
 ### Transition from `pi-bash/`
 
@@ -198,11 +220,11 @@ wherever closing a window would need new coordination state. The known windows:
 
 | Window | Result |
 |---|---|
-| Lead read a finished child with `spawn show` and never waited on it | One later header-only Claude delivery |
+| A terminal report was shown, but its best-effort observation write failed | One later fallback delivery |
 | A collect passed its final consumption check just before a wait leased the same child | One duplicate header: the wait returns it and the mod delivers it |
 | The mod already holds or has queued a delivery when a wait starts | That delivery still arrives; the wait's lease does not recall it |
 | A damaged consumption file is skipped | Results it recorded can be delivered once more |
-| A cancel's observation write fails (OS error, or the caller's spawn directory is gone) | The cancel still succeeds; the cancelled child can be delivered once |
+| A cancel/show/report-show observation write fails (contention, OS error, or the caller's spawn directory is gone) | The command still returns its result; the child can be delivered once |
 | `spawn wait` is killed after its `finally` records consumption but before the CLI prints | Those results are recorded as consumed but never shown; no route delivers them again |
 
 The last row is a loss, not a duplicate: wait records consumption before it
@@ -294,8 +316,8 @@ Claude delivery and owed wait rows are header-only.
 > [!FLAG] **Needs human review**
 > Open question: should Pi deliveries also become header-only? Undecided; until
 > the owner decides, Pi keeps its excerpts. Deciding means choosing between a Pi
-> lead getting the report in the delivery (and again if it already read it) and
-> a short ping it must follow with `spawn show`.
+> lead getting the report in the fallback delivery and a short ping it must
+> follow with `spawn show`.
 
 ## Known gaps
 
