@@ -93,13 +93,17 @@ MCP candidates remain unresolved until per-target lowering:
 
 | Scenario | Winner | Behavior |
 |---|---|---|
-| `_self` (local) vs. dependency | Local | Dependency silently dropped |
-| Dependency A vs. dependency B | Earlier in `mars.toml [dependencies]` | Later dropped with warning |
-| Same-scope collision | Alphabetically first source | Warning names both sources |
+| Different depth | Shallower package (`_self`, then direct dependencies, then theirs) | `_self` wins silently; a dependency loser is dropped with a warning |
+| Same depth | Reached through the earlier `mars.toml [dependencies]` entry | Later dropped with warning |
+| Same depth and declaration order | Alphabetically first source | Warning names both sources |
 
-`graph.order` in the dependency graph is **alphabetical**, not declaration
-order. MCP dependency precedence therefore comes from the declaration order in
-`mars.toml`, not graph traversal order.
+Depth is the shortest distance from the consumer, derived once by
+`ResolvedGraph::dependency_depths()`; hooks use the same depths for ordering.
+`graph.order` in the dependency graph is **alphabetical**, so declaration order
+comes from `mars.toml`, not graph traversal order. This ranking is
+[D103](../decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24),
+on unmerged mars-agents PR #193; released mars still ranks every dependency by
+declaration order alone.
 
 Selection preserves diagnostic compatibility as well as output. Eligible MCP
 items remain in `TargetState` even when none of their declared targets is managed,
@@ -220,6 +224,21 @@ See [lessons/verification-and-review-discipline.md](../lessons/verification-and-
 for the engineering lessons from the review that drove this redesign, and
 [decisions/package-management.md](../decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07)
 for the D91 decision.
+
+## Plugin Builds Reuse the Target Pipeline
+
+`mars build plugin` is a second consumer of this pipeline, not a second
+compiler. It resolves through the publish lens, then calls the same
+`prepare_target_state` step sync uses (graph → filtered, renamed, validated
+`TargetState`), and lowers agents, skills, exported hooks and exported MCP
+through the per-harness lowerers into a fresh plugin tree. It never calls
+`compile()`, never writes `mars.lock`, and never probes installed harnesses.
+Any change to filtering, renames, collision handling or agent lowering
+therefore changes plugin output too; that is intended, since a plugin must hold
+what sync installs. Scope and rationale:
+[D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
+Mechanism: mars-agents `src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`
+(unmerged PR #193).
 
 ## Cleanup Notes Moved Out
 

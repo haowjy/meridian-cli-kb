@@ -3,6 +3,25 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-25 — Plugin builds, skills lowering, rename naming, depth precedence
+
+`work:harness-plugin-export`. New decision records
+[D100](decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24)
+(one plugin per package holding its full resolved graph, with the
+generated-tree and fingerprint contracts and the five owner questions still
+open), [D101](decisions/package-management.md#d101-agent-skills-lower-by-harness-capability-2026-10-24)
+(capability-aware skills lowering),
+[D102](decisions/package-management.md#d102-renamed-agents-and-skills-answer-to-their-installed-name-2026-10-24)
+(renamed items carry their installed name) and
+[D103](decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
+(shortest-depth precedence, superseding D36's MCP ranking). New research page
+[harness-plugin-loading.md](research/harness-plugin-loading.md). MCP
+precedence tables in the [compiler architecture](architecture/mars-compiler.md)
+and [compiler pipeline](concepts/package-management/compiler-pipeline.md)
+now rank by depth; [self-source selection](concepts/package-management/self-source-selection.md)
+records the plugin-tree discovery skip.
+
+---
 ## 2026-10-24 — MCP selection joined target state
 
 `work:harness-plugin-export`. [D99](decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24)

@@ -44,8 +44,11 @@ For mechanism, see:
 
 ### D36: MCP/hook collision precedence matches agent precedence (local wins, declaration order)
 
-> **Partially superseded:** D98 replaces the hook half of this decision. The MCP
-> precedence below remains current.
+> **Superseded:** D98 replaces the hook half of this decision, and
+> [D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
+> replaces the MCP precedence with shortest dependency depth first (on unmerged
+> mars-agents PR #193). Local still wins and declaration order still breaks
+> ties at equal depth.
 
 **Original decision:** MCP server and hook name collisions resolve via: local
 (`_self`) beats dependency; among dependencies, declaration order in
@@ -841,6 +844,9 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 **Status:** Owner-settled in `work:harness-plugin-export`; implemented and
 verified on the unmerged `mars-agents` `feat/plugin-build` branch at `cd558e3`.
+Its MCP collision ranking is superseded by
+[D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
+(shortest depth first); collisions are still resolved in per-target lowering.
 
 **Decision:** Target construction is the only package-discovery and visibility
 authority for effectful config entries. Alongside D98's hooks, it discovers each
@@ -880,6 +886,226 @@ user-visible policy decision, not part of this structural change.
   with a selection refactor and silently changes existing consumers.
 
 Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md#config-entry-selection-and-collisions).
+
+---
+
+### D100: A package publishes one plugin holding its full resolved graph (2026-10-24)
+
+**Status:** Owner-settled in `work:harness-plugin-export` (`chat:c9019`).
+Partly done: `mars build plugin` is implemented on unmerged mars-agents PR
+#193, stacked on PR #189. Building during `mars version`, the `[plugin]`
+table, the root catalog and `mars check` staleness warnings are not built yet.
+
+**Decision:** A package with a plugin builds **one** Claude-format plugin
+under its own name. The plugin holds exactly what `mars sync` installs in the
+package's own checkout: its own agents and skills plus its dependencies',
+under the package's own `[dependencies.x]` filters, renames and visibility
+rules. Dependency items share the building package's namespace: a
+meridian-base skill ships in meridian-dev-workflow's plugin as
+`meridian-dev-workflow:<skill>`. The plugin declares no plugin
+`dependencies`, and the catalog lists no dependency plugins. An author who
+wants to ship less narrows the graph with the filters a mars consumer already
+uses; there is no plugin-only selection rule. The owner described the target
+as the full graph "like cw does now", meaning creative-writing-skills'
+hand-built plugin, which already ships dependency content inside one plugin.
+
+Plugins are rebuilt on every `mars version` and committed with the release.
+`mars build plugin` is the same build for development and CI. Codex installs
+the same tree from the same root catalog
+([harness facts](../research/harness-plugin-loading.md)).
+
+Content findings are diagnostics, not failures. The owner wants plugin
+diagnostics about Meridian and Mars terms to be "warnings, never errors": a
+plugin may run where neither is installed, so the author should see the text,
+but the author decides. Errors are kept for configuration, IO, write safety,
+and graphs `mars sync` would also refuse.
+
+The rest follows from the plugin being a published artifact rather than a
+project install:
+
+- **Publish-lens resolve.** The build resolves through the package's
+  consumer-facing config and never reads `mars.lock`, `mars.local.toml` or
+  `.mars/`. Output that depended on untracked or local files could not be
+  checked for staleness from a clean clone.
+- **Only exported hooks and MCP servers ship.** Hooks and MCP default to
+  local visibility, so a package's own development hooks stay home.
+- **Models come only from the package's `[models]`**, never from the
+  machine's harness catalog, so two machines build the same bytes.
+- **The build shares sync's pipeline.** It flattens the graph through the
+  same target-state collection, filters, renames and validation that sync
+  uses, then lowers through the existing per-harness lowerers. It never
+  installs into a temporary project, which would pull in the lock, ownership
+  records, host probes and absolute hook paths.
+
+**Contracts other code must respect.** These are what make a committed plugin
+safe to rebuild and check; their mechanism is documented beside the code in
+mars-agents `src/build/AGENTS.md`, `src/build/.context/CONTEXT.md` and
+`src/discover/.context/CONTEXT.md`.
+
+- **A directory holding a valid `.mars-plugin.json` is generated output,
+  never authored input**, at any depth in any package. Discovery, MCP
+  discovery and staging skip it and report each skipped path. Without the
+  rule, a plugin committed inside a package became package input on the next
+  build and for every consumer. Copy and hash code below discovery stays
+  plain; the check lives in one place.
+- **The output directory is owned whole.** The sentinel records the package
+  version, the input fingerprint, resolved dependency versions (path
+  dependencies with their manifest version) and one hash per file. A
+  non-empty directory without a valid sentinel is refused; rebuilds stage in
+  a sibling directory and swap under a cross-process lock.
+- **The input fingerprint is the authored view, recomputable offline.** It
+  hashes the root package's own sources as staging reads them (generated
+  trees skipped, UTF-8 text normalized from CRLF to LF, `.bat`/`.cmd`
+  exempt) plus the output-affecting `mars.toml` tables, with `version`
+  removed from `[package]`. It never resolves dependencies, so `mars check`
+  can call a committed plugin stale without the network. A dependency
+  release does not change it; the sentinel's dependency versions cover that.
+
+**Why one plugin of the whole graph:** An earlier design built one plugin per
+graph package, linked by plugin `dependencies`, and chose which dependency
+items to ship by following references in prose. The owner corrected both. The
+graph is what a mars user gets, so it should be what a plugin user gets;
+prose references are an unreliable second definition of content. Plugin
+dependencies also fail on the harness side: Codex ignores them, and a Claude
+cross-marketplace dependency installs only when the user has already
+registered and allowlisted the other marketplace.
+
+**Not centered on cw.** creative-writing-skills is the only existing hand-built
+plugin, and the first design took its needs (extras, standalone variants,
+adopting a hand-built tree) as requirements. The owner asked "why are u so
+deadset on cw". Those features are out; cw can migrate to this build later.
+
+**Rejected alternatives:**
+
+| Option | Why not |
+|---|---|
+| One plugin per graph package, linked by `dependencies` | Owner correction; Codex ignores dependencies |
+| Select dependency items by following references | Owner correction: the graph defines content |
+| Plugin extras, standalone variants, `--adopt` | cw-specific; a hand-built tree is replaced in a reviewed commit instead |
+| `mars build plugin` as the only entry point | Releases would ship stale plugins |
+| `mars sync` builds and enables plugins | Codex needs a user-cache install and Claude an absolute marketplace path, so a project cannot enable a plugin by itself |
+| Output under `dist/` | Commonly gitignored, and marketplaces install from the tagged commit |
+| Sentinel key inside `marketplace.json` | Claude validates nested objects strictly |
+| Reuse the `mars export` name | It already means compile-plan JSON |
+
+**Open with the owner** (the design proceeds on the recommendation in
+brackets; none is settled):
+
+- `[plugin]` defaults [`dir = "plugin"`, name and marketplace from the package
+  name, `harnesses = ["claude"]`; `mars version` builds whenever `[plugin]` is
+  present, `--no-plugins` skips].
+- New `[package]` keys `authors`, `homepage`, `license` for the manifest and
+  the catalog's required `owner` [add them].
+- Mars owning the root catalog whole and refusing to overwrite one it didn't
+  write [yes].
+- `mars check` warning when a package has `[plugin]` but a `requires-mars`
+  floor below the first plugin-aware mars, which raises the floor for its
+  consumers too [warn].
+- Dependency exported hooks shipping by default: meridian-dev-workflow's
+  plugin would run meridian-base's `context-autosync` and
+  `deny-interactive-prompts` for users without Meridian [ship, flagged by the
+  term warning; narrow with `[dependencies.x] exclude`].
+
+**Revisit when:** a harness needs content the Claude tree can't carry (a
+Codex-only hook, a Cursor probe that fails), which calls for a second tree;
+or Codex starts loading plugin agents.
+
+---
+
+### D101: Agent skills lower by harness capability (2026-10-24)
+
+**Status:** Current choice. The owner raised the idea and agreed to the
+lead's form of it ("yeah, I think load these skills is acceptable",
+`chat:c9019`). Implemented on the local mars-agents branch
+`feat/skills-lowering`, which has no PR yet; it lands after PR #193 and before
+the first published plugin.
+
+**Decision:** An agent's `skills: {load, available}` lowers per harness from
+one policy in the per-harness agent lowerer, used by both `mars sync` and
+plugin builds:
+
+- `load` goes into the native `skills:` field where the harness preloads it
+  (Claude and Cursor subagents). `available` never goes there.
+- Every other gap gets one generated paragraph appended after the authored
+  body: `available` skills on every harness, `load` skills where no native
+  preload exists (Codex, OpenCode, Pi), and `load` skills on Claude as well.
+  Its text is "Load these skills before starting, unless they are already in
+  your context: /a, /b. Load these skills when the task fits: /c, /d."
+- In a plugin, the reference pass qualifies those `/name` tokens like any
+  other reference.
+
+Meridian launch bundles are unchanged: they still read `load` and
+`available` from the canonical profile.
+
+**Why:** Before this, Claude and Cursor lowered `load ∪ available` into
+`skills:`, so subagents preloaded skills meant to be optional, and Codex,
+OpenCode and Pi agents got no skill guidance. Claude needs the line too
+because one agent file serves as a subagent, which preloads `skills:`, and as
+a session agent, which does not; "unless they are already in your context"
+covers both.
+
+**Rejected:** inlining `load` skill text into agents where the harness has no
+preload, the original form of the idea. Every current target already
+discovers skills natively, so `/name` resolves. Inlined text breaks skill
+`resources/` paths, which are relative to the skill directory and which
+`${CLAUDE_PLUGIN_ROOT}` does not reach inside agent bodies; it also copies
+each skill into every agent and goes stale against it. Inlining stays the
+answer only for a harness with no skill mechanism, and none exists today.
+
+---
+
+### D102: Renamed agents and skills answer to their installed name (2026-10-24)
+
+**Status:** Current choice, made by the tech lead at the plugin-build review
+gate (`work:harness-plugin-export`). Implemented on unmerged mars-agents PR
+#193; it changes `mars sync` output too.
+
+**Decision:** When an explicit `rename` or a cross-source collision
+(`coder` → `coder__base`) renames an agent or skill, its frontmatter `name:`
+becomes the installed name, and `subagents:` and `skills:` references follow.
+Native-agent sync prunes every prior file it claimed that this run did not
+emit, so the pre-rename `.claude/agents/coder.md` is removed (files Mars
+didn't create are never touched).
+
+**Why:** Both collision copies used to keep `name: coder`, and Claude loaded
+only one of them. A plugin makes this worse, since every item shares one
+namespace. Agent Skills also requires a skill's `name` to match its directory.
+
+**Consequence:** a renamed agent no longer answers to its old name. When two
+dependencies both ship `coder`, `meridian spawn -a coder` stops resolving and
+callers must use `coder__<source>` or add an explicit rename. User-facing
+note: mars-agents `docs/internals/conflicts.md`.
+
+---
+
+### D103: Collision precedence and hook order use shortest dependency depth (2026-10-24)
+
+**Status:** Current choice, made by the tech lead at the plugin-build review
+gate. Implemented on unmerged mars-agents PR #193. Supersedes D36's MCP
+precedence and D99's "MCP collision handling does not move".
+
+**Decision:** A package's depth is its shortest distance from the consumer:
+the project or building package itself (`_self`) first, then direct
+dependencies, then their dependencies. Among MCP servers with the same name
+for one target, the shallowest package wins; at equal depth, the earlier
+`[dependencies]` entry it was reached through wins; alphabetical source name
+breaks remaining ties. Hooks use the same depth for ordering. Dependency hook
+collisions stay errors (D98). The resolver derives depth once
+(`ResolvedGraph::dependency_depths()`); sync, lowering and the plugin build
+read it rather than reconstructing it.
+
+**Why:** D36 ranked only `_self` above dependencies and every dependency by
+declaration order, so a dependency's MCP server could beat a server from a
+package that depends on it. Review found exactly that: a package lost its own
+server to its dependency's, in both the plugin build and sync. Depth fixes
+that, but only as the *shortest* distance: a first-found depth made a direct
+dependency that was also reached transitively count as depth 2 and lose to a
+later-declared sibling. Hooks already sorted by depth, and one meaning of
+depth for both beats a second sort key.
+
+**Visible effect:** hook order changes only for a direct dependency that is
+also reached transitively, and in that case Codex may ask once to re-trust the
+moved hooks.
 
 ---
 

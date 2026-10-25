@@ -74,6 +74,14 @@ filtering happens after discovery and cannot repair that choice. Hidden target
 roots avoid this feedback path; a general fix is tracked in
 [mars-agents issue #161](https://github.com/haowjy/mars-agents/issues/161).
 
+Built plugin trees are the one generated output with a fix. A committed plugin
+at `plugin/skills/` is shallower than a package's real `src/skills/`, so the
+layer rule would select the old build as the package's content. Discovery,
+MCP discovery and staging therefore skip any directory holding a valid
+`.mars-plugin.json`, at any depth in any package, and report each skipped path
+([D100](../../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24);
+unmerged mars-agents PR #193). Other generated targets still need #161.
+
 ## Flat-root containment
 
 A flat declared-package `SKILL.md` treats the project directory as its resource

@@ -108,12 +108,14 @@ target using these precedence rules:
 
 | Collision | Winner |
 |---|---|
-| `_self` (local) vs. dependency | Local wins silently |
-| Dependency A vs. dependency B | Earlier in `mars.toml [dependencies]` declaration order wins, later dropped with warning |
-| Same-scope alphabetically | Alphabetically first source; both named in warning |
+| Different depth | Shallower package wins (`_self` silently; a dependency loser with a warning) |
+| Same depth | Earlier `mars.toml [dependencies]` entry wins, later dropped with warning |
+| Same depth and declaration order | Alphabetically first source; both named in warning |
 
-`graph.order` is alphabetical, not declaration order. MCP dep-vs-dep precedence
-therefore uses the dependency declaration order from `mars.toml`.
+Depth is the shortest distance from the consumer (`ResolvedGraph::dependency_depths()`).
+`graph.order` is alphabetical, so declaration order comes from `mars.toml`.
+Depth-first ranking is [D103](../../decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24),
+on unmerged mars-agents PR #193.
 See [D99](../../decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24).
 
 **Hook selection** — target construction applies dependency filters, exported
@@ -181,8 +183,9 @@ how the lock feeds the diff phase on the next sync.
 - **I-2: All writes are atomic** — tmp+rename, lock-guarded.
 - **I-3: Target sync is per-target non-fatal** — a failure in one harness target
   records a warning and continues; sibling targets are not aborted.
-- **I-4: Declaration order for MCP dep-vs-dep collisions** — graph traversal
-  order is not used; dependency declaration order supplies precedence.
+- **I-4: Depth, then declaration order, for MCP collisions** — the shallowest
+  package wins; at equal depth the earlier `[dependencies]` entry wins. Graph
+  traversal order is never used.
 - **I-5: Windows filename safety** — filename validation rejects Windows-invalid
   and reserved device names on all platforms before any write.
 
