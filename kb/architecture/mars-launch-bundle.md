@@ -152,7 +152,8 @@ mode by precedence, combines the permission sets, canonicalizes hosts, and drops
 Meridian parses the object once to its typed network policy. A null mode applies the
 sandbox-derived default while retaining denies. Current producers also provide
 `provenance.network_source`; without that key Meridian rejects the pre-0.18 bundle and names
-the required Mars version rather than guessing a harness default. `native_config` is omitted
+the required Mars version rather than guessing a harness default. The unmerged Mars schema v1 branch drops this object; see
+[the schema v1 network conflict](../decisions/sandbox-platform-access.md#schema-v1-network-conflict). `native_config` is omitted
 (`skip_serializing_if = None`) when no native config is declared. Meridian applies it on Codex only; see
 [../concepts/native-config.md](../concepts/native-config.md). `autocompact` is a token
 count and `autocompact_pct` a percentage; how each harness applies them:

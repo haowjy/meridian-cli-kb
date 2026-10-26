@@ -270,15 +270,75 @@ an uncertain call before more work builds on it, sessions' advice to mine before
 compaction. A review against the meridian-base originals restored it in v0.14.5. Compare
 a trimmed skill against its original before shipping it.
 
-**Planned, not built:** installing bundled skills through Mars (`mars provide`, a
-machine-local `.mars/provided.lock`, and a package-level `uses-providers` declaration),
-so they live in `.mars/skills/` beside package skills and package agents can list them.
-The design is settled in the package-transferability work item
-(`design/mars-provided-sources.md`); Mars has no implementation, and the meridian-cli
-side is on the unmerged branch `feat/provided-skills`. Until it lands, bundled skills
-are read from the wheel only.
+#### Installing bundled skills through Mars (decided, not shipped)
 
-**Provenance:** `work:package-transferability`, `chat:c9186`.
+**Status:** designed and implemented on unmerged branches, released nowhere. Shipped
+Meridian reads bundled skills from the wheel only. mars-agents `feat/provided-skills` is
+local and stacked on the unmerged schema v1 branch; meridian-cli `feat/provided-skills`
+is pushed but has no merged PR. The colocated contracts on those branches are mars-agents
+`src/provided/.context/CONTEXT.md` and `docs/internals/lock-file.md` (canonical ownership),
+and meridian-cli `src/meridian/lib/launch/.context/CONTEXT.md`.
+
+**Decision:** bundled skills install into `.mars/skills/` beside package skills, so there
+is one home for skills, Mars stays the only writer of `.mars/`, and a package agent can
+list `prompt-authoring__meridian` under `skills:`. Rejected: keeping bundled skills
+wheel-only and teaching Mars a host-suffix rule (smaller, but two homes for skills).
+
+The rule behind every edge case is that **a host never changes committed state**:
+
+- `mars provide meridian@<version>=<package dir>` copies the wheel's `skills/` entries
+  into `.mars/skills/` and records them in a machine-local `.mars/provided.lock`.
+  `mars.toml`, `mars.lock` and harness folders are byte-identical whether or not Meridian
+  ever ran, so teammates on different Meridian versions never churn a committed file.
+  Provided skills are never projected into harness folders, since a native copy would
+  load without Meridian's `mode` gate. Plugin builds never contain them.
+- A package that lists `<x>__meridian` declares `[package] uses-providers = ["meridian"]`.
+  Only a declared provider's names can be satisfied by provided skills, and they warn
+  instead of failing where the provider is absent. An undeclared ref is `SkillNotFound`
+  on every machine, even one where the skill is installed, so a ref's validity depends on
+  the package, never on what the author happens to have installed. Rejected: a suffix rule
+  where any unresolved `x__p` warns (a typo shaped `foo__bar` would warn instead of fail);
+  the field names `providers` (reads as "what this package provides") and
+  `expects-providers`.
+- Meridian runs `mars provide` at every primary and spawn launch, before
+  `meridian skills NAME`, and before `meridian mars` commands that resolve refs, then reads
+  the `.mars/` copy for names Mars reports installed and the wheel for everything else.
+  Any other outcome (busy lock, interrupted sync, older Mars without the command, error)
+  falls back to the wheel. Rejected: refreshing at primary launch only, which would let a
+  spawn load an older body than its Meridian.
+- meridian-flow imports packages as snapshots and cannot run `mars provide`, so packages
+  it imports (creative-writing-skills, meridian-base) list no `*__meridian` skills.
+
+Three choices made during implementation are the work lead's, not the owner's (current
+choices):
+
+- **`mars provide` answers `up-to-date` only when a re-plan would write nothing.** Its
+  fast path runs before taking the sync lock, so parallel spawns and launches during a long
+  sync do not all report `busy`, and it hashes each installed tree against the source.
+  Existence is not ownership: a sync that crashes after replacing a recorded directory and
+  before publishing `mars.lock` leaves the record intact and foreign bytes on disk, and an
+  existence check would call that current while Meridian read the foreign copy. Measured
+  cost is about 2 ms per call.
+- **A provided skill's availability comes from disk, its ownership from the record.**
+  Mars's readers hold two name sets: a ref is satisfied only while the recorded skill is
+  actually installed, and a destination named in `provided.lock` counts as Mars-owned, so a
+  package item of the same name replaces it on every machine.
+- **Gating moves to `metadata.mode`.** On the branch, bundled skills carry
+  `metadata: {mode: primary}` instead of a top-level `mode:` key, because Mars warns on
+  unknown top-level skill keys and `mars provide` would report one warning per gated skill
+  on every applied run. The gate's meaning is unchanged.
+
+**Release (current choice):** the Mars side ships in mars-agents 0.20.0, stacked on the
+schema v1 rewrite of the readers, resolver and sync preparation it touches. The owner,
+agreeing to the lead's proposal: "yeah, I think going on top of 0.20.0 makes sense."
+Rejected: landing first in 0.19.0 (schema v1 would have to merge it through its rewrite).
+
+> [!FLAG] **Needs human review**
+> No Meridian release can launch on schema v1 Mars as that branch stands. Schema v1
+> deletes Mars's network policy, but shipped Meridian requires it in every launch bundle.
+> See [the network-policy conflict](sandbox-platform-access.md#schema-v1-network-conflict).
+
+**Provenance:** `work:package-transferability`, `chat:c9186`, `chat:c9297`.
 
 ---
 
