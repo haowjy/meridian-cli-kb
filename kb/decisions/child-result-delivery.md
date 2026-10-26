@@ -91,7 +91,7 @@ results receives them as a turn, as if it had waited.
   sibling, so the gate, CLI queue and store log are duplicated.
 
 [D-claude-primary-inbox](primary-inject.md#d-claude-primary-inbox) rejected a
-`$.prompt.submit` mod for `spawn inject`: it only queues until the turn ends,
+`$.prompt.submit` mod for `spawn message`: it only queues until the turn ends,
 fails silently when the mod doesn't load, and adds a process. For delivery the
 first is the point (results are wanted only at idle). A mod that fails to load
 leaves the lead where it was without one, needing an explicit wait.

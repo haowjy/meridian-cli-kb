@@ -94,7 +94,7 @@ is an explicit exception to the acknowledgement rule above: Claude's inbox socke
 successful post means only that the whole message was written, and its result
 text must say "posted", never "delivered"
 ([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
-PR #668, open).
+PR #668).
 
 ## Adding a Harness
 

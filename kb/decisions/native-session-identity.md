@@ -67,7 +67,7 @@ has open now."
   chose option C). SQLite stays a disposable search and preview projection, never
   binding or transcript authority. See [native-only history](native-only-history.md).
 - **Not a new initiation mode.** `--from` (fresh session plus lightweight context),
-  `--fork`/`--fork-fresh`, `-f`, and `spawn inject` keep their meanings. See
+  `--fork`/`--fork-fresh`, `-f`, and `spawn message` keep their meanings. See
   [session initiation](../concepts/session-initiation.md).
 
 ## Entry evidence is a harness-guaranteed exact target

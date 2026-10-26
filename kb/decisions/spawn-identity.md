@@ -218,7 +218,7 @@ lockless row.
 `--continue`, `spawn --continue` and the session browser) calls one seam,
 `launch/continue_sweep.py`:
 - **Lock held:** refuse at once, before any row is written: "pM is still running;
-  use spawn inject pM or --fork pM".
+  use spawn message pM or --fork pM".
 - **Lock free:** terminate the source's unreleased, birth-verified scopes, mark them
   released, then continue. A scope whose birth is unknown is never signalled. A
   reused root PID proves the root dead, so that scope is released without a signal.
@@ -233,7 +233,7 @@ start p3 on p2's live session. `--continue c1` was already safe, because chat c1
 record points at p2. The sweep now reads `chat_record(chat).spawn_id` (one keyed
 read, no scans) and locks that owner first:
 - owner live → refuse, naming it: "p1 was continued as p2, which is still running;
-  use spawn inject p2, --fork p2, or spawn cancel p2";
+  use spawn message p2, --fork p2, or spawn cancel p2";
 - owner dead → sweep the owner's scopes and the named spawn's, then launch;
 - a pruned owner (no row) is ignored, rather than failing every later continue.
 
@@ -548,7 +548,7 @@ The branch adds fixes so it meets the [per-operation cost bar](../architecture/p
 
 - A spawn `pN` is the stable name of a conversation thread. It has no row of its own; it is derived from its runs.
 - Each launch is a **run**: an immutable row with one terminal status, report and artifact directory. Run 1 is stored under the bare key `pN`, later runs under `pN.2`, `pN.3`, and so on. `pN.1` is an alias of `pN`.
-- A spawn has at most one active run. A second `--continue pN` is refused and points at `spawn inject` or `--fork`.
+- A spawn has at most one active run. A second `--continue pN` is refused and points at `spawn message` or `--fork`.
 - `MERIDIAN_SPAWN_ID` is the stable spawn, and children record it as `parent_id`. `MERIDIAN_RUN_ID` is the exact run, and self-targeting commands act on it.
 - `spawn list` shows one row per spawn (the user's choice); `spawn show pN` shows the latest run plus a run table.
 - Chat `cN` stays as the native-segment id that native binding relies on. It leaves the default vocabulary: the quit hint will say `pN`.

@@ -10,16 +10,16 @@ Items are organized by domain.
 
 ### Live primary injection control endpoint (#498)
 
-**Where:** managed primary launch/attach and `spawn inject` control routing.
+**Where:** managed primary launch/attach and `spawn message` control routing.
 
 **The issue:** a primary has no `SpawnManager`, so nothing serves the
-`control.sock` that `spawn inject` uses for children. Claude primaries now have a
+`control.sock` that `spawn message` uses for children. Claude primaries have a
 route through Claude Code's own inbox socket, behind the optional
 `HarnessBundle.primary_inbox` port
 ([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
-PR #668, open). Codex, OpenCode and Pi primaries have none: with #668,
-`spawn inject` fails at once with "<harness> primaries have no inject route yet
-(see #498)"; on `main` it still waits 30 s and reports "not running". Each
+PR #668). Codex, OpenCode and Pi primaries have none: `spawn message` fails at
+once with "<harness> primaries have no message route yet (see #498)", and a
+sender on one of them gets no reply command in its message frame. Each
 harness plugs its route into the same `primary_inbox` port. Codex and OpenCode
 primaries already run behind a Meridian-held backend connection (app-server
 WebSocket, HTTP/SSE), which a route could use.

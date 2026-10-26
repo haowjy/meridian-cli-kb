@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-26 — `spawn inject` becomes `spawn message`; sender frame; Claude's inbound gate
+
+PR #777 (`5ad479b0a`). New decision
+[D-spawn-message-frame](decisions/primary-inject.md#d-spawn-message-frame): the
+`[Meridian]` sender line, the reply command only when the sender can receive
+one, and the chat id from the sender's record. The command name is updated
+across the KB where it names the CLI; "inject" stays where it names the
+mechanism. [Inbound controls](research/claude-code-mods-and-inbox.md#inbound-controls)
+gained the 2.1.310 gate facts (`accept`/`hold`/`refuse`, the `mode-mismatch` and
+`no-mode-asserted` parity holds, headless expiry, settings precedence) and lost
+the claim that an auto-mode receiver delivers bare posts: `defaultMode: "auto"`
+counts as bypass and holds them. D-claude-primary-inbox decision 3 now names
+auto mode as a hold case. The #498 error text is "no message route yet".
+
+---
 ## 2026-10-25 — Packages name capabilities; Meridian ships its own skills
 
 `work:package-transferability`, shipped in meridian-cli v0.14.3–v0.14.6 and

@@ -17,6 +17,9 @@ Later-version findings in the table are explicitly versioned and cover only
 [#706](https://github.com/haowjy/meridian-cli/pull/706). They describe the host
 API, not a Meridian feature. [Mod hooks for idle delivery](#mod-hooks-for-idle-delivery-21307)
 was checked on 2.1.307 for the Claude spawn watcher (`work:claude-spawn-watch`).
+The `crossSessionInbound` values, hold causes and settings precedence under
+[Inbound controls](#inbound-controls) were read from the 2.1.310 bundle and
+matched against the owner's own held messages (`spawn:p9612`, PR #777).
 The other observations remain scoped to 2.1.302.
 
 **The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
@@ -128,13 +131,24 @@ another Claude session, not from its user.
 ### Inbound controls
 
 The receiving session's `crossSessionInbound` setting governs whether posts get
-through.
+through: `accept` delivers straight to the session's queue, `hold` parks every
+peer message for review, `refuse` turns peer messages away.
 
-- **A receiver in default or auto mode delivers** a bare post.
-- **A receiver that bypasses permission prompts** (`--dangerously-skip-permissions`)
-  **holds a sender that did not attest its permission mode**, and shows a screen
-  offering "Deny" or "Deliver this message to Claude". This is a hold-review
-  screen, not a tool permission prompt.
+- **Unset, Claude runs a permission-mode parity check.** A receiver in default
+  mode delivers a bare post. A receiver that bypasses permission prompts holds
+  the post when the sender runs in a different permission class (cause
+  `mode-mismatch`) or attested no mode at all (cause `no-mode-asserted`).
+  Bypassing includes `--dangerously-skip-permissions` and
+  `permissions.defaultMode: "auto"`: a session in auto mode holds every
+  unattested post (Claude Code 2.1.310, observed on the owner's sessions).
+- **The hold shows a review screen** offering "Deny" or "Deliver this message to
+  Claude", not a tool permission prompt. Approving it reports "Released 1 held
+  cross-session message to Claude's queue (you approved it)". A held message
+  releases only on approval or expires; a headless host has no approval surface,
+  so its held messages expire.
+- **Repository and managed settings can tighten the value, not loosen it.** A hold
+  that a standing setting causes carries `explicit-setting`, `repo-setting` or
+  `managed-setting` instead of a parity cause.
 - **Attestation is a content envelope**, not a JSON field. A post whose `content`
   is `<cross-session-message from-mode="bypass">`, a newline, the body, a newline,
   and `</cross-session-message>` delivers to a bypass receiver unattended. The
@@ -142,7 +156,8 @@ through.
   Other envelope attributes: `from` (a `uds:` reply address), `from-session`,
   `from-name`, `from-plugin`, `hop-chain`.
 - **`crossSessionInbound: "accept"`** delivers unattested posts to a bypass
-  receiver.
+  receiver. It applies to every peer message the session receives, so a
+  bypassing session then acts on any other session's message without review.
 - **The token claims own-child status.** Claude treats a sender presenting the
   messaging token as a process it started; on macOS that skips the inbound
   controls (research `spawn:p8416`; not probed on macOS).
@@ -158,7 +173,7 @@ settings, including `refuse`.
 - macOS behaviour of unauthenticated posts.
 - A settings-file command `Stop` hook returning `block` under `-p`.
 - Claude Code versions other than 2.1.302, apart from the separately noted
-  rejected-surface `$.ui.status` checks on 2.1.303 and 2.1.306 and the 2.1.307
-  idle-delivery hooks. The inbox needs a version that
+  rejected-surface `$.ui.status` checks on 2.1.303 and 2.1.306, the 2.1.307
+  idle-delivery hooks, and the 2.1.310 inbound-gate reading. The inbox needs a version that
   publishes the socket; Meridian's error message names 2.1.224 as the minimum.
   Bare mode has no socket.

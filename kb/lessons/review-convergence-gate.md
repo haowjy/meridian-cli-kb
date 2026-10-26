@@ -76,7 +76,7 @@ Apply the gate across cycles, not just within one:
 - **Evidence that decided it:** installed-wheel probes with decoys and an unrelated
   concurrent session, plus one real-process run of the external harness. Each found
   something the suite did not.
-- **Steering a running implementer.** Reserve `spawn inject` for direction that comes
+- **Steering a running implementer.** Reserve `spawn message` for direction that comes
   from the human. A hint the orchestrator generated itself, such as "your step 10
   should also read this new report", goes into the next brief or a follow-up spawn,
   so the running agent's instructions stay the user's.

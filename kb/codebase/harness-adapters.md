@@ -119,7 +119,7 @@ TUI-local choice still cannot be observed through HTTP, and GET followed by POST
 is not atomic against a concurrent TUI submission.
 
 Adapter-level injection correctness is not public-primary CLI coverage. The
-managed primary currently exposes no live control endpoint to `spawn inject`, so
+managed primary currently exposes no live control endpoint to `spawn message`, so
 the public command cannot reach the HTTP projector while the TUI is running. That
 separate product gap is tracked in [#498 future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498);
 it is not part of native model commitment.
