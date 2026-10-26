@@ -932,6 +932,12 @@ opencode, and cursor (cursor plugin support because thats how it works with
 grok i think)". Probes then showed Grok reads the Claude tree, not the
 Cursor one, so Grok became a fifth harness on the Claude tree. The tech lead
 made `[plugin] harnesses` default to all five.
+The owner approved that default on 2026-10-26, and decided that a harness
+added in a later release joins it too (mars-agents#211): mars exists to make
+packages easy for non-technical users and to widen distribution, so an
+author who doesn't list `harnesses` gets every supported harness. Listing
+`harnesses` opts out. A release that adds a harness must say so in its
+release notes.
 
 - **OpenCode ships skills, MCP and hooks, never agents**, because no
   OpenCode API adds an agent. The owner accepted the loss: "just having
