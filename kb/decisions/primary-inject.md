@@ -83,7 +83,8 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
    The cost is that a primary that bypasses permission prompts holds each
    message behind Claude's approval screen. That covers `--yolo` and a session
    whose Claude settings have `permissions.defaultMode: "auto"`, which Claude's
-   gate counts as bypass (the hold cause is `no-mode-asserted`; gate facts in the
+   gate counts as bypass (the hold cause is `no-mode-asserted`: the sender
+   attested no permission mode; gate facts in the
    [research page](../research/claude-code-mods-and-inbox.md#inbound-controls)).
    A human is at every TUI primary, and a user who wants unattended delivery sets
    `crossSessionInbound: "accept"` in their own settings. Meridian documents that
@@ -156,8 +157,8 @@ OpenCode or Pi gains a native input route for a running TUI.
 ## D-spawn-message-frame: every message names its sender in text, and offers a reply only when one works (2026-10) {#d-spawn-message-frame}
 
 **Status:** merged in PR #777 (`5ad479b0a`), with the rename of `spawn inject`
-to `spawn message`. Asked for by the owner; the frame's shape and the
-reply-route rule are the implementer's, accepted at merge. The code contract is
+to `spawn message`. Current choice: the owner asked for a reply id; the
+frame's wording and the reply-route rule are the implementer's. The code contract is
 in meridian-cli `src/meridian/cli/.context/CONTEXT.md` ("Injected message
 frame").
 
@@ -165,7 +166,8 @@ frame").
 
 A session that received a message could not tell which session sent it or how
 to answer. Claude's peer framing says only "another Claude session"; the
-control-socket route to a child adds nothing. The owner: "there is no id for the
+control-socket route to a child carries the text alone, with no sender id or
+reply address. The owner: "there is no id for the
 response... so we should probably add like 'this was sent from a meridian
 session. use `meridian spawn message c9297 etc...'".
 
@@ -178,9 +180,10 @@ session. use `meridian spawn message c9297 etc...'".
    harness renders, so the frame is built once and reads the same everywhere.
 2. **Advertise a reply route only when it works.** The reply command appears
    only when the sender's record is active and Meridian can post to it: a
-   spawned child, or a primary whose harness has a `primary_inbox` port. A
-   Codex or OpenCode primary, a finished spawn, an unknown id, or a `-C`
-   invocation gets "it has no reply route here" instead; a message with no
+   spawned child, or a primary whose harness bundle implements the optional
+   `primary_inbox` port (the harness's route into a running TUI). A Codex or
+   OpenCode primary, a finished spawn, an unknown id, or a `-C` invocation
+   (which observes another project and claims no sender identity) gets "it has no reply route here" instead; a message with no
    sender identity says it has no reply address. Without the check, a child
    told to answer an OpenCode primary would run a command that exits 1.
    `primary_inbox()` in `lib/harness/bundle.py` is the one lookup behind both

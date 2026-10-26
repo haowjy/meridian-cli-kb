@@ -19,7 +19,7 @@ API, not a Meridian feature. [Mod hooks for idle delivery](#mod-hooks-for-idle-d
 was checked on 2.1.307 for the Claude spawn watcher (`work:claude-spawn-watch`).
 The `crossSessionInbound` values, hold causes and settings precedence under
 [Inbound controls](#inbound-controls) were read from the 2.1.310 bundle and
-matched against the owner's own held messages (`spawn:p9612`, PR #777).
+matched against messages held in a live auto-mode session (`spawn:p9612`, PR #777).
 The other observations remain scoped to 2.1.302.
 
 **The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
@@ -140,13 +140,14 @@ peer message for review, `refuse` turns peer messages away.
   `mode-mismatch`) or attested no mode at all (cause `no-mode-asserted`).
   Bypassing includes `--dangerously-skip-permissions` and
   `permissions.defaultMode: "auto"`: a session in auto mode holds every
-  unattested post (Claude Code 2.1.310, observed on the owner's sessions).
+  unattested post (Claude Code 2.1.310, observed live).
 - **The hold shows a review screen** offering "Deny" or "Deliver this message to
   Claude", not a tool permission prompt. Approving it reports "Released 1 held
   cross-session message to Claude's queue (you approved it)". A held message
-  releases only on approval or expires; a headless host has no approval surface,
+  releases only on approval or expires (timeout not measured); a headless host has no approval surface,
   so its held messages expire.
-- **Repository and managed settings can tighten the value, not loosen it.** A hold
+- **Repository and managed settings can tighten `crossSessionInbound`, not
+  loosen it.** A hold
   that a standing setting causes carries `explicit-setting`, `repo-setting` or
   `managed-setting` instead of a parity cause.
 - **Attestation is a content envelope**, not a JSON field. A post whose `content`
