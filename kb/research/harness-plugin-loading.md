@@ -153,11 +153,21 @@ variable exists.
 - **Hooks** are in-process callbacks; `hooks/hooks.json` is not read. A hook
   module must default-export `{id, setup}`. The named-export shape fails with
   `Plugin must export a default definition with an id and an effect or setup
-  function`. This also breaks the `opencode.ts` fragments `mars sync`
-  documents ([mars-agents#198](https://github.com/haowjy/mars-agents/issues/198)).
+  function`, and `opencode run` still exits 0. Mars's sync and plugin build
+  both warn on a fragment with no default export
+  ([mars-agents#213](https://github.com/haowjy/mars-agents/pull/213)).
 - **Git install** (`opencode plugin add git+…`) honors the root
   `package.json`'s `main` and `files`, so a repo can expose one subdirectory
   as the package.
+
+**Project MCP config.** A project's `.opencode/opencode.json` registers MCP
+servers under `mcp` as `{type: "local", command: [cmd, ...args],
+environment: {...}}`; `mcpServers` is ignored at runtime. Only `{env:VAR}`
+expands in `environment` values (`${env:VAR}` and bare names stay literal).
+`opencode mcp list` in 2.1.4 reports the background service's scope, not the
+project's, so it shows "No MCP servers configured" even for a working project
+config; an `opencode run` turn that calls the tool is the reliable check.
+`mars sync` writes this shape from v0.19.0 (#213).
 
 OpenCode already reads `.claude/skills` and `.agents/skills` from projects,
 so mars-installed users have skills without a plugin. A project
@@ -202,7 +212,8 @@ preload), `spawn:p9340` (same-marketplace dependencies), `spawn:p9473`,
 `spawn:p9477` (OpenCode package, hooks, MCP, git install), `spawn:p9480`
 (the `type: module` break), `spawn:p9533` (live verification of built
 trees, Cursor schema validation), `spawn:p9535` (Grok MCP and Codex
-environment forms). Claude plugin references:
+environment forms), `spawn:p9556` and `spawn:p9560` (OpenCode project MCP
+and `mcp list`). Claude plugin references:
 [plugin components](https://code.claude.com/docs/en/plugins/components),
 [subagent frontmatter](https://code.claude.com/docs/en/sub-agents#frontmatter-reference).
 Codex `env_vars` parsing:
