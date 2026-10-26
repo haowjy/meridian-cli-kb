@@ -279,7 +279,7 @@ is pushed but has no merged PR. The colocated contracts on those branches are ma
 `src/provided/.context/CONTEXT.md` and `docs/internals/lock-file.md` (canonical ownership),
 and meridian-cli `src/meridian/lib/launch/.context/CONTEXT.md`.
 
-**Decision:** bundled skills install into `.mars/skills/` beside package skills, so there
+**Decision (the owner's):** bundled skills install into `.mars/skills/` beside package skills, so there
 is one home for skills, Mars stays the only writer of `.mars/`, and a package agent can
 list `prompt-authoring__meridian` under `skills:`. Rejected: keeping bundled skills
 wheel-only and teaching Mars a host-suffix rule (smaller, but two homes for skills).
@@ -289,10 +289,13 @@ The rule behind every edge case is that **a host never changes committed state**
 - `mars provide meridian@<version>=<package dir>` copies the wheel's `skills/` entries
   into `.mars/skills/` and records them in a machine-local `.mars/provided.lock`.
   `mars.toml`, `mars.lock` and harness folders are byte-identical whether or not Meridian
-  ever ran, so teammates on different Meridian versions never churn a committed file.
+  ever ran, and `.mars/` is gitignored by Mars convention, so teammates on different
+  Meridian versions never churn a committed file. A skill a newer Meridian drops is removed
+  from `.mars/skills/` on the next provide.
   Provided skills are never projected into harness folders, since a native copy would
   load without Meridian's `mode` gate. Plugin builds never contain them.
-- A package that lists `<x>__meridian` declares `[package] uses-providers = ["meridian"]`.
+- A package that lists `<x>__meridian` declares `[package] uses-providers = ["meridian"]`
+  in its `mars.toml`.
   Only a declared provider's names can be satisfied by provided skills, and they warn
   instead of failing where the provider is absent. An undeclared ref is `SkillNotFound`
   on every machine, even one where the skill is installed, so a ref's validity depends on
@@ -306,8 +309,8 @@ The rule behind every edge case is that **a host never changes committed state**
   Any other outcome (busy lock, interrupted sync, older Mars without the command, error)
   falls back to the wheel. Rejected: refreshing at primary launch only, which would let a
   spawn load an older body than its Meridian.
-- meridian-flow imports packages as snapshots and cannot run `mars provide`, so packages
-  it imports (creative-writing-skills, meridian-base) list no `*__meridian` skills.
+- meridian-flow, a separate app whose agents have no shell, imports packages as snapshots
+  and cannot run `mars provide`, so packages it imports (creative-writing-skills, meridian-base) list no `*__meridian` skills.
 
 Three choices made during implementation are the work lead's, not the owner's (current
 choices):
@@ -318,17 +321,17 @@ choices):
   Existence is not ownership: a sync that crashes after replacing a recorded directory and
   before publishing `mars.lock` leaves the record intact and foreign bytes on disk, and an
   existence check would call that current while Meridian read the foreign copy. Measured
-  cost is about 2 ms per call.
+  cost with Meridian's six-skill bundle is about 2 ms per call.
 - **A provided skill's availability comes from disk, its ownership from the record.**
   Mars's readers hold two name sets: a ref is satisfied only while the recorded skill is
   actually installed, and a destination named in `provided.lock` counts as Mars-owned, so a
   package item of the same name replaces it on every machine.
-- **Gating moves to `metadata.mode`.** On the branch, bundled skills carry
+- **Gating moves to `metadata.mode`.** In this design, bundled skills carry
   `metadata: {mode: primary}` instead of a top-level `mode:` key, because Mars warns on
   unknown top-level skill keys and `mars provide` would report one warning per gated skill
   on every applied run. The gate's meaning is unchanged.
 
-**Release (current choice):** the Mars side ships in mars-agents 0.20.0, stacked on the
+**Release (current choice):** the Mars side is planned for mars-agents 0.20.0, stacked on the
 schema v1 rewrite of the readers, resolver and sync preparation it touches. The owner,
 agreeing to the lead's proposal: "yeah, I think going on top of 0.20.0 makes sense."
 Rejected: landing first in 0.19.0 (schema v1 would have to merge it through its rewrite).

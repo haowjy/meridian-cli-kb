@@ -14,9 +14,9 @@ settings and reports what it cannot enforce. The owner asked for this split: "wh
 need to pass in by default so prompt authors don't have to learn too much about meridian".
 
 **Status:** shipped in meridian-cli v0.14.0 (2026-10-25), which requires Mars >= 0.18.0
-for the network bundle object. The grants, escapes, compound-launch refusal and child
-guardrail came in PR #750; network projection, allowlists and host-set launch flags in the
-#752 stack. The unmerged Mars schema v1 branch deletes the network policy this page relies
+for the network value it puts in the launch bundle. The control-plane grants, sandbox
+escapes, compound-launch refusal and child guardrail came in PR #750; network projection,
+allowlists and host-set launch flags in PR #752 and the PRs stacked on it. The unmerged Mars schema v1 branch deletes the network policy this page relies
 on; see [Schema v1 network conflict](#schema-v1-network-conflict).
 
 **Who decided what.** The owner ruled that Meridian owns its CLI's permission surface. On the
@@ -361,16 +361,19 @@ code path instead of two.
 #### Schema v1 network conflict {#schema-v1-network-conflict}
 
 > [!FLAG] **Needs human review**
-> The two sides disagree and the owner has not ruled. Mars's schema v1 work (branch
+> As of 2026-10-26 the two sides disagree and the owner has not ruled. Mars's schema v1 work (branch
 > `feat/mars-schema-v1`, planned for mars-agents 0.20.0, unmerged) deletes Mars's network
 > policy (commit `75bfd5f`, its decision D12) on the premise that Meridian discards it.
-> Shipped Meridian enforces profile `network: allow | deny` (#752) and refuses any launch
-> bundle without `provenance.network_source` (`bundle_adapter.py`). A Mars binary built
+> Shipped Meridian enforces profile `network: allow | deny | allowlist` and refuses any
+> launch bundle without `provenance.network_source`
+> (`src/meridian/lib/launch/bundle_adapter.py`). A Mars binary built
 > from that branch emits no network object, so `meridian spawn` and primary launches fail
 > against it. One side has to move: restore the network policy in schema v1, or have
 > Meridian read the profile's `network` itself and drop the bundle requirement. Until then
 > no Meridian release can pin a schema v1 Mars, which also holds back
-> [provided skills](launch.md#installing-bundled-skills-through-mars-decided-not-shipped).
+> [provided skills](launch.md#installing-bundled-skills-through-mars-decided-not-shipped),
+> whose Mars side is built on schema v1. Provenance: `work:package-transferability`,
+> `chat:c9297`.
 
 ### Projection {#network-projection}
 
