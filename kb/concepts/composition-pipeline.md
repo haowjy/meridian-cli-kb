@@ -313,11 +313,19 @@ agent needs without embedding Meridian syntax themselves.
 
 ## Bundled Meridian Skills
 
-Every launch also receives `# Meridian skills`, one trigger line per skill shipped in
-the wheel under `meridian.skills` (`<name>__meridian/`). `build_guidance_blocks()`
-drops a skill whose frontmatter says `mode: primary` unless the profile's `mode` is
-`primary`. As of v0.14.6 only `sessions__meridian` reaches every agent; `escalation`, `handoff`,
-`notify`, `prompt-authoring`, and `work` reach primary-mode profiles (leads) only.
+Every launch also receives `# Meridian skills`, one trigger line per skill Meridian ships
+in the wheel under `meridian.skills` (`<name>__meridian/`). `build_guidance_blocks()`
+drops a skill whose frontmatter has `metadata: {mode: primary}` unless the profile's
+`mode` is `primary`. Only `sessions__meridian` reaches every agent; `escalation`,
+`handoff`, `notify`, `prompt-authoring`, and `work` reach primary-mode profiles (leads)
+only.
+
+Before each launch Meridian runs `mars provide`, which installs these skills into
+`.mars/skills/` beside package skills, and reads the installed copy; the wheel copy serves
+when Mars cannot provide. An agent in a package whose `mars.toml` declares
+`uses-providers = ["meridian"]` may list a `*__meridian` skill under `skills:` like any
+package skill. Provided skills are never
+projected into harness-native skill folders, so the `mode` gate always applies.
 
 `meridian skills NAME [RESOURCE-PATH]` prints a skill under the same `# Skill:` header
 and folder line an injected skill gets, so the agent treats it as loaded; resource paths
@@ -325,12 +333,9 @@ are confined to the skill folder. `meridian skills list` gives names and descrip
 (`--json` for structured output).
 
 Bundled skills name concrete Meridian commands and flags, and never depend on a
-package's agents or skills. They do not enter Mars `load`/`available` or a harness's
-native skill list; package skills stay on the normal Mars/harness path. Why they ship
-with the binary, the naming, and the gate:
+package's agents or skills. Why they ship with the binary, the naming, the gate, and the
+install through Mars:
 [D-bundled-meridian-skills](../decisions/launch.md#d-bundled-meridian-skills-meridian-owned-operations-guidance-versions-with-the-cli).
-Installing them into `.mars/skills/` through Mars shipped on the Mars side (0.20.0) but
-stays inert until Meridian pins that Mars; the decision record holds the design.
 
 ---
 

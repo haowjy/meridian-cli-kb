@@ -41,24 +41,29 @@ Fields are split into two categories, codified in `_ROUTING_OVERRIDE_FIELDS`:
 
 `model_policy_scope()` on `RuntimeOverrides` returns a copy containing only the policy fields (i.e. everything not in `_ROUTING_OVERRIDE_FIELDS`). It's used by the bundle execution policy resolver in `policies.py` to isolate the policy field resolution path. Because the exclusion is set-based, any new policy field added to `RuntimeOverrides` is automatically included — no hand-curation needed.
 
-**Policy fields have a more granular cascade than the simple layer order above.** The full 7-tier ladder for policy fields (`effort`, `approval`, `sandbox`, `autocompact`, `timeout`):
+**Policy fields have a more granular cascade than the simple layer order above.** The full 7-tier ladder for the policy fields Mars resolves (`effort`, `approval`, `sandbox`, `network`):
 
 ```
 1. CLI flags (--effort, --approval, …)
 2. Env vars (MERIDIAN_EFFORT, MERIDIAN_APPROVAL, …)
-3. Matched model-policy rule — from overlay if overlay.model_policies is set, else from profile
-4. Agent overlay generic defaults ([agents.<name>].effort etc.)
+3. Agent overlay scalars ([agents.<name>] effort, approval, sandbox, network)
+4. Matched model-policy rule — first match in the overlay's rules followed by the profile's
 5. Profile generic defaults (top-level frontmatter)
 6. Config-level defaults (primary.effort etc.)
 7. Alias defaults
 ```
 
-The **effective model-policy source** for tier 3 is three-state:
-- Overlay has `model_policies = None` (key absent) → inherit profile model-policies.
-- Overlay has `model_policies = ()` (key present, empty array) → suppress all conditional overrides.
-- Overlay has `model_policies = (rules...)` → replace profile model-policies entirely.
+The **effective rule list** for tier 4 is three-state:
+- Overlay has no `model-policies` key → the profile's rules alone.
+- Overlay has `model-policies = []` → no rules apply.
+- Overlay has rules → they come first, followed by the profile's rules.
 
-This means a `model-policies` rule can override a profile's generic `approval: auto` for a specific model, while CLI `--approval` overrides both. Agent overlay generic defaults (tier 4) sit between the matched rule and profile defaults — they apply when no rule matches but an overlay value was set.
+A matched rule beats the profile's own top-level value, so a profile can set `effort: max`
+and lower it for one model. Before Mars schema v1 the profile's top-level value won, which
+the owner ruled a bug ([D-model-policy-rule-beats-profile-default](../decisions/model-resolution.md#d-model-policy-rule-beats-profile-default)).
+An overlay scalar beats every rule, and CLI and env beat both. Mars resolves tiers 3–5 in
+the launch bundle; the user-facing ladder is meridian-cli `docs/configuration/mars.md`
+("Precedence").
 
 ### Factory methods
 

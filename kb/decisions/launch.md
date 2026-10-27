@@ -245,7 +245,7 @@ meridian added at the end?"). Rejected: reserving the plain names (a generic nam
 Mars convention and sorts by source instead of name); renaming only on collision (the
 name would change from one profile to the next).
 
-**Gating (current choice):** a bundled skill's optional `mode: primary` frontmatter shows
+**Gating (current choice):** a bundled skill's optional `metadata: {mode: primary}` frontmatter shows
 its trigger only to profiles whose `mode` is `primary`, including a primary-mode profile
 launched as a spawn. `handoff`, `notify`, `work`, `escalation`, and `prompt-authoring`
 are primary-only; `sessions` reaches every agent. The `meridian notify` capability line
@@ -270,17 +270,15 @@ an uncertain call before more work builds on it, sessions' advice to mine before
 compaction. A review against the meridian-base originals restored it in v0.14.5. Compare
 a trimmed skill against its original before shipping it.
 
-#### Installing bundled skills through Mars (Mars side shipped, Meridian side inert)
+#### Installing bundled skills through Mars {#installing-bundled-skills-through-mars}
 
-**Status:** partly done. Mars 0.20.0 and later have `mars provide`,
-`.mars/provided.lock` and `[package] uses-providers`. Meridian's code that calls
-`mars provide` is merged (meridian-cli #779) but never takes effect yet: Meridian pins
-Mars 0.18.4, which has no `mars provide`, so every launch reads the skill copies in the
-wheel. Provided skills go live when
-Meridian's pinned Mars reaches 0.20; see [the Mars 0.20 upgrade](#upgrading-meridians-mars-to-020-split-from-provided-skills).
-The colocated contracts are mars-agents `src/provided/.context/CONTEXT.md` and
+**Status:** shipped in meridian-cli v0.15.0 (PR #783), which pins mars-agents 0.20.2.
+`mars provide` installs the wheel's `*__meridian` skills into `.mars/skills/` before
+launches and before `meridian mars` commands that resolve package refs, and
+`meridian skills NAME` reads that copy. The wheel copy is the fallback. The colocated
+contracts are mars-agents `src/provided/.context/CONTEXT.md` and
 `docs/internals/lock-file.md` (canonical ownership), and meridian-cli
-`src/meridian/lib/bundled_skills.py`.
+`src/meridian/lib/bundled_skills.py`; user docs are meridian-cli `docs/agent-profiles.md`.
 
 **Decision (the owner's):** bundled skills install into `.mars/skills/` beside package skills, so there
 is one home for skills, Mars stays the only writer of `.mars/`, and a package agent can
@@ -309,8 +307,9 @@ The rule behind every edge case is that **a host never changes committed state**
 - Meridian runs `mars provide` at every primary and spawn launch, before
   `meridian skills NAME`, and before `meridian mars` commands that resolve refs, then reads
   the `.mars/` copy for names Mars reports installed and the wheel for everything else.
-  Any other outcome (busy lock, interrupted sync, older Mars without the command, error)
-  falls back to the wheel. When Mars refuses the bundle (an invalid skill, a
+  Any other outcome (busy lock, interrupted sync, older Mars without the command, a
+  missing or invalid provided copy, a directory with no Mars root, error) falls back to the
+  wheel. When Mars refuses the bundle (an invalid skill, a
   `provided.lock` from a newer Mars), Meridian prints Mars's reason, but only after the
   command it ran has succeeded: Mars reports a broken `mars.toml` the same way, and a
   command that fails on it already shows the message. Rejected: refreshing at primary
@@ -332,47 +331,52 @@ choices):
   Mars's readers hold two name sets: a ref is satisfied only while the recorded skill is
   actually installed, and a destination named in `provided.lock` counts as Mars-owned, so a
   package item of the same name replaces it on every machine.
-- **Gating moves to `metadata.mode` with the Mars 0.20 upgrade.** Bundled skills will carry
-  `metadata: {mode: primary}` instead of a top-level `mode:` key, because Mars 0.20 warns
-  on unknown top-level skill keys and `mars provide` would report one warning per gated
-  skill on every applied run. The skills in the wheel still use top-level `mode:`, which
-  Mars 0.18.4 never reads; the change ships in the same release as the Mars 0.20 pin. The
-  gate's meaning is unchanged.
+- **The gate is spelled `metadata: {mode: primary}`.** Schema v1 warns on unknown
+  top-level skill keys, so a top-level `mode:` would make `mars provide` print one warning
+  per gated skill on every applied run. The gate's meaning is unchanged.
 
 **Release (current choice):** the Mars side shipped in mars-agents 0.20.0 together with
 schema v1, which rewrote the skill readers, ref resolver and sync planning that provided
 skills change. The owner,
 agreeing to the lead's proposal: "yeah, I think going on top of 0.20.0 makes sense."
 Rejected: landing first in 0.19.0 (schema v1 would have to merge it through its rewrite).
-Meridian's side merged before its Mars pin moved; see the split below.
+Meridian's side merged before its Mars pin moved; see the upgrade below.
 
 **Provenance:** `work:package-transferability`, `chat:c9186`, `chat:c9297`.
 
-#### Upgrading Meridian's Mars to 0.20 (split from provided skills)
+#### Upgrading Meridian's Mars to 0.20 {#upgrading-meridians-mars-to-020}
 
-**Status:** not done. The pin, the upgrade notes and the `metadata.mode` change are
-prepared on meridian-cli's local branch `feat/mars-020`, unpushed.
+**Status:** shipped in meridian-cli v0.15.0 (PR #783), pinning mars-agents 0.20.2 (schema
+v1). meridian-cli `docs/upgrading.md` ("Mars 0.20.0 (schema v1)") walks every Mars 0.19 and
+0.20 break and what a Meridian user changes.
 
-**Decision (the owner's, 2026-10-26):** the Mars 0.20 pin ships in its own meridian-cli
-PR, not with provided skills. Pinning it hands every Mars 0.19 and 0.20 break straight to
-Meridian users who upgrade:
+**Split (the owner's, 2026-10-26):** the pin shipped in its own PR, after provided skills,
+because pinning hands every Mars 0.19 and 0.20 break to Meridian users who upgrade: overlays
+that stop loading, `--frozen` failing until one plain sync, and effort that moves on packaged
+profiles. Hearing the list, the owner asked "hmmm... uh... should we really be shipping the
+mars upgrade lol", then agreed to the lead's split: "yeah split it that way". The prompt
+packages migrate to schema v1 after this release and require it, because `mars migrate` adds
+`requires-mars >= 0.20.0`, which a Meridian bundling Mars 0.18.4 refuses.
 
-- an overlay `[agents.<name>] approval = "yolo"` and `autocompact` in a `model-policies`
-  override make `mars.toml` fail to load;
-- a `model-policies` override now beats a profile's top-level effort, sandbox, approval
-  and network, so the `coder` profile drops from `xhigh` to `high` or `medium`;
-- `mars sync --frozen` fails once after the upgrade, until one plain `mars sync`.
+**Meridian owns its users' Mars breaks (current choice).** The upgrade notes say what a
+Meridian user changes in overlays, profiles and env vars, and the release checked every
+forwarded `meridian mars` command the way Meridian invokes it. Rejected: linking Mars's
+release notes alone, which are written for package authors.
 
-The prompt packages this project publishes (meridian-base, meridian-dev-workflow and the
-others) were also still in the pre-v1 schema. Hearing this, the owner
-asked "hmmm... uh... should we really be shipping the mars upgrade lol", then agreed to
-the lead's split: "yeah split it that way". Meridian therefore carries the provided-skills
-code while its bundled Mars stays 0.18.4, and skills keep loading from the wheel.
+**Pin 0.20.2, not 0.20.0 (current choice).** 0.20.0 and 0.20.1 refuse
+`meridian mars check <path>`, because Meridian appends `--root`, and fail to sync a
+dependency without a `mars.toml` whose `skills/` holds a stray file (mars-agents #226).
+A sweep of all 63 forwarded `meridian mars` invocations on 0.20.2, replayed with the same
+argv on 0.18.4, found no other difference beyond commands 0.18.4 lacks.
 
-Before the upgrade PR: migrate the prompt packages to schema v1, and decide the effort
-`coder`'s `model-policies` should resolve to. The upgrade notes come from running each
-Mars 0.19 and 0.20 break against Meridian, and belong in meridian-cli `docs/upgrading.md`
-with the PR.
+**Package-mutating Mars commands need a root.** `meridian mars migrate` and `provide` refuse
+to run outside a project Mars root unless given `--user`, like `add`; `migrate --check` only
+reports and stays allowed. Without the guard, `migrate` run outside a project rewrote the
+user-level profiles under `~/.meridian/mars`.
+
+The effort changes this upgrade brought are recorded in
+[D-model-policy-rule-beats-profile-default](model-resolution.md#d-model-policy-rule-beats-profile-default)
+and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-harness).
 
 **Provenance:** `work:package-transferability`, `chat:c9297`.
 

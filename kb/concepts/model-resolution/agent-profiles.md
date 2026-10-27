@@ -41,8 +41,8 @@ harness: claude          # optional; overrides model-derived harness
 skills:                  # or a flat list, meaning all load
   load: [meridian-spawn, kb-conventions]
   available: [diagnose]
-approval: auto           # default | confirm | auto | yolo
-effort: high             # low | medium | high
+approval: auto           # default | confirm | auto | never
+effort: high             # none | low | medium | high | xhigh | max
 mode: subagent           # primary | subagent
 model-policies:
   - match:

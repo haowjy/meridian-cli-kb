@@ -3,6 +3,23 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Meridian v0.15.0 runs on Mars 0.20.2
+
+PR #783. In [launch decisions](decisions/launch.md#installing-bundled-skills-through-mars)
+provided skills are recorded as live (installed by `mars provide`, wheel fallback,
+`metadata.mode` gate), and the Mars 0.20 upgrade section is rewritten as shipped: the
+0.20.2 pin and why 0.20.0/0.20.1 were skipped, and the `migrate`/`provide` root guard.
+New in [model resolution](decisions/model-resolution.md#d-model-policy-rule-beats-profile-default):
+the owner's ruling that a profile's own rule beating its top-level effort is a bug fix,
+and per-harness effort lowering (`none`, `max`, Claude thinking evidence, unverified
+paths). Precedence ladders in [config precedence](concepts/config-precedence.md) and
+[model policies](concepts/model-resolution/model-policies.md) now put overlay scalars above
+matched rules; schema v1 override fields replace the old table. The CHANGELOG misfile
+procedure in [release sequencing](lessons/release-sequencing.md) is replaced by the
+PR-body changelog rule. Composition pipeline, vocabulary, decision index and the
+agent-profile example updated to match.
+
+---
 ## 2026-10-26 — `spawn inject` becomes `spawn message`; sender frame; Claude's inbound gate
 
 PR #777 (`5ad479b0a`). New decision

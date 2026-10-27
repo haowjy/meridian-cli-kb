@@ -18,7 +18,6 @@ model-policies:
   - match:
       alias: gpt55          # exact alias match
     override:
-      harness: codex
       effort: medium
   - match:
       model: claude-opus-4  # exact model ID match
@@ -27,7 +26,7 @@ model-policies:
   - match:
       model-glob: "gpt-4*"  # glob pattern match
     override:
-      harness: codex
+      sandbox: read-only
 ```
 
 ### Match Types
@@ -47,28 +46,13 @@ raise a parse error; later rules are simply unreachable (silently shadowed).
 
 ### Override Fields
 
-Supported override fields in **profile** `model-policies`:
-
-| Field | Type | Effect |
-|---|---|---|
-| `harness` | string | Override the harness for this model |
-| `effort` | string | Override the effort level |
-| `approval` | string | Override the approval mode |
-| `sandbox` | string | Override the sandbox setting |
-| `autocompact` | int | Override the autocompact threshold |
-| `timeout` | int | Override the timeout |
-
-List fields (`skills`, `tools`, `disallowed-tools`, `mcp-tools`) are parsed and
-warn on load but are **not yet applied** to the spawn.
-
-Source: `src/meridian/lib/catalog/agent.py:24-29, 68-76`
-
-In **agent overlay** `model-policies`, v1 supports the same scalar policy fields
-except `timeout`. Overlay `timeout` is rejected because the overlay compiler does
-not yet thread resolved timeout into `execution_policy.timeout`; accepting it
-would create a "parses but does nothing" setting. Overlay list fields
-(`skills`, `tools`, `disallowed-tools`, `mcp-tools`) are also rejected with a
-warning rather than accepted-but-ignored.
+Under Mars schema v1 (mars-agents 0.20 and later, Meridian v0.15.0 and later) an
+`override` sets only `effort`, `approval`, `sandbox` and `network`, in a profile and in an
+overlay alike. Mars rejects `autocompact`, `autocompact_pct` and `harness` in an overlay
+override with a load error, and `mars migrate` deletes them from profiles: compaction now
+comes from the `[models.<alias>]` entry, and the harness from the profile or the alias.
+meridian-cli `docs/upgrading.md` ("Mars 0.20.0 (schema v1)") lists each removed key and
+its replacement.
 
 See [D72](../../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface)
 and [future work](../../open-questions/future-work.md#agent-overlay-follow-ups-2026-05-05-after-agent-model-overrides-shipped).
@@ -108,17 +92,13 @@ Use `model-policies = []` to fully suppress all profile rules when needed.
 
 ### Where model-policies Fit in the Cascade
 
-For **policy fields** (`effort`, `approval`, `sandbox`, `autocompact`, `timeout`),
-`model-policies` rules are tier 3 — above agent overlay generic defaults and
-profile generic defaults, but below explicit CLI/env user overrides:
+For **policy fields** (`effort`, `approval`, `sandbox`, `network`), a matched rule sits
+below explicit user overrides and `[agents.<name>]` overlay scalars, and above the
+profile's own top-level values:
 
 ```
-CLI flags > env vars > effective model-policy rule > agent overlay default > profile generic default > config default > alias default
+CLI flags > env vars > agent overlay scalar > matched model-policy rule > profile top-level value > config default > alias default
 ```
-
-A matched `model-policies` harness override is forwarded to Mars via the
-launch-bundle request and affects the harness Mars selects. Routing-field resolution
-is distinct from the policy cascade above.
 
 For PRIMARY/SPAWN_PREPARE launches, model-policies are evaluated by Mars within
 the bundle. Execution-policy overrides from matched rules are returned in the bundle

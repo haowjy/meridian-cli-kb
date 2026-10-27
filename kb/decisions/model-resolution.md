@@ -442,6 +442,54 @@ Source: `src/cli/models.rs:run_prompting()` and `src/build/policy/mod.rs:resolve
 
 ---
 
+## Effort (2026-10, Mars schema v1)
+
+### D-model-policy-rule-beats-profile-default {#d-model-policy-rule-beats-profile-default}
+
+**Decision (the owner's, 2026-10-26):** a matching `model-policies` rule inside a profile
+beats that profile's top-level `effort`, `sandbox`, `approval` and `network`. Up to Mars
+0.19 the top-level value won, so a profile that set `effort` never ran its own per-model
+effort rules. The owner ruled that a bug, not a policy: "bruh, why did top level effort
+always win lol... that was a bug". Mars schema v1 fixes it, and Meridian shipped the fix
+with the Mars 0.20.2 pin in v0.15.0. `[agents.<name>]` overlay scalars still beat a matched
+rule, and an overlay's own rules already beat the profile's top-level value. The full
+ladder is in [config precedence](../concepts/config-precedence.md#routing-vs-policy-fields).
+
+**Consequence:** packaged profiles' per-model rules were written for the rule winning, and
+now apply, so their effort moves per model (`coder` from `max` to `high` on deepseek and
+`medium` on sonnet; meridian-cli `docs/upgrading.md` lists the rest). No packaged rule sets
+`approval`, `sandbox` or `network`, so only effort moves. A future profile rule that sets
+`approval` would change the approval of every launch it matches.
+
+### D-effort-lowering-per-harness {#d-effort-lowering-per-harness}
+
+**Decision (current choice, meridian-cli #774, shipped in v0.15.0):** Meridian launches every
+effort Mars resolves, from `none` (reasoning off) to `max` (a level above `xhigh`), on every
+harness. Each harness lowers it in one place, meridian-cli
+`src/meridian/lib/harness/projections/effort.py`; the per-harness mapping and its pitfalls are
+in that directory's `.context/CONTEXT.md`, and users read meridian-cli
+`docs/agent-profiles.md` ("Effort by harness").
+
+- **`none` turns reasoning off where the harness can.** Codex gets
+  `model_reasoning_effort="none"`, Pi `--thinking off`; OpenCode applies no effort. Claude
+  gets no `--effort`, and `--dry-run` reports that thinking stays on. Live checks found no
+  way to stop thinking on current adaptive-thinking Claude models: `MAX_THINKING_TOKENS=0`,
+  `CLAUDE_CODE_DISABLE_THINKING=1` and `alwaysThinkingEnabled: false` left thinking
+  unchanged, and only the fixed-budget `claude-haiku-4-5` dropped to zero. Rejected:
+  setting those switches anyway, which would claim an effect current models do not have.
+- **`max` passes through.** Mars 0.18.4 capped `max` to `xhigh` before Meridian saw it;
+  Meridian now passes `max` to Claude, Codex and Pi. Pi's `low` is `--thinking low`, no
+  longer `minimal`.
+- Rejected: keeping Pi's two duplicate effort maps, one per Pi launch path.
+
+**Unverified:** Cursor's `none` (Mars folds effort into the Cursor slug; Cursor was not
+installed), and Codex `none` and `max` against the real API (dry-run only; some Codex models
+reject `none`).
+
+**Provenance:** `work:package-transferability`, `chat:c9297`.
+
+---
+
 ## Related
 
 - [launch.md](launch.md) — harness identity env var decisions (D32, D33, D57, D63); background worker resolution refactor

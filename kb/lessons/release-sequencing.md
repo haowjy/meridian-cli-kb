@@ -107,38 +107,16 @@ the next PR to `main` and merging `main` into it.
   merge → PyPI release → pin bump and `uv lock` on the consumer → re-gate →
   consumer merge ([D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)).
   Ask what binary the consumer actually installs, not only whether it degrades.
-- **Merging or rebasing across a `release: vX` commit misfiles CHANGELOG
-  bullets.** Git can attach the branch's `Unreleased` bullets to the new `## vX`
-  header that `main` just added. A rebase does it silently, with no conflict to
-  look at. On 2026-10-16 it happened four times in one day. Rebases put MEM-1's
-  (#634) entries under `[0.10.12]` and B1's (#651) under `[0.10.14]`
-  (`work:memory-audit` M13, M17), and #633's entries reached `main` under
-  `[0.10.12]`, which #636 had to fix. Since #653 (#652), a check catches the
-  misfile mechanically: `scripts/check-changelog-placement.py` fails when an
-  added CHANGELOG line sits under a `## [X.Y.Z]` heading that already exists on
-  the base. The pre-push hook runs it against your local `origin/main` (fetch
-  first, or a release you haven't fetched slips past), and the CI
-  `pr-changelog-note` job runs it on the PR's merge ref (`--base HEAD^1 --head
-  HEAD`), which also covers a misfile made by the merge itself, as with #633.
-  After **any** rebase or merge across a `release:` commit, rebuild the file
-  instead of trusting the merge:
-  1. Rebuild **unconditionally**, even when git reported no conflict. #647's
-     entry was misfiled twice by clean auto-merges, once by CI's merge ref under
-     `[0.10.17]` and once by the rebase onto it. The rebuild helper ran only on
-     conflicts, so neither time triggered it.
-  2. Take `git show origin/main:CHANGELOG.md` and insert your entry right after
-     the `## [Unreleased]` heading. Anchor on that heading, not on a sibling
-     entry: a sibling may itself have just moved under a release.
-  3. Run `scripts/check-changelog-placement.py --base origin/main --head HEAD`
-     before pushing.
-
-  A clean auto-merge is not evidence of correct placement. For a deliberate edit to a released
-  section, as #636 made, set `MERIDIAN_CHANGELOG_ALLOW_RELEASED=1` for the push
-  and the `changelog:edit-released` label on the PR; both turn the failure into
-  a warning. The check only flags added lines under released headings, so
-  re-homing is still manual: when a parent PR ships, move its bullets under the
-  version that actually carried them (phase 1's bullets moved from 0.9.10 to
-  0.9.11).
+- **Changelog entries live in the PR body, so a PR never edits `CHANGELOG.md`.**
+  PRs used to add bullets under `## [Unreleased]`, and merging or rebasing across a
+  `release:` commit silently filed them under the version `main` had just released
+  (four times on 2026-10-16 alone). Since meridian-cli #782 the release job renders
+  each PR's `## Changelog` section into `CHANGELOG.md`, and CI fails a PR that adds
+  lines there; meridian-cli `docs/releasing.md` holds the rule. A PR opened before
+  such a process change still follows the old one: #783 edited `CHANGELOG.md` and had
+  no `## Changelog` section, so its release run failed until the section went into
+  the body, `[Unreleased]` was cleared on `main`, and the job re-ran. When a release
+  process changes, check the open PRs against the new rule before merging them.
 - **`git merge-tree --write-tree` prints a tree id even on conflict.** A
   dry-run script that read only the first line reported a conflicting chain as
   clean. Check the exit code (1 means conflicts), per
