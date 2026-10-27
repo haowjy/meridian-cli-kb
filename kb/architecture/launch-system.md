@@ -99,18 +99,23 @@ cleanup and session stop remain in the cleanup path.
 
 The split captures the divergence between *where project config lives* and *where the task should be done*.
 
-**`bind_launch_context()` behavior when `task_cwd` is set:**
-1. Sets `MERIDIAN_TASK_DIR` in the child process's environment to the `task_cwd` value.
-2. Rebuilds the late-bound directory lines inside `# Meridian capabilities`
-   with the final task and work paths, then re-projects the composed prompt through
-   the selected harness.
+**What `bind_launch_context()` does with the task directory:**
+1. Sets `MERIDIAN_TASK_DIR`. Released builds set it to the `task_cwd` path. On
+   meridian-cli PR #786 (unmerged), every execution instead gets two per-chat
+   links, `sessions/<chat>/task` and `sessions/<chat>/work`; the env names the
+   links, and bind first records a checkout pin when no store could recompute
+   the checkout ([per-execution links](../decisions/session-work-links.md)).
+2. Rebuilds the late-bound directory lines inside `# Meridian capabilities`,
+   then re-projects the composed prompt through the selected harness. On #786 a
+   spawn's run ID, launching chat and links go in its first user turn instead,
+   so the capability block only points there
+   ([D-stable-system-prompt](../decisions/launch.md#d-stable-system-prompt)).
 3. Includes an external task directory in workspace projection when the harness
    has an active projection channel; otherwise it emits `task_cwd_not_projected`.
 
-There is no post-projection source-directory append. The capability line is the
-single instruction surface: it identifies `MERIDIAN_TASK_DIR`, warns that shell
-cwd may be `MERIDIAN_PROJECT_DIR`, and directs source operations through the task
-directory.
+There is no post-projection source-directory append. The capability line
+warns that shell cwd may be `MERIDIAN_PROJECT_DIR` and directs source
+operations through `MERIDIAN_TASK_DIR`.
 
 **Spawn and session records** persist both fields: `control_root` (config authority) and `task_cwd` (nullable, task directory intent). `execution_cwd` remains as a legacy alias for the actual process cwd (`child_cwd`).
 
@@ -161,14 +166,15 @@ Resolution priority (see `resolve_task_cwd()` in `cwd.py`):
 | Priority | Source | task_cwd |
 |----------|--------|----------|
 | 1 | explicit task-dir override | validated task directory |
-| 2 | explicit work item `--work <id>` | item's `worktree_path` if set; else `control_root`. Ambient work NOT consulted. |
-| 3 | ambient work item attachment | item's `worktree_path` if set; else `control_root` |
-| 3.5 | caller cwd outside the project tree (ambient-cwd) | caller cwd |
-| 4 | default | `control_root` |
+| 2 | explicit work item `--work <id>` | item's `task_dir` if set; else `control_root`. Ambient work NOT consulted. |
+| 3 | inherited from the launcher | the launcher's checkout (on #786, the launcher's own pin from its spawn scope, never `MERIDIAN_TASK_DIR`) |
+| 4 | ambient work item attachment | item's `task_dir` if set; else `control_root` |
+| 5 | caller cwd outside the project tree (ambient-cwd) | caller cwd |
+| 6 | default | `control_root` |
 
-**Stale task_dir** (path no longer exists on disk) → warning + fallback to the next valid tier (inherited `MERIDIAN_TASK_DIR` if valid, then `control_root`). Work state is not mutated on read. `WorkTaskDirMissing` is raised only when even `control_root` does not exist. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
+**Stale task_dir** (path no longer exists on disk) → warning + fallback to the next valid tier. Work state is not mutated on read. `WorkTaskDirMissing` is raised only when even `control_root` does not exist. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
 
-**Explicit `--work` is a hard selection boundary.** When the user specifies `--work <item>`, only that item is consulted. If it has no worktree_path, task_cwd = control_root — the ambient session work attachment is NOT used as a fallback.
+**Explicit `--work` is a hard selection boundary.** When the user specifies `--work <item>`, only that item is consulted. If it has no `task_dir`, task_cwd = control_root — the ambient session work attachment is NOT used as a fallback.
 
 ### Reference File Anchor
 
@@ -190,7 +196,7 @@ See [../concepts/reference-resolution.md](../concepts/reference-resolution.md) f
 
 | Harness | Behavior |
 |---------|----------|
-| Claude / Codex / OpenCode / Pi / Cursor | Harness process cwd remains `control_root`; `MERIDIAN_TASK_DIR` identifies the logical source checkout |
+| Claude / Codex / OpenCode / Pi / Cursor | Harness process cwd remains `control_root`; `MERIDIAN_TASK_DIR` identifies the logical source checkout (on #786, through the per-chat `task` link) |
 
 When `task_cwd` is outside `control_root`, active workspace projection includes it
 so the harness sandbox can grant filesystem access. Capability guidance tells the
@@ -628,8 +634,8 @@ launch/
   permissions.py        launch_permission_rules() — platform rules for a launch
   command.py            resolve_launch_spec_stage(), build_launch_argv()
   fork.py               materialize_fork() — sole callsite for adapter.fork_session()
-  prompt.py             compose_run_prompt_text() — SPAWN_PREPARE path
-                          build_goal_instruction() — renders completion_contract from normalized goal
+  prompt.py             build_report_instruction(), build_goal_instruction(),
+                          build_spawn_preamble(), build_primary_preamble()
   resolve.py            dedupe_skill_names(), format_missing_skills_warning(); agent profile and harness checks
   reference.py          load_reference_items(); template variable resolution
   env.py                build_env_plan(); build_harness_child_env()

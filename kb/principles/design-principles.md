@@ -50,7 +50,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 - Writes use `atomic_write_text()` (tmp + `os.replace()`)
 - JSONL rows commit at their newline: readers withhold a torn tail and skip malformed rows, the next append repairs the tail; `state.json` and sidecar writes use atomic replacement
 - Liveness is a kernel-held `flock` that dies with its holder; readers derive status from it, and `doctor --kill-orphans` or the next primary launch persists dead outcomes
-- Work item renames write an intent file first; leftover intent is replayed on startup
+- A work-item rename that stopped part way is finished by running the same `work rename` again; the work store republishes its item links inside its lock before and after every write, so any later write repairs what a crash left
 
 ---
 
@@ -124,7 +124,7 @@ These principles govern how Meridian is built and how it evolves. They're extrac
 
 **Why it matters:** Idempotency makes systems safe to retry and easy to reason about. Non-idempotent operations create "did it run?" ambiguity.
 
-**In Meridian:** `finalize_dead_launch` writes the outcome readers already derive, so running it again changes nothing. `meridian mars sync` is convergent. `atomic_write_text` uses tmp+rename so partial writes never corrupt the target. Work-item rename intent files ensure the rename completes correctly even if replayed.
+**In Meridian:** `finalize_dead_launch` writes the outcome readers already derive, so running it again changes nothing. `meridian mars sync` is convergent. `atomic_write_text` uses tmp+rename so partial writes never corrupt the target. Re-running `work rename OLD NEW` finishes a rename that stopped after the move.
 
 ---
 

@@ -3,6 +3,26 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Per-execution work links, stable system prompts, packaged MCP servers (`work:post-0-19-followups`)
+
+meridian-cli PR #786 (closes #768) and mars-agents PRs #233 and #238, all open and
+unmerged. New [per-execution links](decisions/session-work-links.md) decision page
+(six records) and [D-stable-system-prompt](decisions/launch.md#d-stable-system-prompt);
+new [D104](decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)
+for `${MARS_MCP_DIR}`. New lessons: [a link that spans two stores](lessons/state-design-lessons.md#a-link-that-spans-two-stores),
+the third recurrence of [repeated fixes mean parallel owners](lessons/hook-event-contract.md),
+and [`git stash` in a worktree](lessons/spawn-lane-operations.md). Rewrote the pages that
+described concrete env paths, env-first work resolution, `MERIDIAN_TASK_DIR` as an
+inherited input, and a spawn's goal in the system prompt (launch system, reference
+resolution, composition pipeline, session initiation, context resolution, work items,
+state-system pages). Removed stale content that predates this work: the work-item
+rename intent file (five pages), the managed-worktree machinery in
+[work items](codebase/work-items.md) (its six decision records marked superseded by
+#282), `CompilerContext`, and the dry-run write claim in the sync model. Status lines
+of D36, D98 and D99 now say released. Flagged the op-layer env-read invariant, which
+the code does not hold. Three correction occurrences added.
+
+---
 ## 2026-10-27 — Meridian v0.15.0 runs on Mars 0.20.2
 
 PR #783. In [launch decisions](decisions/launch.md#installing-bundled-skills-through-mars)

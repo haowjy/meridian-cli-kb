@@ -32,6 +32,8 @@ meridian.toml
   locks/history-mutation.lock       — authority mutation gate (shared by all builds)
   session-id-counter · spawn-id-counter
   sessions/ · locks/
+  sessions/<chat>/work · task       — per-chat links to the work dir and checkout
+  work-items/<id>/work · task       — the work store's per-item links (both PR #786, unmerged)
   spawns/
     v2-format.json · .staging/<unique>/
     <spawn-id>/

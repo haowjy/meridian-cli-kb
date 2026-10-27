@@ -28,7 +28,10 @@ src/compiler/
   hooks/
     mod.rs            # fragment discovery, event validation, substitution
   mcp/
-    mod.rs            # MCP server lowering + collision resolution
+    mod.rs            # MCP server lowering, `${MARS_MCP_DIR}` detection and substitution
+
+src/sync/
+  package_dir.rs      # PackageDir: paths and lock names for hook and MCP server directories (PR #233)
 
 src/surface_ownership/
   mod.rs              # per-target path ownership: may_delete, copy_decision
@@ -69,8 +72,10 @@ retain evidence on failure"]
 
 Target construction parses hook and MCP schemas, applies dependency filters and
 exported visibility, and carries the selected parsed entries in `TargetState`.
-It resolves hook collisions there; MCP candidates stay source-ordered until the
-per-target lowerer applies first-wins collision precedence. Config-entry preflight
+It resolves hook collisions there. Released mars leaves MCP candidates
+source-ordered until the per-target lowerer applies collision precedence; on
+mars-agents PR #233 (unmerged) MCP collisions also resolve once per target during
+target construction. Config-entry preflight
 validates the selected native fragments before apply, so an invalid fragment
 cannot partially mutate canonical or target state. Stale ownership is not a
 compiler submodule:
@@ -85,9 +90,13 @@ each source once, applies its package-boundary rules, and records the parsed ite
 in `TargetState`. Preflight and config lowering consume that state; neither scans
 package directories again.
 
-MCP servers have no canonical installed directory, so a selected MCP value carries
-the managed target roots where it applies rather than a `TargetItem`. Same-name
-MCP candidates remain unresolved until per-target lowering:
+In released mars, MCP servers have no installed directory: a selected MCP value
+carries the managed target roots where it applies, and same-name candidates
+remain unresolved until per-target lowering. On mars-agents PR #233 (unmerged), a
+server that names `${MARS_MCP_DIR}` installs a target-scoped directory the way a
+hook does, selection keeps one record per target for hooks and servers alike, and
+each record holds the `PackageDir` its copy installs at. The rules below rank
+same-name candidates either way:
 
 **MCP precedence:**
 
@@ -102,12 +111,9 @@ Depth is the shortest distance from the consumer, derived once by
 `graph.order` in the dependency graph is **alphabetical**, so declaration order
 comes from `mars.toml`, not graph traversal order. This ranking is
 [D103](../decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24),
-on unmerged mars-agents PR #193; released mars still ranks every dependency by
-declaration order alone.
+released in mars 0.19.0.
 
-Selection preserves diagnostic compatibility as well as output. Eligible MCP
-items remain in `TargetState` even when none of their declared targets is managed,
-so the all-item environment check still sees them. Discovery failures are carried
+Selection preserves diagnostic compatibility as well as output. Discovery failures are carried
 and reported at the same preflight and compile phases as before, and `_self`
 candidates precede dependencies so warning order does not change.
 
@@ -119,18 +125,23 @@ ordinary shadow warning. `TargetState` retains the parsed hook, its source
 package, and ordering metadata. Preflight, merge-mode lowering and file-mode
 lowering all consume that value; none rediscovers or independently chooses hooks.
 
-The selection records intent rather than proof of installation. If an unmanaged
-canonical path blocks the selected hook, the content item may be pruned while the
-selection remains available for the post-target-sync installed-directory check.
-That is what preserves the genuine not-installed warning without letting a
-filtered or shadowed loser produce one.
+The selection records intent rather than proof of installation. Released mars
+fails the sync with exit 2 when an unmanaged path blocks a selected hook's
+directory. On PR #233 (unmerged), hooks and token-using servers share one rule:
+the content item is pruned, the selection survives, and one gate after target
+sync writes the entry only if this run installed the directory, otherwise it
+warns and withholds the entry until `mars sync --force` adopts the path. Why one
+install path and one rule: [D104](../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27).
 
 Both manifest loaders convert `visibility` to `Visibility::Local` or
 `Visibility::Exported`. An unknown value warns and becomes local, preserving the
 old package-boundary behavior while making the typo visible; downstream code
 never interprets visibility strings. Dependency `exclude = [...]` still does not
-match MCP names: it leaves every MCP server from that source eligible. Whether to
-change that user-visible behavior remains an open compiler-local decision.
+match MCP names: it leaves every MCP server from that source eligible (#237).
+Released mars has the opposite fault for include filters: any `agents`, `skills`,
+`only_skills` or `only_agents` filter drops every MCP server the dependency
+declares. On mars-agents PR #238 (unmerged) include filters never narrow MCP
+servers (#228).
 
 This split matters to plugin builds: they can lower the pure target selection
 with a plugin-root hook path and no project install. Sync adds the installed-dir
@@ -228,9 +239,9 @@ for the D91 decision.
 ## Plugin Builds Reuse the Target Pipeline
 
 `mars build plugin` is a second consumer of this pipeline, not a second
-compiler. It resolves through the publish lens, then calls the same
-`prepare_target_state` step sync uses (graph → filtered, renamed, validated
-`TargetState`), and lowers agents, skills, exported hooks and exported MCP
+compiler. It resolves through the publish lens, then calls the same target-state
+construction sync uses (graph → filtered, renamed, validated `TargetState`), and
+lowers agents, skills, exported hooks and exported MCP
 through the per-harness lowerers into up to three plugin trees: Claude
 (read by Claude, Codex and Grok), Cursor and OpenCode. Each tree takes the
 target selection of one harness's sync root (`.claude/`, `.cursor/`,
@@ -245,8 +256,10 @@ while sync keeps the native form. Scope
 and rationale:
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
 Mechanism (staging, ownership, recovery, the OpenCode runtime): mars-agents
-`src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`, on
-`release/v0.19.0`, not yet released.
+`src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`. On PR #233 (unmerged)
+the plugin build copies token-using servers' directories into each tree and maps
+`${MARS_MCP_DIR}` to the harness plugin root; on PR #238 (unmerged) the building
+package keeps its own agent and skill names in a collision (#227).
 
 ## Cleanup Notes Moved Out
 

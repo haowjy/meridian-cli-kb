@@ -197,6 +197,11 @@ appears only when even the fallback fails.
 `meridian work start <slug> --task-dir <valid-path>`. An explicit `--task-dir`
 on the spawn command will also override the stale value.
 
+On meridian-cli PR #786 (unmerged), a running agent's `sessions/<chat>/task` link
+falls back the same way, to the project root, but silently: the link has no
+channel for a warning. If an agent reports editing the project root instead of its
+worktree, check `meridian work task-dir`, which still prints the recorded path.
+
 ---
 
 ### Spawn State Quarantined After Upgrading Past PR 3

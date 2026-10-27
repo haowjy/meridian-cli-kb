@@ -107,7 +107,9 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 `bind_launch_context()` sets `MERIDIAN_TASK_DIR`, renders the entire single capability
 section with the final control root, logical task cwd, work context, and run identity,
 then re-projects the composed prompt. It does not compose or append a separate
-task-directory block.
+task-directory block. On meridian-cli PR #786 (unmerged), `MERIDIAN_TASK_DIR` names
+the execution's per-chat `task` link, and a spawn's run identity and links move to
+its first user turn ([D-stable-system-prompt](#d-stable-system-prompt)).
 
 **continue/fork authority:** `ClaudeSessionAccessSource` carries `source_control_root` and `target_control_root` instead of `source_cwd`. Legacy records fall back to current launch `control_root`.
 
@@ -400,7 +402,7 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 ### D-stable-system-prompt: the system prompt is a function of the agent's identity only (2026-10) {#d-stable-system-prompt}
 
-**Status:** implemented on meridian-cli PR #786 (with #768), open and unmerged. The work goal pointer and the one test are the owner's; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md` on that branch. `work:post-0-19-followups`, `chat:c9182`.
+**Status:** current choice, implemented on meridian-cli PR #786 (with #768), open and unmerged. The work-goal pointer follows the owner's suggestion ("I think into the system prompt, the best move is probably provide a quick link to always check the goal with some command or something"); the owner approved the one test the reviewers proposed; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md` on that branch. `work:post-0-19-followups`, `chat:c9182`.
 
 **Decision.**
 - Per-launch values go in the first user turn's `# Meridian run` block, never the system prompt: a spawn's run ID, its launching chat, its ambient no-item scratch directory, its `--goal` contract, and its two [per-chat links](session-work-links.md#d-execution-owns-links).
@@ -410,13 +412,13 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 **Why.** A probe of continue on all four harnesses (`spawn:p9646`) found two cache breaks. Every fresh spawn differed from its siblings only in its run-ID line, which blocked cross-spawn caching everywhere (about 8k tokens re-written per Claude spawn). On continue, Claude and Codex kept the original prompt at the harness level, but Pi and OpenCode took the rebuilt one, so a config edit broke the cache from the first changed byte. After the fix, a Pi continue read 10,112 tokens from cache against 196 uncached input (before: 2,304 and 7,545); an OpenCode continue read 14,336 against 521 (before: 0 and 14,401).
 
-**Guard.** The owner wanted one permanent test and no others without approval: a spawn and its exact continue produce identical system prompts, and a goal or surface change makes them differ. The test binds two real spawns and also asserts that a spawn with a goal and one without have the same system prompt.
+**Guard.** One permanent test, which the owner approved from the reviewers' proposals while declining a second ("1. yes, 2. what does this mean?", then test 2 dropped): a spawn and its exact continue produce identical system prompts, and a goal or surface change makes them differ. The test binds two real spawns and also asserts that a spawn with a goal and one without have the same system prompt.
 
 **Rejected:**
 - *Replay the stored prompt bytes on continue.* Built first, then deleted after review: a primary resuming a spawn's conversation was told it was a sub-agent, a `--goal` given to a continue was dropped, and replay disagreed with recomposition whenever the surface changed. Recomposing from the snapshot gives the same bytes without hiding a real change.
 - *Put the work goal in the user turn.* A primary has no task turn, so it would auto-submit the goal, and Codex primaries lose it. A pointer avoids both.
 
-This narrows the [`completion_contract` placement](launch-session-initiation.md#completion_contract-placed-after-context_prompt-in-system_instruction_block_order) record: that block order now holds only a primary's goal.
+This supersedes the [`completion_contract` placement](launch-session-initiation.md#completion_contract-placed-after-context_prompt-in-system_instruction_block_order) record: the slot is gone. A spawn's goal contract joins its task turn, and a primary's goal is a `goal-contract` guidance block.
 
 ---
 

@@ -147,7 +147,7 @@ SYSTEM_INSTRUCTION_BLOCK_ORDER = (
 )
 ```
 
-**Narrowed (meridian-cli PR #786, unmerged):** only a primary's goal still takes this slot. A spawn's goal contract is per-launch, so it moves to the first user turn to keep sibling spawns' system prompts identical; see [D-stable-system-prompt](launch.md#d-stable-system-prompt).
+**Superseded by [D-stable-system-prompt](launch.md#d-stable-system-prompt) (meridian-cli PR #786, unmerged):** the `completion_contract` slot is removed. A spawn's goal contract is per-launch, so it joins the first user turn and sibling spawns keep identical system prompts; a primary's goal is a `goal-contract` guidance block in the system prompt.
 
 **Why:** The goal contract is behavior-shaping and should be prominent after the agent has been oriented via context/inventory. Placing it after `context_prompt` ensures the agent reads its context before seeing the completion obligation. `passthrough_system_fragments` (user's explicit `--append-system-prompt`) remains last to allow deliberate user overrides.
 

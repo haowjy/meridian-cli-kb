@@ -63,6 +63,8 @@ All coordination locks live under `locks/<domain>/` outside the directories they
 
 When multiple locks are needed: `spawns_flock` before per-spawn lock before scope-projection lock. `delete_published_spawn()` checks for pending cleanup claims before deletion; pruning acquires `spawns_flock` first.
 
+The work store's lock and the session lock pair are never held together, in either order; a command that changes both runs them as sequential steps, work store first (meridian-cli PR #786, unmerged; [D-one-projection-per-owner](../decisions/session-work-links.md#d-one-projection-per-owner)).
+
 ### Atomic Writes
 
 Every file replacement uses the dependency-neutral `lib/platform/atomic.py:atomic_replace()`, which delegates through `state/atomic.py:atomic_write_text()` for runtime state. Permission policy: `preserve` for user-owned files, `0600` for runtime state. The conformance guard (`tests/contract/test_state_write_conformance.py`) rejects raw writes to authoritative state at CI.
@@ -141,6 +143,9 @@ Op API functions in `src/meridian/lib/ops/` do not read from `os.environ` to det
 **Why:** Op functions are shared across CLI, MCP, and REST surfaces. An op that calls `os.getenv("MERIDIAN_CHAT_ID")` directly works only when a harness-session environment is present, silently producing wrong results for non-CLI callers.
 
 **Check:** Any `os.getenv("MERIDIAN_*")` call inside `src/meridian/lib/ops/` is an invariant violation. Move the env-read to the CLI caller and pass the result through `RuntimeContext`.
+
+> [!FLAG] **Needs human review**
+> The code does not hold this invariant. On `main`, `ops/spawn/api.py` reads `MERIDIAN_SPAWN_ID` from `os.environ` in three places, `ops/spawn/task_dir.py` reads `MERIDIAN_TASK_DIR`, and `ops/config.py` and `ops/context.py` read `MERIDIAN_PROJECT_DIR` and `MERIDIAN_CONTEXT_WORK_DIR`. meridian-cli PR #786 adds one more: `ops/work_attachment.attach_session` reads `MERIDIAN_SPAWN_ID` to find the caller's own spawn row. Either the invariant should name the spawn ID as an allowed env read, or these reads should move to `RuntimeContext`.
 
 ---
 

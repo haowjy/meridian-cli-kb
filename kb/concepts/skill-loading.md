@@ -129,12 +129,10 @@ places where delivery falls short of it.
   OpenCode 2 black-box fallback that resumes a session committed to another
   agent still gets no prompt, because the v2 bare TUI has no `--agent`. Fresh
   fallback sessions are covered.
-- **An exact continue lists available skills without their directories.** A
-  continued session replays from its launch snapshot, which stores the rendered
-  "Available Skills" text but not the skill entries, so those skill directories
-  are not projected into the continued session's workspace. Loaded skills replay
-  in full. Tracked in
-  `src/meridian/lib/launch/.context/FUTURE` in meridian-cli.
+- **An exact continue lists available skills from the snapshot's rendered
+  text only.** Released builds keep the rendered "Available Skills" text but not
+  the skill entries. On meridian-cli PR #786 (unmerged) the snapshot stores the
+  entries, and the continue recomposes the listing from them.
 
 ## Related
 

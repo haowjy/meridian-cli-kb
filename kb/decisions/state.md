@@ -546,6 +546,8 @@ See [../concepts/state-model.md](../concepts/state-model.md#root-resolution) for
 
 **Session work-switch precedence fix (same PR):** A same-process `work start`/`switch` sets `RuntimeContext.work_id` — this takes precedence over the launch-bound `MERIDIAN_ACTIVE_WORK_DIR`. The `work_id` provenance gates which source is trusted: an in-session active work_id wins over a bound-dir that may be stale. Child-spawn binding is preserved.
 
+**Superseded in mechanism by meridian-cli PR #786 (unmerged):** `work switch` and `start` write the caller's own session row, and that row outranks the launch env for every managed execution, not only in the same process. See [D-execution-owns-links](session-work-links.md#d-execution-owns-links).
+
 See [concepts/../codebase/work-items.md](../codebase/work-items.md#workscope-named-vs-ambient).
 
 ---

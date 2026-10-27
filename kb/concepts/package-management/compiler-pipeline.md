@@ -42,7 +42,6 @@ graph TD
 ```
 src/compiler/
   mod.rs               ← entry point: compile(), agent emission policy
-  context.rs           ← CompilerContext: shared resolution state per sync
   agents/
     mod.rs             ← agent compilation pipeline
     lower.rs           ← profile → materialized agent file
@@ -50,7 +49,7 @@ src/compiler/
     mod.rs             ← entry: compile_config_entries()
     resolve.rs         ← MCP name-collision resolution
   hooks/
-    mod.rs             ← hook lowering, per-target platform-aware commands
+    mod.rs             ← fragment discovery, event validation, `${MARS_HOOK_DIR}` substitution, ordering
   mcp/
     mod.rs             ← MCP server lowering, collision resolution
   skills/
@@ -96,7 +95,7 @@ into per-harness projection format for target sync.
 ### Config Entries (`compiler/config_entries/`)
 
 Handles MCP server and selected hook config entries written into harness-native
-config files (`.mcp.json`, `settings.json`, `codex_mcp.json`, etc.).
+config files (`.claude/.mcp.json`, `.claude/settings.local.json`, `.codex/codex_mcp.json`, etc.).
 
 MCP and hooks reach this lane differently:
 
@@ -115,7 +114,10 @@ target using these precedence rules:
 Depth is the shortest distance from the consumer (`ResolvedGraph::dependency_depths()`).
 `graph.order` is alphabetical, so declaration order comes from `mars.toml`.
 Depth-first ranking is [D103](../../decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24),
-on mars-agents `release/v0.19.0`, not yet released.
+released in mars 0.19.0. On mars-agents PR #233 (unmerged), collisions resolve
+once per target during target construction instead, and a server that names
+`${MARS_MCP_DIR}` installs a directory through the hooks' install path
+([D104](../../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).
 See [D99](../../decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24).
 
 **Hook selection** — target construction applies dependency filters, exported
@@ -155,13 +157,6 @@ Parses `mcp.toml`, preserves symbolic env references (`${VAR}` form for Claude,
 plain variable names for Codex), pre-flights missing env vars, lowers parsed MCP
 items into target entries. Collision resolution is shared with `config_entries/`.
 
-## CompilerContext
-
-`CompilerContext` (`src/compiler/context.rs`) carries shared resolution state
-across all compiler lanes for a single sync: the resolved graph, the project
-root, managed root, target registry, and lock from the previous sync. Lanes
-read from context instead of re-resolving independently.
-
 ## Output to Lock
 
 After all lanes complete, `compiler::compile()` writes the updated lock via
@@ -178,8 +173,8 @@ how the lock feeds the diff phase on the next sync.
 
 - **I-1: Effectful selection has one owner** — target construction selects hooks
   and MCP candidates; preflight and lowering consume those values rather than
-  rediscovering source config entries. MCP collision resolution remains in the
-  per-target lowerer.
+  rediscovering source config entries. Released mars resolves MCP collisions in
+  the per-target lowerer; PR #233 (unmerged) moves that into target construction.
 - **I-2: All writes are atomic** — tmp+rename, lock-guarded.
 - **I-3: Target sync is per-target non-fatal** — a failure in one harness target
   records a warning and continues; sibling targets are not aborted.

@@ -85,10 +85,10 @@ graph TD
 The active work item overrides the general `work` context path. `ResolvedContext.from_environment()` (in `src/meridian/lib/core/resolved_context.py`) builds the full context, checking in order:
 
 1. Explicit work item ID argument
-2. `MERIDIAN_ACTIVE_WORK_ID` env var
-3. Session-store lookup by chat ID
+2. The execution's own session row (`active_work_id`), found from its spawn row's chat
+3. `MERIDIAN_ACTIVE_WORK_ID`, only in a shell Meridian did not launch
 
-When an active work item is found, `MERIDIAN_ACTIVE_WORK_DIR` is set to the item's directory. This is why `meridian context work` shows the active item's path, not the general `work` root.
+A name that no longer exists (renamed or deleted) resolves to no item, with a warning. When an active work item is found, `meridian context work` shows the item's directory where it actually is, in `work/` or the archive. Inside a managed run, `MERIDIAN_ACTIVE_WORK_DIR` names the execution's per-chat link, `sessions/<chat>/work`, not the item's directory; see [per-execution work and checkout links](../decisions/session-work-links.md). This order is on meridian-cli PR #786, open and unmerged; released builds read the env before the session row.
 
 ## Env Var Propagation
 

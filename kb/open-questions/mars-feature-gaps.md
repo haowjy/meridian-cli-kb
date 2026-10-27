@@ -79,10 +79,13 @@ bindings.
 
 **Status (2026-05): Partially resolved** — Mars now manages MCP server
 registrations as first-class config-entry artifacts: packages declare MCP
-servers, Mars materializes them into `.mcp.json` / `codex_mcp.json`, tracks
-provenance in `mars.lock`, and removes stale entries when packages change.
-Collision resolution follows the agent precedence model (local wins,
-declaration order). See [architecture/mars-compiler.md](../architecture/mars-compiler.md).
+servers, Mars materializes them into each target's MCP config (`.claude/.mcp.json`,
+`.codex/codex_mcp.json`, …), tracks provenance in `mars.lock`, and removes stale
+entries when packages change. Collisions rank by shortest dependency depth, then
+declaration order, then name (D103). On mars-agents PR #233 (unmerged), a package
+can also ship a server's files and name them with `${MARS_MCP_DIR}`
+([D104](../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).
+See [architecture/mars-compiler.md](../architecture/mars-compiler.md).
 
 **Remaining gap:**
 - Resource or template exposure

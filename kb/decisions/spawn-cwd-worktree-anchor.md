@@ -40,7 +40,7 @@ See [architecture/launch-system.md — Authority/Task Domain Split](../architect
 
 ### D-stale-task-dir-graceful-fallback: Stale work-item task_dir degrades with warning, not hard error
 
-**Decision:** When a work item's configured `task_dir` no longer exists on disk, resolution skips the stale tier with a warning and falls through to the next valid tier: inherited `MERIDIAN_TASK_DIR` (if valid), then `authority_root`. Work state is never mutated on a read path. The warning names both the stale path and the fallback destination.
+**Decision:** When a work item's configured `task_dir` no longer exists on disk, resolution skips the stale tier with a warning and falls through to the next valid tier: the inherited checkout (if valid), then `authority_root`. On meridian-cli PR #786 (unmerged) the inherited checkout is the launcher's own pin, read from its spawn scope; `MERIDIAN_TASK_DIR` is an input only in a shell Meridian did not launch ([D-checkout-pin-sources](session-work-links.md#d-checkout-pin-sources)). Work state is never mutated on a read path. The warning names both the stale path and the fallback destination.
 
 **Supersedes:** D-stale-worktree-hard-error.
 
@@ -82,6 +82,8 @@ See [architecture/launch-system.md — Authority/Task Domain Split](../architect
 
 ### D-managed-vs-manual-worktree: WorktreeMetadata.managed distinguishes ownership semantics
 
+**Status: Superseded** by meridian-cli #282 ("Redesign spawn task_dir context", `5924ae480`): Meridian no longer creates, renames or removes git worktrees. A work item records a `task_dir` only, and `WorktreeMetadata` is read for display (meridian-cli `src/meridian/lib/state/.context/CONTEXT.md`, "WorktreeMetadata").
+
 **Decision:** `WorktreeMetadata.managed` (in `__status.json`) distinguishes Meridian-owned git worktrees from manually assigned directories:
 
 - **`managed: true`** — Meridian created the git worktree via `work start --worktree`. Meridian owns lifecycle: removes on `work done`/`work delete` if not shared with other active items. May rename if the work item is renamed.
@@ -109,6 +111,8 @@ Decisions from PR #266 (2026-05-23): worktree auto-provisioning, canonical path 
 
 ### D-worktree-flag-means-ensure-canonical: `spawn --worktree` means provision-or-recover, not assert
 
+**Status: Superseded** by meridian-cli #282 ("Redesign spawn task_dir context", `5924ae480`): Meridian no longer creates, renames or removes git worktrees. A work item records a `task_dir` only, and `WorktreeMetadata` is read for display (meridian-cli `src/meridian/lib/state/.context/CONTEXT.md`, "WorktreeMetadata").
+
 **Decision:** `spawn --worktree` now means "ensure a Meridian-managed canonical worktree at `<repo>.worktrees/<name>`, creating or recovering it if needed, then launch in it." It is an ensure operation, not an assertion that a path already exists.
 
 **Before PR #266:** `spawn --worktree` required the work item to already have a configured worktree path. It did not create one.
@@ -119,6 +123,8 @@ Decisions from PR #266 (2026-05-23): worktree auto-provisioning, canonical path 
 
 ### D-managed-metadata-authoritative: Persisted managed metadata wins over `--repo` on re-ensure
 
+**Status: Superseded** by meridian-cli #282 ("Redesign spawn task_dir context", `5924ae480`): Meridian no longer creates, renames or removes git worktrees. A work item records a `task_dir` only, and `WorktreeMetadata` is read for display (meridian-cli `src/meridian/lib/state/.context/CONTEXT.md`, "WorktreeMetadata").
+
 **Decision:** Once a work item has persisted managed worktree metadata (`repo_path` + `name` in `__status.json` with `managed=true`), subsequent ensures always reuse that metadata. `--repo` selects the target repo only on the first managed ensure; it cannot silently switch a managed worktree to a different repo afterward.
 
 **Rationale:** Allowing `--repo` to redirect an established managed worktree would silently create a second worktree in the wrong repo. The stored record is the source of truth for managed worktrees; `--repo` is an initial configuration hint, not an ongoing override.
@@ -126,6 +132,8 @@ Decisions from PR #266 (2026-05-23): worktree auto-provisioning, canonical path 
 ---
 
 ### D-temp-managed-worktrees: Session-scoped temp worktrees when no work item is active
+
+**Status: Superseded** by meridian-cli #282 ("Redesign spawn task_dir context", `5924ae480`): Meridian no longer creates, renames or removes git worktrees. A work item records a `task_dir` only, and `WorktreeMetadata` is read for display (meridian-cli `src/meridian/lib/state/.context/CONTEXT.md`, "WorktreeMetadata").
 
 **Decision:** When `work worktree --ensure` is called with no active or explicit work item, Meridian creates a session-scoped temporary managed worktree keyed by `spawn_id` (in a spawn) or `chat_id` (in a primary session). These are tracked in `~/.meridian/projects/<uuid>/worktree-temp/<key>.json` separately from work item state.
 
@@ -137,6 +145,8 @@ Decisions from PR #266 (2026-05-23): worktree auto-provisioning, canonical path 
 
 ### D-canonical-path-no-managed-override: Managed worktrees use enforced canonical paths
 
+**Status: Superseded** by meridian-cli #282 ("Redesign spawn task_dir context", `5924ae480`): Meridian no longer creates, renames or removes git worktrees. A work item records a `task_dir` only, and `WorktreeMetadata` is read for display (meridian-cli `src/meridian/lib/state/.context/CONTEXT.md`, "WorktreeMetadata").
+
 **Decision:** Managed worktrees always live at `<repo>.worktrees/<name>`, enforced by `managed_worktree_path()`. No `--path` option exists for managed worktrees. Custom/arbitrary paths go through `work set-worktree` (manual assignment, `managed=false`). Non-canonical managed paths detected at runtime are treated as drift and fail clearly.
 
 **Rationale:** A canonical path policy makes managed worktrees predictable and discoverable. Manual `set-worktree` covers the legitimate "assign an existing directory" use case.
@@ -144,6 +154,8 @@ Decisions from PR #266 (2026-05-23): worktree auto-provisioning, canonical path 
 ---
 
 ### D-temp-pending-rollback: Temporary worktree creation uses crash-safe pending records with rollback-on-failure
+
+**Status: Superseded** by meridian-cli #282 ("Redesign spawn task_dir context", `5924ae480`): Meridian no longer creates, renames or removes git worktrees. A work item records a `task_dir` only, and `WorktreeMetadata` is read for display (meridian-cli `src/meridian/lib/state/.context/CONTEXT.md`, "WorktreeMetadata").
 
 **Decision:** Temporary worktree creation writes a `status=pending` record before invoking `git worktree add`, then sets `status=ready` on success. If provisioning fails (including `skipped_not_git_repo`), the temp record is deleted (rollback-on-failure) rather than left in a failed/pending state.
 

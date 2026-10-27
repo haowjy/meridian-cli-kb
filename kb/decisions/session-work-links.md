@@ -34,8 +34,9 @@ projection of one store, and the kernel follows both hops when an agent writes.
 
 ## D-execution-owns-links: every execution owns its chat and its two links {#d-execution-owns-links}
 
-**Status:** current choice; the owner agreed to it when a structure review
-proposed it.
+**Status:** current choice. A structure review proposed it as a replacement
+for the deferred archive move the owner had accepted; asked to choose, the
+owner answered "I thought that was how it worked already lol...".
 
 **Decision.** Every live execution, primary or spawn, has its own chat and its
 own `sessions/<chat>/work` and `sessions/<chat>/task` links. Its work
@@ -49,8 +50,7 @@ earlier round gave links to primaries only. That left spawns on concrete paths,
 and it kept a misrouting bug: a Codex or OpenCode spawn publishes no chat
 observation, so it resolved its chat from the env it inherited, which named the
 parent. Its `work switch` then moved the parent primary's attachment and links.
-When the review proposed links for every execution, the owner answered "I
-thought that was how it worked already".
+The owner's answer shows this was the model they expected all along.
 
 **Where the paths appear.** A primary names its links in the system prompt. A
 spawn names them in its first user turn, so sibling spawns keep byte-identical
@@ -110,9 +110,12 @@ link; agents write under the directory.
 
 ## D-done-moves-at-once: `done`, `reopen` and `start` of a done item move at once and never delete either copy {#d-done-moves-at-once}
 
-**Status:** the never-delete rule and the shared move core are the owner's;
-moving at once is a current choice that replaced the owner's earlier deferral
-once spawns had links.
+**Status:** current choice. The owner asked what `work done` does to a
+running agent's link, and asked that `reopen` and `work start` of an
+archived item work the same way ("work start <archived> also functions the
+same way..."). The single move core, the never-delete rule and moving at once
+are tech-lead decisions; moving at once replaced a deferred move the owner had
+accepted, once spawns had their own links.
 
 **Decision.**
 - `work done` moves the directory to the archive immediately. `work reopen`,
@@ -126,15 +129,15 @@ once spawns had links.
 
 **Why.** Before #768, a running spawn held a concrete path. After `work done` its
 next write re-created the old directory, the item then existed in both places,
-and the next archive call `rmtree`d the archived copy. The owner first chose to
-mark the item done at once and defer the move until the last attached spawn
-ended, and asked that `reopen` and `start` of an archived item share one move
-core with `done`. Once every execution had its own link, the move could happen
-at once: the link follows the directory, and a running spawn's writes land in
-the archive. The deferral needed a new on-disk "done but still in `work/`" state
-and its own repair sweep, about 300 lines; immediate moves need neither. The
-owner agreed to the shape that made the deferral unnecessary
-([D-execution-owns-links](#d-execution-owns-links)).
+and the next archive call `rmtree`d the archived copy. The first fix, which the
+owner accepted, marked the item done at once and deferred the move until the
+last attached spawn ended; `reopen` and `start` of an archived item cancelled or
+reversed it through the same move core. Once every execution had its own link,
+the move could happen at once: the link follows the directory, and a running
+spawn's writes land in the archive. The deferral needed a new on-disk "done but
+still in `work/`" state and its own repair sweep, about 300 lines; immediate
+moves need neither. The owner agreed to the shape that made the deferral
+unnecessary ([D-execution-owns-links](#d-execution-owns-links)).
 
 **Rejected:**
 - *Deferred move until the last spawn ends:* a new on-disk state and a sweep
@@ -186,7 +189,10 @@ parent that only followed its item could no longer follow `work task-dir` or
 
 ## D-work-commands-default-current: agents never need a work item's ID {#d-work-commands-default-current}
 
-**Status:** owner direction; implemented on #786.
+**Status:** current choice. The owner rejected the proposal that agents ask
+`meridian work current` for the ID ("agents ask meridian work current... idk...
+it feels kinda icky still... that was the orignnal problem still right...?");
+the `HEAD`-style defaults and the `current` keyword are the tech lead's answer.
 
 **Decision.** Commands that act on a work item default to the session's current
 item, the way git commands read `HEAD`: `work done`, `update`, `rename` and
@@ -196,14 +202,15 @@ an item name. Neither the environment nor the prompt gives a primary the ID.
 
 **Why.** An ID in the env or the prompt goes stale after `work switch`. Telling
 agents to ask `meridian work current` for it moved the same problem somewhere
-else. The owner's rule was that agents should not need the ID at all.
+else. The fix removes the need for the ID instead of moving where it is read.
 
 ---
 
 ## Values that change mid-session
 
-The owner asked that every value that can change during a session get a link,
-not just the work directory. The inventory:
+The owner asked that the other values which can change mid-session get links
+too ("can we make sure the other variable stuff that can change also get the
+smylnk?"). The tech lead's inventory:
 
 | Value | Changes mid-session? | Treatment |
 |---|---|---|

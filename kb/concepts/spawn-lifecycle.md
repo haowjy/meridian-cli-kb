@@ -119,7 +119,7 @@ Not every agent receives spawn instructions in its system prompt. Meridian gates
 - Opt-out: `meridian-capabilities: {spawn: false}` suppresses injection even when `subagents` is non-empty.
 - There is intentionally **no positive `spawn: true` override** — having `subagents` IS the capability. Two sources of truth (`subagents` roster AND a boolean flag) would invite drift.
 
-The spawn contract is a first-class composition block (`spawn_contract_prompt` in `ComposedLaunchContent`), not appended to the inventory string. This ensures continue/fork re-applies it exactly once — snapshot→replay→recompose doesn't duplicate or drop it.
+The spawn contract is a first-class composition block (the `spawn-contract` guidance block from `build_guidance_blocks()`), not appended to the inventory string. This ensures continue/fork re-applies it exactly once — snapshot→replay→recompose doesn't duplicate or drop it.
 
 The policy lives in `launch/spawn_guidance.py`. Contracts are harness-templated: Claude gets a contract naming Claude's `run_in_background`; all other harnesses get a generic contract referencing "your harness's background execution."
 

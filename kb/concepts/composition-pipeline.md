@@ -52,9 +52,9 @@ Fields in the IR:
 |-------|----------|---------|
 | `launch_preamble` | SYSTEM_INSTRUCTION | Launch-mode-specific framing |
 | `agent_profile_body` | SYSTEM_INSTRUCTION | Agent profile body text |
-| `completion_contract` | SYSTEM_INSTRUCTION | Bounded goal contract from `--goal TEXT`; empty when no goal given |
+| `completion_contract` | SYSTEM_INSTRUCTION | Bounded goal contract from `--goal TEXT`; empty when no goal given. Removed on meridian-cli PR #786 (unmerged): a spawn's goal joins `user_task_prompt`, a primary's is a `goal-contract` guidance block |
 | `supplemental_documents` | SYSTEM_INSTRUCTION | Typed `PromptDocument`s: loaded skills (full bodies), then bootstrap docs |
-| `available_skills` | SYSTEM_INSTRUCTION | On-demand skills, listed by name only |
+| `available_skills` | SYSTEM_INSTRUCTION | On-demand skills, listed by name and description |
 | `guidance_blocks` | SYSTEM_INSTRUCTION | `CompositionBlock`s sorted by phase then priority: agent inventory (spawn-capable profiles), Meridian-skill triggers, one late-bound capability/directory section, subagent prompting and spawn behavior (spawn-capable profiles), and optional harness guidance |
 | `report_instruction` | SYSTEM_INSTRUCTION | "Write a report at the end" directive |
 | `passthrough_system_fragments` | SYSTEM_INSTRUCTION | Explicit `--append-system-prompt` args |
@@ -65,7 +65,7 @@ Fields in the IR:
 The `SYSTEM_INSTRUCTION` blocks are assembled in a fixed order (`SYSTEM_INSTRUCTION_BLOCK_ORDER` in `composition.py`, rendered by `render_system_instruction_blocks()`). Order matters because a system prompt is read top to bottom. The profile orients the agent and the goal follows it. Loaded skills come after both, grouped principle → guardrail → reference under type headers. Passthrough fragments come last so explicit user-supplied text can override or append:
 
 ```
-launch_preamble → agent_profile_body → completion_contract
+launch_preamble → agent_profile_body → completion_contract (gone on PR #786)
     → supplemental_documents (skills, then bootstrap) → available_skills listing
     → guidance_blocks → report_instruction → passthrough_system_fragments
 ```
@@ -231,7 +231,7 @@ resolution rejects it.
 ## Skill Delivery: One Path
 
 Loaded skills reach the agent the same way on every harness and both surfaces
-(primary and spawn). `_build_spawn_composed_launch_content()` and
+(primary and spawn). `_resolve_spawn_prepare_projection()` and
 `_resolve_primary_projection()` always set `supplemental_documents` from
 `compose_skill_prompt_documents(loaded_skills)`. Projection then renders them
 into the system prompt after the agent profile. Bind-time re-projection
@@ -297,7 +297,12 @@ Every profile receives one `# Meridian capabilities` section that maps the
 capability vocabulary used by prompt packages to CLI commands. Preparation stores one
 empty typed block; `_reproject_capabilities_at_bind()` renders it once after spawn
 capability, the actual control root, task checkout, work/KB/extra-context directories,
-and run/chat identities are bound. There is no compose-time directory rendering.
+and run/chat identities are bound. There is no compose-time directory rendering. On
+meridian-cli PR #786 (unmerged), a spawn's run ID, launching chat and links are not
+in this section: they go in its first user turn, and the section points there, so
+sibling spawns send identical system prompts. A primary keeps its chat ID and links
+here because a `--continue` replays no user turn
+([D-stable-system-prompt](../decisions/launch.md#d-stable-system-prompt)).
 
 Work items, sessions, document/link/guidance graphs, source checkout, KB, and
 identities are always present. Notifying the human appears only for `mode: primary`

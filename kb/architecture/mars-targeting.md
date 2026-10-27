@@ -136,14 +136,17 @@ MCP config and hooks are also compiled to native harness directories:
 
 | Harness | MCP location | Hook mode | Hook destination |
 |---------|-------------|-----------|------------------|
-| Claude | `.mcp.json` (project root) | MergeJson | `.claude/settings.local.json` `hooks` key |
+| Claude | `.claude/.mcp.json` | MergeJson | `.claude/settings.local.json` `hooks` key |
 | Codex | `.codex/codex_mcp.json` | MergeJson | `.codex/hooks.json` |
 | Cursor | `.cursor/mcp.json` | MergeJson | `.cursor/hooks.json` (mars-owned `version: 1` wrapper) |
 | OpenCode | `opencode.json mcp.<name>` | File | `.opencode/plugins/mars-<name>.ts` |
 | Pi | N/A | File | `.pi/extensions/mars-<name>.ts` |
 
 Mars manages its entries in these files without touching user-managed entries
-(append-and-lock approach). Authors write per-target native fragment files
+(append-and-lock approach). On mars-agents PR #233 (unmerged), a server whose
+`command` or `args` names `${MARS_MCP_DIR}` also gets its `mcp/<name>/` directory
+installed beside each target that writes MCP config
+([D104](../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)). Authors write per-target native fragment files
 (JSON for merge-mode, TypeScript for file-mode) inside the hook directory;
 mars validates merge-mode event keys against per-target allowlists, substitutes
 `${MARS_HOOK_DIR}` with the absolute installed path, and records exact emitted

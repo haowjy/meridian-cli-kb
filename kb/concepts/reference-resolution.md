@@ -68,12 +68,12 @@ This makes it clear whether the problem is a wrong path, a wrong anchor, or a mi
 
 1. Explicit `--task-dir` override
 2. Explicit `--work <item>` task_dir (hard boundary — ambient work NOT consulted as fallback)
-3. Inherited task-dir (`MERIDIAN_TASK_DIR`)
+3. Inherited task-dir: the launcher's checkout. On meridian-cli PR #786 (unmerged) this is the launcher's own pin from its spawn scope, and `MERIDIAN_TASK_DIR` counts only in a shell Meridian did not launch
 4. Ambient work item task_dir
 5. Caller cwd when outside the project tree
 6. Default → `authority_root`
 
-**Stale task_dir** (directory no longer exists) → warning + fallback to the next valid tier (inherited `MERIDIAN_TASK_DIR`, then `authority_root`). Work state is not mutated on read. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
+**Stale task_dir** (directory no longer exists) → warning + fallback to the next valid tier. Work state is not mutated on read. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
 
 ## Related
 

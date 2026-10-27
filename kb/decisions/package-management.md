@@ -46,8 +46,8 @@ For mechanism, see:
 
 > **Superseded:** D98 replaces the hook half of this decision, and
 > [D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
-> replaces the MCP precedence with shortest dependency depth first (on unmerged
-> mars-agents PR #193). Local still wins and declaration order still breaks
+> replaces the MCP precedence with shortest dependency depth first (released in
+> mars 0.19.0). Local still wins and declaration order still breaks
 > ties at equal depth.
 
 **Original decision:** MCP server and hook name collisions resolve via: local
@@ -263,7 +263,7 @@ the harness process.
 
 **Where it lives:** `_resolve_policy_from_bundle` in `src/meridian/lib/launch/policies.py` builds `BundleRequest.extra_skills` from the caller's requested skills only. `replay_launch_policy_snapshot` in `src/meridian/lib/launch/policy_snapshot.py` builds `ResolvedSkills` from `snapshot.loaded_skills`. Deleted: `lib/catalog/skill.py` (`SkillRegistry` and variant discovery), `AgentProfile.skills`, `resolve_skills_from_profile`, the snapshot `skill_paths` field. Unknown `--skills` names still warn without failing; Mars owns the lookup, so the warning no longer names a path. Built on branch `refactor/mars-owns-profile-skills`, cut from `main` independently of PR #661. Together with [D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness) it leaves skill delivery one path: Mars resolves, Meridian composes.
 
-**Known gaps (predate this decision):** exact continue doesn't replay the available skills into the workspace, because the snapshot keeps only the rendered inventory text; and a fork passes the source spawn's resolved skill names to Mars as extra skills, which Mars dedupes. Both are tracked in `src/meridian/lib/launch/.context/FUTURE`.
+**Known gap (predates this decision):** a fork passes the source spawn's resolved skill names to Mars as extra skills, which Mars dedupes. Tracked in `src/meridian/lib/launch/.context/FUTURE`. The other gap, a snapshot that kept only the rendered available-skills text, is closed on meridian-cli PR #786 (unmerged), whose snapshot stores the entries.
 
 **Revisit if:** Meridian needs skill content Mars doesn't return. Extend the bundle rather than reading `.mars/skills/` again.
 
@@ -795,9 +795,10 @@ Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
 
 ### D98: The target build is the only hook-selection authority (2026-10-24)
 
-**Status:** Owner-settled in `work:harness-plugin-export`; implemented and
-verified on the unmerged `mars-agents` plugin-refactors branch. Its temporary
-MCP exception is superseded by D99.
+**Status:** Owner-settled in `work:harness-plugin-export`; released in mars
+0.19.0. Its temporary MCP exception is superseded by D99. On mars-agents PR #233
+(unmerged), an unmanaged hook directory no longer fails the sync; see
+[D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27).
 
 **Decision:** The target build selects one parsed hook per target-scoped
 canonical destination after dependency filters, exported visibility and
@@ -842,11 +843,13 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 ### D99: MCP selection joins target state (2026-10-24)
 
-**Status:** Owner-settled in `work:harness-plugin-export`; implemented and
-verified on the unmerged `mars-agents` `feat/plugin-build` branch at `cd558e3`.
-Its MCP collision ranking is superseded by
+**Status:** Owner-settled in `work:harness-plugin-export`; released in mars
+0.19.0. Its MCP collision ranking is superseded by
 [D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
-(shortest depth first); collisions are still resolved in per-target lowering.
+(shortest depth first). Released mars resolves collisions in per-target
+lowering; on mars-agents PR #233 (unmerged) they resolve once per target during
+target construction, so a server's files, entry and lock name the same winner
+([D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).
 
 **Decision:** Target construction is the only package-discovery and visibility
 authority for effectful config entries. Alongside D98's hooks, it discovers each
@@ -1211,6 +1214,68 @@ depth for both beats a second sort key.
 **Visible effect:** hook order changes only for a direct dependency that is
 also reached transitively, and in that case Codex may ask once to re-trust the
 moved hooks.
+
+---
+
+### D104: Packaged MCP servers install through the hook directory path (2026-10-27)
+
+**Status:** Current choice. The owner asked for `${MARS_MCP_DIR}` (mars-agents
+#204) and approved its two tests ("sure, add it, the mars snyc infinite hang
+sounds bad"); the shape is the tech lead's, from two code reviews and three
+structure reviews. On mars-agents PR #233, open and unmerged; the follow-ups to
+selection (#227, #228) are on PR #238, stacked on it. Mechanism: mars-agents
+`src/sync/AGENTS.md`, `src/compiler/AGENTS.md`, `src/build/AGENTS.md`,
+`docs/config/mcp-and-hooks.md` and `docs/internals/sync-pipeline.md` on those
+branches. `work:post-0-19-followups`.
+
+**Decision.**
+- An MCP server whose `command` or `args` names `${MARS_MCP_DIR}` gets its
+  `mcp/<name>/` directory installed beside each target that writes MCP config,
+  and its entry carries the installed absolute path. A plugin build maps the
+  token to the harness's plugin root. A token-free server is a config entry
+  alone, as before.
+- Hooks and token-using servers share one install path. `PackageDir`
+  (`src/sync/package_dir.rs`) owns every path and lock name for their
+  directories; selection keeps one record per target; and mars writes a hook's or
+  server's entry for a target only if target sync recorded installing its
+  directory there in this run.
+- One unmanaged-path rule for both: anything mars didn't create at a hook's or
+  server's directory warns, is left alone, and withholds that target's entry.
+  `mars sync --force` adopts it. Hooks used to fail the sync with exit 2 here.
+- The tree hash rejects non-regular files with an error naming the path.
+- A dependency's include filter (`agents`, `skills`, `only_skills`,
+  `only_agents`) never narrows its MCP servers (PR #238). In a plugin build, the
+  building package keeps its own agent and skill names when a dependency uses
+  the same one; only the dependency is suffixed.
+
+**Why.**
+- *One install path:* without it, hooks and servers handled the same conflict
+  differently (a fail for hooks, a warning for servers), and every later fix
+  would have had to land twice.
+- *Directories only for token-using servers, only in MCP targets:* the first
+  version made every server a directory item in every target. Both reviewers
+  traced their findings to that one choice: it copied directories nobody
+  referenced, into targets like `.pi` that write no MCP config.
+- *Warn and withhold, not fail:* a directory the user put there is theirs. A
+  warning that names the path, plus `--force`, lets the rest of the sync proceed
+  without overwriting it; the cost is that an unmanaged hook path no longer
+  stops the sync.
+- *Reject non-regular files:* a FIFO inside a skill, hook or server directory
+  hung `mars sync` forever while hashing.
+- *Filters never narrow servers:* a filter names agents and skills, never a
+  server, yet any include filter silently dropped every server the dependency
+  declared (#228). The cost: a newly visible server with the same name as an
+  entry the user wrote by hand replaces it, as it already did for unfiltered
+  dependencies (#235). `exclude` still can't drop one server (#237).
+- *Root package keeps its names:* the building package's own agents and skills
+  were renamed whenever a dependency shared the name (#227), so the package's
+  own agent lost its name. Sync already shadowed the dependency.
+
+**Rejected:**
+- *A directory item for every server in every target:* the first round; see
+  above.
+- *Keep exit 2 for unmanaged hook paths and add a second rule for servers:* two
+  policies on one install path.
 
 ---
 

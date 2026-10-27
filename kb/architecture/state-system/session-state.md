@@ -55,7 +55,9 @@ fail every read
 Session state is event-sourced into **one file per runtime**. Every chat appends to
 `sessions.jsonl`, the file only grows (46.6 MB and 18.9 MB on the development box in
 October 2026), and most reads replay it. **Sessions are not stored per chat.** The
-only per-chat files are the lifetime lock and lease below. A `chats/` directory
+only per-chat files are the lifetime lock and lease below, plus, on meridian-cli
+PR #786 (unmerged), each chat's `work` and `task` links, which are projections of
+the row and never authority. A `chats/` directory
 appears empty in every runtime: it was created for a `chats/<chat_id>/lifecycle.jsonl`
 primitive (2026-04) that nothing ever wrote. #418 (2026-07) prescribed per-session
 authority files, and they were never built.
@@ -142,6 +144,9 @@ Session-ID counter (`session-id-counter`) is monotonically incremented under `pl
 Per-session files under `sessions/<chat_id>/`:
 - `<chat_id>.lock` — held for active session duration
 - `<chat_id>.lease.json` — PID + generation token for staleness detection
+- `work`, `task` — symlinks to the execution's work directory and source checkout,
+  published by `launch/session_links.py` on meridian-cli PR #786 (unmerged); see
+  [per-execution work and checkout links](../../decisions/session-work-links.md)
 
 ## A later start closes abandoned generations
 

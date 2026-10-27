@@ -1,6 +1,6 @@
 # Codebase: Work Items
 
-Work items are lightweight labels that group spawns and scratch directories. They're the mechanism behind `meridian work start/done/reopen` and the `MERIDIAN_CONTEXT_WORK_*_DIR` env vars surfaced to agents.
+Work items are lightweight labels that group spawns and scratch directories. They're the mechanism behind `meridian work start/done/reopen` and the `MERIDIAN_ACTIVE_WORK_DIR` and `MERIDIAN_CONTEXT_WORK_DIR` env vars surfaced to agents.
 
 ## WorkScope: Named vs Ambient
 
@@ -25,20 +25,29 @@ Work items have two scope kinds, modeled explicitly by the `WorkScope` dataclass
 
 When an agent `cd`s out of the work scope root, a warning is emitted. The warning wording is in the ops layer (not the state layer), keeping `WorkScope` a pure value object. The warning uses the scope kind to phrase appropriately: "left work item directory" vs "left spawn working directory."
 
-### Session Work-Switch Precedence
+## Which Item a Session Is On
 
-A same-process `work start`/`switch` sets `RuntimeContext.work_id` — this takes precedence over the launch-bound `MERIDIAN_ACTIVE_WORK_DIR`. The work_id provenance gates which source is trusted: an in-session active work_id wins over a bound-dir that may be stale. Child-spawn binding (`MERIDIAN_ACTIVE_WORK_DIR` propagation to child processes) is preserved — this fix only affects the same-process case.
+An execution's work item is the `active_work_id` on its own session row; an
+explicit `--work` outranks it, and the launch env (`MERIDIAN_ACTIVE_WORK_ID`)
+speaks only for a shell Meridian did not launch. `work switch`, `start` and
+`clear` write the caller's own rows; child spawns inherit their parent's item at
+launch. A row naming an item that no longer exists resolves to no item, with a
+warning. Commands that act on an item default to the current one, and `current`
+is accepted wherever a work ID is.
 
-## Cross-Module Work Attachment
+Spawns record their `work_id` in `state.json`. `work rename` moves the item, then
+moves the live executions attached to it and the child spawn rows onto the new
+name; a chat that already ended keeps the old name.
 
-The "current" work item for a session is tracked in two places:
-
-1. **Persisted**: the session's chat record in `sessions.jsonl` carries `active_work_id` (`session_store.get_session_active_work_id` / `update_session_work_id`) — survives process restarts.
-2. **In-session override**: `RuntimeContext.work_id` — set by `work switch` or `work start` during a session; takes precedence over the persisted value.
-
-Child spawns inherit their parent's work. `work clear` clears the session's attachment.
-
-Spawns record their `work_id` in `state.json`. `work rename` renames the item through `work_repository.rename_work_item()`, then updates the `work_id` of child spawns that referenced the old name and repoints the current session's attachment (`ops/work_lifecycle.py`). Primary spawn records keep the old name.
+Every execution reaches the item through its per-chat links,
+`sessions/<chat>/work` and `sessions/<chat>/task`, which point at the work
+store's own `work-items/<id>/{work,task}` links. That is why `work done` moves
+the directory at once and running agents follow it. Why it is built this way:
+[per-execution work and checkout links](../decisions/session-work-links.md).
+Mechanism: meridian-cli `src/meridian/lib/state/.context/CONTEXT.md` ("Work
+Item Directory Moves"). This describes meridian-cli PR #786, open and unmerged;
+released builds name concrete paths in the env, and resolve a spawn's item from
+the env before its row.
 
 ## Scratch Directories
 
@@ -48,69 +57,28 @@ Each work item has a **scratch directory** for agents to write design docs, plan
 ~/.meridian/git/<repo>/work/<slug>/    (or wherever context.work_dir resolves)
 ```
 
-Configured via `[context.work]` in `meridian.toml`. Surfaced to agents as `MERIDIAN_CONTEXT_WORK_DIR`. On `work done`, the scratch dir is archived alongside the metadata. On `work reopen`, it's restored.
+Configured via `[context.work]` in `meridian.toml`, whose root is surfaced as `MERIDIAN_CONTEXT_WORK_DIR`; the current item's directory is `MERIDIAN_ACTIVE_WORK_DIR`. On `work done`, the scratch dir moves to the archive with its metadata. On `work reopen`, it moves back. A move refuses when both locations exist and never deletes either copy.
 
 When the work dir lives in a git-synced context repo (as it does here), everything written to it is committed by autosync. It holds notes, scripts and result summaries only. Probe runtimes (scratch homes, copied state, environments, databases) go under `/tmp`. A 24 GB pile of them once stalled autosync for hours; see [probe runtime placement](../lessons/probe-runtime-placement.md).
 
 See [../concepts/context-resolution.md](../concepts/context-resolution.md) for how `MERIDIAN_CONTEXT_*_DIR` env vars are populated.
 
-## Worktree Assignment
+## Checkout (`task_dir`)
 
-Work items can have an associated worktree path — a directory where spawns scoped to that work item will run. This determines the `task_cwd` for agent processes.
+A work item can record a source checkout, usually a git worktree, with
+`work start --task-dir` or `work task-dir`. Meridian only records the path; it
+does not create, rename or remove worktrees. An execution's checkout is its own
+pin (from `--task-dir`, a launch outside the project, or its launcher's pin),
+else the item's `task_dir`, else the project root
+([D-checkout-pin-sources](../decisions/session-work-links.md#d-checkout-pin-sources)).
 
-### Two Assignment Paths
-
-**Managed** (`WorktreeMetadata.managed = true`): Meridian provisioned the git worktree and owns its lifecycle. Created by `work start --worktree`, `spawn --worktree`, or `work worktree --ensure`.
-- Canonical path is always `<repo>.worktrees/<name>`, enforced by `managed_worktree_path()`. No `--path` override for managed worktrees.
-- Removed on `work done` / `work delete` when not shared with other active work items
-- Renamed if the work item is renamed
-- Once metadata is persisted (`repo_path` + `name`), subsequent ensures reuse it — `--repo` cannot redirect an established managed worktree
-
-**Manual** (`WorktreeMetadata.managed = false`): Assigned by `work set-worktree`. Accepts arbitrary paths. Meridian treats it as read-only:
-- Never deletes the directory
-- `work clear-worktree` removes only the assignment, not the directory
-
-Multiple work items may point to the same `worktree_path`. No uniqueness constraint. Managed cleanup skips removal when the path is shared.
-
-### Commands
-
-```bash
-# Managed worktree lifecycle
-meridian work worktree                            # show active work item's worktree status
-meridian work worktree --ensure                   # ensure managed worktree exists (or create temp if no active work)
-meridian work worktree <work-id>                  # show explicit work item's worktree
-meridian work worktree <work-id> --ensure         # ensure explicit work item's managed worktree
-meridian work worktree --ensure --repo <path>     # select target repo (first ensure only)
-
-# Manual assignment
-meridian work set-worktree <work-item> <path>     # assign existing directory (manual, managed=false)
-meridian work clear-worktree <work-item>          # remove assignment (not directory)
-```
-
-`work start --worktree` is the "provision and assign" path for a new work item (creates a managed git worktree). `work worktree --ensure` is the idempotent ensure path for an existing item. `set-worktree` is the "assign only" path for pre-existing directories.
-
-### Temporary Managed Worktrees
-
-When `work worktree --ensure` is invoked with no active or explicit work item, Meridian creates a **session-scoped temporary managed worktree**:
-- Named deterministically from `spawn_id` (in a spawn, e.g. `temp-spawn-p2427`) or `chat_id` (in a primary session, e.g. `temp-chat-c2343`)
-- Canonical path: `<repo>.worktrees/<worktree-name>`
-- Tracked in `~/.meridian/projects/<uuid>/worktree-temp/<key>.json` — separate from work item state
-- Crash-safe: record written with `status=pending` before `git worktree add`; set to `status=ready` on success; cleared (rollback) on failure
-
-The explicit-work-id form (`work worktree <id> --ensure`) does NOT create a temp worktree if the named item is missing — it fails clearly.
-
-### Effect on Spawns
-
-`spawn --worktree` provisions (or recovers) the canonical managed worktree before launching, then runs the agent in it. This is an ensure operation — it creates the worktree if it does not exist. Implicit `--work <id>` without `--worktree` still falls back to `authority_root` when no worktree is configured.
-
-When a work item has a `worktree_path`, spawns attached to that item run in it:
-- Agent process cwd = `worktree_path` (for PI/OpenCode/Codex)
-- Relative `-f` reference paths resolve from `worktree_path`
-- `kb:` reference paths still resolve from `authority_root` (the config root)
-
-If the configured `task_dir` no longer exists on disk (common after a worktree is removed post-merge), resolution skips the stale tier with a warning and falls through to the next valid tier (inherited `MERIDIAN_TASK_DIR`, then authority root). Work state is not mutated on read. See [D-stale-task-dir-graceful-fallback](../decisions/spawn-cwd-worktree-anchor.md#d-stale-task-dir-graceful-fallback-stale-work-item-task_dir-degrades-with-warning-not-hard-error).
-
-See [../architecture/launch-system.md](../architecture/launch-system.md) — Authority/Task Domain Split for the full model. See [../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md) for design rationale.
+Relative `-f` reference paths resolve from the checkout; `kb:` paths still
+resolve from `authority_root`. A `task_dir` that no longer exists (common after a
+worktree is removed post-merge) is skipped with a warning, and work state is not
+mutated on read. See [../architecture/launch-system.md](../architecture/launch-system.md)
+for the authority/task split and
+[../decisions/spawn-cwd-worktree-anchor.md](../decisions/spawn-cwd-worktree-anchor.md)
+for the rationale.
 
 ## Hook and Event Coordination
 
@@ -121,8 +89,6 @@ Work items fire three hook events:
 - `work.done`: the item was archived as done.
 
 `activate_work()` in `lib/ops/work_attachment.py` is the only path that fires `work.activated`. A "session" here is a Meridian chat record (`cN`), which a primary has as soon as it launches, before its harness reports a session ID. When `session_store.session_exists()` finds the chat record, `activate_work()` also writes the item as that session's active work; run from a plain shell with no chat, it fires the event and attaches nothing. `publish_work_event()` beside it builds every work event's hook context, resolves `work_dir` for active or archived items, and emits the paired telemetry. A hook failure is logged and the work operation continues. The default `git-autosync` hook syncs on `work.activated` and `work.done`, so a primary launch with work waits for one sync before its harness starts. Why activation excludes maintenance writes: [D-work-activation](../decisions/hook-event-contract.md#d-work-activation--activation-means-someone-chose-the-item).
-
-`work done` emits warnings (not errors) when there are active sessions or spawns associated with the work item.
 
 A nested-agent warning is included in `WorkLifecycleOutput` when called from a nested agent (`RuntimeContext.is_nested`) — work coordination should go through the orchestrator.
 

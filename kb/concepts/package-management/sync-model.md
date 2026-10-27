@@ -286,10 +286,9 @@ policy; released Mars 0.14.1 retains the earlier refusal.
 
 `--frozen` is the right mode for CI builds where reproducibility is required.
 
-Dry-run, frozen, and export-style resolution are not guaranteed to be
-filesystem-write-free. They may create `.mars/sync.lock` and refresh derived
-`.mars/staging` content even when canonical/native outputs and `mars.lock`
-remain unchanged.
+A dry run creates nothing in the project: it takes the sync lock only when
+`.mars/sync.lock` already exists, and stages into a temporary directory outside
+the project (mars-agents `docs/internals/sync-pipeline.md`).
 
 The `--ignore-requires-*` flags are available on `sync`, `upgrade`, `add`, and
 `repair`. They emit a single warning noting the check is disabled.
@@ -300,9 +299,12 @@ and `mars build launch-bundle`. Full matrix: [../../architecture/mars-model-refr
 ## Filter Pass
 
 `sync/filter.rs` applies the include/exclude/only-agent/only-skill modes from
-each dependency declaration. Agents passing an include filter also pull their
-declared skill dependencies transitively. Filter resolution runs before the diff
-phase.
+each dependency declaration to its agents, skills and hooks. Agents passing an
+include filter also pull their declared skill dependencies transitively. Filter
+resolution runs before the diff phase. Filters name no MCP server: released mars
+drops every server from a dependency with any include filter, and on mars-agents
+PR #238 (unmerged) include filters never narrow servers (#228; `exclude` can't
+drop one either, #237). See mars-agents `docs/config/mcp-and-hooks.md`.
 
 ## Sync Lock
 

@@ -68,6 +68,8 @@ With JSONL, rename would mean appending a `rename` event and somehow rebuilding 
 
 If the process dies between steps 2 and 3, the intent file survives and the rename is replayed on next startup/reconciliation. This is crash-safe, inspectable, and keeps slug + directory in sync.
 
+**What remains true:** mutable per-directory JSON, with directory location as the archived-ness authority. The intent file is gone: metadata lives in `__status.json` inside the directory, so the move carries it, and re-running `work rename` finishes a stopped rename ([work-item storage](../architecture/state-system/roots-and-work-items.md)).
+
 ---
 
 ## The Projection Authority Rule

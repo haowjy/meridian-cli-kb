@@ -180,6 +180,10 @@ meridian-base = {
 also pulls in its declared skill dependencies transitively — `seed_items_for_request()`
 in `src/resolve/package.rs` lines 276–398 handles this.
 
+Filters select agents, skills and hooks; they name no MCP server. Released mars
+drops every server from a dependency with an include filter; on mars-agents PR
+#238 (unmerged) include filters never narrow servers (#228).
+
 Filter combinations are validated at config load time; incompatible combinations
 (e.g., `include` with `only-skill`) are rejected with a diagnostic.
 

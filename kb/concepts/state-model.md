@@ -67,7 +67,7 @@ where ordered history is the contract, not as a universal state model.
 ### Mutable Work-Item JSON
 
 Each work item has `__status.json` under the context work root. The repository
-store owns locking, mutation, rename intent, and archive transitions.
+store owns locking, mutation, renames, and archive transitions.
 
 ### Artifact Directories
 
