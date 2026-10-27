@@ -216,29 +216,72 @@ See [launch decisions](launch.md) for the full background worker refactor decisi
 
 ### D72: `[agents.<name>]` overlay config as the project-scoped override surface
 
-**Decision:** Agent runtime policy can be overridden project-wide (or project-locally) via `[agents.<name>]` sections in `meridian.toml` / `meridian.local.toml` / `~/.meridian/config.toml`. These overlays feed the launch-parameter compiler without editing generated `.mars/agents/` profiles.
+> **Superseded in part (2026-05-21).** The override surface stands; its home and
+> semantics changed. Overlays live in Mars config, not Meridian config. See
+> [Current mechanism](#d72-current-mechanism) below.
 
-**Motivating use case:** Override `tech-lead` from its package default to `gpt55 + medium effort` for local experimentation — without touching `.mars/agents/tech-lead.md`, which is generated output overwritten by `meridian mars sync`.
+**Decision that still holds:** a project overrides an installed agent's runtime
+policy with an `[agents.<name>]` table, without editing the generated
+`.mars/agents/<name>.md`, which every sync overwrites. The motivating case
+remains: run `tech-lead` on `gpt55` at `medium` effort in one project without
+forking its package.
 
-**v1 supported scalar fields:** `model`, `harness`, `effort`, `approval`, `sandbox`, `autocompact`.
+#### Current mechanism {#d72-current-mechanism}
 
-**`timeout` explicitly excluded from v1 overlay fields.** The overlay compiler does not yet thread resolved timeout into the launch pipeline's `execution_policy.timeout` field. Adding `timeout` to overlay would create "parses but does nothing" semantics. Timeout still resolves through CLI/env/profile/config paths as before; it just can't be set via `[agents.<name>]` in v1. (Note: `ExecutionBudget`, the former dual timeout carrier, was deleted in PR #375; timeout is now carried solely on `execution_policy.timeout` in minutes, with seconds conversion at the runner edge only.)
+- **Home:** `mars.toml` and `mars.local.toml`. Mars owns parsing, validation and
+  merging, and delivers the result in the launch bundle; Meridian applies no
+  overlay of its own. A matching `mars.local.toml` block replaces the
+  `mars.toml` block as a whole entry, except the permission sets (tool grants and
+  denies, network hosts), which add ([D-permission-set-merge](tool-permissions.md#d-permission-set-merge)).
+  Meridian's config loader rejects an `[agents]` section in `meridian.toml` or
+  `meridian.local.toml` with an error pointing at `mars.toml`.
+- **Fields:** scalars `model`, `harness`, `effort`, `approval`, `sandbox`,
+  `network`, plus `network-allow` / `network-deny`, `description`,
+  `model-invocable`, `user-invocable`, a `tools` permission table, and
+  `model-policies`. Since Mars schema v1 (Mars 0.20, Meridian v0.15.0), Mars
+  checks `effort`, `approval`, `sandbox` and `network` when `mars.toml` loads,
+  so a bad value (`approval = "yolo"`) fails every Mars command and launch.
+  Compaction is not an overlay field: `autocompact` and `autocompact_pct` belong
+  on the `[models.<alias>]` entry, and an overlay that sets them gets a warning
+  and no effect.
+  `timeout` is still not an overlay field; it resolves through CLI, env, profile
+  and Meridian config.
+- **Model policies prepend.** Overlay rules come before the profile's rules in
+  one first-match list. An absent key and `model-policies = []` both leave the
+  profile's rules alone; a non-empty list puts its rules first. An override sets
+  only `effort`, `approval`, `sandbox` and `network`; any other key fails at load.
+- **Precedence:** overlay scalars beat a matched rule, which beats the profile's
+  top-level value ([D-model-policy-rule-beats-profile-default](#d-model-policy-rule-beats-profile-default),
+  [config precedence](../concepts/config-precedence.md#routing-vs-policy-fields)).
 
-**List override fields (`skills`, `tools`, `disallowed-tools`, `mcp-tools`) rejected with warning in overlay.** In agent profile `model-policies`, these keys parse and are stored in `ModelPolicyRule.overrides` but are not yet applied at runtime (logged as "not-yet-supported"). In config overlays, they are actively rejected at parse time. Rationale: profile behavior is inherited from package authors and the silent-ignore is a known limitation; overlay behavior is user-authored and a silent-ignore would create false expectations about what the overlay controls.
+The field reference is Mars's [`mars.toml` reference](https://github.com/haowjy/mars-agents/blob/main/docs/config/mars-toml.md)
+("`[agents.<name>]` (overlay)"); the Meridian user view is meridian-cli's
+[Mars configuration guide](https://github.com/haowjy/meridian-cli/blob/main/docs/configuration/mars.md) ("Agent runtime overlays").
 
-**Three-state model-policies semantics** (key insight for correctness):
-- Key absent in all config files → `model_policies = None` → inherit profile model-policies unchanged.
-- Key present as empty array (`model-policies = []`) → `model_policies = ()` → suppress all conditional model overrides; neither profile model-policies nor legacy `models:` apply.
-- Key present with entries → `model_policies = (rule1, rule2, ...)` → replacement; profile model-policies are suppressed entirely.
+**Why it moved:** the 2026-05-21 Mars routing consolidation made Mars the single
+launch-policy resolver ([D73](#d73-canonical-launch-parameter-compiler-in-compilerpy-with-pure-data-contract),
+[D74](#d74-compiler-lives-in-meridian-not-mars-option-c-over-b)). An overlay is
+launch policy, so it moved with the resolver: Mars also writes native agent files
+from it, which a Meridian-only overlay could never reach.
 
-The `None`-vs-empty distinction is preserved through all config normalization layers. This is replacement semantics, not merge — merging rule sets from different sources creates ordering ambiguity and makes it impossible to suppress an inherited rule.
+#### Original design (2026-05-05, superseded)
 
-**Merge behavior across config files:** Deep merge per existing `_merge_nested_dicts()`. User config is base; project config overrides for any field it sets; project-local overrides both. `model-policies` is an array: stronger layer replaces (not concatenates).
+Overlays sat in `meridian.toml`, `meridian.local.toml` and
+`~/.meridian/config.toml`, deep-merged by Meridian (user, then project, then
+project-local) and fed to Meridian's launch-parameter compiler. Fields were
+`model`, `harness`, `effort`, `approval`, `sandbox` and `autocompact`. List
+override fields (`skills`, `tools`, `disallowed-tools`, `mcp-tools`) were rejected
+with a warning, because a user-authored overlay that silently ignored them would
+mislead. `model-policies` was three-state with replacement: `[]` suppressed every
+conditional rule, and a non-empty list replaced the profile's rules, on the view
+that merging rule sets creates ordering ambiguity and cannot suppress an
+inherited rule. Mars's prepend semantics dropped that suppression ability.
 
-**Alternatives rejected:**
-- Editing `.mars/agents/` directly — overwritten by `meridian mars sync`.
-- User-global config as the primary solution — doesn't satisfy project-scoped experiments without side effects on all projects.
-- `config set/get` CLI support in v1 — deferred; users edit TOML files directly, consistent with `[workspace]` and `[context]` management.
+**Alternatives rejected then, and still rejected:**
+- Editing `.mars/agents/` directly — overwritten by sync.
+- User-global config as the primary solution — no project-scoped experiments
+  without side effects on every project.
+- `config set/get` for `agents.*` — users edit TOML directly.
 
 ---
 
@@ -482,9 +525,7 @@ in that directory's `.context/CONTEXT.md`, and users read meridian-cli
   longer `minimal`.
 - Rejected: keeping Pi's two duplicate effort maps, one per Pi launch path.
 
-**Unverified:** Cursor's `none` (Mars folds effort into the Cursor slug; Cursor was not
-installed), and Codex `none` and `max` against the real API (dry-run only; some Codex models
-reject `none`).
+**Verified live:** a real Codex call (codex-cli 0.164.0) accepts both `none` and `max`.
 
 **Provenance:** `work:package-transferability`, `chat:c9297`.
 

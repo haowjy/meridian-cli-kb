@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Agent overlays live in Mars config; Mars 0.20 status sweep
+
+Rewrote [D72](decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface)
+as superseded in part: `[agents.<name>]` overlays moved from `meridian.toml` to
+`mars.toml` / `mars.local.toml` with the 2026-05 Mars routing consolidation, and their
+model-policy rules prepend to the profile's instead of replacing them. The
+[config precedence](concepts/config-precedence.md) rule-list paragraph now matches (an
+empty overlay list no longer suppresses profile rules). Pruned the overlay follow-ups in
+[future work](open-questions/future-work.md) that Mars ownership or schema v1 closed.
+Marked D-permission-set-merge shipped (Mars 0.18.0), recorded the live Codex check of
+effort `none` and `max`, noted the plugin docs shipped in Mars 0.19.0, and added
+unreleased-move notes where pages name `meridian-capabilities` or
+`resident-rearm-budget` (moving under `harness-overrides.meridian`).
+
+---
 ## 2026-10-27 — Per-execution work links, stable system prompts, packaged MCP servers (`work:post-0-19-followups`)
 
 meridian-cli PR #786 (closes #768) and mars-agents PRs #233 and #238, all open and

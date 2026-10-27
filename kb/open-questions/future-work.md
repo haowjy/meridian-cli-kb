@@ -278,21 +278,16 @@ observable.
 
 ### Agent Overlay Follow-Ups (2026-05-05, after agent-model-overrides shipped)
 
-**Where:** `src/meridian/lib/launch/compiler.py`, `src/meridian/cli/config_cmd.py`; overlay config itself now lives in `mars.toml` (Meridian's loader rejects `[agents]`)
+**Where:** overlays live in `mars.toml` / `mars.local.toml` and Mars resolves them
+([D72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface));
+the remaining Meridian-side item is in `src/meridian/lib/launch/`.
 
-These items were scoped out of v1 agent-model-overrides and are documented here so they aren't re-derived from first principles.
+1. **`timeout` is not an overlay field.** Mars's `[agents.<name>]` has no `timeout`, so a
+   per-agent timeout comes only from CLI, env, profile or Meridian config. Adding it means a
+   Mars overlay field plus Meridian reading it from the launch bundle into
+   `execution_policy.timeout` (minutes).
 
-1. **`timeout` in agent overlays not yet supported (v2).** `timeout` is explicitly excluded from `[agents.<name>]` in v1. The overlay compiler does not yet thread resolved timeout into `execution_policy.timeout`. Until then, adding `timeout` to overlay config would parse but silently have no effect. (`ExecutionBudget`, the former dual timeout carrier, was deleted in PR #375; timeout is now carried solely on `execution_policy.timeout` in minutes.) See [D72](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface).
-
-2. **List override fields in `model-policies` not yet applied at runtime (v2).** `skills`, `tools`, `disallowed-tools`, `mcp-tools` are rejected with a warning in config overlay model-policies, and in profile model-policies they parse but are not applied. Implementing requires: (a) remove the rejection in overlay validation, (b) implement application in the compiler (merge or replace tool lists), (c) update behavioral spec. The three-state overlay semantics already accommodate this — no schema change needed.
-
-3. **`config set/get/reset` for `agents.*` keys not implemented.** Users must edit TOML files directly. This is consistent with `[workspace]` and `[context]` management today, but `config set agents.tech-lead.model gpt55` would be more ergonomic. Deferred: complexity of teaching the config CLI about nested `agents.*` keys is not justified by the first-use pattern (most users set this once and leave it).
-
-4. **`config show` provenance is coarse: "file" not "which file".** Agent overlay values from `config show` display `[source: file]` without distinguishing user/project/local. Per-file provenance is a v2 enhancement. The `FieldProvenance` data structure already tracks down to `AGENT_OVERLAY_DEFAULT` / `AGENT_OVERLAY_POLICY` — per-file attribution requires threading the file path alongside the value through normalization.
-
-5. **`resolve_policies()` is still the primary caller interface.** The canonical compiler lives in `compiler.py`, but `resolve_policies()` remains a thin wrapper and callers still consume `ResolvedPolicies`. Future cleanup: migrate callers to consume `CompilerResult` or `MaterializedLaunch` directly, then deprecate `resolve_policies()`.
-
-6. **Mars ownership of the compiler (long-horizon).** The `CompilerRequest`/`CompilerResult` contract is plain-data by design to make this transition mechanical if warranted. Revisit if: (a) a second consumer besides Meridian needs agent launch-parameter compilation, or (b) Mars gains runtime/launch semantics. See [D74](../decisions/model-resolution.md#d74-compiler-lives-in-meridian-not-mars-option-c-over-b).
+2. **`resolve_policies()` is still the primary caller interface.** The canonical compiler lives in `compiler.py`, but `resolve_policies()` remains a thin wrapper and callers still consume `ResolvedPolicies`. Future cleanup: migrate callers to consume `CompilerResult` or `MaterializedLaunch` directly, then deprecate `resolve_policies()`.
 
 ---
 

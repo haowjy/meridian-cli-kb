@@ -264,7 +264,7 @@ make it a new minor version, we can try to make sure tools and other lists shoul
 "ok, i think i am okay with a minor upgrade for mars". The owner also asked "is there a way
 to not merge... if we wanted to...?", which the replace form answers.
 
-**Status:** implemented on mars-agents PR #182, unreleased.
+**Status:** shipped in Mars 0.18.0 (mars-agents PR #182).
 
 **Current choice (lead, not owner-approved):** the combining rule applies to four permission
 sets only: tool grants, tool denies, network allow hosts and network deny hosts. On those

@@ -53,10 +53,9 @@ Fields are split into two categories, codified in `_ROUTING_OVERRIDE_FIELDS`:
 7. Alias defaults
 ```
 
-The **effective rule list** for tier 4 is three-state:
-- Overlay has no `model-policies` key → the profile's rules alone.
-- Overlay has `model-policies = []` → no rules apply.
-- Overlay has rules → they come first, followed by the profile's rules.
+The **effective rule list** for tier 4 is the overlay's rules followed by the profile's.
+An absent `model-policies` key and `model-policies = []` both leave the profile's rules
+alone; an overlay cannot suppress a profile rule (mars-agents `overlay_then_profile_policies`).
 
 A matched rule beats the profile's own top-level value, so a profile can set `effort: max`
 and lower it for one model. Before Mars schema v1 the profile's top-level value won, which
