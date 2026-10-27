@@ -143,8 +143,8 @@ MCP config and hooks are also compiled to native harness directories:
 | Pi | N/A | File | `.pi/extensions/mars-<name>.ts` |
 
 Mars manages its entries in these files without touching user-managed entries
-(append-and-lock approach). On mars-agents PR #233 (unmerged), a server whose
-`command` or `args` names `${MARS_MCP_DIR}` also gets its `mcp/<name>/` directory
+(append-and-lock approach). A server whose `command` or `args` names
+`${MARS_MCP_DIR}` also gets its `mcp/<name>/` directory
 installed beside each target that writes MCP config
 ([D104](../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)). Authors write per-target native fragment files
 (JSON for merge-mode, TypeScript for file-mode) inside the hook directory;

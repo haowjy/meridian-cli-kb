@@ -31,7 +31,7 @@ src/compiler/
     mod.rs            # MCP server lowering, `${MARS_MCP_DIR}` detection and substitution
 
 src/sync/
-  package_dir.rs      # PackageDir: paths and lock names for hook and MCP server directories (PR #233)
+  package_dir.rs      # PackageDir: paths and lock names for hook and MCP server directories
 
 src/surface_ownership/
   mod.rs              # per-target path ownership: may_delete, copy_decision
@@ -72,10 +72,7 @@ retain evidence on failure"]
 
 Target construction parses hook and MCP schemas, applies dependency filters and
 exported visibility, and carries the selected parsed entries in `TargetState`.
-It resolves hook collisions there. Released mars leaves MCP candidates
-source-ordered until the per-target lowerer applies collision precedence; on
-mars-agents PR #233 (unmerged) MCP collisions also resolve once per target during
-target construction. Config-entry preflight
+It resolves hook and MCP collisions there, once per target. Config-entry preflight
 validates the selected native fragments before apply, so an invalid fragment
 cannot partially mutate canonical or target state. Stale ownership is not a
 compiler submodule:
@@ -90,13 +87,10 @@ each source once, applies its package-boundary rules, and records the parsed ite
 in `TargetState`. Preflight and config lowering consume that state; neither scans
 package directories again.
 
-In released mars, MCP servers have no installed directory: a selected MCP value
-carries the managed target roots where it applies, and same-name candidates
-remain unresolved until per-target lowering. On mars-agents PR #233 (unmerged), a
-server that names `${MARS_MCP_DIR}` installs a target-scoped directory the way a
-hook does, selection keeps one record per target for hooks and servers alike, and
-each record holds the `PackageDir` its copy installs at. The rules below rank
-same-name candidates in both versions:
+A server that names `${MARS_MCP_DIR}` installs a target-scoped directory the way
+a hook does; a token-free server is a config entry alone. Selection keeps one
+record per target for hooks and servers alike, and each record holds the
+`PackageDir` its copy installs at. The rules below rank same-name candidates:
 
 **MCP precedence:**
 
@@ -125,10 +119,9 @@ ordinary shadow warning. `TargetState` retains the parsed hook, its source
 package, and ordering metadata. Preflight, merge-mode lowering and file-mode
 lowering all consume that value; none rediscovers or independently chooses hooks.
 
-The selection records intent rather than proof of installation. Released mars
-fails the sync with exit 2 when an unmanaged path blocks a selected hook's
-directory. On PR #233 (unmerged), hooks and token-using servers share one rule:
-the content item is pruned, the selection survives, and one gate after target
+The selection records intent rather than proof of installation. When an
+unmanaged path blocks a selected directory, hooks and token-using servers share
+one rule: the content item is pruned, the selection survives, and one gate after target
 sync writes the entry only if this run installed the directory, otherwise it
 warns and withholds the entry until `mars sync --force` adopts the path. Why one
 install path and one rule: [D104](../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27).
@@ -138,10 +131,8 @@ Both manifest loaders convert `visibility` to `Visibility::Local` or
 old package-boundary behavior while making the typo visible; downstream code
 never interprets visibility strings. Dependency `exclude = [...]` still does not
 match MCP names: it leaves every MCP server from that source eligible (#237).
-Released mars has the opposite fault for include filters: any `agents`, `skills`,
-`only_skills` or `only_agents` filter drops every MCP server the dependency
-declares. On mars-agents PR #238 (unmerged) include filters never narrow MCP
-servers (#228).
+Include filters (`agents`, `skills`, `only_skills`, `only_agents`) never narrow
+MCP servers either (#228).
 
 This split matters to plugin builds: they can lower the pure target selection
 with a plugin-root hook path and no project install. Sync adds the installed-dir
@@ -256,10 +247,10 @@ while sync keeps the native form. Scope
 and rationale:
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24).
 Mechanism (staging, ownership, recovery, the OpenCode runtime): mars-agents
-`src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`. On PR #233 (unmerged)
-the plugin build copies token-using servers' directories into each tree and maps
-`${MARS_MCP_DIR}` to the harness plugin root; on PR #238 (unmerged) the building
-package keeps its own agent and skill names in a collision (#227).
+`src/build/AGENTS.md` and `src/build/.context/CONTEXT.md`. The plugin build
+copies token-using servers' directories into each tree and maps
+`${MARS_MCP_DIR}` to the harness plugin root, and the building package keeps its
+own agent and skill names in a collision (#227).
 
 ## Cleanup Notes Moved Out
 

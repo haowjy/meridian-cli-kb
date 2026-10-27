@@ -107,17 +107,13 @@ the next PR to `main` and merging `main` into it.
   merge → PyPI release → pin bump and `uv lock` on the consumer → re-gate →
   consumer merge ([D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)).
   Ask what binary the consumer actually installs, not only whether it degrades.
-- **A PR writes its changelog entry in its body, never in `CHANGELOG.md`.** The
-  release job renders each PR's `## Changelog` section into the file, and CI fails a
-  PR that adds lines there; meridian-cli `docs/releasing.md` holds the rule (since
-  meridian-cli #782). It ended a recurring misfile: bullets a PR added under
-  `## [Unreleased]` were silently filed under the version `main` had just released
-  whenever the branch merged or rebased across a `release:` commit, four times on
-  2026-10-16 alone. A PR opened under an older release process still follows that
-  process, so check open PRs against a changed rule before merging them. #783 still
-  edited `CHANGELOG.md` and had no `## Changelog` section, and its release run failed;
-  recovery was to add the section to the PR body, remove the PR's bullets from
-  `[Unreleased]` on `main`, and re-run the release job.
+- **A PR opened under an older release process still follows that process.**
+  When the release job became the only writer of `CHANGELOG.md`
+  ([D-changelog-one-writer](../decisions/release-process.md#d-changelog-one-writer-the-release-job-is-the-only-writer-of-changelogmd)),
+  #783 was already open: it edited `CHANGELOG.md` and had no `## Changelog` section,
+  and its release run failed. Recovery was to add the section to the PR body, remove
+  the PR's bullets from `[Unreleased]` on `main`, and re-run the release job. Check
+  open PRs against a changed rule before merging them.
 - **`git merge-tree --write-tree` prints a tree id even on conflict.** A
   dry-run script that read only the first line reported a conflicting chain as
   clean. Check the exit code (1 means conflicts), per
@@ -129,4 +125,5 @@ the next PR to `main` and merging `main` into it.
 - [../decisions/package-management.md](../decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) -- D91 fragment schema
 - [verification-and-review-discipline.md](verification-and-review-discipline.md) -- search scope and runtime probe rules
 - [verification-campaign-history.md](verification-campaign-history.md) -- prior instances of static gates missing behavioral breaks
+- [../decisions/release-process.md](../decisions/release-process.md) -- how both repos release, and why `CHANGELOG.md` has one writer
 - [residue-cleanup-discipline.md](residue-cleanup-discipline.md) -- the one-release sweep window that depends on the sequencing being correct

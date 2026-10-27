@@ -114,8 +114,8 @@ target using these precedence rules:
 Depth is the shortest distance from the consumer (`ResolvedGraph::dependency_depths()`).
 `graph.order` is alphabetical, so declaration order comes from `mars.toml`.
 Depth-first ranking is [D103](../../decisions/package-management.md#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24),
-released in mars 0.19.0. On mars-agents PR #233 (unmerged), collisions resolve
-once per target during target construction instead, and a server that names
+released in mars 0.19.0. Collisions resolve once per target during target
+construction (mars 0.20.4 and later), and a server that names
 `${MARS_MCP_DIR}` installs a directory through the hooks' install path
 ([D104](../../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).
 See [D99](../../decisions/package-management.md#d99-mcp-selection-joins-target-state-2026-10-24).
@@ -173,8 +173,8 @@ how the lock feeds the diff phase on the next sync.
 
 - **I-1: Effectful selection has one owner** — target construction selects hooks
   and MCP candidates; preflight and lowering consume those values rather than
-  rediscovering source config entries. Released mars resolves MCP collisions in
-  the per-target lowerer; PR #233 (unmerged) moves that into target construction.
+  rediscovering source config entries, and MCP collisions resolve in target
+  construction, not in the per-target lowerer.
 - **I-2: All writes are atomic** — tmp+rename, lock-guarded.
 - **I-3: Target sync is per-target non-fatal** — a failure in one harness target
   records a warning and continues; sibling targets are not aborted.

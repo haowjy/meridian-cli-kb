@@ -301,10 +301,9 @@ and `mars build launch-bundle`. Full matrix: [../../architecture/mars-model-refr
 `sync/filter.rs` applies the include/exclude/only-agent/only-skill modes from
 each dependency declaration to its agents, skills and hooks. Agents passing an
 include filter also pull their declared skill dependencies transitively. Filter
-resolution runs before the diff phase. Filters name no MCP server: released mars
-drops every server from a dependency with any include filter, and on mars-agents
-PR #238 (unmerged) include filters never narrow servers (#228; `exclude` can't
-drop one either, #237). See mars-agents `docs/config/mcp-and-hooks.md`.
+resolution runs before the diff phase. Filters name no MCP server: include
+filters never narrow a dependency's servers (#228), and `exclude` can't drop one
+either (#237). See mars-agents `docs/config/mcp-and-hooks.md`.
 
 ## Sync Lock
 

@@ -796,8 +796,8 @@ Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
 ### D98: The target build is the only hook-selection authority (2026-10-24)
 
 **Status:** Owner-settled in `work:harness-plugin-export`; released in mars
-0.19.0. Its temporary MCP exception is superseded by D99. On mars-agents PR #233
-(unmerged), an unmanaged hook directory no longer fails the sync; see
+0.19.0. Its temporary MCP exception is superseded by D99. Since mars 0.20.4, an
+unmanaged hook directory no longer fails the sync; see
 [D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27).
 
 **Decision:** The target build selects one parsed hook per target-scoped
@@ -846,9 +846,8 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 **Status:** Owner-settled in `work:harness-plugin-export`; released in mars
 0.19.0. Its MCP collision ranking is superseded by
 [D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
-(shortest depth first). Released mars resolves collisions in per-target
-lowering; on mars-agents PR #233 (unmerged) they resolve once per target during
-target construction, so a server's files, entry and lock name the same winner
+(shortest depth first). Since mars 0.20.4, collisions resolve once per target
+during target construction, so a server's files, entry and lock name the same winner
 ([D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).
 
 **Decision:** Target construction is the only package-discovery and visibility
@@ -1222,11 +1221,11 @@ moved hooks.
 **Status:** Current choice. The owner asked for `${MARS_MCP_DIR}` (mars-agents
 #204) and approved its two tests ("sure, add it, the mars snyc infinite hang
 sounds bad"); the shape is the tech lead's, from two code reviews and three
-structure reviews. On mars-agents PR #233, open and unmerged; the follow-ups to
-selection (#227, #228) are on PR #238, stacked on it. Mechanism: mars-agents
+structure reviews. Shipped in mars 0.20.4 (PR #233); the follow-ups to
+selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
 `src/sync/AGENTS.md`, `src/compiler/AGENTS.md`, `src/build/AGENTS.md`,
-`docs/config/mcp-and-hooks.md` and `docs/internals/sync-pipeline.md` on those
-branches. `work:post-0-19-followups`.
+`docs/config/mcp-and-hooks.md` and `docs/internals/sync-pipeline.md`.
+`work:post-0-19-followups`.
 
 **Decision.**
 - `${MARS_MCP_DIR}` is a literal placeholder a package writes in a server's
@@ -1245,7 +1244,7 @@ branches. `work:post-0-19-followups`.
   `mars sync --force` adopts the unmanaged path. Hooks used to fail the sync with
   exit 2 here.
 - The tree hash rejects non-regular files with an error naming the path.
-- Two fixes to the same selection code (PR #238): a dependency's include filter
+- Two fixes to the same selection code (PR #238, mars 0.20.5): a dependency's include filter
   (`agents`, `skills`, `only_skills`, `only_agents`) never narrows its MCP
   servers; and in a plugin build, the building package keeps its own agent and
   skill names when a dependency uses the same one, so only the dependency is

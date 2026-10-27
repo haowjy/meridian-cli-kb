@@ -1,0 +1,147 @@
+# Decisions: Release Process (meridian-cli and mars-agents)
+
+> **Status:** Shipped in both repos: meridian-cli since v0.15.0 (PR #782),
+> mars-agents since v0.20.7 (PR #241). The mechanism and the recovery steps live
+> in each repo: meridian-cli `docs/releasing.md` ("What CI does"), mars-agents
+> `.github/workflows/README.md` and its `AGENTS.md` release section. This page
+> records why the process is shaped this way and which parts are the owner's
+> choices.
+
+meridian-cli and mars-agents release the same way. Every merge of a PR to `main`
+starts a release run; the PR's `release:*` label picks the kind of release; the
+run collects each merged PR's `## Changelog` body section, renders the sections
+into `CHANGELOG.md`, commits `release: vX.Y.Z`, and tags it. The tag push starts
+the publish workflow, whose GitHub Release body is that same rendered section.
+
+```mermaid
+flowchart LR
+    M["PR merged to main"] --> Q["release run<br/>(one at a time)"]
+    Q --> G{"an earlier release<br/>already contains<br/>this merge?"}
+    G -- yes --> S["skip"]
+    G -- no --> C["collect PR-body<br/>## Changelog sections<br/>since last release"]
+    C --> R["render into CHANGELOG.md,<br/>commit release: vX.Y.Z,<br/>push tag"]
+    R --> P["release.yml publishes;<br/>GitHub Release body =<br/>rendered section"]
+```
+
+The two repos run separate copies of the scripts (`scripts/changelog-notes.py`,
+`scripts/collect-release-notes.sh`, the release workflow), not a shared
+package, and the copies already differ: mars's renderer has a `Breaking`
+section that meridian-cli's lacks. A fix to one copy needs checking against the
+other.
+
+---
+
+## D-changelog-one-writer: the release job is the only writer of `CHANGELOG.md`
+
+**Decision.** No PR edits `CHANGELOG.md`. A PR's entry goes in its body's
+`## Changelog` section; the release job renders the sections of every PR merged
+since the last `release: v` commit under the new version heading.
+`## [Unreleased]` stays an empty anchor. A PR-body check fails a PR whose body
+lacks a valid section, or whose branch adds content under `[Unreleased]` or adds
+a release heading.
+
+**Why.** While every branch wrote under the shared `## [Unreleased]` and the
+release job inserted the version heading at that same anchor, two failures
+followed from one mutable section:
+
+- **Misfiled entries.** A branch that merged `main` back in, or rebased across a
+  `release:` commit, had its bullets land under the version `main` had just
+  released. In mars-agents a stacked branch (#238) merged `main` after the 0.20.4
+  release; its two `### Fixed` entries appended to the block 0.20.4 had left
+  under its own heading, so they sat under `[0.20.4]` and 0.20.5 shipped with an
+  empty section. meridian-cli hit the same misfile four times on 2026-10-16
+  alone.
+- **Conflicts.** Parallel branches added bullets to the same region of the file
+  (mars-agents #233 and #238), and one had to merge `main` back in to resolve
+  it, which is how the misfile above happened.
+
+With one writer, nothing a branch does can move another release's entries, and
+contributors write the entry where they already describe the change.
+
+**Rejected.** meridian-cli first added a check that refused misfiled bullets
+(#653, in the pre-push hook and CI), with an override label for legitimate edits
+to released sections. It stopped a misfile from merging but left the shared
+section, the cause, in place, so branches still conflicted and still needed
+fixing by hand. The check was removed when the release job took over the file.
+
+**What it costs.** Notes now depend on PR bodies: a merged PR whose section is
+missing or malformed fails the release before anything is written, and the fix
+is to edit that merged PR's body and re-run the job. A direct push to `main`
+releases nothing and contributes no notes.
+
+## D-release-guard: a release run skips when an earlier release already contains its merge
+
+**Decision.** Before releasing, the run checks whether a release commit later on
+`main`'s first-parent chain already contains the triggering merge. If that
+release's kind covers the request, the run skips. A stable release covers an RC
+request; an RC does not cover a stable request, so promoting an RC to stable
+still runs.
+
+**Why.** Release runs wait in line (`concurrency: release-on-main`,
+`cancel-in-progress: false`), but merges do not. When a second PR merges while
+the first PR's release is running, the first run's checkout of `main` already
+contains the second merge, so it renders both PRs' notes but records only its
+own trigger in its `Release-Trigger:` trailer. Without the guard, the second run
+finds no trailer naming its merge and cuts another release that repeats the
+second PR's notes.
+
+meridian-cli has had the check since #782 (it looks at the newest release
+commit). The mars-agents port (#241) first copied the scripts without that
+workflow block; the port's review caught the gap, and mars now scans every later
+release commit.
+
+**Rejected: a merge queue.** A GitHub merge queue would also prevent the race by
+holding each merge until the previous one's checks finish, at the cost of
+repository rules and slower merges for a repo with a single merger. The owner
+chose the guard ("ok, guard fix").
+
+## D-unlabeled-is-rc: a merged PR with no `release:*` label cuts a release candidate
+
+**Decision.** A PR merged without a `release:*` label releases an RC
+(`vX.Y.Z-rc.N`). An unknown `release:*` label, or conflicting labels, also
+resolve to RC. `release:skip` releases nothing (its notes wait for the next
+release); a direct push to `main` releases nothing.
+
+**Why.** Forgetting the label is the likely mistake, and the safe outcome of a
+mistake is a prerelease, not a stable version users upgrade to. Both repos'
+`AGENTS.md` still say to set a label before every merge.
+
+## D-advisory-checks: no merge queue and no required checks
+
+**Decision (current choice, owner).** Neither repo has a merge queue or required
+status checks. mars-agents `main` has no rules; meridian-cli's only ruleset
+(`protect-main`) blocks deleting and force-pushing `main`. A failing PR check,
+including the PR-body check and the test suites, shows red and leaves the merge
+button working.
+
+**Why.** The owner merges every PR himself and reads the checks. When the agent
+that ported the process proposed making the PR-body check required, he answered
+"ca't it just be a pr lint check...?": a visible red check is enough. The release
+job is the backstop for notes: it validates every collected section before it
+writes anything, so a bad body that merged fails the release with the PR named,
+and nothing half-written reaches `CHANGELOG.md` or a package.
+
+**What not to do.** Don't propose branch protection or a merge queue as a fix for
+an unenforced check; treat the missing enforcement as chosen. Docs that call a
+check "advisory until it is required" describe a step nobody plans to take.
+
+---
+
+## Open question: a stable release's notes after RCs
+
+The notes walk starts at the last `release: v` commit of any kind. Because an
+unlabeled merge cuts an RC, a stable release that follows RCs lists only what
+merged since the last RC, in both its `CHANGELOG.md` section and its GitHub
+Release body; what shipped in the RCs is under the RC headings. One option is to
+walk a stable release from the last stable release commit instead. Both repos
+behave the same way, and it stays as is unless the owner says otherwise.
+
+## Related
+
+- [compatibility-versioning.md](compatibility-versioning.md): what counts as a
+  breaking change, and so which label a PR needs
+- [../lessons/release-sequencing.md](../lessons/release-sequencing.md): ordering
+  a producer release before its consumer's pin bump
+
+Provenance: `work:post-0-19-followups`, `chat:c9182`; meridian-cli PR #782,
+mars-agents PR #241.
