@@ -17,7 +17,7 @@ need to pass in by default so prompt authors don't have to learn too much about 
 for the network value it puts in the launch bundle. The control-plane grants, sandbox
 escapes, compound-launch refusal and child guardrail came in PR #750; network projection,
 allowlists and host-set launch flags in PR #752 and the PRs stacked on it. Mars schema v1
-(mars-agents 0.20.0) keeps the network policy; see
+(mars-agents 0.20.0) still parses and resolves the network policy; see
 [Network stays a portable profile field](#schema-v1-network).
 
 **Who decided what.** The owner ruled that Meridian owns its CLI's permission surface. On the
@@ -361,21 +361,24 @@ code path instead of two.
 
 #### Network stays a portable profile field in Mars schema v1 {#schema-v1-network}
 
-**Decision (the owner's, 2026-10-26):** Mars keeps profile network policy in schema v1, which
-shipped in mars-agents 0.20.0. During schema v1 work, Mars deleted the policy (its decision
-D12) on the premise that Meridian discards it; Meridian v0.14.0 already enforced it and
-refuses a launch bundle without `provenance.network_source`, so no Meridian release could
-have launched on that Mars. D12 was reversed before 0.20.0 shipped.
+**Decision (the owner's, 2026-10-26):** profile network policy stays a portable Mars field in
+schema v1 (mars-agents 0.20.0 and later). Mars parses and resolves it; Meridian reads the
+resolved value from the launch bundle and projects it per harness. A schema v1 draft
+deleted the policy on the premise that Meridian discards it. That premise was false:
+Meridian v0.14.0 enforces it and refuses a launch bundle without
+`provenance.network_source`, so no Meridian release could have launched on that Mars. The
+deletion was undone before 0.20.0 shipped.
 
-The split of ownership is the same as before schema v1. The `mars-schema` crate parses the
-profile keys `network`, `network-allow` and `network-deny`, the `network` override in
-`model-policies` (no host lists there) and the host grammar, so `mars sync`, `mars check`
-and the WASM package read them the same way. The Mars binary resolves `[settings]
-default_network` and the host lists from `mars.toml`, `mars.local.toml`, user config and CLI
-flags into the same [bundle object](#network-bundle-object), with key names unchanged.
+The `mars-schema` crate parses the profile keys `network`, `network-allow` and
+`network-deny`, the `network` override in `model-policies` (no host lists there) and the
+host grammar, so `mars sync`, `mars check` and the crate's WASM build read them the same
+way. The Mars binary resolves `[settings] default_network` and the host lists from
+`mars.toml`, `mars.local.toml`, user config and CLI flags into the
+[bundle object](#network-bundle-object), under the key names Meridian v0.14.0 reads.
 
-**Rejected:** moving network into `harness-overrides` (authors would write it per harness,
-and host lists could not merge across layers), and having Meridian read the profile's
+**Rejected:** moving network into `harness-overrides`, the per-harness native settings
+block (authors would write it once per harness, and host lists could not merge across
+layers), and having Meridian read the profile's
 `network` itself (a second owner of the policy). Provenance: `work:package-transferability`,
 `chat:c9297`.
 

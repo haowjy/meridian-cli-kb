@@ -272,10 +272,11 @@ a trimmed skill against its original before shipping it.
 
 #### Installing bundled skills through Mars (Mars side shipped, Meridian side inert)
 
-**Status:** partly done. The Mars side shipped in mars-agents 0.20.0: `mars provide`,
-`.mars/provided.lock` and `[package] uses-providers`. The Meridian side is merged
-(meridian-cli #779) but inert: Meridian pins Mars 0.18.4, which has no `mars provide`, so
-every launch falls back to the skill copies in the wheel. Provided skills go live when
+**Status:** partly done. Mars 0.20.0 and later have `mars provide`,
+`.mars/provided.lock` and `[package] uses-providers`. Meridian's code that calls
+`mars provide` is merged (meridian-cli #779) but never takes effect yet: Meridian pins
+Mars 0.18.4, which has no `mars provide`, so every launch reads the skill copies in the
+wheel. Provided skills go live when
 Meridian's pinned Mars reaches 0.20; see [the Mars 0.20 upgrade](#upgrading-meridians-mars-to-020-split-from-provided-skills).
 The colocated contracts are mars-agents `src/provided/.context/CONTEXT.md` and
 `docs/internals/lock-file.md` (canonical ownership), and meridian-cli
@@ -335,11 +336,12 @@ choices):
   `metadata: {mode: primary}` instead of a top-level `mode:` key, because Mars 0.20 warns
   on unknown top-level skill keys and `mars provide` would report one warning per gated
   skill on every applied run. The skills in the wheel still use top-level `mode:`, which
-  Mars 0.18.4 never reads; the change waits on the upgrade branch. The gate's meaning is
-  unchanged.
+  Mars 0.18.4 never reads; the change ships in the same release as the Mars 0.20 pin. The
+  gate's meaning is unchanged.
 
 **Release (current choice):** the Mars side shipped in mars-agents 0.20.0 together with
-schema v1, which rewrote the readers, resolver and sync preparation it touches. The owner,
+schema v1, which rewrote the skill readers, ref resolver and sync planning that provided
+skills change. The owner,
 agreeing to the lead's proposal: "yeah, I think going on top of 0.20.0 makes sense."
 Rejected: landing first in 0.19.0 (schema v1 would have to merge it through its rewrite).
 Meridian's side merged before its Mars pin moved; see the split below.
@@ -361,10 +363,11 @@ Meridian users who upgrade:
   and network, so the `coder` profile drops from `xhigh` to `high` or `medium`;
 - `mars sync --frozen` fails once after the upgrade, until one plain `mars sync`.
 
-Our own prompt packages were also still in the pre-v1 schema. Hearing this, the owner
+The prompt packages this project publishes (meridian-base, meridian-dev-workflow and the
+others) were also still in the pre-v1 schema. Hearing this, the owner
 asked "hmmm... uh... should we really be shipping the mars upgrade lol", then agreed to
-the lead's split: "yeah split it that way". Provided skills therefore merged inert on
-Mars 0.18.4.
+the lead's split: "yeah split it that way". Meridian therefore carries the provided-skills
+code while its bundled Mars stays 0.18.4, and skills keep loading from the wheel.
 
 Before the upgrade PR: migrate the prompt packages to schema v1, and decide the effort
 `coder`'s `model-policies` should resolve to. The upgrade notes come from running each
