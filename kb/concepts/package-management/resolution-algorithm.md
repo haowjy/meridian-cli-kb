@@ -189,8 +189,9 @@ Filter combinations are validated at config load time; incompatible combinations
 
 ## Discovery
 
-A package's items come from two owners. The `mars-schema` crate's preparation
-(`mars_schema::prepare::prepare`) selects agents and skills, including Claude
+A package's items come from two owners. Preparation in the `mars-schema` crate
+(mars-agents `crates/mars-schema`, `mars_schema::prepare::prepare`) selects agents
+and skills, including Claude
 plugin manifests and a flat-root `SKILL.md`. The binary's `src/discover/mod.rs`
 finds only the kinds the crate does not own: hooks (direct children of the
 package-root `hooks/`) and bootstrap docs (`bootstrap/*/BOOTSTRAP.md`, found

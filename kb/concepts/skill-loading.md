@@ -26,8 +26,8 @@ loaded skill's text with one line telling the agent to read the skill's
 harness's native list can't be loaded by name there. The owner wants agents to
 load named skills themselves now that compaction is rarer, and chose to settle
 the default by an A/B experiment (tokens, cost, and whether agents actually read
-their loaded skills), not by argument; until that runs, `inline` stays the
-default. Mechanism: meridian-cli `docs/configuration.md` and
+their loaded skills), not by argument. `inline` stays the default until that
+experiment's results justify a change. Mechanism: meridian-cli `docs/configuration.md` and
 `src/meridian/lib/launch/.context/CONTEXT.md`.
 
 `model-invocable` gates discovery, never an explicit load. So a skill marked

@@ -110,9 +110,10 @@ the next PR to `main` and merging `main` into it.
 - **A PR opened under an older release process still follows that process.**
   When the release job became the only writer of `CHANGELOG.md`
   ([D-changelog-one-writer](../decisions/release-process.md#d-changelog-one-writer-the-release-job-is-the-only-writer-of-changelogmd)),
-  #783 was already open: it edited `CHANGELOG.md` and had no `## Changelog` section,
-  and its release run failed. Recovery was to add the section to the PR body, remove
-  the PR's bullets from `[Unreleased]` on `main`, and re-run the release job. Check
+  meridian-cli #783 was already open: it edited `CHANGELOG.md` and had no
+  `## Changelog` section, and its release run failed. Recovery was to add the section
+  to the PR body, remove the PR's bullets from `[Unreleased]` on `main` (the anchor
+  must stay empty), and re-run the release job. Check
   open PRs against a changed rule before merging them.
 - **`git merge-tree --write-tree` prints a tree id even on conflict.** A
   dry-run script that read only the first line reported a conflicting chain as

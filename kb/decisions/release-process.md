@@ -72,8 +72,9 @@ releases nothing and contributes no notes.
 ## D-release-guard: a release run skips when an earlier release already contains its merge
 
 **Decision.** Before releasing, the run checks whether a release commit later on
-`main`'s first-parent chain already contains the triggering merge. If that
-release's kind covers the request, the run skips. A stable release covers an RC
+`main`'s first-parent chain already contains the triggering merge (the merge
+commit is an ancestor of that release commit). If that release's kind covers the
+request, the run skips. A stable release covers a release-candidate (RC)
 request; an RC does not cover a stable request, so promoting an RC to stable
 still runs.
 
