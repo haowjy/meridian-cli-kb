@@ -92,7 +92,7 @@ graph LR
     MAX --> RESULT
 ```
 
-`select_version()` in `src/resolve/version.rs` lines 186–245 implements this.
+`select_version()` in `src/resolve/version.rs` implements this.
 
 ## Engine Version Constraints
 
@@ -178,28 +178,30 @@ meridian-base = {
 
 `sync/filter.rs` applies these modes. An agent that passes an include filter
 also pulls in its declared skill dependencies transitively — `seed_items_for_request()`
-in `src/resolve/package.rs` lines 276–398 handles this.
+in `src/resolve/package.rs` handles this.
 
-Filters select agents, skills and hooks; they name no MCP server. Released mars
-drops every server from a dependency with an include filter; on mars-agents PR
-#238 (unmerged) include filters never narrow servers (#228).
+Filters select agents, skills and hooks; they name no MCP server. A dependency
+narrowed by an include filter still contributes every MCP server it exports
+(mars v0.20.5 and later).
 
 Filter combinations are validated at config load time; incompatible combinations
 (e.g., `include` with `only-skill`) are rejected with a diagnostic.
 
 ## Discovery
 
-`discover_source()` in `src/discover/mod.rs` scans package layouts for items:
+A package's items come from two owners. The `mars-schema` crate's preparation
+(`mars_schema::prepare::prepare`) selects agents and skills, including Claude
+plugin manifests and a flat-root `SKILL.md`. The binary's `src/discover/mod.rs`
+finds only the kinds the crate does not own: hooks (direct children of the
+package-root `hooks/`) and bootstrap docs (`bootstrap/*/BOOTSTRAP.md`, found
+with the crate's bounded directory walk). `package_items()` combines the two
+into one item list; `discover_binary_owned_items()` is the hooks-and-bootstrap
+half. Nothing in `src/discover/` may walk a tree for agents or skills.
 
-| Layout | Items found |
-|---|---|
-| `agents/*.md` | Agent profiles |
-| `skills/*/SKILL.md` | Skills |
-| `bootstrap/*/BOOTSTRAP.md` | Bootstrap docs |
-| Root `SKILL.md` | Flat skill fallback |
-
-`discover_fallback()` handles packages that don't follow the conventional
-layout (flat roots, manifest-declared items, heuristic fallback).
+The contract, the walk's boundaries (hidden directories, generated plugin
+trees, `[plugin].dir`), and collision rules live in mars-agents'
+`src/discover/.context/CONTEXT.md`. Why discovery is convention-based is
+[D87](../../decisions/package-management.md#d87-convention-based-source-discovery-and-explicit-hidden-foreign-import).
 
 Current-project source selection is separate from dependency resolution.
 `.mars-src/` is always eligible; when `[package]` is present, the declared
@@ -222,7 +224,7 @@ checks; git fetching handles tag, branch, HEAD, and semver resolution.
 ## Trait Boundary
 
 The resolver is decoupled from concrete source modules via four traits
-(`src/resolve/mod.rs` lines 92–140):
+(`src/resolve/mod.rs`):
 
 | Trait | Responsibility |
 |---|---|
@@ -231,7 +233,8 @@ The resolver is decoupled from concrete source modules via four traits
 | `ManifestReader` | Read `mars.toml` from a fetched source |
 | `SourceProvider` | Compose the above into a single resolution interface |
 
-`sync/provider.rs` bridges these traits to the concrete source modules.
+`RealSourceProvider` in `src/resolve/provider.rs` bridges these traits to the
+concrete source modules.
 
 ## Invariants
 
@@ -253,12 +256,14 @@ The resolver is decoupled from concrete source modules via four traits
 
 ## Key References
 
-- Main resolution flow: `src/resolve/mod.rs` lines 142–283
-- Version selection: `src/resolve/version.rs` lines 186–245
-- Git resolution: `src/resolve/version.rs` lines 47–183
-- Package bottom-up resolution: `src/resolve/package.rs` lines 75–264
-- Item seeding + filters: `src/resolve/package.rs` lines 276–398
-- Skill reference resolution: `src/resolve/skill.rs` lines 24–196
+- Main resolution flow: `resolve()` in `src/resolve/mod.rs`
+- Version selection: `select_version()` in `src/resolve/version.rs`
+- Git resolution: `resolve_git_source()` in `src/resolve/version.rs`
+- Package bottom-up resolution: `resolve_package_bottom_up()` in `src/resolve/package.rs`
+- Item seeding + filters: `seed_items_for_request()` in `src/resolve/package.rs`
+- Skill reference resolution: `resolve_skill_ref()` in `src/resolve/skill.rs`
+- Subpath rooting: `apply_subpath()` in `src/resolve/path.rs`
+- Item discovery: `package_items()` in `src/discover/mod.rs`
 - Filter logic: `src/resolve/filter.rs`
 - Source parser: `src/source/parse.rs`
 
