@@ -104,7 +104,6 @@ When a value is set at the CLI entry point (`main.py`) and the resolution layer 
 
 ## Cross-References
 
-- [principles/design-principles.md](../principles/design-principles.md#14-behavior-tests-over-implementation-pinning-tests) — durable testing principle extracted from Phase 8.6
 - [codebase/guide.md#testing-strategy](../codebase/guide.md#testing-strategy) — existing smoke-first testing guidance that this lesson refines
 - [decisions/launch.md](../decisions/launch.md) — spawn pipeline seam decisions
 - [decisions/workspace.md](../decisions/workspace.md) — workspace config ownership decisions

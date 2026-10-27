@@ -19,7 +19,8 @@ and typed state contracts. Spawn identity and launch containment decisions live 
 - Graceful shutdown with SIGTERM handler — works unless SIGKILL is used; SIGKILL is common (OOM killer, user force-quit, container restart)
 - Separate crash-recovery daemon — unnecessary; the reaper running on every read path achieves the same result without an additional process
 
-See [principles/design-principles.md](../principles/design-principles.md) for full rationale.
+See [the system overview](../overview.md#design-properties) for the concise
+description of the current design properties.
 
 ---
 

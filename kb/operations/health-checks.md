@@ -247,7 +247,7 @@ best-effort cleanup. See
 
 ## Cross-References
 
-- [../principles/design-principles.md](../principles/design-principles.md) — crash-only design and why artifacts accumulate
+- [../decisions/state.md](../decisions/state.md) — crash-only recovery and durable state ownership
 - [../architecture/state-system/spawn-state.md](../architecture/state-system/spawn-state.md) — spawn artifact directory layout
 - [../architecture/sandbox-projection.md](../architecture/sandbox-projection.md) — why `~/.meridian/` is not globally projected into sandboxes
 - [../concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — crash recovery and who persists a dead spawn's outcome

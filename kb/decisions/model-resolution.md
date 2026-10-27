@@ -206,7 +206,9 @@ empty string.
 
 **Validation rule (post-refactor):** Pre-launch and snapshot replay validation check `prompt` where applicable and `harness` (must be non-empty). Model is NOT validated — model absence is a legitimate harness-agnostic configuration, not an error. Snapshot model normalization belongs to policy snapshot replay; same-session continue consumes the normalized result through [launch decisions](launch.md#d-continue-replays-recorded-launch-contract-same-session-continue-is-not-live-policy-recomputation).
 
-**Relationship to I-7:** I-7 requires "real resolved values" in the spawn row. The `"unknown"` sentinel that previously masked empty model was an I-7 violation — it was a placeholder, not a resolved value. Empty string is the correct representation.
+**Spawn-row representation:** The `"unknown"` sentinel that previously masked
+an empty model was a placeholder, not a resolved value. Empty string is the
+correct representation.
 
 See [launch decisions](launch.md) for the full background worker refactor decisions.
 

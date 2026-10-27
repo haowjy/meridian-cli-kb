@@ -118,7 +118,7 @@ directories they bind:
 
 | Convention | Where it is stated |
 |---|---|
-| Each adapter accounts for every `SpawnParams` field itself, in `consumed_fields` or `explicitly_ignored_fields` | `lib/harness/AGENTS.md`; [invariant I-11](../principles/invariants.md) |
+| Each adapter accounts for every `SpawnParams` field itself, in `consumed_fields` or `explicitly_ignored_fields` | `lib/harness/AGENTS.md` |
 | Request-handler capabilities (`no_runtime_hitl`) are declared on the protocol, never probed with `getattr` defaults | `lib/harness/connections/AGENTS.md` |
 | `PreparedLaunchSurface` is mandatory for `run_harness_process()`; `DIRECT` composition and `build_launch_context()` are test-only (`tests/support/launch.py`) | `lib/launch/AGENTS.md`; [launch system](../architecture/launch-system.md) |
 | Every real subcommand has an exact `CommandDescriptor`; no test catches drift | `cli/AGENTS.md`; [startup pipeline](../architecture/startup-pipeline.md) |

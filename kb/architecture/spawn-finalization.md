@@ -414,4 +414,4 @@ says why each piece must stay gone.
   constant-time acceptance bar
 - [Cost cuts that weakened safety checks](../lessons/cost-cuts-and-safety-checks.md)
   — why the watchdog trigger must prove it caused the stop
-- [principles/invariants.md](../principles/invariants.md) — projection authority rule as invariant
+- [State decisions](../decisions/state.md) — projection authority and state-write rationale

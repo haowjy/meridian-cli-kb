@@ -19,9 +19,14 @@ have separate records so independently changing concerns remain discoverable.
 
 **Decision:** All three driving adapters (primary CLI, spawn subprocess, CLI streaming-serve) compose through one seam in `launch/context.py`, now the prepare/bind pair below (originally the single `build_launch_context()` factory). No driving adapter re-derives policy, permissions, prompt, argv, or environment.
 
-**Why:** Separate composition paths drift over time. Security properties (permission resolution, environment sanitization) and behavioral properties (prompt assembly, workspace projection) need a single place to audit. The 13 composition invariants are checkable in one code location.
+**Why:** Separate composition paths drift over time. Security properties
+(permission resolution, environment sanitization) and behavioral properties
+(prompt assembly, workspace projection) need a single place to audit. The
+composition contracts are checkable in one code location.
 
-**Alternatives rejected:** Per-adapter composition was the prior approach and caused drift bugs. Shared utility functions without a single factory were considered, but utility functions don't enforce the "sole callsite" property that invariants require.
+**Alternatives rejected:** Per-adapter composition was the prior approach and
+caused drift bugs. Shared utility functions without a single factory were
+considered, but utility functions don't enforce the sole-callsite property.
 
 See [architecture/launch-system.md](../architecture/launch-system.md) — architecture model and driving adapters.
 

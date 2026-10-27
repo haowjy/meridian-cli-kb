@@ -25,7 +25,7 @@ gate originally ran plain `pyright`, which is how the warnings piled up unseen;
 | `reportUnusedFunction` | CLI commands registered by decorator look unused | Registration inside a function is now an explicit call (see below) |
 | `reportPrivateUsage` | Cross-module internal helpers are intentional | A name another module imports is public; we renamed ours |
 | `reportUnnecessaryCast` | Casts may become redundant after narrowing improves | A redundant cast is dead code and should be deleted |
-| `reportAttributeAccessIssue`, `reportUnknownMemberType`, `reportUnknownVariableType`, `reportUnknownArgumentType` | POSIX-only APIs (`SIGWINCH`, `os.fork`, unix sockets) failed pyright on Windows CI | Meridian is POSIX-only and CI is ubuntu-only ([design principles](../principles/design-principles.md)) |
+| `reportAttributeAccessIssue`, `reportUnknownMemberType`, `reportUnknownVariableType`, `reportUnknownArgumentType` | POSIX-only APIs (`SIGWINCH`, `os.fork`, unix sockets) failed pyright on Windows CI | Meridian is POSIX-only and CI is ubuntu-only (meridian-cli root `AGENTS.md`, "POSIX-first") |
 
 Pyright exits 0 when it reports only warnings, so the demoted rules stopped
 gating anything. By October, 85 diagnostics had piled up without failing preflight

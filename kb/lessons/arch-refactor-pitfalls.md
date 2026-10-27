@@ -321,6 +321,6 @@ bringing it up to date: the fix keeps two authorities that will drift again.
 
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed primary reaper safety boundary
 - [operations/health-checks.md](../operations/health-checks.md) — doctor `--kill-orphans` flag
-- [principles/design-principles.md](../principles/design-principles.md) — crash-only, files-as-authority
+- [system overview](../overview.md#design-properties) — crash recovery and files as authority
 - [telemetry overview](../architecture/telemetry/overview.md) — durable telemetry versus transient diagnostic logging
 - [concepts/spawn-wait-barrier.md](../concepts/spawn-wait-barrier.md) — spawn wait descendant-scoping semantics

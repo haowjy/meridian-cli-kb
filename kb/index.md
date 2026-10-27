@@ -12,7 +12,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, the mars package comp
 | Why was X decided? | [decisions.md](decisions.md) → [decisions/](#decisions) |
 | What does term Y mean? | [vocabulary.md](vocabulary.md) |
 | How do I operate or diagnose X? | [operations/](#operations) |
-| What principles guide X? | [principles/](#principles) |
+| What design constraints guide X? | The meridian-cli root `AGENTS.md` and each subsystem's colocated `AGENTS.md` / `.context/CONTEXT.md` |
 | What did we learn the hard way? | [lessons/](#lessons) |
 | What do agents keep getting wrong here? | [corrections.md](corrections.md) |
 | What's still unresolved? | [open-questions/](#open-questions) |
@@ -134,7 +134,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/overview.md](architecture/overview.md) — Architecture domain overview, subsystem map, and reading paths
 - [architecture/system-overview.md](architecture/system-overview.md) — Two external surfaces (CLI + MCP), shared extension registry, end-to-end data flow diagram
 - [architecture/startup-pipeline.md](architecture/startup-pipeline.md) — Descriptor-driven startup: CommandDescriptor catalog, thin entrypoint, bootstrap split, unified telemetry install, help profiles; lazy import strategy in `main.py`
-- [architecture/launch-system.md](architecture/launch-system.md) — prepare/bind central seam (`prepare_launch_surface` + `bind_launch_context`), `PreparedLaunchSurface`, `CatalogSession`; three driving adapters, composition invariants, task-directory guidance, and interactive starting-prompt delivery
+- [architecture/launch-system.md](architecture/launch-system.md) — prepare/bind central seam (`prepare_launch_surface` + `bind_launch_context`), `PreparedLaunchSurface`, `CatalogSession`; three driving adapters, composition contracts, task-directory guidance, and interactive starting-prompt delivery
 - [architecture/idle-adapters.md](architecture/idle-adapters.md) — Current idle adapter locations, per-harness coverage (push and warn), Claude's stateless permission-prompt signal, the boundary that keeps spawn visibility out of the idle adapter, runtime contracts, background-task reporting by Claude, Pi and OpenCode 2.x and core's `wake.py`, close/reopen behaviour, and known fragility
 - [architecture/state-system/overview.md](architecture/state-system/overview.md) — Per-spawn state.json, context-resolved work items, atomic tmp+rename writes, `fcntl.flock` locking, lock-derived spawn status
 - [architecture/state-system/derived-status.md](architecture/state-system/derived-status.md) — identity-v2 PR 3 (#672, v0.10.24): the runner-held `launch.lock` as the only liveness fact; `read_derived`'s three steps; stored vs derived status and the rule that selection for convergence or destruction uses stored status; `claim_dead_launch`/`finalize_dead_launch` (reaper, background repair, cancel); the reaper's cleanup claims; lockless legacy rows; lenient quarantine; the deleted guesses (heartbeat, graces, ghost rule, launch-boundary journal, finalize-evidence) and why they stay gone
@@ -212,14 +212,6 @@ Operational knowledge for running, configuring, and diagnosing Meridian in pract
 - [operations/bootstrap-command.md](operations/bootstrap-command.md) — `meridian bootstrap --add`: first-run setup alias that runs init steps then launches a guided session with the primary agent
 
 ---
-
-## Principles
-
-Engineering principles that govern Meridian's design, extracted from practice and documented for durability.
-
-- [principles/overview.md](principles/overview.md) — Principles domain overview and guardrail map
-- [principles/design-principles.md](principles/design-principles.md) — Core principles (policy/mechanism split, files-as-authority, crash-only, harness-agnostic, extend-don't-modify, smoke-tests-as-markdown) with rationale
-- [principles/invariants.md](principles/invariants.md) — Launch composition invariants (I-1 through I-13), state invariants, and where they are enforced
 
 ---
 

@@ -11,13 +11,17 @@ SpawnRequest + LaunchRuntime  →  prepare_launch_surface()  →  bind_launch_co
                                    (the composition seam, in two phases)
 ```
 
-**`SpawnRequest`** — frozen Pydantic DTO: caller intent (prompt, model, harness, skills, session, budget, …). JSON-safe field types only. No derived state.
+**`SpawnRequest`** — frozen Pydantic DTO: caller intent plus spawn-stable
+launch-resolution metadata (prompt, model, harness, skills, session, budget,
+…). JSON-safe field types only.
 
 **`LaunchRuntime`** — frozen Pydantic DTO: driving-adapter inputs (surface, state_root, project_paths, argv_intent, config_snapshot, …).
 
 **`LaunchContext`** — frozen dataclass: fully composed launch state (argv, spec, env, run_params, perms, child_cwd, report_output_path, warnings, resolved_request). Complete at construction.
 
-`LaunchContext.warnings` is the sole channel for non-fatal composition issues (invariant I-13). Adapters that silently transform inputs or warn via other channels violate this.
+The launch-context warning channel is documented in `lib/launch/AGENTS.md` and
+`lib/launch/.context/CONTEXT.md`. Adapters that silently transform inputs or
+warn via other channels violate that contract.
 
 ### Prepare/Bind Split
 
@@ -301,7 +305,7 @@ graph TD
 2. Calls `prepare_launch_surface()` once, then `bind_launch_context(dry_run=True)` → preview context for display
 3. Calls `run_harness_process(preview_context, …, prepared=prepared)` which:
    - Allocates session via `session_scope`; creates spawn row
-   - Materializes fork if needed (only after row exists — invariant I-10)
+   - Materializes fork if needed, after the spawn row exists (the fork ordering contract)
    - **Binds the same prepared surface again** with real paths (report path, actual state root, work_id)
    - Runs the harness through the launcher `select_process_backend()` picks: native inherit (Codex/OpenCode TUI), PTY relay (Claude/Pi), or pipe capture; see [primary terminal ownership](primary-terminal-ownership.md)
    - Finalizes inline; calls `conclude_native_run()` once per turn after teardown
@@ -456,24 +460,15 @@ Key methods:
 - `complete_spawn()` — idempotent terminal seam; acquires per-spawn lock internally
 - `update_metadata()` — surface-level metadata changes; runner-internal updates bypass this
 
-## Key Invariants (Summary)
+## Composition contracts
 
-The full 13 invariants live at [principles/invariants.md](../principles/invariants.md#launch-composition-invariants-i-1-through-i-13). Reviewers check these on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`.
-
-| Invariant | Rule |
-|-----------|------|
-| I-1 | All composition goes through `prepare_launch_surface()` then `bind_launch_context()` |
-| I-2 | No driving adapter reconstructs argv, env, or permissions independently |
-| I-4 | `conclude_native_run()` once per turn after teardown joins: IDs → adapter → boundary → attribution |
-| I-5 | `SpawnRequest` / `LaunchRuntime` carry no derived state; `LaunchContext` complete at construction |
-| I-10 | Fork materialization happens only after spawn row exists |
-| I-13 | `LaunchContext.warnings` is the sole channel for composition warnings |
-
-## DTO Discipline
-
-- `SpawnRequest` and `LaunchRuntime`: frozen Pydantic, JSON-safe types only. No `Path` on `SpawnRequest`. No `arbitrary_types_allowed`.
-- `LaunchContext`: frozen dataclass. No pre-composed intermediate DTOs.
-- No derived/cached state on any DTO — factory recomputes from inputs on each call.
+The prepare/bind seam, runner identity pipeline, fork ordering, and warning
+channel are maintained in `lib/launch/AGENTS.md` and
+`lib/launch/.context/CONTEXT.md`. The native runner sequence is detailed in
+[native session binding](native-session-binding.md#runner-pipeline). Check those
+colocated contracts when changing `launch/`, `harness/`, `ops/spawn/`, or
+`cli/streaming_serve.py`; this page describes the architecture without
+duplicating their rule catalog.
 
 ## Workspace Projection
 
@@ -617,7 +612,7 @@ read-only projection for child-process env construction.
 ```
 launch/
   __init__.py           launch_primary() — public entry point
-  context.py            the composition seam (I-1); no one-call wrapper
+  context.py            the composition seam; no one-call wrapper
                           prepare_launch_surface() — expensive phase (resolve/compose)
                           bind_launch_context() — cheap phase (env/cwd/spec/argv/perms)
                           PreparedLaunchSurface — public prepare/bind boundary dataclass

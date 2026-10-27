@@ -107,7 +107,7 @@ See [Decision Records](decisions/overview.md) for how to add or update a record.
 | 2026-07, D93 | Current | Engine version constraints: hard-filter-with-fallback for `requires-mars` / `requires-meridian`. | [Package management](decisions/package-management.md#d93-hard-constraint-with-fallback-engine-requirements-2026-07) |
 | 2026-07, D91 | Current | Native hook fragments and lock-v3 lifecycle records replace synthesized universal hooks. | [Package management](decisions/package-management.md#d91-native-hook-fragments-replace-command-synthesis-2026-07) |
 | 2026-07, D92 | Current | Recovery commands halt before compilation when removed-schema hook surfaces are unreadable. | [Package management](decisions/package-management.md#d92-shape-a-recovery-seam----halt-before-compilation-when-hook-surfaces-are-unreadable-2026-07) |
-| 2026-07-17 | Current | Support POSIX; retain native-Windows branches only as untested legacy best effort. | [Design principles](principles/design-principles.md) |
+| 2026-07-17 | Current | Support POSIX; retain native-Windows branches only as untested legacy best effort. | meridian-cli root `AGENTS.md` ("POSIX-first") |
 | 2026-06, D-mars-owns-inventory | Current | Mars renders agent inventory; Meridian embeds the result rather than rebuilding it. | [Launch](decisions/launch.md) |
 | 2026-05, D-fork-identity-lock | Current | Continue/fork modes preserve or intentionally replace recorded session identity. | [Session initiation](decisions/launch-session-initiation.md) |
 | 2026-05, spawn-state-v2 | Current | Per-spawn `state.json` replaces the global spawn event log; session history remains JSONL. | [State](decisions/state.md#spawn-state-v2-per-spawn-statejson-over-global-jsonl-2026-05) |

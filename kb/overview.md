@@ -81,6 +81,11 @@ rules belong to [the state architecture](architecture/state-system/overview.md) 
 
 ## Design Properties
 
+The repo-wide constraints are stated in the meridian-cli root `AGENTS.md` and
+in the `AGENTS.md` / `.context/CONTEXT.md` files beside the code they govern.
+This KB keeps the architecture, decisions, and measured hazards that give
+those constraints context rather than maintaining a duplicate rule catalog.
+
 **Files are authority.** Process memory is a cache or projection, never the
 only copy of coordination state. Writes use atomic replacement, durable JSONL
 append, or atomic directory publication as appropriate.

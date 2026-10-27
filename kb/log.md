@@ -3,10 +3,23 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Removed the duplicate principle catalogs (`work:post-0-19-followups`)
+
+Deleted the two principle pages and their now-empty overview after the owner
+reviewed all 49 rules against this bar: keep a rule only when a cold agent
+cannot see the hazard in code, a real bug or live constraint stands behind it,
+and the code holds it today. The review kept 0 rules: 32 duplicated repo-owned
+documentation, 16 were enforced by code or wrong/stale, and 1 moved. The
+per-spawn cost rule remains detailed in [per-operation cost](architecture/per-operation-cost.md);
+repo-wide constraints belong in the meridian-cli root `AGENTS.md` and the
+colocated `AGENTS.md` / `.context/CONTEXT.md` files. Inbound references now
+point to those owners or to the KB pages that own the surviving rationale.
+
+---
 ## 2026-10-27 — Deleted the op-layer identity rule (`work:post-0-19-followups`)
 
-Removed the Op Layer Identity Invariant from [invariants](principles/invariants.md) and
-"Op Layer Purity" (old §15) from [design principles](principles/design-principles.md);
+Removed the Op Layer Identity Invariant from the former invariants page and
+"Op Layer Purity" (old §15) from the former design-principles page;
 later principles renumbered. The rule came from the single `cancel-all` fix and never
 matched the code: its own mechanism, `runtime_context(ctx)`, falls back to
 `RuntimeContext.from_environment()`, and no MCP or REST caller supplies identity, so it
@@ -440,9 +453,8 @@ Post-release pass against `main` at v0.11.0 (`work:hook-event-names`,
   roots-and-work-items and telemetry reader pages.
 - Also fixed against code: work attachment storage and rename in
   [codebase/work-items.md](codebase/work-items.md), `spawn_model` in the hook
-  context table, the plugin_api path in
-  [principles/invariants.md](principles/invariants.md), and the no-backward-compat
-  premise in [principles/design-principles.md](principles/design-principles.md).
+  context table, the plugin_api path in the former invariants page, and the
+  no-backward-compat premise in the former design-principles page.
 - Corrections register: three occurrences for claimed-without-checking (canaries
   on the wrong path, the goal-mode guess) and one for fixing-only-the-instance.
 - [open-questions/future-work.md](open-questions/future-work.md): #700, #702, #701.
@@ -609,8 +621,8 @@ runner as `failed`/`crashed` (or `cancelled` with a cancel request),
   [process scope](architecture/process-scope.md) (cleanup triggers, scope
   liveness consumers), [launch system](architecture/launch-system.md) (no
   heartbeat, start gate), telemetry liveness (`is_live`), vocabularies,
-  [invariants](principles/invariants.md) (I-12 is now the runner lock),
-  [design principles](principles/design-principles.md),
+  the former invariants page (I-12 is now the runner lock),
+  the former design-principles page,
   [state model](concepts/state-model.md), [spawn state](architecture/state-system/spawn-state.md),
   [sandbox projection](architecture/sandbox-projection.md).
 - **Status lines:** PR 3 merged in [spawn identity](decisions/spawn-identity.md)
@@ -1234,7 +1246,7 @@ runner as `failed`/`crashed` (or `cancelled` with a cancel request),
   (its "Identity Compatibility Migration" section deleted),
   [startup pipeline](architecture/startup-pipeline.md),
   [startup/health decisions](decisions/startup-health-sandbox.md),
-  [design principle 13](principles/design-principles.md#13-no-vcs-dependency-for-core-functionality),
+  design principle 13 (no VCS dependency for core functionality),
   [state lessons](lessons/state-design-lessons.md),
   [context resolution](concepts/context-resolution.md),
   [future work](open-questions/future-work.md), the
@@ -1363,7 +1375,7 @@ runner as `failed`/`crashed` (or `cancelled` with a cancel request),
   I-1/I-2/I-6/I-11, launch and model-resolution decisions, vocabularies,
   system overview, composition pipeline, future-work). Closed the
   "subprocess creates the row before composition" gap. Pointed the invariant
-  references at `principles/invariants.md` (the `.meridian/invariants/` file
+  references at the former invariants page (the `.meridian/invariants/` file
   does not exist).
 - Removed descriptions of deleted machinery: `requires_app_server`,
   `ExtensionSurface.HTTP` and `project_uuid` (extension system), lazy dispatch
@@ -1814,8 +1826,8 @@ settled decisions are captured while it is being built on `feat/native-reads`.
     `mode=ro` recalibrated; three new lessons.
   - [lessons/harness-integration.md](lessons/harness-integration.md): harness store
     env vars cleared in conftest.
-  - [principles/invariants.md](principles/invariants.md) I-4 and
-    [architecture/launch-system.md](architecture/launch-system.md): `conclude_native_run`.
+  - the former invariants page I-4 and [architecture/launch-system.md](architecture/launch-system.md):
+    `conclude_native_run`.
 - **Stale runner-history claims removed:**
   - [decisions/history-storage.md](decisions/history-storage.md) marks the parts that
     are superseded (content authority, the FTS rejection, the runner-stream preview
@@ -2473,7 +2485,7 @@ resolution), plus test pruning. PRs open; merge gate awaiting human approval.
 - `concepts/harness-abstraction.md`: new "TerminalEventOutcome succeeded
   invariant" section documenting the construction-time check that makes
   succeeded-with-error unrepresentable.
-- `principles/invariants.md`: new "Terminal Event Outcome Invariant" section.
+- former invariants page: new "Terminal Event Outcome Invariant" section.
 - `decisions/launch.md`: new D-headless-deny-at-prepare decision recording
   the policy placement principle (policy decisions in preparation, bind purely
   materializes) and the structural rationale.
@@ -2575,7 +2587,7 @@ Follow-up to PR #422 (concurrency by construction, v0.3.34).
   `spawn_aggregate.py`; `mutate_scope_projection` marked private.
 - `concepts/state-model.md`: three "never unlinked" claims updated with GC-seam
   exception.
-- `principles/invariants.md`: "Stable Lock Inodes" invariant rewritten for GC
+- former invariants page: "Stable Lock Inodes" invariant rewritten for GC
   seam and forbidden pattern.
 - `decisions/state.md`: "Never-unlink" decision amended as "Stable lock inodes
   with validated-exclusive GC seam" covering PR #422 + #444; striping rejection
@@ -2694,7 +2706,7 @@ First-Class" design principle. Doc-only repo sweep landed on branch
 `task/docs-posix-first`; this entry reconciles the durable KB so a cold agent
 no longer reads Windows as a supported product target.
 
-- `principles/design-principles.md` §12 rewritten from "Windows Is
+- former design-principles page §12 rewritten from "Windows Is
   First-Class" to "POSIX-First Platform Stance" (current truth; history now
   lives in the decision record, not the principle list).
 - `principles/overview.md`: principle descriptor updated (Windows-first →

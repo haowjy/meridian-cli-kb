@@ -102,4 +102,3 @@ The test: would you want this context if you were reading the codebase for the f
 
 - [index.md](../index.md) — KB catalog (the index artifact this pattern requires)
 - [decisions.md](../decisions.md) — decision index (the log artifact this pattern requires)
-- [principles/design-principles.md](../principles/design-principles.md) — knowledge-in-data principle

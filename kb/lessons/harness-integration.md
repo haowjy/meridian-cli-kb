@@ -536,8 +536,6 @@ send, observe the turn, then write the durable record.
 
 ## Cross-References
 
-- [principles/design-principles.md](../principles/design-principles.md) — harness-agnostic, separate policy from mechanism
-- [principles/invariants.md](../principles/invariants.md) — strategy map invariant, I-9 (no surface-specific logic in adapters)
 - [architecture/launch-system.md](../architecture/launch-system.md) — three driving adapters and the composition factory
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — the harness abstraction model
 - [architecture/pi-lifecycle.md](../architecture/pi-lifecycle.md) — Pi quiescence model and extension architecture

@@ -23,6 +23,11 @@ that make those facts meaningful. Prefer linking: when the project's docs or a
 colocated `.context/` already describe it, link there instead of restating it,
 and write here only what they don't say.
 
+Project-wide engineering constraints live in the meridian-cli root `AGENTS.md`;
+subsystem constraints live in the colocated `AGENTS.md` and `.context/CONTEXT.md`
+files. The KB keeps the rationale, architecture, and hazards those files do
+not own rather than duplicating their rule catalogs.
+
 ## Writing
 
 ### Calibrate depth to importance

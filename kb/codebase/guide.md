@@ -147,7 +147,7 @@ disabled. See [static typing](../decisions/static-typing.md).
 - **Never delete untracked files** without asking — may be another agent's in-progress work
 - **Never revert changes** — assume it's someone else's work
 - **Commit after each verified step** — don't accumulate changes across multiple steps
-- **Launch composition invariants** — 13 invariants; see [invariants](../principles/invariants.md); check on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`
+- **Launch composition contracts** — the prepare/bind seam, runner identity pipeline, fork ordering, and warning channel are stated in `lib/launch/AGENTS.md` and `lib/launch/.context/CONTEXT.md`; check them on every PR touching `launch/`, `harness/`, `ops/spawn/`, or `cli/streaming_serve.py`
 
 ## Related Pages
 
