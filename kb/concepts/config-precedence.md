@@ -28,7 +28,7 @@ CLI flags / request
 
 **Agent overlay** (`[agents.<name>]` in `mars.toml` or `mars.local.toml`) sits between env vars and profile frontmatter. Meridian's own loader rejects an `[agents]` section in `meridian.toml` with an error pointing at `mars.toml`. It lets project operators override per-agent runtime policy without editing generated `.mars/agents/` profiles. See [decisions/model-resolution.md](../decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface) for full rationale.
 
-The fields in `RuntimeOverrides` are: `model`, `harness`, `agent`, `effort`, `sandbox`, `approval`, `autocompact`, `timeout`.
+The fields in `RuntimeOverrides` are: `model`, `harness`, `agent`, `effort`, `sandbox`, `approval`, `autocompact`, `autocompact_pct`, `timeout`, `resident_rearm_budget`.
 
 **Each field resolves independently.** A CLI override of `-m gpt-5.4` affects model selection but does not affect approval mode. Approval mode runs its own precedence chain separately. There is no "whoever wins model also wins everything else."
 
@@ -61,7 +61,12 @@ The **effective rule list** for tier 4 is three-state:
 A matched rule beats the profile's own top-level value, so a profile can set `effort: max`
 and lower it for one model. Before Mars schema v1 the profile's top-level value won, which
 the owner ruled a bug ([D-model-policy-rule-beats-profile-default](../decisions/model-resolution.md#d-model-policy-rule-beats-profile-default)).
-An overlay scalar beats every rule, and CLI and env beat both. Mars resolves tiers 3–5 in
+An overlay scalar beats every rule, and CLI and env beat both. The ladder covers only
+the fields Mars resolves. The other policy fields in `RuntimeOverrides` (`autocompact`,
+`timeout` and the rest) never come from a rule: schema v1 profiles and rules cannot set
+them, and compaction comes from the model alias. `network` is not a `RuntimeOverrides`
+field; it has its own layering in
+[D-network-field](../decisions/sandbox-platform-access.md#d-network-field). Mars resolves tiers 3–5 in
 the launch bundle; the user-facing ladder is meridian-cli `docs/configuration/mars.md`
 ("Precedence").
 

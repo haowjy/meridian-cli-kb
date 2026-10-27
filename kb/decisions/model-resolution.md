@@ -456,8 +456,8 @@ rule, and an overlay's own rules already beat the profile's top-level value. The
 ladder is in [config precedence](../concepts/config-precedence.md#routing-vs-policy-fields).
 
 **Consequence:** packaged profiles' per-model rules were written for the rule winning, and
-now apply, so their effort moves per model (`coder` from `max` to `high` on deepseek and
-`medium` on sonnet; meridian-cli `docs/upgrading.md` lists the rest). No packaged rule sets
+now apply, so their effort moves per model alias (the `coder` agent from `max` to `high` on
+the `deepseek` alias and `medium` on `sonnet`; meridian-cli `docs/upgrading.md` lists the rest). No packaged rule sets
 `approval`, `sandbox` or `network`, so only effort moves. A future profile rule that sets
 `approval` would change the approval of every launch it matches.
 

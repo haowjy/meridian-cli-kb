@@ -107,16 +107,17 @@ the next PR to `main` and merging `main` into it.
   merge → PyPI release → pin bump and `uv lock` on the consumer → re-gate →
   consumer merge ([D97](../decisions/package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)).
   Ask what binary the consumer actually installs, not only whether it degrades.
-- **Changelog entries live in the PR body, so a PR never edits `CHANGELOG.md`.**
-  PRs used to add bullets under `## [Unreleased]`, and merging or rebasing across a
-  `release:` commit silently filed them under the version `main` had just released
-  (four times on 2026-10-16 alone). Since meridian-cli #782 the release job renders
-  each PR's `## Changelog` section into `CHANGELOG.md`, and CI fails a PR that adds
-  lines there; meridian-cli `docs/releasing.md` holds the rule. A PR opened before
-  such a process change still follows the old one: #783 edited `CHANGELOG.md` and had
-  no `## Changelog` section, so its release run failed until the section went into
-  the body, `[Unreleased]` was cleared on `main`, and the job re-ran. When a release
-  process changes, check the open PRs against the new rule before merging them.
+- **A PR writes its changelog entry in its body, never in `CHANGELOG.md`.** The
+  release job renders each PR's `## Changelog` section into the file, and CI fails a
+  PR that adds lines there; meridian-cli `docs/releasing.md` holds the rule (since
+  meridian-cli #782). It ended a recurring misfile: bullets a PR added under
+  `## [Unreleased]` were silently filed under the version `main` had just released
+  whenever the branch merged or rebased across a `release:` commit, four times on
+  2026-10-16 alone. A PR opened under an older release process still follows that
+  process, so check open PRs against a changed rule before merging them. #783 still
+  edited `CHANGELOG.md` and had no `## Changelog` section, and its release run failed;
+  recovery was to add the section to the PR body, remove the PR's bullets from
+  `[Unreleased]` on `main`, and re-run the release job.
 - **`git merge-tree --write-tree` prints a tree id even on conflict.** A
   dry-run script that read only the first line reported a conflicting chain as
   clean. Check the exit code (1 means conflicts), per
