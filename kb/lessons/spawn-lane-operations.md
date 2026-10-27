@@ -2,7 +2,8 @@
 
 Lessons from running implementation and measurement lanes as `meridian spawn` children.
 Most concern how a lane can fail without the failure being visible in its result;
-one concerns how a lane's cleanup can reach processes it does not own.
+two concern how a lane reaches what it does not own: processes matched by
+command-line text, and the repository's shared stash list.
 
 ## Declared Backups Do Not Cover a Mid-Run Auth Failure
 
@@ -112,6 +113,29 @@ is the weakest guard.
 
 **Provenance:** `work:session-browse-redesign` `decisions.md` (incident entry) and
 `sigterm-*.md`; root cause `spawn:p14106`; owner ruling in `chat:c13711`.
+
+## `git stash` in a Worktree Popped the Owner's Stash
+
+**What happened (2026-10-27):** a coder lane (`spawn:p9788`), working in its own
+worktree of meridian-cli, ran `git stash -u` to set its changes aside, then
+`git stash pop`. The tree was clean, so the first command created no stash
+entry, and the `pop` applied the owner's own `stash@{0}`, two weeks old and
+from an unrelated branch, onto the lane's branch with 24 conflicts. The coder
+reset the worktree. Nothing was lost: the tech lead checked that the worktree
+was clean and that the owner's three stash entries were all still listed.
+
+**Why:** a worktree has its own index and checkout, but the stash list belongs
+to the repository and is shared by the main checkout and every worktree. `git
+stash` reports "No local changes to save" and exits 0 on a clean tree, so a
+script or agent that pairs push and pop blindly pops someone else's entry.
+
+**The lesson:** never use `git stash` in a shared repository, worktree or not.
+Set work aside with a temporary commit on your own branch instead. Every lane
+brief in that work item forbade it afterwards. Claude Code now gives the same
+warning when a session runs in a worktree; harnesses that don't, and agents
+outside a worktree, still depend on the brief.
+
+**Status:** guarded by brief text only; no hook or tool refuses `git stash`.
 
 ## Parallel Lanes Can Collide on Test Basenames
 

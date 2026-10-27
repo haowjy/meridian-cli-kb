@@ -394,6 +394,30 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 **Session ID authority:** Continue/fork consume `ResolvedSessionReference.authoritative_harness_session_id`. See [session-reference-resolution.md](session-reference-resolution.md).
 
+**Recompose, not replay:** an exact continue rebuilds the system prompt from the snapshot through the normal prepare pipeline; it never resends stored prompt bytes. See [D-stable-system-prompt](#d-stable-system-prompt).
+
+---
+
+### D-stable-system-prompt: the system prompt is a function of the agent's identity only (2026-10) {#d-stable-system-prompt}
+
+**Status:** implemented on meridian-cli PR #786 (with #768), open and unmerged. The work goal pointer and the one test are the owner's; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md` on that branch. `work:post-0-19-followups`, `chat:c9182`.
+
+**Decision.**
+- Per-launch values go in the first user turn's `# Meridian run` block, never the system prompt: a spawn's run ID, its launching chat, its ambient no-item scratch directory, its `--goal` contract, and its two [per-chat links](session-work-links.md#d-execution-owns-links).
+- Per-conversation values may stay in the system prompt. A primary keeps its own chat ID, its links and its `--goal` there, because a `--continue` replays no user turn and a goal in the user turn would make a bare primary submit it as its first message, on every resume. A primary's `--goal` is recorded on its run and inherited by `--continue`.
+- The work item's goal enters neither prompt. The capability guidance points at `meridian work show`, which defaults to the current item, so a goal edit never rewrites a cached prefix and the text never goes stale.
+- An exact continue recomposes the system prompt from the launch snapshot. The snapshot keeps everything the prompt is built from, including the `# Available Skills` listing. Within one Meridian version, identical inputs give identical bytes; only a real identity change (a new goal, surface or config) changes them. Foreground and background spawns share one preamble.
+
+**Why.** A probe of continue on all four harnesses (`spawn:p9646`) found two cache breaks. Every fresh spawn differed from its siblings only in its run-ID line, which blocked cross-spawn caching everywhere (about 8k tokens re-written per Claude spawn). On continue, Claude and Codex kept the original prompt at the harness level, but Pi and OpenCode took the rebuilt one, so a config edit broke the cache from the first changed byte. After the fix, a Pi continue read 10,112 tokens from cache against 196 uncached input (before: 2,304 and 7,545); an OpenCode continue read 14,336 against 521 (before: 0 and 14,401).
+
+**Guard.** The owner wanted one permanent test and no others without approval: a spawn and its exact continue produce identical system prompts, and a goal or surface change makes them differ. The test binds two real spawns and also asserts that a spawn with a goal and one without have the same system prompt.
+
+**Rejected:**
+- *Replay the stored prompt bytes on continue.* Built first, then deleted after review: a primary resuming a spawn's conversation was told it was a sub-agent, a `--goal` given to a continue was dropped, and replay disagreed with recomposition whenever the surface changed. Recomposing from the snapshot gives the same bytes without hiding a real change.
+- *Put the work goal in the user turn.* A primary has no task turn, so it would auto-submit the goal, and Codex primaries lose it. A pointer avoids both.
+
+This narrows the [`completion_contract` placement](launch-session-initiation.md#completion_contract-placed-after-context_prompt-in-system_instruction_block_order) record: that block order now holds only a primary's goal.
+
 ---
 
 ### D-headless-claude-deny: Headless Claude denied by default with 2026-06-15 driver

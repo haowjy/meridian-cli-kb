@@ -91,6 +91,15 @@ second eager list beside it). The re-review (`spawn:p14149`) approved
 ([session browse](../decisions/session-browse.md),
 [D-from-request-boundary](../decisions/launch.md#d-from-request-boundary)).
 
+**It recurred again (2026-10-27), in #768's per-chat links.** The fourth
+review, after the third fix to the same concern, still found three blockers,
+and the review-loop limit stopped the cycle. A design pass (`spawn:p9857`) ran
+in place of another fix round. The
+owners themselves were sound; the defect was one symlink that spanned two of
+them, and projections read back as inputs
+([the lesson](state-design-lessons.md#a-link-that-spans-two-stores)). One
+implementation round and one review followed, and the review approved.
+
 **Provenance:** `work:hook-event-names` `decisions.md` (D4–D6); reviews
 `spawn:p8641`, `spawn:p8646`, `spawn:p8648`, `spawn:p8650`;
 `work:session-browse-redesign` reviews `spawn:p14130`, `spawn:p14149`.

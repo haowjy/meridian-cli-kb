@@ -385,6 +385,42 @@ at what frequency, and which "required" fields are actually missing. The
 previous writer's code tells you the *latest* legacy shape; the disk tells
 you all of them.
 
+## A Link That Spans Two Stores
+
+**The setup (meridian-cli #768, 2026-10).** Each chat got a symlink,
+`sessions/<chat>/work`, pointing straight at its work item's directory, so a
+running agent would follow `work done` and `work rename`. The link looked like
+one small projection. It was a join: which item a chat is on lives in the
+session journal, and where that item lives is the work store's.
+
+**What it cost.** Every work-store command now had to find the chats attached to
+the item (a reverse lookup), then write session state while the work store was
+mid-change. Four review rounds each found blockers, and each came from the join
+or from a fix that tried to hold it together:
+
+| Round | Failure | How the join caused it |
+|---|---|---|
+| 3 | A `--task-dir` spawn's checkout link reset to the project root on refresh | Launch computed the link from launch inputs and refresh recomputed it from the stores: two writers of one projection |
+| 4 | Deadlock with `session restore` | To keep link and move consistent, the work command held the sessions lock across the move, bypassing the session store's lock order |
+| 4 | Historical rows failed `done` and `rename` halfway | "Rows follow the item" turned a work-store command into a bulk session rewrite |
+| 4 | 603 rows, 99 s under the lock | The same rewrite, one fsync and one journal scan per chat |
+| 4 | Nested spawns froze on their parent's checkout | `MERIDIAN_TASK_DIR`, a projection of the parent's link, was read back as an input and persisted as the child's pin |
+
+**The fix.** One projection per owner, joined by the kernel. The work store
+owns `work-items/<id>/{work,task}` and republishes them under its own lock; the
+chat link points at the item's link and depends only on the chat's row. `work
+done` then writes no session rows (0.53 s, against 99 s), and the two stores'
+locks are never held together. The decision and its rejected alternatives are
+in [D-one-projection-per-owner](../decisions/session-work-links.md#d-one-projection-per-owner).
+
+**The lesson.** A derived artifact that reads from two stores makes each store's
+writers responsible for the other's state. Before adding one, ask which store
+owns it; if the answer is "both", split it into one projection per owner and let
+something outside both (here, the kernel's path resolution) do the join. And a
+projection never feeds back as an input: an env var or link that names a store's
+state is a snapshot of it, and reading it to decide what the store holds is how
+round 3's and round 4's checkout bugs happened.
+
 ## Cross-References
 
 - [architecture/state-system/overview.md](../architecture/state-system/overview.md) — full state system architecture
