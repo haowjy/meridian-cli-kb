@@ -400,15 +400,15 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 ---
 
-### D-stable-system-prompt: the system prompt is a function of the agent's identity only (2026-10) {#d-stable-system-prompt}
+### D-stable-system-prompt: the system prompt depends only on what defines the conversation (2026-10) {#d-stable-system-prompt}
 
 **Status:** current choice, implemented on meridian-cli PR #786 (with #768), open and unmerged. The work-goal pointer follows the owner's suggestion ("I think into the system prompt, the best move is probably provide a quick link to always check the goal with some command or something"); the owner approved the one test the reviewers proposed; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md` on that branch. `work:post-0-19-followups`, `chat:c9182`.
 
-**Decision.**
+**Decision.** What defines a conversation: its agent profile, loaded and available skills, inventory, execution and tool policy, config, its surface (primary session or spawn), and a primary's goal. Only these enter the system prompt.
 - Per-launch values go in the first user turn's `# Meridian run` block, never the system prompt: a spawn's run ID, its launching chat, its ambient no-item scratch directory, its `--goal` contract, and its two [per-chat links](session-work-links.md#d-execution-owns-links).
 - Per-conversation values may stay in the system prompt. A primary keeps its own chat ID, its links and its `--goal` there, because a `--continue` replays no user turn and a goal in the user turn would make a bare primary submit it as its first message, on every resume. A primary's `--goal` is recorded on its run and inherited by `--continue`.
 - The work item's goal enters neither prompt. The capability guidance points at `meridian work show`, which defaults to the current item, so a goal edit never rewrites a cached prefix and the text never goes stale.
-- An exact continue recomposes the system prompt from the launch snapshot. The snapshot keeps everything the prompt is built from, including the `# Available Skills` listing. Within one Meridian version, identical inputs give identical bytes; only a real identity change (a new goal, surface or config) changes them. Foreground and background spawns share one preamble.
+- An exact continue recomposes the system prompt from the launch snapshot. The snapshot keeps everything the prompt is built from, including the `# Available Skills` listing. Within one Meridian version, identical inputs give identical bytes; only a change to what defines the conversation (a new goal, surface or config) changes them. Foreground and background spawns share one preamble.
 
 **Why.** A probe of continue on all four harnesses (`spawn:p9646`) found two cache breaks. Every fresh spawn differed from its siblings only in its run-ID line, which blocked cross-spawn caching everywhere (about 8k tokens re-written per Claude spawn). On continue, Claude and Codex kept the original prompt at the harness level, but Pi and OpenCode took the rebuilt one, so a config edit broke the cache from the first changed byte. After the fix, a Pi continue read 10,112 tokens from cache against 196 uncached input (before: 2,304 and 7,545); an OpenCode continue read 14,336 against 521 (before: 0 and 14,401).
 

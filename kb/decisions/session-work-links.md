@@ -28,7 +28,20 @@ graph LR
 ```
 
 The environment names the chat's links, never a concrete path. Each link is a
-projection of one store, and the kernel follows both hops when an agent writes.
+projection of one store: derived from it, never consulted to learn what it holds.
+When an agent writes under its link, the operating system resolves the chain of
+two symlinks, so `work done` or `rename` only has to swap the second hop.
+
+Terms used below:
+- An **execution** is one running primary session or one spawn run. Each has a
+  **chat** (Meridian's conversation ID, `cN`) and a **session row**, its record in
+  `sessions.jsonl`, which names the work item the chat is attached to.
+- The **work store** holds work items: their directories under `work/` or the
+  archive, and each item's `__status.json`.
+- The execution's **spawn scope** is a small per-run file; the field that matters
+  here is its pinned checkout, if any.
+- A **managed** run is one Meridian launched; it has `MERIDIAN_SPAWN_ID` set. A shell
+  without it is unmanaged, and there the env is the only source there is.
 
 ---
 
@@ -42,7 +55,7 @@ owner answered "I thought that was how it worked already lol...".
 own `sessions/<chat>/work` and `sessions/<chat>/task` links. Its work
 attachment and its chat come from its own session row, never from an inherited
 `MERIDIAN_ACTIVE_WORK_ID` or `MERIDIAN_CHAT_ID`; the launch environment speaks
-only for a shell Meridian did not launch.
+only for an unmanaged shell.
 
 **Why.** Paths fixed at launch go stale while the agent runs: after `work done`
 or `work rename` an agent kept writing to a directory that had moved. An
@@ -71,7 +84,7 @@ on #768 hit its limit (`spawn:p9857`).
 - The work store owns `work-items/<id>/work` and `work-items/<id>/task`, and
   republishes them inside its own lock on every write to that item: before the
   write, to repair whatever a crash or an older build left, and after it.
-- A chat link is a pure function of the chat's row and the execution's scope. It
+- A chat link is a pure function of the chat's row and the execution's spawn scope. It
   points at the item's link, the ambient directory, or a pinned checkout, and it
   never asks the work store where an item lives.
 - So `work done`, `reopen` and `task-dir` write no session state at all. Only
@@ -102,9 +115,9 @@ from that join, or from a fix that tried to hold it together. See
   a write under a dangling link fails loudly (`mkdir -p` gives EEXIST, a shell
   redirect gives ENOENT) and never re-creates it, so the lock bought nothing.
 
-**Revisit if** an agent needs to write through a link by opening the link path
-itself as a file. That is the one write that can create something at a dangling
-link; agents write under the directory.
+**Revisit if** something must open the link path itself as a file (not a path
+under it). That is the one write that creates something at a dangling link,
+instead of failing; agents write under the directory, so nothing does today.
 
 ---
 
@@ -175,14 +188,16 @@ two `stat` calls and no write.
 **Decision.** An execution's checkout is its pin, else its item's `task_dir`,
 else the project root. Bind writes a pin only for facts no store holds: an
 explicit `--task-dir`, a launch from a directory outside the project, or the
-launcher's own pin, read from the launcher's spawn scope. `MERIDIAN_TASK_DIR` is
+pin of the execution that launched this one, read from that execution's spawn
+scope. `MERIDIAN_TASK_DIR` is
 never a pin source inside a managed run.
 
 **Why.** Without a pin, a link recomputed on refresh sent a `--task-dir` spawn's
 checkout back to the project root. Pinning from the inherited env had the
-opposite fault: it froze a child on its parent's projection, so a child of a
-parent that only followed its item could no longer follow `work task-dir` or
-`work switch`. Reading the launcher's scope keeps the worktree workflow (a
+opposite fault: the parent's `MERIDIAN_TASK_DIR` is only a projection of
+wherever the parent's checkout pointed, so a child that saved it as its own pin
+stopped following `work task-dir` and `work switch` even when the parent had no
+pin. Reading the parent's spawn scope keeps the worktree workflow (a
 `--task-dir` parent's children stay on that worktree) without that freeze.
 
 ---

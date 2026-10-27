@@ -85,7 +85,7 @@ partitions them by `(target_root, Surface)`, and gates replacement writes with
 
 ## Config-Entry Selection and Collisions
 
-Hooks and MCP servers share one selection path. Target construction discovers
+Hooks and MCP servers share one discovery path. Target construction discovers
 each source once, applies its package-boundary rules, and records the parsed item
 in `TargetState`. Preflight and config lowering consume that state; neither scans
 package directories again.
@@ -96,7 +96,7 @@ remain unresolved until per-target lowering. On mars-agents PR #233 (unmerged), 
 server that names `${MARS_MCP_DIR}` installs a target-scoped directory the way a
 hook does, selection keeps one record per target for hooks and servers alike, and
 each record holds the `PackageDir` its copy installs at. The rules below rank
-same-name candidates either way:
+same-name candidates in both versions:
 
 **MCP precedence:**
 

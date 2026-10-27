@@ -1229,8 +1229,9 @@ selection (#227, #228) are on PR #238, stacked on it. Mechanism: mars-agents
 branches. `work:post-0-19-followups`.
 
 **Decision.**
-- An MCP server whose `command` or `args` names `${MARS_MCP_DIR}` gets its
-  `mcp/<name>/` directory installed beside each target that writes MCP config,
+- `${MARS_MCP_DIR}` is a literal placeholder a package writes in a server's
+  `mcp.toml`, like `${MARS_HOOK_DIR}` for hooks. A server whose `command` or
+  `args` names it gets its `mcp/<name>/` directory installed beside each target that writes MCP config,
   and its entry carries the installed absolute path. A plugin build maps the
   token to the harness's plugin root. A token-free server is a config entry
   alone, as before.
@@ -1241,12 +1242,14 @@ branches. `work:post-0-19-followups`.
   directory there in this run.
 - One unmanaged-path rule for both: anything mars didn't create at a hook's or
   server's directory warns, is left alone, and withholds that target's entry.
-  `mars sync --force` adopts it. Hooks used to fail the sync with exit 2 here.
+  `mars sync --force` adopts the unmanaged path. Hooks used to fail the sync with
+  exit 2 here.
 - The tree hash rejects non-regular files with an error naming the path.
-- A dependency's include filter (`agents`, `skills`, `only_skills`,
-  `only_agents`) never narrows its MCP servers (PR #238). In a plugin build, the
-  building package keeps its own agent and skill names when a dependency uses
-  the same one; only the dependency is suffixed.
+- Two fixes to the same selection code (PR #238): a dependency's include filter
+  (`agents`, `skills`, `only_skills`, `only_agents`) never narrows its MCP
+  servers; and in a plugin build, the building package keeps its own agent and
+  skill names when a dependency uses the same one, so only the dependency is
+  suffixed.
 
 **Why.**
 - *One install path:* without it, hooks and servers handled the same conflict

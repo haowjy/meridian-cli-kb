@@ -420,8 +420,9 @@ writers responsible for the other's state. Before adding one, ask which store
 owns it; if the answer is "both", split it into one projection per owner and let
 something outside both (here, the kernel's path resolution) do the join. And a
 projection never feeds back as an input: an env var or link that names a store's
-state is a snapshot of it, and reading it to decide what the store holds is how
-round 3's and round 4's checkout bugs happened.
+state is a snapshot of it. Both checkout bugs in the table came from reading
+one back: a link recomputed from launch inputs, and a parent's
+`MERIDIAN_TASK_DIR` saved as a child's pin.
 
 ## Cross-References
 

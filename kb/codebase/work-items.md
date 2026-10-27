@@ -35,9 +35,10 @@ launch. A row naming an item that no longer exists resolves to no item, with a
 warning. Commands that act on an item default to the current one, and `current`
 is accepted wherever a work ID is.
 
-Spawns record their `work_id` in `state.json`. `work rename` moves the item, then
-moves the live executions attached to it and the child spawn rows onto the new
-name; a chat that already ended keeps the old name.
+Spawns also record the `work_id` they launched with in their `state.json`. `work
+rename` moves the item, then moves the live executions attached to it onto the new
+name, and renames the `work_id` in every spawn's `state.json` that names it; the
+session row of a chat that already ended keeps the old name.
 
 Every execution reaches the item through its per-chat links,
 `sessions/<chat>/work` and `sessions/<chat>/task`, which point at the work

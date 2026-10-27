@@ -95,8 +95,9 @@ second eager list beside it). The re-review (`spawn:p14149`) approved
 review, after the third fix to the same concern, still found three blockers,
 and the review-loop limit stopped the cycle. A design pass (`spawn:p9857`) ran
 in place of another fix round. The
-owners themselves were sound; the defect was one symlink that spanned two of
-them, and projections read back as inputs
+owners themselves were sound: the session store owns which item a chat is on,
+and the work store owns where that item lives. The defect was one symlink that
+joined the two, and projections read back as inputs
 ([the lesson](state-design-lessons.md#a-link-that-spans-two-stores)). One
 implementation round and one review followed, and the review approved.
 
