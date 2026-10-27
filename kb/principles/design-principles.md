@@ -170,21 +170,7 @@ exception, and deletion safeguards.
 
 ---
 
-## 15. Op Layer Purity — Caller Identity via RuntimeContext
-
-**The principle:** Op API functions in `lib/ops/` must never read environment variables directly (e.g., `os.getenv("MERIDIAN_CHAT_ID")`). Caller identity — which chat, which spawn — comes through `RuntimeContext`, passed as the `ctx` parameter.
-
-**Why it matters:** `lib/ops/` is a shared layer consumed by CLI callers, MCP callers, and REST callers. A function that reads `MERIDIAN_CHAT_ID` from the environment is silently coupling itself to CLI semantics: it only works correctly when a harness session env is present. MCP callers pass identity from the request; REST callers pass it from the HTTP context. Leaking `os.getenv()` into op functions makes them untestable and incorrect for non-CLI callers.
-
-**The pattern:** CLI callers construct `RuntimeContext.from_environment()` before the first op call. The `RuntimeContext` object carries the resolved `chat_id` and `spawn_id`. Op functions call `runtime_context(ctx)` to unpack caller identity — they never touch `os.environ` themselves.
-
-**In Meridian:** The fix to `cancel-all` (`SpawnCancelAllInput` previously read `os.getenv("MERIDIAN_CHAT_ID")`) established this pattern by mirroring `spawn_wait_sync`, which already used `runtime_context(ctx)`. Any op function that needs to know which chat or spawn it's operating in behalf of should receive that identity through `RuntimeContext`, not through env-reading in the op model.
-
-**See also:** Principle #1 (Separate Policy from Mechanism) — env-reading in op models is the op layer encoding CLI policy.
-
----
-
-## 16. Per-Spawn Operations Cost the Same at Any History Size
+## 15. Per-Spawn Operations Cost the Same at Any History Size
 
 Launch, finalize, wait, show, cancel and continue concern one spawn and one chat, so
 their cost must not grow with the project's session-log bytes, spawn count or chat

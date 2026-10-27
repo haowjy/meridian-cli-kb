@@ -218,8 +218,8 @@ Operational knowledge for running, configuring, and diagnosing Meridian in pract
 Engineering principles that govern Meridian's design, extracted from practice and documented for durability.
 
 - [principles/overview.md](principles/overview.md) — Principles domain overview and guardrail map
-- [principles/design-principles.md](principles/design-principles.md) — Core principles (policy/mechanism split, files-as-authority, crash-only, harness-agnostic, extend-don't-modify, op layer purity, smoke-tests-as-markdown) with rationale
-- [principles/invariants.md](principles/invariants.md) — Launch composition invariants (I-1 through I-13), state invariants, op layer identity invariant, and where they are enforced
+- [principles/design-principles.md](principles/design-principles.md) — Core principles (policy/mechanism split, files-as-authority, crash-only, harness-agnostic, extend-don't-modify, smoke-tests-as-markdown) with rationale
+- [principles/invariants.md](principles/invariants.md) — Launch composition invariants (I-1 through I-13), state invariants, and where they are enforced
 
 ---
 

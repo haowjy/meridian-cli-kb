@@ -3,6 +3,16 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Deleted the op-layer identity rule (`work:post-0-19-followups`)
+
+Removed the Op Layer Identity Invariant from [invariants](principles/invariants.md) and
+"Op Layer Purity" (old §15) from [design principles](principles/design-principles.md);
+later principles renumbered. The rule came from the single `cancel-all` fix and never
+matched the code: its own mechanism, `runtime_context(ctx)`, falls back to
+`RuntimeContext.from_environment()`, and no MCP or REST caller supplies identity, so it
+guarded nothing. Owner ruling: delete rather than amend. The live hazard (env deciding what
+a store holds) stays where it is stated: meridian-cli `docs/configuration/environment.md`.
+
 ## 2026-10-27 — Release process; post-0-19 follow-ups shipped (`work:post-0-19-followups`)
 
 New [release process](decisions/release-process.md) decision page for meridian-cli and
