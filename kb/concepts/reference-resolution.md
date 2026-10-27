@@ -68,7 +68,7 @@ This makes it clear whether the problem is a wrong path, a wrong anchor, or a mi
 
 1. Explicit `--task-dir` override
 2. Explicit `--work <item>` task_dir (hard boundary — ambient work NOT consulted as fallback)
-3. Inherited task-dir: the launcher's checkout. On meridian-cli PR #786 (unmerged) this is the launcher's own pin from its spawn scope, and `MERIDIAN_TASK_DIR` counts only in a shell Meridian did not launch
+3. Inherited task-dir: the launcher's own pin from its spawn scope, and `MERIDIAN_TASK_DIR` counts only in a shell Meridian did not launch
 4. Ambient work item task_dir
 5. Caller cwd when outside the project tree
 6. Default → `authority_root`

@@ -5,9 +5,8 @@ symlinks it owns, why the work store and the session store each own their own
 link and never write the other's, and what `work done`, `rename` and `delete`
 do to agents that are still running.
 
-**Status:** implemented on meridian-cli PR #786 (branch
-`feat/768-session-work-link`), open and unmerged; closes #768. The mechanism is
-documented beside the code on that branch: `src/meridian/lib/state/AGENTS.md`
+**Status:** shipped in meridian-cli v0.16.0 (PR #786, closes #768). The
+mechanism is documented beside the code: `src/meridian/lib/state/AGENTS.md`
 (roots, lock order), `src/meridian/lib/state/.context/CONTEXT.md` ("Work Item
 Directory Moves"), `src/meridian/lib/launch/AGENTS.md` and its
 `.context/CONTEXT.md` (which values go in the prompt, checkout pins), and

@@ -46,9 +46,7 @@ store's own `work-items/<id>/{work,task}` links. That is why `work done` moves
 the directory at once and running agents follow it. Why it is built this way:
 [per-execution work and checkout links](../decisions/session-work-links.md).
 Mechanism: meridian-cli `src/meridian/lib/state/.context/CONTEXT.md` ("Work
-Item Directory Moves"). This describes meridian-cli PR #786, open and unmerged;
-released builds name concrete paths in the env, and resolve a spawn's item from
-the env before its row.
+Item Directory Moves").
 
 ## Scratch Directories
 

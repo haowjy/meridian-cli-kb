@@ -13,7 +13,7 @@ State-facing writes use `state/atomic.py:atomic_write_text()` which sets mode `0
 
 **Atomic directory publication** (`state/atomic.py:atomic_publish_dir()`): rename a complete same-volume staging directory into a destination that must not exist, then fsync the publication parent.
 
-**Work item renames:** there is no rename-intent file. A rename is a directory move under the work-store lock; running `work rename OLD NEW` again finishes one that stopped part way. On meridian-cli PR #786 (unmerged), the old name's forwarded `work-items/<old>/work` link is the evidence the re-run needs; mechanism in meridian-cli `src/meridian/lib/state/.context/CONTEXT.md` ("Work Item Directory Moves").
+**Work item renames:** there is no rename-intent file. A rename is a directory move under the work-store lock; running `work rename OLD NEW` again finishes one that stopped part way. The old name's forwarded `work-items/<old>/work` link is the evidence the re-run needs; mechanism in meridian-cli `src/meridian/lib/state/.context/CONTEXT.md` ("Work Item Directory Moves").
 
 ### Conformance Guard
 
@@ -51,7 +51,7 @@ When multiple locks are needed, acquire in this order to prevent deadlocks:
 
 `delete_published_spawn()` (in `spawn_aggregate.py`) acquires the per-spawn lock then the scope-projection lock, and checks for pending cleanup claims before deletion. Pruning acquires `spawns_flock` first.
 
-The work store's lock (`work-store.flock`) and the session lock pair (the history mutation gate shared, then `sessions.jsonl.flock`) are never held at the same time, in either order. A command that changes both stores runs them as sequential steps, work store first. Holding both deadlocked `work done` against `session restore`, which takes the gate exclusively and then the sessions lock. This rule is on meridian-cli PR #786 (unmerged); the reason is [D-one-projection-per-owner](../../decisions/session-work-links.md#d-one-projection-per-owner).
+The work store's lock (`work-store.flock`) and the session lock pair (the history mutation gate shared, then `sessions.jsonl.flock`) are never held at the same time, in either order. A command that changes both stores runs them as sequential steps, work store first. Holding both deadlocked `work done` against `session restore`, which takes the gate exclusively and then the sessions lock. The reason is [D-one-projection-per-owner](../../decisions/session-work-links.md#d-one-projection-per-owner).
 
 ### Project-Lifetime Gate
 

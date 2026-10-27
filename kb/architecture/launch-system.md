@@ -100,13 +100,11 @@ cleanup and session stop remain in the cleanup path.
 The split captures the divergence between *where project config lives* and *where the task should be done*.
 
 **What `bind_launch_context()` does with the task directory:**
-1. Sets `MERIDIAN_TASK_DIR`. Released builds set it to the `task_cwd` path. On
-   meridian-cli PR #786 (unmerged), every execution instead gets two per-chat
-   links, `sessions/<chat>/task` and `sessions/<chat>/work`; the env names the
+1. Sets `MERIDIAN_TASK_DIR`. Every execution gets two per-chat links, `sessions/<chat>/task` and `sessions/<chat>/work`; the env names the
    links, and bind first records a checkout pin when no store could recompute
    the checkout ([per-execution links](../decisions/session-work-links.md)).
 2. Rebuilds the late-bound directory lines inside `# Meridian capabilities`,
-   then re-projects the composed prompt through the selected harness. On #786 a
+   then re-projects the composed prompt through the selected harness. A
    spawn's run ID, launching chat and links go in its first user turn instead,
    so the capability block only points there
    ([D-stable-system-prompt](../decisions/launch.md#d-stable-system-prompt)).
@@ -167,7 +165,7 @@ Resolution priority (see `resolve_task_cwd()` in `cwd.py`):
 |----------|--------|----------|
 | 1 | explicit task-dir override | validated task directory |
 | 2 | explicit work item `--work <id>` | item's `task_dir` if set; else `control_root`. Ambient work NOT consulted. |
-| 3 | inherited from the launcher | the launcher's checkout (on #786, the launcher's own pin from its spawn scope, never `MERIDIAN_TASK_DIR`) |
+| 3 | inherited from the launcher | the launcher's own pin from its spawn scope, never `MERIDIAN_TASK_DIR` |
 | 4 | ambient work item attachment | item's `task_dir` if set; else `control_root` |
 | 5 | caller cwd outside the project tree (ambient-cwd) | caller cwd |
 | 6 | default | `control_root` |
@@ -196,7 +194,7 @@ See [../concepts/reference-resolution.md](../concepts/reference-resolution.md) f
 
 | Harness | Behavior |
 |---------|----------|
-| Claude / Codex / OpenCode / Pi / Cursor | Harness process cwd remains `control_root`; `MERIDIAN_TASK_DIR` identifies the logical source checkout (on #786, through the per-chat `task` link) |
+| Claude / Codex / OpenCode / Pi / Cursor | Harness process cwd remains `control_root`; `MERIDIAN_TASK_DIR` identifies the logical source checkout through the per-chat `task` link |
 
 When `task_cwd` is outside `control_root`, active workspace projection includes it
 so the harness sandbox can grant filesystem access. Capability guidance tells the

@@ -107,7 +107,7 @@ See [architecture/launch-system.md](../architecture/launch-system.md) — Prepar
 `bind_launch_context()` sets `MERIDIAN_TASK_DIR`, renders the entire single capability
 section with the final control root, logical task cwd, work context, and run identity,
 then re-projects the composed prompt. It does not compose or append a separate
-task-directory block. On meridian-cli PR #786 (unmerged), `MERIDIAN_TASK_DIR` names
+task-directory block. Since meridian-cli v0.16.0 (PR #786), `MERIDIAN_TASK_DIR` names
 the execution's per-chat `task` link, and a spawn's run identity and links move to
 its first user turn ([D-stable-system-prompt](#d-stable-system-prompt)).
 
@@ -402,7 +402,7 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 ### D-stable-system-prompt: the system prompt depends only on what defines the conversation (2026-10) {#d-stable-system-prompt}
 
-**Status:** current choice, implemented on meridian-cli PR #786 (with #768), open and unmerged. The work-goal pointer follows the owner's suggestion ("I think into the system prompt, the best move is probably provide a quick link to always check the goal with some command or something"); the owner approved the one test the reviewers proposed; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md` on that branch. `work:post-0-19-followups`, `chat:c9182`.
+**Status:** current choice, shipped in meridian-cli v0.16.0 (PR #786, with #768). The work-goal pointer follows the owner's suggestion ("I think into the system prompt, the best move is probably provide a quick link to always check the goal with some command or something"); the owner approved the one test the reviewers proposed; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md`. `work:post-0-19-followups`, `chat:c9182`.
 
 **Decision.** What defines a conversation: its agent profile, loaded and available skills, inventory, execution and tool policy, config, its surface (primary session or spawn), and a primary's goal. Only these enter the system prompt.
 - Per-launch values go in the first user turn's `# Meridian run` block, never the system prompt: a spawn's run ID, its launching chat, its ambient no-item scratch directory, its `--goal` contract, and its two [per-chat links](session-work-links.md#d-execution-owns-links).

@@ -263,7 +263,7 @@ the harness process.
 
 **Where it lives:** `_resolve_policy_from_bundle` in `src/meridian/lib/launch/policies.py` builds `BundleRequest.extra_skills` from the caller's requested skills only. `replay_launch_policy_snapshot` in `src/meridian/lib/launch/policy_snapshot.py` builds `ResolvedSkills` from `snapshot.loaded_skills`. Deleted: `lib/catalog/skill.py` (`SkillRegistry` and variant discovery), `AgentProfile.skills`, `resolve_skills_from_profile`, the snapshot `skill_paths` field. Unknown `--skills` names still warn without failing; Mars owns the lookup, so the warning no longer names a path. Built on branch `refactor/mars-owns-profile-skills`, cut from `main` independently of PR #661. Together with [D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness) it leaves skill delivery one path: Mars resolves, Meridian composes.
 
-**Known gap (predates this decision):** a fork passes the source spawn's resolved skill names to Mars as extra skills, which Mars dedupes. Tracked in `src/meridian/lib/launch/.context/FUTURE`. The other gap, a snapshot that kept only the rendered available-skills text, is closed on meridian-cli PR #786 (unmerged), whose snapshot stores the entries.
+**Known gap (predates this decision):** a fork passes the source spawn's resolved skill names to Mars as extra skills, which Mars dedupes. Tracked in `src/meridian/lib/launch/.context/FUTURE`. The other gap, a snapshot that kept only the rendered available-skills text, is closed in meridian-cli v0.16.0 (PR #786), whose snapshot stores the entries.
 
 **Revisit if:** Meridian needs skill content Mars doesn't return. Extend the bundle rather than reading `.mars/skills/` again.
 

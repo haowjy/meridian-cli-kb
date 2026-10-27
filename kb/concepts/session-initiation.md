@@ -113,8 +113,7 @@ stable (best prompt cache hit) to most volatile:
 Layer 1: SystemInstruction
   Agent identity: profile body, skills, runtime instructions,
   context dirs, passthrough system fragments.
-  Report contract; a primary's goal. (Released builds also put a
-  spawn's goal here; on meridian-cli PR #786, unmerged, it moves to
+  Report contract; a primary's goal. (A spawn's goal goes in
   the first user turn with the spawn's run ID and links.)
   Stable across launches with the same agent/model/skills.
 
@@ -162,7 +161,7 @@ Four reasons, each independently sufficient:
 The completion goal (`--goal`) and report contract are the exception — they are
 authoritative stopping conditions set by Meridian (not prior agent output). The
 report contract and a primary's goal belong in Layer 1 (SystemInstruction); a
-spawn's goal is per-launch, so on meridian-cli PR #786 (unmerged) it goes in the
+spawn's goal is per-launch, so it goes in the
 first user turn to keep sibling spawns' system prompts identical
 ([D-stable-system-prompt](../decisions/launch.md#d-stable-system-prompt)).
 

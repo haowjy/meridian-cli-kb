@@ -63,7 +63,7 @@ All coordination locks live under `locks/<domain>/` outside the directories they
 
 When multiple locks are needed: `spawns_flock` before per-spawn lock before scope-projection lock. `delete_published_spawn()` checks for pending cleanup claims before deletion; pruning acquires `spawns_flock` first.
 
-The work store's lock and the session lock pair are never held together, in either order; a command that changes both runs them as sequential steps, work store first (meridian-cli PR #786, unmerged; [D-one-projection-per-owner](../decisions/session-work-links.md#d-one-projection-per-owner)).
+The work store's lock and the session lock pair are never held together, in either order; a command that changes both runs them as sequential steps, work store first ([D-one-projection-per-owner](../decisions/session-work-links.md#d-one-projection-per-owner)).
 
 ### Atomic Writes
 

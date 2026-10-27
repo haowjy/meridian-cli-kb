@@ -40,7 +40,7 @@ See [architecture/launch-system.md — Authority/Task Domain Split](../architect
 
 ### D-stale-task-dir-graceful-fallback: Stale work-item task_dir degrades with warning, not hard error
 
-**Decision:** When a work item's configured `task_dir` no longer exists on disk, resolution skips the stale tier with a warning and falls through to the next valid tier: the inherited checkout (if valid), then `authority_root`. On meridian-cli PR #786 (unmerged) the inherited checkout is the launcher's own pin, read from its spawn scope; `MERIDIAN_TASK_DIR` is an input only in a shell Meridian did not launch ([D-checkout-pin-sources](session-work-links.md#d-checkout-pin-sources)). Work state is never mutated on a read path. The warning names both the stale path and the fallback destination.
+**Decision:** When a work item's configured `task_dir` no longer exists on disk, resolution skips the stale tier with a warning and falls through to the next valid tier: the inherited checkout (if valid), then `authority_root`. The inherited checkout is the launcher's own pin, read from its spawn scope; `MERIDIAN_TASK_DIR` is an input only in a shell Meridian did not launch ([D-checkout-pin-sources](session-work-links.md#d-checkout-pin-sources)). Work state is never mutated on a read path. The warning names both the stale path and the fallback destination.
 
 **Supersedes:** D-stale-worktree-hard-error.
 

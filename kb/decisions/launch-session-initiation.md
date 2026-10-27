@@ -147,7 +147,7 @@ SYSTEM_INSTRUCTION_BLOCK_ORDER = (
 )
 ```
 
-**Superseded by [D-stable-system-prompt](launch.md#d-stable-system-prompt) (meridian-cli PR #786, unmerged):** the `completion_contract` slot is removed. A spawn's goal contract is per-launch, so it joins the first user turn and sibling spawns keep identical system prompts; a primary's goal is a `goal-contract` guidance block in the system prompt.
+**Superseded by [D-stable-system-prompt](launch.md#d-stable-system-prompt) (meridian-cli v0.16.0, PR #786):** the `completion_contract` slot is removed. A spawn's goal contract is per-launch, so it joins the first user turn and sibling spawns keep identical system prompts; a primary's goal is a `goal-contract` guidance block in the system prompt.
 
 **Why:** The goal contract is behavior-shaping and should be prominent after the agent has been oriented via context/inventory. Placing it after `context_prompt` ensures the agent reads its context before seeing the completion obligation. `passthrough_system_fragments` (user's explicit `--append-system-prompt`) remains last to allow deliberate user overrides.
 
@@ -214,7 +214,7 @@ See [../concepts/session-initiation.md](../concepts/session-initiation.md) — f
 3. **Harness consistency.** `--append-system-prompt` is reserved for agent identity material. Codex and OpenCode have no separate system-prompt channel; the user-turn channel is the only consistent cross-harness delivery path.
 4. **Semantic consistency with `-f`.** File references (`-f`) go in user-turn context blocks. `--from` prior context is structurally the same kind of reference material. Same channel avoids a confusing distinction.
 
-**Exception:** The completion goal (`--goal`) and report contract are authoritative stopping conditions set by Meridian — not prior agent output. A primary's goal belongs in `SystemInstruction`; a spawn's goal contract is per-launch and goes in its first user turn ([D-stable-system-prompt](launch.md#d-stable-system-prompt), on unmerged meridian-cli PR #786).
+**Exception:** The completion goal (`--goal`) and report contract are authoritative stopping conditions set by Meridian — not prior agent output. A primary's goal belongs in `SystemInstruction`; a spawn's goal contract is per-launch and goes in its first user turn ([D-stable-system-prompt](launch.md#d-stable-system-prompt), meridian-cli v0.16.0).
 
 **Alternatives rejected:**
 - System prompt injection for authority — grants untrusted prior output instruction status; invalidates the prompt cache.
