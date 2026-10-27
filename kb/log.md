@@ -3,6 +3,24 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Release process; post-0-19 follow-ups shipped (`work:post-0-19-followups`)
+
+New [release process](decisions/release-process.md) decision page for meridian-cli and
+mars-agents: the release job as the only `CHANGELOG.md` writer and the #238 misfile behind
+it, the guard that skips a release run whose merge an earlier release already contains,
+unlabeled merges cut an RC, no merge queue or required checks by owner choice, and the open
+question on stable notes after RCs. The release-sequencing lesson keeps only the #783
+lesson and links there. [Resolution algorithm](concepts/package-management/resolution-algorithm.md)
+no longer names the removed `discover_source()`/`discover_fallback()`: discovery is split
+between `mars-schema` preparation (agents, skills) and `src/discover/` (hooks, bootstrap
+docs); stale line ranges replaced by function names. Status sweep now that meridian-cli
+#786 (v0.16.0) and mars-agents #233 (0.20.4) and #238 (0.20.5) shipped: about forty
+"unmerged" passages rewritten as current behavior, with the released-build alternatives
+deleted, and the D98/D99 index rows marked released. [Skill loading](concepts/skill-loading.md)
+records the experimental `named` skill delivery (v0.16.1) and the A/B experiment that
+decides the default.
+
+---
 ## 2026-10-27 — Agent overlays live in Mars config; Mars 0.20 status sweep
 
 Rewrote [D72](decisions/model-resolution.md#d72-agentsname-overlay-config-as-the-project-scoped-override-surface)

@@ -19,6 +19,17 @@ It plays no part in what an agent receives.
 harness, whatever its `model-invocable` setting.** This holds for skills under
 the profile's `skills.load` and for skills attached with `--skills`.
 
+That is the default, `inline` delivery. An experimental setting
+(`[experimental] skill_delivery = "named"`, meridian-cli v0.16.1) replaces each
+loaded skill's text with one line telling the agent to read the skill's
+`SKILL.md` path now. It names a path, not `/name`, because a skill hidden from a
+harness's native list can't be loaded by name there. The owner wants agents to
+load named skills themselves now that compaction is rarer, and chose to settle
+the default by an A/B experiment (tokens, cost, and whether agents actually read
+their loaded skills), not by argument; until that runs, `inline` stays the
+default. Mechanism: meridian-cli `docs/configuration.md` and
+`src/meridian/lib/launch/.context/CONTEXT.md`.
+
 `model-invocable` gates discovery, never an explicit load. So a skill marked
 `model-invocable: false` and listed under one agent's `load` is a skill that
 agent always has and that no model can stumble on by itself. That pairing gives
