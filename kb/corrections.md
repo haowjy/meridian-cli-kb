@@ -102,6 +102,12 @@ Seen once. Each moves into the table on its second occurrence.
 - **Advanced a structural change without the strict maintainability
   review.** `chat:c8514` 2026-10-21 "did we have /thermo-nuclear-review
   review?"
+- **Offered a breaking release for fixing documented-but-wrong behavior.**
+  A fix to behavior that was a bug is a patch, even when the docs described the
+  bug. `chat:c9677` 2026-10-28 "why would the meaning be correct...?" (for #801,
+  the lead leaned `release:patch` but kept offering `release:minor` as "the safe
+  choice if you count the old documented meaning as a contract": chat IDs naming
+  the chat family's newest spawn, children included).
 - **Pasted the owner's chat lines into a design doc.** A design doc states
   each decision in its own words; verbatim quotes with their provenance go
   in the mining report and the KB decision record. `chat:c9182` 2026-10-25

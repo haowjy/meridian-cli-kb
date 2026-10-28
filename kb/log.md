@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-28 — One ref parser and `locate()` (meridian-cli `refactor/ref-resolution`, #800)
+
+New [ref classification](decisions/ref-classification.md) page: D-ref-by-shape and
+D-locate-projections. New
+[D-owner-on-start](decisions/chat-spawn-ownership.md#d-owner-on-start). Revised
+D-chat-names-own-session (every spawn command now asks who is live in a chat; the
+known gap and its revisit condition removed), the PR 2 race passage and PR status
+table in [spawn identity](decisions/spawn-identity.md), and the reply address in
+[primary inject](decisions/primary-inject.md). Status lines that said #801 was
+unmerged now say v0.16.4. Pages naming the deleted `session_exists` (hook event
+contract, work items) now name the chat record. The **Chat owner** vocabulary
+entry, session-state, the `-f` reference page (points to the new page) and a
+corrections candidate updated.
+
+---
 ## 2026-10-28 — Chat→spawn ownership and cross-project messaging (meridian-cli `feat/spawn-message-peers`)
 
 New [chat-spawn-ownership](decisions/chat-spawn-ownership.md) page: D-chat-names-own-session
