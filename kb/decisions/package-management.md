@@ -1281,6 +1281,52 @@ selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
 
 ---
 
+### D105: Meridian hosts own full-name namespaces under `harness-overrides` (2026-10-27)
+
+**Status:** Current choice; the full names are the owner's call. Shipped in
+Mars 0.22.0 (mars-agents#248). meridian-cli reads only the new namespace from
+meridian-cli#790, merged into `release/v0.17.0` with Mars 0.23.4 bundled; it
+reaches users in meridian-cli 0.17.0 (integration PR #798).
+
+**Decision.**
+- `harness-overrides.meridian-cli` and `harness-overrides.meridian-flow` are
+  consumer namespaces: Mars reserves them, carries them through, never
+  interprets them, and never routes to them, because neither host is a
+  launch harness. They sit beside the harness blocks of
+  [D82](#d82-harness-overridestarget--exact-passthrough-not-portable-semantics)
+  without becoming harness targets.
+- meridian-cli's Agent-level runtime knobs live only in its namespace:
+  `harness-overrides.meridian-cli.resident-rearm-budget` and
+  `harness-overrides.meridian-cli.capabilities` (for example
+  `{spawn: false}`). The top-level `resident-rearm-budget` and
+  `meridian-capabilities` are `field.removed`.
+- The vocabulary's host table for Meridian Flow is `natives["meridian-flow"]`.
+- The short names `harness-overrides.meridian`, `harness-overrides.flow` and
+  `natives.flow` are `field.removed`. `mars migrate` renames them in place,
+  keeping comments; when a file has both spellings it merges them key by
+  key, the new block wins, and a dropped `permission` or `capabilities` entry
+  is reported as `field.restriction-lost`.
+
+**Why.**
+- *A namespace instead of top-level fields:* recognizing the two knobs as
+  top-level Meridian-only fields would couple the shared schema to one
+  host's runtime settings; the namespace and `[settings.meridian.*]` already
+  had that job. No published package used either key.
+- *Full names:* the owner asked "can we name the full thing for both", then
+  chose "rename everywhere". `meridian` could mean the product family or the
+  CLI, so an author reading `harness-overrides.meridian` could not tell which
+  host it addressed; `flow` had the same problem for Meridian Flow.
+- *meridian-cli reads only the new spelling:* its reader used `.get(...)`,
+  which never errors, so a migrated package read by an unchanged reader would
+  silently drop a `spawn: false` restriction. The reader change and the Mars
+  pin bump ship in one meridian-cli release.
+
+Mechanism: mars-agents `docs/config/schema-v1.md` and
+`docs/config/migrating-to-schema-v1.md`; meridian-cli `docs/agent-profiles.md`
+and `docs/upgrading.md`. `work:agent-definition-design`.
+
+---
+
 ## Related
 
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution

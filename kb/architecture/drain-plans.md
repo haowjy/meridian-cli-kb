@@ -137,9 +137,9 @@ its expiry yields control, whereas a child's completion deadline can end the spa
 The deadline is absolute per arm. Only a granted candidate-scoped rearm renews
 it; ordinary events and descendant activity cannot slide it. Rearm grants are
 unlimited by default. `--resident-rearm-budget`,
-`MERIDIAN_RESIDENT_REARM_BUDGET`, profile `resident-rearm-budget`, or
-`timeouts.resident_rearm_budget` opts into a maximum (the profile key is moving to
-`harness-overrides.meridian.resident-rearm-budget`, unreleased). Granted extensions are
+`MERIDIAN_RESIDENT_REARM_BUDGET`, profile
+`harness-overrides.meridian-cli.resident-rearm-budget`, or
+`timeouts.resident_rearm_budget` opts into a maximum. Granted extensions are
 persisted as the spawn's `resident_rearm_count`. The CLI refuses an exhausted
 budget; runner-side exhaustion retains `resident_rearm_budget_exhausted`.
 

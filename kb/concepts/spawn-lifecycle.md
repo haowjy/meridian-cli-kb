@@ -116,7 +116,7 @@ Not every agent receives spawn instructions in its system prompt. Meridian gates
 
 - If `profile.subagents` is non-empty → the agent receives the agent inventory block **and** the harness-templated spawn usage contract. This is automatic — no profile field to enable it.
 - If `profile.subagents` is empty or the profile is absent → neither block is injected. The agent is a leaf worker; spawn instructions would waste context.
-- Opt-out: `meridian-capabilities: {spawn: false}` suppresses injection even when `subagents` is non-empty. (The key is moving to `harness-overrides.meridian.capabilities`, unreleased.)
+- Opt-out: `harness-overrides.meridian-cli.capabilities: {spawn: false}` suppresses injection even when `subagents` is non-empty ([D105](../decisions/package-management.md#d105-meridian-hosts-own-full-name-namespaces-under-harness-overrides-2026-10-27)).
 - There is intentionally **no positive `spawn: true` override** — having `subagents` IS the capability. Two sources of truth (`subagents` roster AND a boolean flag) would invite drift.
 
 The spawn contract is a first-class composition block (the `spawn-contract` guidance block from `build_guidance_blocks()`), not appended to the inventory string. This ensures continue/fork re-applies it exactly once — snapshot→replay→recompose doesn't duplicate or drop it.

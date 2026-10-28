@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-27 — Meridian hosts named in full under `harness-overrides` (`work:agent-definition-design`)
+
+New [D105](decisions/package-management.md#d105-meridian-hosts-own-full-name-namespaces-under-harness-overrides-2026-10-27):
+`harness-overrides.meridian-cli` and `harness-overrides.meridian-flow` replace the short
+`meridian` and `flow` namespaces (Mars 0.22.0, mars-agents#248), and meridian-cli reads
+only `meridian-cli` from 0.17.0 (#790). The `resident-rearm-budget` and `capabilities`
+passages in [launch](decisions/launch.md), [spawn lifecycle](concepts/spawn-lifecycle.md)
+and [drain plans](architecture/drain-plans.md) now name the new key instead of an
+unreleased move.
+
+---
 ## 2026-10-27 — Removed the duplicate principle catalogs (`work:post-0-19-followups`)
 
 Deleted the two principle pages and their now-empty overview after the owner

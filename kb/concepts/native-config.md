@@ -4,6 +4,8 @@
 
 `harness-overrides.<harness>` is a target-native passthrough block in agent profiles. It is not portable Meridian semantics. Mars selects the block for the resolved harness and carries it as `execution_policy.native_config` in the launch bundle.
 
+Two entries are not harnesses: `meridian-cli` and `meridian-flow` are consumer namespaces that Mars reserves and never routes to. meridian-cli reads its own block (`resident-rearm-budget`, `capabilities`) directly from the profile ([D105](../decisions/package-management.md#d105-meridian-hosts-own-full-name-namespaces-under-harness-overrides-2026-10-27)).
+
 **Related pages:**
 - [../architecture/mars-launch-bundle.md](../architecture/mars-launch-bundle.md) — launch-bundle system and projection architecture
 - [skill-schema.md](skill-schema.md) — universal skill frontmatter and harness lowering

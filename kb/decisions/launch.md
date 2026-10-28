@@ -555,7 +555,7 @@ See [Harness Abstraction](../concepts/harness-abstraction.md).
 
 ### D-spawn-capability-gate: Capability-gated spawn knowledge injection (PR #328, 2026-06)
 
-**Decision:** Spawn knowledge (agent inventory + harness-templated spawn usage contract) is injected into the system prompt, gated on the agent profile's `subagents` field. Opt-out via `meridian-capabilities: {spawn: false}` (moving to `harness-overrides.meridian.capabilities`, unreleased). No positive `spawn: true` override — having `subagents` IS the capability.
+**Decision:** Spawn knowledge (agent inventory + harness-templated spawn usage contract) is injected into the system prompt, gated on the agent profile's `subagents` field. Opt-out via `harness-overrides.meridian-cli.capabilities: {spawn: false}` ([D105](package-management.md#d105-meridian-hosts-own-full-name-namespaces-under-harness-overrides-2026-10-27)); the former top-level `meridian-capabilities` is refused by Mars, and `mars migrate` moves it. No positive `spawn: true` override — having `subagents` IS the capability.
 
 **Why:** The spawn usage contract was previously only in the opt-in `meridian-spawn` skill. Across three incidents, the model never loaded that skill — context prioritization buried it. Making the contract always-injected eliminates the opt-in gap. The gate on `subagents` ensures leaf agents don't waste context on spawn instructions.
 
