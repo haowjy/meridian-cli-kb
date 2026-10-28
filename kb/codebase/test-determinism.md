@@ -2,6 +2,8 @@
 
 Meridian's test suite uses deterministic helpers to replace wall-clock sleeps with controlled fake-time advancement. This eliminates nondeterministic timing flakiness from async and multiprocess tests.
 
+A flaky test is fixed this way or deleted; it is never retried, skipped or given a longer timeout ([D-no-flaky-tests](../decisions/testing.md#d-no-flaky-tests-fix-it-or-delete-it)). Each fake clock in Python comes from `tests.support.fakes.FakeClock`; don't add a local clock stub.
+
 ## Principle: Advance Fake Time Past the Boundary
 
 Tests that need to cross a timeout, deadline, or expiry boundary should advance fake time to just past that boundary, then assert the outcome. Adding `asyncio.sleep(0.1)` or `time.sleep(0.5)` just to cross a boundary is a flake waiting to happen — real wall-clock timing varies with machine load, CI contention, and OS scheduling.
@@ -225,8 +227,6 @@ was preferred over intercepting every child. A deliberately killed process
 cleans up nothing, so for these tests isolation is what keeps residue out of
 shared user directories.
 
-Status: branch `stale-control-sockets` in meridian-cli, unmerged as of 2026-10-23.
-
 ## Cross-Process Race Harness: `tests/support/process_race.py`
 
 Runs N worker processes under `multiprocessing.get_context("spawn")` with a ready barrier — every child arms before any is released, maximizing real contention.
@@ -369,8 +369,9 @@ a timing boundary that's too tight for worst-case CI scheduling. The remedy
 differs because the timeout is on a real subprocess, not a monkeypatched
 constant:
 
-1. Increase the timeout to a value that's loose enough for CI load (10-30s)
-   while still catching genuine hangs.
+1. If the bound is only a hang guard, drop it and let the suite's
+   pytest-timeout catch hangs. #471 raised this one to 20 s before the
+   no-flaky-tests rule; under that rule a raised bound is the wrong fix.
 2. If the test asserts timeout behavior (the subprocess should time out),
    use a deterministic signal instead of a wall-clock race.
 
@@ -444,7 +445,8 @@ suite can time out the wait while the fake-time behavior is correct.
 **Known instance (#632, open):**
 `tests/integration/idle/test_sidecar.py::test_sidecar_drives_idle_push_warn_compact_and_done`
 waited for `state.done["compact"] == "ok"` through `wait_until`
-(`tests/support/async_determinism.py`), which has a 1 s real deadline. It failed
+(`tests/support/async_determinism.py`), which then had a 1 s real deadline
+(its hang guard is now 30 s). It failed
 twice in full-gate runs during PR 1's verification and passed alone in 0.54 s.
 Scheduler starvation is the leading hypothesis. A dropped schedule or compaction
 event has not been ruled out. Idle compaction has since been deleted; the test
@@ -452,8 +454,23 @@ is now `test_sidecar_drives_idle_push_and_warn` and waits the same way for
 `state.done["warn"] == "sent"`, so the two-clock hazard remains.
 
 **Remedy:** synchronize on the event the test is waiting for, not a wall-clock
-bound. Reproduce under full-gate ordering first, to tell starvation from a lost
+bound. A wait helper has no deadline of its own beyond a generous hang guard:
+the Pi tests share one `until()` (`pi_runtime/extensions/shared/test_wait.ts`)
+bounded only by vitest's `testTimeout`, which replaced six helpers that each
+carried a short deadline (#809). Reproduce under full-gate ordering first, to tell starvation from a lost
 event. Don't raise the deadline blind.
+
+## Hung Tests Report Where They Hung
+
+pytest-timeout runs with `timeout_method = "signal"` (`pyproject.toml`). The
+`thread` method ends a hung test by calling `os._exit`, so under xdist it shows
+as `node down: Not properly terminated` with no stack. One CI run lost four
+workers about 65 s after its last progress line, which read as a crash or OOM;
+a throwaway reproduction with `--timeout-method=thread` gave the same log
+shape from four ordinary timeouts. With `signal` the test fails as
+`Failed: Timeout` with a traceback. The cost: a stuck non-daemon thread can
+still hang a `-n0` run at interpreter exit, which CI's job `timeout-minutes`
+bounds.
 
 ## Real Sleeps: When They're Acceptable
 

@@ -126,6 +126,47 @@ and nothing half-written reaches `CHANGELOG.md` or a package.
 an unenforced check; treat the missing enforcement as chosen. Docs that call a
 check "advisory until it is required" describe a step nobody plans to take.
 
+## D-minor-means-breaking: `release:minor` only for a change that breaks something
+
+**Decision.** `release:patch` (or `release:stable`) is the label for features
+and fixes that break nothing; `release:minor` and `release:major` are for
+changes that break existing behaviour, config or on-disk state. The rule and
+what counts as breaking are in meridian-cli `docs/releasing.md` and
+[compatibility-versioning.md](compatibility-versioning.md); mars-agents uses
+the same labels.
+
+**Why it is recorded here.** Agents reached for `release:minor` when a change
+felt big rather than when it broke something. The owner asked "why is 796
+minor...?" and "why is 254 minor?": #796 removed expired deprecations, so it
+stayed minor; #254 only widened the user `config.toml`, so it was relabelled
+patch. Mars #249 (OpenCode plugin agents, a pure addition) had already merged
+as `release:minor` and shipped as Mars 0.23.0 instead of a patch; it was left
+as released.
+
+## D-integration-branch: breaking work split across PRs ships as one release
+
+**Decision.** When breaking work spans several PRs, they merge into an
+integration branch `release/<x>` cut from `main`, and one PR from that branch
+to `main` carries the `release:minor`/`release:major` label, the combined
+changelog and the upgrade notes. The steps are in meridian-cli
+`docs/releasing.md` ("Breaking changes split across several PRs").
+
+**Why.** Each labelled merge to `main` cuts its own release, so two breaking
+PRs merged separately give users two breaking releases to upgrade through.
+The owner, on #796: "this should be included in the \"next minor release\" -
+so create releases/X". meridian-cli 0.17.0 was the first:
+`release/v0.17.0` collected #796, #790, #804, #805 and #806, and #798
+released them once. Part PRs merged into the branch never render notes on
+their own (only `main`'s first-parent commits reach the renderer), so their
+`## Changelog` sections are copied into the integration PR by hand.
+
+**Related CI change.** The PR-body check compares a PR's `CHANGELOG.md`
+against the tip of its base branch (`origin/<base ref>`), not
+`pull_request.base.sha`, which GitHub doesn't refresh when the base moves and
+only the body is edited (meridian-cli #806, mars-agents #276). Before the fix,
+#798 failed for the `## [0.16.4]` section `main` had gained after the branch
+was cut.
+
 ---
 
 ## Open question: a stable release's notes after RCs
@@ -144,5 +185,5 @@ behave the same way, and it stays as is unless the owner says otherwise.
 - [../lessons/release-sequencing.md](../lessons/release-sequencing.md): ordering
   a producer release before its consumer's pin bump
 
-Provenance: `work:post-0-19-followups`, `chat:c9182`; meridian-cli PR #782,
-mars-agents PR #241.
+Provenance: `work:post-0-19-followups`, `chat:c9182`, `chat:c9589`;
+meridian-cli PRs #782, #798, #806, mars-agents PR #241.

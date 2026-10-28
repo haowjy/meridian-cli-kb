@@ -72,7 +72,51 @@ output, or stay alive. Poll the expected observation with a bounded deadline
 before stopping the process. The bound is a hang guard; the recorded command or
 state transition is the assertion.
 
+## D-no-flaky-tests: fix it or delete it
+
+**Status:** The rule is the owner's; how to make a test deterministic was
+settled by the reviewers and tech lead of meridian-cli #809 (v0.17.2).
+
+**Decision.** A test that fails intermittently, in CI or under local load,
+is made deterministic or deleted. It is never retried, marked flaky, skipped
+under load, or given a longer timeout: each of those hides the flake and
+keeps the test's cost. The owner: "Tests that fail intermittently under load
+- fix these... or delete them; we dont want any flakey tests".
+
+- **Fix it** when it pins real behaviour nothing else covers and the timing
+  dependence can be removed.
+- **Delete it** when it duplicates other coverage, pins implementation, or
+  can only pass by racing. Before deleting, break the product code it guards
+  and run the rest of the suite: if nothing else fails, the test is the only
+  coverage and stays. In #809 the owner asked "do we even need the tests...",
+  five tests were deleted, and this check reversed two of the deletions (the
+  OpenCode idle-sensor and TTL wiring, and the message naming which
+  `state.json` is quarantined); in each, the mutation failed only the deleted
+  test, with over a thousand others passing.
+- **A flake can be a product bug.** Two in #809 were: the Pi managed-bash
+  task faulted when `ps` failed or timed out during terminate, and Ctrl-C
+  arriving during `Thread.start()` in the primary runner left the child
+  running. Those were fixed in the product, which is why a test-only PR
+  shipped as `release:patch`.
+
+**How a test becomes deterministic** (mechanism and cases in
+[test-determinism.md](../codebase/test-determinism.md)):
+- Time comes from the one shared fake clock (`tests.support.fakes.FakeClock`),
+  not per-file clock stubs.
+- A wait has no deadline of its own. The Pi tests share one `until()`
+  (`pi_runtime/extensions/shared/test_wait.ts`) bounded only by vitest's
+  `testTimeout`. Python's `wait_until` (`tests/support/async_determinism.py`)
+  keeps only a generous 30 s hang guard under the suite's 60 s pytest-timeout.
+  Six Pi helpers had each carried their own short deadline, and each was a
+  flake under load.
+- pytest-timeout uses `timeout_method = "signal"`. The `thread` method calls
+  `os._exit`, so a hung test shows up as an xdist "node down" with no stack;
+  one CI run lost four workers at once that way and looked like a crash.
+  With `signal` the test fails with a traceback naming where it hung.
+
 ## Provenance
+
+- D-no-flaky-tests: `work:post-0-19-followups`, `chat:c9589`, meridian-cli #809
 
 - `work:workstream-roadmap`, test-pruning slice, sprint PRs 3 and 4
 - Approved prune specification: `aggressive-prune-list.md`
