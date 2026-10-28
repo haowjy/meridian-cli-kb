@@ -895,9 +895,8 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 **Status:** The one-plugin, full-graph rule is owner-settled
 (`chat:c9019`); the harness set and release defaults are current choices
-(`chat:c9182`, see below). Implemented on mars-agents `f3/integration`,
-which merges into `release/v0.19.0` and ships in 0.19.0 through PR #197;
-none of it is on `main` yet.
+(`chat:c9182`, see below). Shipped in Mars 0.19.0 (PR #197). The
+OpenCode agent clause below was revised by mars-agents#249 (Mars 0.23.0).
 
 **Decision:** A package with a plugin builds **one plugin** under its own
 name, holding exactly what `mars sync` installs in the package's own
@@ -941,13 +940,19 @@ author who doesn't list `harnesses` gets every supported harness. Listing
 `harnesses` opts out. A release that adds a harness must say so in its
 release notes.
 
-- **OpenCode ships skills, MCP and hooks, never agents**, because no
-  OpenCode API adds an agent. The owner accepted the loss: "just having
-  skills mcp and hooks but no agents is alright", because "most of the agent
-  definitions should actually BE in the skills rather than the agent bodies
-  (agents become wrappers around a collection of skills + selected model for
-  the job + i guess permissions)". Codex loses agents the same way. That
-  principle governs how prompt packages are written, not mars.
+- **OpenCode ships agents; Codex doesn't.** The first build shipped OpenCode
+  skills, MCP and hooks only, on the belief that no OpenCode API adds an
+  agent, and the owner accepted the loss: "just having skills mcp and hooks
+  but no agents is alright", because "most of the agent definitions should
+  actually BE in the skills rather than the agent bodies (agents become
+  wrappers around a collection of skills + selected model for the job + i
+  guess permissions)". That principle governs how prompt packages are
+  written, not mars. A later source read of OpenCode 2.2.0 found that
+  `ctx.agent` creates agents, so since mars-agents#249 (Mars 0.23.0) the
+  generated `index.mjs` registers them; their model rule is
+  [D106](#d106-opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28).
+  Codex plugins still can't carry agents, and the owner chose to wait for
+  upstream (mars-agents#256).
 - **The OpenCode package is the repo itself**: one root `package.json`
   whose `main` and `files` point into `<dir>/opencode/`, installed with
   `opencode plugin add git+…`, not published to npm. The owner's answer was

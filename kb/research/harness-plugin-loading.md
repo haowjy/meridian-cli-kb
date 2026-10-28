@@ -3,7 +3,7 @@
 There is no shared plugin format, but one Claude-format tree goes a long way:
 Claude Code, Codex and Grok all install the same `.claude-plugin/` tree from a
 Claude catalog. Cursor has its own manifest, hook token and MCP file. OpenCode
-loads only a JavaScript module and cannot add agents. Mars's
+loads only a JavaScript module, which registers agents in code. Mars's
 `mars build plugin` therefore writes three trees (Claude, Cursor, OpenCode) for
 five harnesses; scope and rationale are in
 [D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24),
@@ -25,7 +25,7 @@ Recheck a fact before relying on it against a later harness version.
 | Manifest | `.claude-plugin/plugin.json` (only `name` required) | own `.codex-plugin/plugin.json`, or reads Claude's and Cursor's | reads Claude's; no Grok files needed | JS module: `package.json` + default export | `.cursor-plugin/plugin.json` |
 | Catalog | `.claude-plugin/marketplace.json` | `.agents/plugins/`, then `.claude-plugin/`, then `.cursor-plugin/` | Claude's; the plugin must sit inside the catalog's directory | git or path entry in `opencode.json` | `.cursor-plugin/marketplace.json` |
 | Skills | loaded as `<plugin>:<skill>` | loaded as `<plugin>:<skill>` | loaded as `<plugin>:<skill>`, with `resources/` | registered by the module's `setup` | documented |
-| Agents | loaded, with a field allowlist | **not loaded** | loaded; subagents preload `skills:` | **cannot add an agent** | documented |
+| Agents | loaded, with a field allowlist | **not loaded** | loaded; subagents preload `skills:` | registered by the module through `ctx.agent`; no skill preload | documented |
 | Hooks | `hooks/hooks.json` | reads `hooks/hooks.json` | reads `hooks/hooks.json` | in-process JS only | `hooks/hooks.json`, Cursor event names |
 | MCP | `.mcp.json` | `.mcp.json`, callable; env only through `env_vars` | `.mcp.json` | registered by `setup` as `<plugin>:<server>` | `mcp.json` |
 | Plugin-root variable | `${CLAUDE_PLUGIN_ROOT}` | `PLUGIN_ROOT`, and `CLAUDE_PLUGIN_ROOT` | `GROK_PLUGIN_ROOT`, and `CLAUDE_PLUGIN_ROOT` | none | `${CURSOR_PLUGIN_ROOT}` |
@@ -103,6 +103,11 @@ What a Claude-format tree gets on Codex:
   do nothing. A plugin also cannot install loose `.codex/agents/*.toml` into a
   user's project. Mars prints one warning that Codex plugin users get skills
   and hooks but not agents; users who want the agents install with mars.
+  Rechecked at `rust-v0.165.0` on 2026-10-28: the manifest type still has no
+  `agents` field. The upstream PR that would have added plugin agents
+  (openai/codex#28845) closed unmerged. The owner chose to wait for upstream
+  rather than work around it
+  ([mars-agents#256](https://github.com/haowjy/mars-agents/issues/256)).
 - **MCP servers are callable**, but environment reaches them only one way.
   Codex forwards a variable listed by bare name in `env_vars`. It passes
   `"env": {"X": "${X}"}` and `$X` through literally, and a server with no
@@ -140,9 +145,19 @@ ignores them in plugin agents too. How Grok treats a Claude model name such as
 OpenCode's plugin is executable JS: a `package.json` plus a module whose
 default export is `{id, setup}`. `setup` can register skills, commands and
 MCP from bundled files, locating them through `import.meta.url`. A plugin
-directory of `skills/`, `agents/` and `commands/` is not read, and the agent
-editor has no `add`, so a plugin cannot create agents. No plugin-root
+directory of `skills/`, `agents/` and `commands/` is not read. No plugin-root
 variable exists.
+
+- **Agents** are registered in code. In OpenCode v2,
+  `ctx.agent.editor.update(id, fn)` creates the agent when the id is new, and
+  the `subagent` tool can then spawn it (read from OpenCode 2.2.0 source on
+  2026-10-28; the 2.1.x study took the editor's missing `add` to mean plugins
+  can't create agents). `Agent.Info` has no skills field, so a plugin agent
+  can't preload skills; Mars keeps them as body guidance. Mars's generated
+  `index.mjs` registers each agent as `<plugin>:<agent>` since Mars 0.23.0
+  (mars-agents#249). An agent whose model has no provider-qualified id keeps
+  OpenCode's default model: see
+  [D106](../decisions/package-management.md#d106-opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28).
 
 - **Skills** registered from bundled files load with working `resources/`.
 - **MCP** registered as `<plugin>:<server>` in OpenCode's
