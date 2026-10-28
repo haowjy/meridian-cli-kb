@@ -1333,6 +1333,33 @@ Mechanism: mars-agents `docs/config/schema-v1.md` and
 `docs/config/migrating-to-schema-v1.md`; meridian-cli `docs/agent-profiles.md`
 and `docs/upgrading.md`. `work:agent-definition-design`.
 
+### D106: OpenCode plugin agents keep OpenCode's default model when the model is ambiguous (2026-10-28)
+
+**Status:** Current choice, the owner's. Shipped with mars-agents#249
+(Mars 0.23.0). Mechanism: mars-agents `src/build/AGENTS.md` (the
+`NoDeterministicId` fallback).
+
+**Decision.** A plugin agent registered through OpenCode's `ctx.agent` gets a
+model only when Mars can name it as a provider-qualified OpenCode id
+(`provider/model`). An alias or a slash-less model name has no such id, so the
+agent is registered without a model and OpenCode runs it on the user's default
+model. The plugin does not evaluate `model-policies` when it loads.
+
+**Why.** An OpenCode user may reach the same model through Anthropic directly,
+OpenRouter, opencode-go or another provider, and the plugin can't know which
+providers that user has. Pinning, say, `anthropic/...` would break every user
+without that provider. The owner: "shipping opencode on the default model is
+probably correct... theres just too many models that we don't know what models
+they are using". Model policies stay out for the same reason, and because they
+are "kinda meridian only": Meridian evaluates them at launch against a live
+model catalog, which a plugin loading inside OpenCode doesn't have.
+
+**Rejected.** Resolving the alias at build time to one provider's id, and
+treating the fallback as a gap to close. Revisit if OpenCode gives plugins a
+way to ask which providers the user has.
+
+`work:post-0-19-followups`, `chat:c9589`.
+
 ---
 
 ## Related
