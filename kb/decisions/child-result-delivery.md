@@ -338,7 +338,7 @@ failed.
 ## D-cancel-consumes: a cancel that reports `cancelled` consumes the child's result (2026-10-24) {#d-cancel-consumes}
 
 **Status:** current choice, `work:cancel-consumes-owed`, after review
-`spawn:p9347`. Open as meridian-cli PR #762.
+`spawn:p9347`. Shipped in meridian-cli v0.14.2 (PR #762).
 
 The owner reported the bug, pointing at a Claude delivery of a cancel the lead
 had issued itself: "another duplicate thing here..." and "because of our claude
@@ -407,8 +407,8 @@ rule to CLI reads that put a terminal report body in the caller's context.
 
 ## D-shown-results-consume: a terminal result printed to the caller consumes (2026-10-24) {#d-shown-results-consume}
 
-**Status:** owner decision, `work:cancel-consumes-owed`. Implemented on the
-unmerged meridian-cli PR #762 branch (`9ffcaff7c`).
+**Status:** owner decision, `work:cancel-consumes-owed`. Shipped in
+meridian-cli v0.14.2 (PR #762).
 
 The owner clarified the purpose of automatic delivery: "I just wanted basically
 a way for `meridian spawn wait` to run even if the llm forget [sic]."

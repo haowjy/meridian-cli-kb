@@ -15,13 +15,10 @@ File precedence is user < project < local. Environment variables override all fi
 ### Common Project Config
 
 ```toml
-# meridian.toml
-
-default_model = "sonnet"          # default model for spawns
-default_harness = "claude"        # default harness
+# meridian.toml (default model and harness go in mars.toml [settings], not here)
 
 [primary]
-model = "claude-opus-4-6"         # model for interactive primary (meridian with no spawn)
+agent = "tech-lead"               # agent profile for interactive primary (meridian with no spawn)
 approval = "auto"                 # auto-approve safe tool calls
 autocompact = 120000              # compact at ~120k context tokens (min 1000; Claude applies 100k-1M)
 timeout = 3600.0                  # 1-hour session timeout
@@ -185,13 +182,13 @@ Each field resolves independently. You can override the model without affecting 
 meridian config show
 
 # Show a specific field
-meridian config get default_model
+meridian config get state.retention_days
 
 # Set a project config value
-meridian config set default_model sonnet
+meridian config set state.retention_days 14
 
 # Reset a field to default
-meridian config reset default_model
+meridian config reset state.retention_days
 ```
 
 `meridian config show` annotates each value with its source, such as `builtin`, `user`, `project`, `local`, or `env`. This is the fastest way to debug unexpected behavior — if a value isn't what you expect, `config show` shows why.

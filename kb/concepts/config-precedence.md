@@ -81,14 +81,14 @@ the launch bundle; the user-facing ladder is meridian-cli `docs/configuration/ma
 | `from_config(config)` | `config.primary.*` for primary launch |
 | `from_spawn_config(config)` | `config.default_model` for spawned agents |
 
-**The harness identity handle `_MERIDIAN_HARNESS` is not read by `from_env()`**, because it is spawn-local metadata, not a user policy override (see [Launch System](../architecture/launch-system.md#_meridian_harness-child-env-injection)). A plain `MERIDIAN_HARNESS` env var is not read anywhere; the harness comes from CLI flags, profile and config (`primary.harness`, `defaults.harness`).
+**The harness identity handle `_MERIDIAN_HARNESS` is not read by `from_env()`**, because it is spawn-local metadata, not a user policy override (see [Launch System](../architecture/launch-system.md#_meridian_harness-child-env-injection)). A plain `MERIDIAN_HARNESS` env var is not read anywhere; the harness comes from CLI flags, the profile, and Mars routing (`mars.toml` `[settings] default_harness`).
 
 ### What goes where
 
 | Setting | Where to put it |
 |---|---|
-| Default model for all spawns | `meridian.toml` → `defaults.model` |
-| Default model for primary (interactive) | `meridian.toml` or `meridian.local.toml` → `[primary].model` |
+| Default model for all launches | Mars config → `[settings] default_model` (`mars.toml`, `mars.local.toml` or the Mars user `config.toml`) |
+| Default agent for primary (interactive) | `meridian.toml` or `meridian.local.toml` → `[primary].agent` (its profile carries the model) |
 | Model alias definitions | `mars.toml` → `[models]` (travel with the package) |
 | Per-agent model (in profile) | Agent profile frontmatter → `model:` |
 | Per-agent override (project experiment, committed) | `mars.toml` → `[agents.<name>]` |
@@ -149,17 +149,14 @@ validator for a shape a model already declares.
 # meridian.toml (or meridian.local.toml or ~/.meridian/config.toml)
 
 [defaults]
-model = ""             # empty = harness picks; default harness is "codex"
-harness = "codex"
-max_depth = 3          # max spawn nesting
+max_depth = 3          # max spawn nesting (default model and harness live in Mars [settings])
 
 [timeouts]
 wait_minutes = 30.0
 kill_grace_minutes = 5.0
 
 [primary]              # overrides for interactive primary launch
-model = "claude-sonnet-4-5"
-harness = "claude"
+agent = "tech-lead"
 approval = "auto"
 autocompact = 120000   # context tokens (min 1000); autocompact_pct is the 1-100 form
 

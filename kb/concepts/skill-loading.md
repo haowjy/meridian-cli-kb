@@ -129,14 +129,9 @@ group under a one-line header such as "Override other guidance when loaded."
 The rule above is the intended behaviour on every harness. These are the known
 places where delivery falls short of it.
 
-- **OpenCode on `main`.** OpenCode 2 receives no composed system prompt, so no
-  loaded skills, profile body or Meridian guidance; OpenCode 1 receives it twice;
-  the black-box TUI fallback receives none on either version. The settled fix
-  delivers the prompt through a config agent on every OpenCode path, verified
-  live on 2.0.29 and 1.19.3, and is on unmerged meridian-cli branch
-  `fix/opencode-v2-prompt`
-  ([D-opencode-config-agent](../decisions/opencode-prompt-delivery.md)).
-- **OpenCode 2 fallback resuming another agent's session.** With that fix, an
+- **OpenCode 2 fallback resuming another agent's session.** OpenCode receives
+  the prompt through a config agent on every path since v0.11.6 (#710,
+  [D-opencode-config-agent](../decisions/opencode-prompt-delivery.md)), but an
   OpenCode 2 black-box fallback that resumes a session committed to another
   agent still gets no prompt, because the v2 bare TUI has no `--agent`. Fresh
   fallback sessions are covered.

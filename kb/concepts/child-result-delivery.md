@@ -10,7 +10,7 @@ separate claim subsystem for result delivery.
 Status: the Claude route shipped in v0.11.9 (PR #724), Claude's header-only
 delivery in v0.12.8 (PR #743), and owed results in no-arg wait merged in PR
 #751 (`54ca93606`). Consumption for cancel and CLI surfaces that print terminal
-reports is implemented on unmerged PR #762 (`9ffcaff7c`). Rationale and
+reports shipped in v0.14.2 (PR #762). Rationale and
 rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
 
