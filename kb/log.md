@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-28 — Chat→spawn ownership and cross-project messaging (meridian-cli `feat/spawn-message-peers`)
+
+New [chat-spawn-ownership](decisions/chat-spawn-ownership.md) page: D-chat-names-own-session
+(a chat ID never names a child; owner ruling) and D-link-at-start (writers link each
+generation to its spawn at start; one record-walk reader). New
+[D-spawn-message-address](decisions/primary-inject.md#d-spawn-message-address); the
+D-spawn-message-frame text no longer says `-C` drops the sender, and its reply names the
+chat. Session-state's `session_identity` paragraph, the vocabulary (**Chat owner**) and
+the corrections register (found-bug-deferred class promoted from candidate) updated.
+
+---
 ## 2026-10-27 — Meridian hosts named in full under `harness-overrides` (`work:agent-definition-design`)
 
 New [D105](decisions/package-management.md#d105-meridian-hosts-own-full-name-namespaces-under-harness-overrides-2026-10-27):

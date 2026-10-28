@@ -62,3 +62,4 @@ The harness UUID is still available for diagnostics and plumbing.
 ## Related
 
 - [../architecture/native-session-binding.md](../architecture/native-session-binding.md)
+- [Chat→spawn ownership](chat-spawn-ownership.md): which spawn a chat ID names

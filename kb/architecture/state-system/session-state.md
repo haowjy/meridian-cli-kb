@@ -115,8 +115,12 @@ lacks:
   ([native transcript reads](../native-transcript-reads.md#search-projection)).
 
 `state/session_identity.py` joins sessions and spawn rows: the owner chat of a spawn,
-a chat's recorded primary spawn, and `session_records_for_spawns`. That last one returns
-the exact session generation a run started, not the chat's current binding.
+the spawn that owns a chat (`chat_owner_spawn`), and `session_records_for_spawns`. That
+last one returns the exact session generation a run started, not the chat's current
+binding. `chat_owner_spawn` is the only chat→spawn answer. It walks the chat's
+generations newest first and works only because each start event already names its
+spawn ([D-link-at-start](../../decisions/chat-spawn-ownership.md#d-link-at-start); on
+meridian-cli branch `feat/spawn-message-peers`, not yet on `main`).
 
 Browse uses the metadata index's recent-session view, which can include ZIP and
 inert historical records; on the session-browse branch, Status: Archived selects

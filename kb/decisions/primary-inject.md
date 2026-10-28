@@ -1,8 +1,10 @@
 # Decisions: Primary Inject
 
 How `meridian spawn message` reaches a **primary**: a session a human started in a
-harness TUI, and how every message names its sender
-([D-spawn-message-frame](#d-spawn-message-frame)). A spawned child is injected through its `control.sock`, which the
+harness TUI, how every message names its sender
+([D-spawn-message-frame](#d-spawn-message-frame)), and how one session addresses
+another, in this project or another
+([D-spawn-message-address](#d-spawn-message-address)). A spawned child is injected through its `control.sock`, which the
 child's `SpawnManager` serves over the harness connection. A primary runs the
 harness TUI directly and has no `SpawnManager`, so nothing serves that socket.
 The code contract for the route below is in meridian-cli
@@ -158,7 +160,10 @@ OpenCode or Pi gains a native input route for a running TUI.
 
 **Status:** merged in PR #777 (`5ad479b0a`), with the rename of `spawn inject`
 to `spawn message`. Current choice: the owner asked for a reply id; the
-frame's wording and the reply-route rule are the implementer's. The code contract is
+frame's wording and the reply-route rule are the implementer's. The chat-ID reply
+address and the cross-project reply below are on meridian-cli branch
+`feat/spawn-message-peers` (PR not yet opened), with
+[D-spawn-message-address](#d-spawn-message-address). The code contract is
 in meridian-cli `src/meridian/cli/.context/CONTEXT.md` ("Injected message
 frame").
 
@@ -175,16 +180,19 @@ session. use `meridian spawn message c9297 etc...'".
 
 1. **Provenance is message text.** The CLI prepends one line before posting:
    `[Meridian] Message from spawn pX (chat cY). To answer, run`
-   `` `meridian spawn message pX --message "..."`. `` Text is the one thing both
+   `` `meridian spawn message cY --message "..."`. `` The reply names the chat,
+   because a primary gets a new spawn ID on each `--continue` while its chat ID
+   stays. A sender in another project gets `-C <sender project root>` in the
+   command. Text is the one thing both
    routes (child control socket, Claude primary inbox) carry unchanged and every
    harness renders, so the frame is built once and reads the same everywhere.
 2. **Advertise a reply route only when it works.** The reply command appears
    only when the sender's record is active and Meridian can post to it: a
    spawned child, or a primary whose harness bundle implements the optional
    `primary_inbox` port (the harness's route into a running TUI). A Codex or
-   OpenCode primary, a finished spawn, an unknown id, or a `-C` invocation
-   (which observes another project and claims no sender identity) gets "it has no reply route here" instead; a message with no
-   sender identity says it has no reply address. Without the check, a child
+   OpenCode primary, a finished spawn, or an unknown id gets "it has no reply
+   route here" instead; a message with no sender identity says it has no reply
+   address. Without the check, a child
    told to answer an OpenCode primary would run a command that exits 1.
    `primary_inbox()` in `lib/harness/bundle.py` is the one lookup behind both
    `post_to_primary()` and the reachability check `primary_accepts_messages()`,
@@ -207,3 +215,64 @@ the reply command through the same port).
 
 **Provenance:** decision record `spawn:p9612` `decisions-spawn-message.md`
 D1–D4; owner requests in chat `c9331`; PR #777.
+
+---
+
+## D-spawn-message-address: one address form for any live session, in this project or another (2026-10) {#d-spawn-message-address}
+
+**Status:** current choice (tech lead), answering the owner's request: "we need
+an easier way to do cross/repo communication... (and learn how to do it), and we
+need to make sure `meridian spawn message` is much more easily accessible".
+Built on meridian-cli branch `feat/spawn-message-peers` (PR not yet opened); not
+on `main`. User-facing behavior: meridian-cli `docs/commands.md`; how an agent
+uses it: the bundled `messaging__meridian` skill.
+
+### Problem
+
+Two interactive sessions in different repos needed to coordinate: `chat:c9618`
+in meridian-cli and `chat:c14995` in meridian-flow. Neither found
+`spawn message`: it was missing from `meridian -h`, and its help framed it as a
+way to forward the user's direction to a child. One fell back to Claude's own
+`SendMessage` through tmux. The command also rejected chat IDs, though sessions
+know each other by chat ID, and a message sent with `-C` into another project
+arrived as "no sender identity; it has no reply address".
+
+### Decision
+
+1. **The address is `meridian -C <project root> spawn message <chat ID>`.** Chat
+   and spawn IDs are numbered per project, so a bare ID is ambiguous across
+   repos; the project root makes it exact. A chat ID reaches the run live in that
+   chat now ([D-chat-names-own-session](chat-spawn-ownership.md#d-chat-names-own-session)).
+2. **Every session advertises its own address, and every message carries the
+   sender's.** A primary whose harness has a message route shows its address in
+   its capabilities block, as one command another session can paste. The frame
+   ([D-spawn-message-frame](#d-spawn-message-frame)) carries the reply command,
+   with `-C` only when the sender is in another project.
+3. **The `-C` identity drop (#794) stays.** `-C` into another project still drops
+   the caller's project-scoped `MERIDIAN_*` IDs before acting, so nothing the
+   command launches or writes there inherits them. The CLI reads the caller's
+   spawn ID and project root just before the drop and carries them in
+   `GlobalOptions.caller`, never back into the environment. Only `spawn message`
+   reads it, to build the frame. The sender's record is read without creating
+   state in the sender's project.
+4. **Findable where agents look.** `spawn message` is listed in `meridian -h`;
+   every ref-taking command's help lists the ref forms it accepts; a primary-only
+   capabilities line says how to message; the bundled `messaging__meridian` skill
+   covers when to message, how to address, and how to reply. The owner: "it isn't
+   default in llm's knowledge despite how imporatnt it kinda is".
+
+### Rejected
+
+| Alternative | Why rejected |
+|---|---|
+| Bare chat IDs as global addresses | IDs are counted per project and collide across repos |
+| A project-qualified ref syntax (for example `project:cN`) | Needs a project-name registry Meridian does not have; possible follow-up |
+| Restoring the caller's IDs into the env under `-C` | Re-opens #794: children launched in the other project would claim the caller's identity |
+| The spawn ID as the reply address | A primary's spawn ID changes with each `--continue`; its chat ID does not |
+
+**Revisit when:** Meridian gains a project registry, or a harness carries a
+native sender address that survives `-C`.
+
+**Provenance:** `chat:c9677` (owner requests, lead decisions); trigger sessions
+`chat:c9618` and meridian-flow `chat:c14995`; reviews `spawn:p9988`,
+`spawn:p9992`.
