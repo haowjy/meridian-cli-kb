@@ -1360,6 +1360,83 @@ way to ask which providers the user has.
 
 `work:post-0-19-followups`, `chat:c9589`.
 
+### D107: The user Mars layer is the existing `config.toml`, below the project (2026-10-28)
+
+**Status:** Current choice, the owner's. Shipped in Mars 0.23.3
+(mars-agents#254, which replaced the closed #250); meridian-cli bundles a Mars
+that reads it from 0.17.0. Mechanism: mars-agents `docs/config/mars-toml.md`;
+meridian-cli `docs/upgrading.md` ("User `config.toml` now applies").
+
+**Decision.** A user's own Mars settings for every project live in the
+existing user file, `$MARS_CONFIG_DIR/config.toml` (otherwise the platform
+`mars/config.toml`, `~/.config/mars/config.toml` on Linux). It takes the full
+`mars.local.toml` schema (`[settings]`, `[models]`, `[agents]`, `[skills]`)
+except `[overrides]`, and it ranks lowest:
+
+```text
+config.toml  <  mars.toml  <  mars.local.toml  <  CLI
+```
+
+`mars build plugin` and `mars check` ignore it, so a published plugin never
+depends on one machine's file.
+
+**Why.** Asked to review a new user-level `local.toml`, the owner asked
+whether it "shouldn't it be called ~/config/mars/mars.local.toml". The lead
+answered that the name follows the rank: a `mars.local.toml` reads as "mine,
+everywhere" and would rank above the committed project file, while a file
+ranked below the project should follow the user-file pattern already in use
+(`curated.toml` drops both `mars.` and `.local`), which makes it the existing
+`config.toml`. The owner: "oh yeah, it should just be included in the
+config.toml ...". One user file at one rank, rather than `config.toml` for
+some defaults and a second file for the rest at another rank.
+
+**Rejected.**
+- A separate user `local.toml` or `mars.local.toml` (#250), and with it a
+  user layer that outranks the project.
+- `[overrides]` in the user file: it would point every project at local
+  checkouts without anyone seeing it in the project.
+
+**Consequence for consumers.** Mars's config is now spread over four layers,
+one of them outside the project. A consumer that re-reads `mars.toml` to learn
+an effective setting gets it wrong; see
+[D108](#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28).
+
+`work:post-0-19-followups`, `chat:c9589`.
+
+### D108: Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28)
+
+**Status:** Current choice (tech lead), applied in meridian-cli#805
+(released in 0.17.0, closes #799). The owner approved the fix's scope, not
+the rule in these words.
+
+**Decision.** When Meridian needs an effective Mars setting, it asks Mars or
+reads a file Mars wrote: the launch bundle, `mars … --json` output,
+`.mars/models-merged.json` (dependency model aliases), `.mars/native-agents.json`
+(which agents the last sync installed into which harness). It never parses
+`mars.toml`, `mars.local.toml` or the user `config.toml` to work out a value
+itself. Checking that a `mars.toml` exists, to locate the Mars root
+(`lib/catalog/mars_roots.py`), is not reading config. Each Mars-written file is
+read the same way: missing, unreadable, malformed or an unknown `version`
+means "not known" and degrades to the safe default, never a crash.
+
+**Why.** Before #805, `lib/catalog/agent_copy.py` parsed `mars.toml` and
+`mars.local.toml` to decide whether Claude's native `Agent` tool should stay
+usable. When [D107](#d107-the-user-mars-layer-is-the-existing-configtoml-below-the-project-2026-10-28)
+added the user `config.toml`, Mars honoured an `agent_copy` set there and
+Meridian didn't (#799): a second, partial copy of Mars's layer merge had
+drifted the moment Mars added a layer. Mars had no command that exported the
+effective `agent_copy`, so the fix reads Mars's installed result instead. That
+also changes the question to the one that matters: Meridian now allows `Agent`
+when at least one agent was actually installed natively, whatever caused it
+(`agent_copy` in any layer, `agent_emission = "always"`, a bare `mars sync`).
+[D-mars-sole-skill-resolver](#d-mars-sole-skill-resolver-meridian-never-resolves-skills)
+is the same rule applied to skills.
+
+**When Mars has neither a command nor a file for a fact,** add one to Mars
+rather than parse its config in Meridian.
+
+`work:post-0-19-followups`, `chat:c9589`; meridian-cli#799, #805.
+
 ---
 
 ## Related
