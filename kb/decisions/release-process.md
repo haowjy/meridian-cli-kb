@@ -145,13 +145,20 @@ nothing that worked stopped working, so it was relabelled patch. mars-agents
 `release:minor` and shipped as Mars 0.23.0 instead of a patch; it was left as
 released.
 
-## D-integration-branch: breaking work split across PRs ships as one release
+## D-integration-branch: every minor or major release collects on `release/v<X>.<Y>.0`
 
-**Decision.** When breaking work spans several PRs, they merge into an
-integration branch `release/<x>` cut from `main`, and one PR from that branch
-to `main` carries the `release:minor`/`release:major` label, the combined
-changelog and the upgrade notes. The steps are in meridian-cli
-`docs/releasing.md` ("Breaking changes split across several PRs").
+**Decision.** Breaking work never merges to `main` piece by piece. Every minor
+or major release is assembled on an integration branch `release/v<X>.<Y>.0`
+cut from `main`, even when it starts as one PR, and one PR from that branch to
+`main` carries the `release:minor`/`release:major` label, the combined
+changelog and the upgrade notes. The agent leading the release merges its part
+PRs into the branch after each one's review and CI, without asking; only the
+merge to `main` needs the owner's approval. The steps are in meridian-cli
+`docs/releasing.md` ("Minor and major releases collect on a release branch").
+
+The owner, 2026-10-28, planning Mars 0.25: "if you make a minor... (or
+major), always use a release/0.X for those breakings changes to collect", and
+"u have permission to just directly merge ur PRs into the minor release".
 
 **Why.** Each labelled merge to `main` cuts its own release, so two breaking
 PRs merged separately give users two breaking releases to upgrade through.
