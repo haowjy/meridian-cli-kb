@@ -1299,13 +1299,15 @@ reaches users in meridian-cli 0.17.0 (integration PR #798).
   `harness-overrides.meridian-cli.resident-rearm-budget` and
   `harness-overrides.meridian-cli.capabilities` (for example
   `{spawn: false}`). The top-level `resident-rearm-budget` and
-  `meridian-capabilities` are `field.removed`.
-- The vocabulary's host table for Meridian Flow is `natives["meridian-flow"]`.
+  `meridian-capabilities` are `field.removed`: an error naming the new key.
+- Mars's tool vocabulary keeps one native tool table per host; Meridian Flow's is
+  `natives["meridian-flow"]`.
 - The short names `harness-overrides.meridian`, `harness-overrides.flow` and
   `natives.flow` are `field.removed`. `mars migrate` renames them in place,
   keeping comments; when a file has both spellings it merges them key by
   key, the new block wins, and a dropped `permission` or `capabilities` entry
-  is reported as `field.restriction-lost`.
+  is reported as `field.restriction-lost`, the warning Mars gives whenever a
+  rewrite leaves an Agent less restricted than its file said.
 
 **Why.**
 - *A namespace instead of top-level fields:* recognizing the two knobs as
@@ -1316,10 +1318,11 @@ reaches users in meridian-cli 0.17.0 (integration PR #798).
   chose "rename everywhere". `meridian` could mean the product family or the
   CLI, so an author reading `harness-overrides.meridian` could not tell which
   host it addressed; `flow` had the same problem for Meridian Flow.
-- *meridian-cli reads only the new spelling:* its reader used `.get(...)`,
-  which never errors, so a migrated package read by an unchanged reader would
-  silently drop a `spawn: false` restriction. The reader change and the Mars
-  pin bump ship in one meridian-cli release.
+- *meridian-cli reads only the new spelling:* its profile reader looks the
+  block up with Python's `dict.get`, which returns nothing for a missing key,
+  so a migrated package read by an unchanged reader would silently drop a
+  `spawn: false` restriction. The reader change and the bump of meridian-cli's
+  bundled Mars version ship in one meridian-cli release.
 
 Mechanism: mars-agents `docs/config/schema-v1.md` and
 `docs/config/migrating-to-schema-v1.md`; meridian-cli `docs/agent-profiles.md`
