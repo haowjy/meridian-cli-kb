@@ -151,14 +151,19 @@ released.
 or major release is assembled on an integration branch `release/v<X>.<Y>.0`
 cut from `main`, even when it starts as one PR, and one PR from that branch to
 `main` carries the `release:minor`/`release:major` label, the combined
-changelog and the upgrade notes. The agent leading the release merges its part
-PRs into the branch after each one's review and CI, without asking; only the
-merge to `main` needs the owner's approval. The steps are in meridian-cli
+changelog and the upgrade notes. Any other minor or major change made before
+it ships joins the same branch; patch-level changes still merge to `main` on
+their own. The agent leading the release merges its reviewed part PRs into the
+branch without asking; the merge to `main` needs the owner's approval. Only
+docs-only changes and tiny, obvious bug fixes go straight to `main` without it. The steps are in meridian-cli
 `docs/releasing.md` ("Minor and major releases collect on a release branch").
 
 The owner, 2026-10-28, planning Mars 0.25: "if you make a minor... (or
 major), always use a release/0.X for those breakings changes to collect", and
-"u have permission to just directly merge ur PRs into the minor release".
+"u have permission to just directly merge ur PRs into the minor release";
+"other minor or major changes" join it; "I never said u could merge into
+main"; and "docs only should push to main and are allowed, also tiny obvious
+bugs can be merged to main directly".
 
 **Why.** Each labelled merge to `main` cuts its own release, so two breaking
 PRs merged separately give users two breaking releases to upgrade through.
