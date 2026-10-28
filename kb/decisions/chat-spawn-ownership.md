@@ -17,8 +17,7 @@ shape, its single implementation, and the deleted fallback are the tech lead's
 current choices, taken from the closing reviews. Shipped in meridian-cli v0.16.4
 (#801) as `release:patch`: asked whether the old meaning was a contract, the owner
 answered "why would the meaning be correct...?", so changing it fixed a bug. Point 2
-is revised on branch `refactor/ref-resolution` (#800, not merged as of
-2026-10-28).
+is revised by #800, shipped in meridian-cli v0.17.1 (#811).
 
 ### Problem
 
@@ -50,8 +49,8 @@ that chat's family, children included - wtf this is bad???"
      `ops/locate.py` `chat_spawn`.
    - *Who is live in it now?* A running run whose `current_chat_id` is the chat
      (one that moved in through native `/resume`), else the owner if it is still
-     running and still in that chat. On `main` after #801 only `spawn message`
-     asks this. On `refactor/ref-resolution` every spawn command asks it first
+     running and still in that chat. In v0.16.4 (#801) only `spawn message`
+     asked this. Since v0.17.1 (#811) every spawn command asks it first
      and falls back to the owner, so `show`, `cancel` and `message` agree after a
      takeover; `spawn message` still refuses a chat with no live run
      ([D-locate-projections](ref-classification.md#d-locate-projections)).
@@ -142,8 +141,8 @@ trade-off instead of choosing a side.
 ## D-owner-on-start: a run owns a chat only once its session starts (2026-10) {#d-owner-on-start}
 
 **Status:** current choice (tech lead, after three review rounds on the same
-concern, `chat:c9695`). Built on meridian-cli branch `refactor/ref-resolution`
-(#800); not merged as of 2026-10-28.
+concern, `chat:c9695`). Shipped in meridian-cli v0.17.1
+(#811, closes #800).
 
 ### Problem
 

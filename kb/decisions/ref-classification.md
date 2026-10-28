@@ -7,8 +7,7 @@ the model is shaped that way and what it replaced. `-f` file references are a
 different subject: [reference resolution](../concepts/reference-resolution.md).
 
 **Status:** current choices by the tech lead, except where a decision quotes the
-owner. Built on meridian-cli branch `refactor/ref-resolution` (#800), reviewed;
-not merged as of 2026-10-28. The mechanism is in meridian-cli
+owner. Shipped in meridian-cli v0.17.1 (#811, closes #800). The mechanism is in meridian-cli
 `src/meridian/lib/ops/.context/CONTEXT.md` ("Session Reference Resolution") and
 `src/meridian/lib/state/.context/CONTEXT.md`; what changed for users is in
 `docs/upgrading.md` ("Chat and session references").

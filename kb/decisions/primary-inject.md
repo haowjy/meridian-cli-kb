@@ -163,8 +163,7 @@ to `spawn message`. Current choice: the owner asked for a reply id; the
 frame's wording and the reply-route rule are the implementer's. The chat-ID reply
 address and the cross-project reply below shipped in meridian-cli v0.16.4 (#801),
 with [D-spawn-message-address](#d-spawn-message-address). Naming the sender's
-current chat rather than its entry chat is on branch `refactor/ref-resolution`
-(#800, not merged as of 2026-10-28). The code contract is
+current chat rather than its entry chat shipped in meridian-cli v0.17.1 (#811). The code contract is
 in meridian-cli `src/meridian/cli/.context/CONTEXT.md` ("Injected message
 frame").
 
@@ -245,7 +244,7 @@ arrived as "no sender identity; it has no reply address".
    repos; the project root makes it exact. Given a chat ID, `spawn message` sends to
    the run live in that chat now, which can differ from the chat's owner
    ([D-chat-names-own-session](chat-spawn-ownership.md#d-chat-names-own-session)),
-   and refuses a chat with no live run. On branch `refactor/ref-resolution`,
+   and refuses a chat with no live run. Since v0.17.1 (#811),
    `show` and `cancel` name that live run too
    ([D-locate-projections](ref-classification.md#d-locate-projections)).
 2. **Every session advertises its own address, and every message carries the

@@ -251,7 +251,7 @@ another pane and break the rule that continue only sweeps dead launches (owner:
 parent publish the new spawn as the chat's owner before the hand-off, so that a
 second continue in that window would see the chat busy (`spawn:p8373`, reproduced
 with SIGSTOP); two truly concurrent continues of a dead source could still both
-start. On branch `refactor/ref-resolution` (#800, not merged as of 2026-10-28)
+start. Since meridian-cli v0.17.1 (#811)
 that publish is deleted: `start_session` takes the chat's lifetime lock with a
 two-second bound and refuses the loser (a `--bg` loser fails in its worker). No
 two harnesses run on one chat at once, and `test_concurrent_continue_of_dead_source` now
