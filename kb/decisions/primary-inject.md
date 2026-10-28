@@ -241,8 +241,10 @@ arrived as "no sender identity; it has no reply address".
 
 1. **The address is `meridian -C <project root> spawn message <chat ID>`.** Chat
    and spawn IDs are numbered per project, so a bare ID is ambiguous across
-   repos; the project root makes it exact. A chat ID reaches the run live in that
-   chat now ([D-chat-names-own-session](chat-spawn-ownership.md#d-chat-names-own-session)).
+   repos; the project root makes it exact. Given a chat ID, `spawn message` sends to
+   the run live in that chat now, which can differ from the chat's owner that
+   `show` and `cancel` name
+   ([D-chat-names-own-session](chat-spawn-ownership.md#d-chat-names-own-session)).
 2. **Every session advertises its own address, and every message carries the
    sender's.** A primary whose harness has a message route shows its address in
    its capabilities block, as one command another session can paste. The frame

@@ -54,8 +54,9 @@ that chat's family, children included - wtf this is bad???"
    resolves by chat ID.** On the dev project that is one chat (c7494). Its spawn
    ID still works.
 
-Known gap: after a chat is re-observed by a second run, `show` and `cancel` name
-the first owner while `spawn message` reaches the live run (meridian-cli #800).
+Known gap: when a second run later moves into an existing chat, the chat's start
+events still name the first run. `show` and `cancel` then name that first run, while
+`spawn message` reaches the live one (meridian-cli #800).
 
 ### Rejected
 
@@ -63,7 +64,7 @@ the first owner while `spawn message` reaches the live run (meridian-cli #800).
 |---|---|
 | A message-only resolver beside the family rule | Two answers to one question; the family rule was the bug everywhere it applied |
 | One resolver answering both questions for every command | Read every spawn's state on each chat lookup: about 0.8 s per chat ref, one corrupt spawn file broke every chat ref in the project, and `--fork` mixed spawns |
-| A fallback that scans spawn rows when no generation is linked | About 0.9 s on every miss (7,152 unlinked chats on the dev project), to rescue one legacy chat |
+| A fallback that scans spawn rows when no generation is linked | About 0.9 s on every miss, measured on the dev project (about 2,750 spawns, 7,152 unlinked chats), to rescue one legacy chat |
 | A fallback through the history index | Puts a rebuildable projection on the resolution path, so a damaged index changes the answer |
 
 **Revisit when:** a run can hold a chat it did not start (re-observation, #800),
