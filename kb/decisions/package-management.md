@@ -1340,10 +1340,11 @@ and `docs/upgrading.md`. `work:agent-definition-design`.
 `NoDeterministicId` fallback).
 
 **Decision.** A plugin agent registered through OpenCode's `ctx.agent` gets a
-model only when Mars can name it as a provider-qualified OpenCode id
-(`provider/model`). An alias or a slash-less model name has no such id, so the
-agent is registered without a model and OpenCode runs it on the user's default
-model. The plugin does not evaluate `model-policies` when it loads.
+model only when its `model:` names an alias in the package's own `[models]`
+that pins a provider-qualified id (`provider/model`) for OpenCode. Anything
+else (an alias the package doesn't define, a match-pattern alias, a bare id)
+registers the agent without a model, and OpenCode runs it on the user's
+default model. The plugin does not evaluate `model-policies` when it loads.
 
 **Why.** An OpenCode user may reach the same model through Anthropic directly,
 OpenRouter, opencode-go or another provider, and the plugin can't know which
