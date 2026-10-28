@@ -13,7 +13,7 @@ design, but make sure u understand it and can explain it back to me again").
 The approved design is revision 3.1 (`work:v010-followups`
 `design-identity-v2/design.md`, `pr-plan.md`; decisions D45–D53, D55). It is
 being built as seven PRs off `main`, each merged with its own approval before
-the next starts. PRs 1–3 are merged: the start gate and guardian (#633), the
+the next starts. PRs 1–3 and 5 (#683, the artifact-store cut) are merged; PRs 1–3 are the start gate and guardian (#633), the
 launch lock and containment sweep (#647), and `read_derived` (#672). **On `main`
 today:** every runner holds an exact `launch.lock`; a continue sweeps or refuses
 its source before any harness starts
@@ -183,13 +183,13 @@ shows them.
 | 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | merged, #633 (`e2593004c`, v0.10.13); the owner's macOS smoke is still owed |
 | 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
 | 3 | `read_derived`: exact liveness for every reader; lenient quarantine | merged, #672 (`ea6c8cc3f`, v0.10.24; fixes #663) |
-| 4 | Sole-writer outcome; state v4; history index **v11** | not started |
-| 5 | Cut the runtime artifact store | implementation complete for #677 at `463519248`; not merged |
+| 4 | Sole-writer outcome; state v4; history index (v11 in the plan; `main` is at v12, so it needs v13+) | not started |
+| 5 | Cut the runtime artifact store | merged, #683 (`63300da6d`, 2026-10-19; closes #677) |
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
 | 7 | Continue keeps the spawn ID | not started |
 
-PR 5 is independent and must land before 6. As of 2026-10-28, PRs 4, 6 and 7
-are not started and PR 5 is unmerged. The owner wants a session dedicated to
+PR 5 had to land before 6, and has. As of 2026-10-28, PRs 4, 6 and 7 are not
+started. The owner wants a session dedicated to
 them after #800 ships ("after this... we shoul start another session dedicated
 to getting that back on track..."), carrying #800's context "because its
 releated": PR 7 changes what a spawn ID names across continues, which the
