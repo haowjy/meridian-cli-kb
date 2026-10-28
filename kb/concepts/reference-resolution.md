@@ -1,6 +1,6 @@
 # Reference Resolution
 
-How `-f` (reference file) paths are resolved during spawn operations. Reference files are passed to agents as additional context. Resolution depends on the path prefix and the current task domain.
+How `-f` (reference file) paths are resolved during spawn operations. Spawn, chat and session references (`p123`, `c45`, `@latest`, a harness session ID) are a different mechanism: [ref classification](../decisions/ref-classification.md). Reference files are passed to agents as additional context. Resolution depends on the path prefix and the current task domain.
 
 ## Resolution Table
 

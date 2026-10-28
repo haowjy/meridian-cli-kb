@@ -198,8 +198,9 @@ This call is reversible if the startup delay proves annoying.
 **Why sessionless start and switch count:** the old `work.started` fired with
 no session, so keeping that preserves behavior for shell users and scripts.
 
-**A session exists when its chat record exists.** `session_store.session_exists`
-is the one predicate. The first activation fix asked for a harness session ID,
+**A session exists when its chat record exists.** `session_store.set_work_attachments`
+skips a chat with no live record, and `attach_session` reports whether the chat was
+attached. The first activation fix asked for a harness session ID,
 which a fresh primary does not have before its harness starts, so
 `--work` on a new primary silently never wrote the attachment.
 
@@ -275,7 +276,7 @@ cannot expose a user-layer action. The row fails only if no default can match.
 | Spawn events and their telemetry | `SpawnLifecycleService`, `lib/core/lifecycle.py` |
 | Work events, their `work_dir`, and their telemetry | `publish_work_event`, `lib/ops/work_attachment.py` |
 | Notification events | `lib/notify/emit.py` |
-| Whether a session exists | `session_store.session_exists` |
+| Whether a session exists | the chat record: `session_store.set_work_attachments` skips a chat without one |
 
 **Why:** activation needed three rounds of review fixes, and each round's
 defect had the same cause: two owners deriving one fact. Two meanings of

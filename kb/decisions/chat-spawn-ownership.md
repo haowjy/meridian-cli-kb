@@ -3,9 +3,10 @@
 Which spawn a chat ID names. A chat (`cN`) is one conversation, run across one
 or more session generations; a spawn (`pN`) is one harness process run. Several
 commands take either ID, so every one of them needs the same answer to "which
-spawn is this chat?". This page records that answer and the write-side rule that
-keeps it cheap. How `spawn message` delivers once it has a target is in
-[primary inject](primary-inject.md).
+spawn is this chat?". This page records that answer and the write-side rules that
+keep it cheap and true. How a typed reference reaches this question at all is in
+[ref classification](ref-classification.md); how `spawn message` delivers once it
+has a target is in [primary inject](primary-inject.md).
 
 ---
 
@@ -13,13 +14,15 @@ keeps it cheap. How `spawn message` delivers once it has a target is in
 
 **Status:** the rule itself is the owner's ruling (an invariant). The reader's
 shape, its single implementation, and the deleted fallback are the tech lead's
-current choices, taken from the closing reviews. Built on meridian-cli branch
-`feat/spawn-message-peers` (PR not yet opened); not on `main`.
+current choices, taken from the closing reviews. Shipped in meridian-cli v0.16.4
+(#801) as `release:patch`: asked whether the old meaning was a contract, the owner
+answered "why would the meaning be correct...?", so changing it fixed a bug. Point 2
+is revised on branch `refactor/ref-resolution` (#800, not merged as of
+2026-10-28).
 
 ### Problem
 
-The shared ref resolver (`resolve_spawn_ref` in `lib/ops/reference.py`) turned a
-chat ID into the newest spawn in that chat's family, children included. A
+The shared ref resolver turned a chat ID into the newest spawn in that chat's family, children included. A
 session that launches a coder is the newest-spawn holder for its own chat only
 until the coder starts. After that, `meridian spawn show c9677` returned p9987,
 the coder, not p9985, the session the user named. `cancel`, `wait`, `children`
@@ -43,20 +46,18 @@ that chat's family, children included - wtf this is bad???"
    - *Whose chat is this?* `session_identity.chat_owner_spawn` answers it alone. It
      walks the chat's session generations from newest to oldest and returns the
      first generation's `spawn_id` whose spawn row exists. It reads no index and
-     has no fallback. Every chat→spawn path calls it: `resolve_spawn_ref`,
-     `_resolve_chat_reference`, and `--from`'s primary selection.
-   - *Who is live in it now?* Only `spawn message` asks. It prefers a running
-     run whose `current_chat_id` is the chat (a run that adopted it through
-     native `/resume`), then the owner if the owner is still running and still in
-     that chat. A message has to reach a live process; `show` and `cancel` name
-     the chat's owner whether or not it runs.
+     has no fallback. Every chat→spawn path reaches it through
+     `ops/locate.py` `chat_spawn`.
+   - *Who is live in it now?* A running run whose `current_chat_id` is the chat
+     (one that moved in through native `/resume`), else the owner if it is still
+     running and still in that chat. On `main` after #801 only `spawn message`
+     asks this. On `refactor/ref-resolution` every spawn command asks it first
+     and falls back to the owner, so `show`, `cancel` and `message` agree after a
+     takeover; `spawn message` still refuses a chat with no live run
+     ([D-locate-projections](ref-classification.md#d-locate-projections)).
 3. **A legacy chat whose launch failed before its spawn was linked no longer
    resolves by chat ID.** On the dev project that is one chat (c7494). Its spawn
    ID still works.
-
-Known gap: when a second run later moves into an existing chat, the chat's start
-events still name the first run. `show` and `cancel` then name that first run, while
-`spawn message` reaches the live one (meridian-cli #800).
 
 ### Rejected
 
@@ -65,12 +66,12 @@ events still name the first run. `show` and `cancel` then name that first run, w
 | A message-only resolver beside the family rule | Two answers to one question; the family rule was the bug everywhere it applied |
 | One resolver answering both questions for every command | Read every spawn's state on each chat lookup: about 0.8 s per chat ref, one corrupt spawn file broke every chat ref in the project, and `--fork` mixed spawns |
 | A fallback that scans spawn rows when no generation is linked | About 0.9 s on every miss, measured on the dev project (about 2,750 spawns, 7,152 unlinked chats), to rescue one legacy chat |
-| A fallback through the history index | Puts a rebuildable projection on the resolution path, so a damaged index changes the answer |
+| A fallback through the history index | Puts a rebuildable projection on the resolution path, so a damaged index changes the answer. The occupant query later became the one index read, because it only nominates a live run and falls back to the owner when the index can't answer ([D-locate-projections](ref-classification.md#d-locate-projections)) |
 
-**Revisit when:** a run can hold a chat it did not start (re-observation, #800),
-or chats gain a first-class owner field.
+**Revisit when:** chats gain a first-class owner field.
 
-**Provenance:** `chat:c9677` (owner rulings, lead decisions);
+**Provenance:** `chat:c9677` (owner rulings, lead decisions); `chat:c9695` (point 2
+revision);
 reviews `spawn:p9988`, `spawn:p9991`, `spawn:p9992`, `spawn:p9996`,
 `spawn:p9997`, `spawn:p9999`, `spawn:p10000`, `spawn:p10002`; trigger sessions
 `chat:c9618` (meridian-cli) and meridian-flow `chat:c14995`.
@@ -80,8 +81,7 @@ reviews `spawn:p9988`, `spawn:p9991`, `spawn:p9992`, `spawn:p9996`,
 ## D-link-at-start: every session generation names its spawn in its start event (2026-10) {#d-link-at-start}
 
 **Status:** current choice (tech lead, on the closing whole-system review
-`spawn:p9999`). Built on meridian-cli branch `feat/spawn-message-peers`; not on
-`main`.
+`spawn:p9999`). Shipped in meridian-cli v0.16.4 (#801).
 
 ### Problem
 
@@ -137,8 +137,72 @@ trade-off instead of choosing a side.
 **Provenance:** `chat:c9677`; closing reviews `spawn:p9999` (whole-system) and
 `spawn:p10000` (observed-chat link); alignment review `spawn:p10002`.
 
+---
+
+## D-owner-on-start: a run owns a chat only once its session starts (2026-10) {#d-owner-on-start}
+
+**Status:** current choice (tech lead, after three review rounds on the same
+concern, `chat:c9695`). Built on meridian-cli branch `refactor/ref-resolution`
+(#800); not merged as of 2026-10-28.
+
+### Problem
+
+Continue moved a chat's owner before the new run had started. A `--bg` continue
+published its spawn as the chat's owner from the parent, before handing off to
+the worker, so that a second continue in the hand-off window would see the chat
+busy instead of launching beside it. Once #800 made a held chat refuse a continue
+within seconds, refused and failed continues became common, and each one left the
+chat pointing at a run that never ran. The first fix withdrew the link on each
+failure exit; the next review found more exits. Separately, a spawn row was
+reserved with its caller's chat as a placeholder until its session bound its own,
+and `continue_chat_id` falls back to that field, so a continue refused before its
+session started resumed or read the caller's conversation.
+
+### Decision
+
+1. **The session start event is the only writer of a chat's owner.** The
+   pre-start publish and its withdrawal are deleted. Two racing continues no
+   longer both run a harness because `start_session` takes the chat's lifetime
+   lock: it waits at most two seconds for it, then refuses with "Chat cN is
+   held". The loser fails in its worker, and only one harness runs, for racing
+   and for back-to-back continues alike.
+2. **An exact continue reserves its row with its own target chat**, so a continue
+   refused before its session starts still names the chat it was continuing.
+3. **The continue sweep keeps refusing a live owner, including one that ran
+   `/clear`.** A run holds its entry chat's lock until it exits, even after
+   `/clear` moved it to another chat, so letting that continue through would
+   only turn a clear refusal into a wait on the lock. The refusal now says the
+   owner has moved on.
+
+The cost: during the hand-off window, `spawn show`, `wait`, `cancel` and
+`message` by chat ID name the previous run, and a racer's refusal arrives from
+its worker rather than the command that launched it. A fresh child's
+placeholder chat is unchanged (meridian-cli #810): reserving it with no chat
+needs every reader that groups children by `chat_id` to switch to
+`owner_chat_id`.
+
+### The lesson
+
+The same lesson as [D-link-at-start](#d-link-at-start), from the other side.
+Writing ownership before it was true forced every failure exit to undo it, and
+each review found an exit that didn't. Writing it at the moment it becomes true
+left nothing to undo; the lock that already guards the chat stops the race.
+
+### Rejected
+
+| Alternative | Why rejected |
+|---|---|
+| Keep the pre-start publish and withdraw it on failure | Every failure exit has to undo it; review found exits that didn't |
+| Refuse a live owner only while it is still in the chat (narrow the sweep) | The owner keeps its entry chat lock after `/clear`; the continue would wait on the lock until the owner exits |
+
+**Provenance:** `chat:c9695`; reviews `spawn:p10031`, `spawn:p10048`,
+`spawn:p10052`; probes `spawn:p10033`, `spawn:p10049`, `spawn:p10053`; fixes
+`spawn:p10036`, `spawn:p10050`, `spawn:p10055`.
+
 ## Related
 
+- [Ref classification](ref-classification.md): how a typed reference becomes a
+  spawn or a chat before this page's question is asked.
 - [Session reference resolution](session-reference-resolution.md): recovering a
   ref's harness session ID once the spawn is known.
 - [Primary inject](primary-inject.md#d-spawn-message-address): how a chat ID is

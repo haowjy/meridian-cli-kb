@@ -178,7 +178,7 @@ shows them.
 
 ### The seven PRs
 
-| # | PR | Status (2026-10-17) |
+| # | PR | Status (2026-10-28) |
 |---|---|---|
 | 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | merged, #633 (`e2593004c`, v0.10.13); the owner's macOS smoke is still owed |
 | 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
@@ -188,7 +188,12 @@ shows them.
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
 | 7 | Continue keeps the spawn ID | not started |
 
-PR 5 is independent and must land before 6. PR 2's residuals are listed
+PR 5 is independent and must land before 6. PRs 4–7 are unbuilt as of
+2026-10-28; after #800 ships, the owner wants a session dedicated to them: "PRs
+4-7 are unbuilt oh... after this... we shoul start another session dedicated to
+getting that back on track...", carrying #800's context "because its releated"
+([ref classification](ref-classification.md),
+[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start)). PR 2's residuals are listed
 [below](#pr-2-as-built-the-launch-lock-and-the-sweep), and PR 3's
 [after them](#pr-3-as-built-read_derived-and-one-dead-launch-finalize).
 
@@ -241,17 +246,19 @@ The live successor is **never killed**. Killing it would silently stop work in
 another pane and break the rule that continue only sweeps dead launches (owner:
 "fix it"; the kill was rejected).
 
-**A `--bg` continue publishes the successor pointer before the hand-off.** It
-moves the chat's owner to the new spawn while the parent still holds the new
-spawn's lock, before handing off to the worker. Before, only the worker's
-`start_session` moved it, after the parent had returned, so a second continue in
-that window launched beside it (re-check `spawn:p8373`, reproduced with SIGSTOP).
-A racer now sees Busy.
+**Two continues of one chat cannot both run a harness.** PR 2 had the `--bg`
+parent publish the new spawn as the chat's owner before the hand-off, so that a
+second continue in that window would see the chat busy (`spawn:p8373`, reproduced
+with SIGSTOP); two truly concurrent continues of a dead source could still both
+start. On branch `refactor/ref-resolution` (#800, not merged as of 2026-10-28)
+that publish is deleted: `start_session` takes the chat's lifetime lock with a
+two-second bound and refuses the loser, which fails in its worker. One harness
+runs, racing or back to back, and `test_concurrent_continue_of_dead_source` now
+passes instead of being an expected failure. Why the publish went:
+[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start). PR 7's reopen
+contract, where continue keeps the spawn ID, still replaces this interim design.
 
 **Accepted residuals:**
-- Two **concurrent** continues of one dead source can both start (a strict xfail,
-  `test_concurrent_continue_of_dead_source`). PR 7 closes it: continue then holds
-  pN's own lock for the whole new launch.
 - A cancel during the `--bg` hand-off window can SIGTERM the parent instead of the
   worker (`spawn:p8283` finding 4). Main's window was racy too; PR 4 moves cancel
   onto the launch.

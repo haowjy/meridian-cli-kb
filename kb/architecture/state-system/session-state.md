@@ -119,8 +119,12 @@ the spawn that owns a chat (`chat_owner_spawn`), and `session_records_for_spawns
 last one returns the exact session generation a run started, not the chat's current
 binding. `chat_owner_spawn` is the only chat→spawn answer. It walks the chat's
 generations newest first and works only because each start event already names its
-spawn ([D-link-at-start](../../decisions/chat-spawn-ownership.md#d-link-at-start); on
-meridian-cli branch `feat/spawn-message-peers`, not yet on `main`).
+spawn ([D-link-at-start](../../decisions/chat-spawn-ownership.md#d-link-at-start)).
+Only the start event writes that link
+([D-owner-on-start](../../decisions/chat-spawn-ownership.md#d-owner-on-start), on
+meridian-cli branch `refactor/ref-resolution`). A raw harness ID reaches its chat
+through `session_store.native_generations`, the one native-ID lookup on that branch
+([D-ref-by-shape](../../decisions/ref-classification.md#d-ref-by-shape)).
 
 Browse uses the metadata index's recent-session view, which can include ZIP and
 inert historical records; on the session-browse branch, Status: Archived selects

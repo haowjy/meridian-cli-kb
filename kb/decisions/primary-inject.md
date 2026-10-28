@@ -161,9 +161,10 @@ OpenCode or Pi gains a native input route for a running TUI.
 **Status:** merged in PR #777 (`5ad479b0a`), with the rename of `spawn inject`
 to `spawn message`. Current choice: the owner asked for a reply id; the
 frame's wording and the reply-route rule are the implementer's. The chat-ID reply
-address and the cross-project reply below are on meridian-cli branch
-`feat/spawn-message-peers` (PR not yet opened), with
-[D-spawn-message-address](#d-spawn-message-address). The code contract is
+address and the cross-project reply below shipped in meridian-cli v0.16.4 (#801),
+with [D-spawn-message-address](#d-spawn-message-address). Naming the sender's
+current chat rather than its entry chat is on branch `refactor/ref-resolution`
+(#800, not merged as of 2026-10-28). The code contract is
 in meridian-cli `src/meridian/cli/.context/CONTEXT.md` ("Injected message
 frame").
 
@@ -180,9 +181,10 @@ session. use `meridian spawn message c9297 etc...'".
 
 1. **Provenance is message text.** The CLI prepends one line before posting:
    `[Meridian] Message from spawn pX (chat cY). To answer, run`
-   `` `meridian spawn message cY --message "..."`. `` The reply names the chat,
-   because a primary gets a new spawn ID on each `--continue` while its chat ID
-   stays. A sender in another project gets `-C <sender project root>` in the
+   `` `meridian spawn message cY --message "..."`. `` The reply names the
+   sender's current chat (`continue_chat_id`), because a primary gets a new spawn
+   ID on each `--continue` while its chat ID stays, and a `/clear` moves it to a
+   new chat; `spawn message` refuses the chat it left. A sender in another project gets `-C <sender project root>` in the
    command. Text is the one thing both
    routes (child control socket, Claude primary inbox) carry unchanged and every
    harness renders, so the frame is built once and reads the same everywhere.
@@ -198,8 +200,8 @@ session. use `meridian spawn message c9297 etc...'".
    `post_to_primary()` and the reachability check `primary_accepts_messages()`,
    so the frame and the post cannot disagree.
 3. **The chat id comes from the sender's own record**, not `$MERIDIAN_CHAT_ID`,
-   which names the root conversation and would point a reply at the wrong
-   session.
+   which names the conversation that launched the sender and would point a
+   reply at the wrong session.
 
 ### Rejected
 
@@ -223,8 +225,7 @@ D1–D4; owner requests in chat `c9331`; PR #777.
 **Status:** current choice (tech lead), answering the owner's request: "we need
 an easier way to do cross/repo communication... (and learn how to do it), and we
 need to make sure `meridian spawn message` is much more easily accessible".
-Built on meridian-cli branch `feat/spawn-message-peers` (PR not yet opened); not
-on `main`. User-facing behavior: meridian-cli `docs/commands.md`; how an agent
+Shipped in meridian-cli v0.16.4 (#801). User-facing behavior: meridian-cli `docs/commands.md`; how an agent
 uses it: the bundled `messaging__meridian` skill.
 
 ### Problem
@@ -242,9 +243,11 @@ arrived as "no sender identity; it has no reply address".
 1. **The address is `meridian -C <project root> spawn message <chat ID>`.** Chat
    and spawn IDs are numbered per project, so a bare ID is ambiguous across
    repos; the project root makes it exact. Given a chat ID, `spawn message` sends to
-   the run live in that chat now, which can differ from the chat's owner that
-   `show` and `cancel` name
-   ([D-chat-names-own-session](chat-spawn-ownership.md#d-chat-names-own-session)).
+   the run live in that chat now, which can differ from the chat's owner
+   ([D-chat-names-own-session](chat-spawn-ownership.md#d-chat-names-own-session)),
+   and refuses a chat with no live run. On branch `refactor/ref-resolution`,
+   `show` and `cancel` name that live run too
+   ([D-locate-projections](ref-classification.md#d-locate-projections)).
 2. **Every session advertises its own address, and every message carries the
    sender's.** A primary whose harness has a message route shows its address in
    its capabilities block, as one command another session can paste. The frame

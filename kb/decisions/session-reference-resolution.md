@@ -63,3 +63,6 @@ The harness UUID is still available for diagnostics and plumbing.
 
 - [../architecture/native-session-binding.md](../architecture/native-session-binding.md)
 - [Chat→spawn ownership](chat-spawn-ownership.md): which spawn a chat ID names
+- [Ref classification](ref-classification.md): how a typed ref is classified and
+  located before recovery runs; recovery now takes the located spawn, not the ref
+  string
