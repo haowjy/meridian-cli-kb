@@ -8,7 +8,7 @@ They do not control which rows appear in the model inventory.
 ## model-policies Rules
 
 Agent profile frontmatter can declare a list of `model-policies` entries. A
-project/user config overlay (`[agents.<name>]`) can inherit, suppress, or prepend
+Mars config overlay (`[agents.<name>]` in `mars.toml`, `mars.local.toml` or the Mars user `config.toml`) can inherit, suppress, or prepend
 those entries for **settings matching** without editing generated `.mars/agents/`
 files. Launch backups still come only from the profile list. When the resolved
 model matches a rule's selector, the rule's overrides are applied.

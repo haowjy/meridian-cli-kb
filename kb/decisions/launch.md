@@ -439,7 +439,7 @@ This supersedes the [`completion_contract` placement](launch-session-initiation.
 
 **Decision (2026-06, PR #314):** The Mars config key was renamed to `[settings.meridian.agent_copy] harnesses = ["claude"]` (was `[settings.agent_copy]`). Agent copy is a Meridian concept, so it belongs under `settings.meridian`.
 
-**Auto-scaffold:** New projects get the key written into initial `mars.toml`. Meridian only reads the new key path.
+**Auto-scaffold:** New projects get the key written into initial `mars.toml`. Meridian only read the new key path. Since meridian-cli #805 Meridian reads no Mars config key for this; it reads `.mars/native-agents.json` ([D108](package-management.md#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28)).
 
 ---
 

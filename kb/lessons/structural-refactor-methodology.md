@@ -77,7 +77,7 @@ AGENT_ROOT_COMMANDS = tuple(
 
 1. **Behavior-level contract suites:** Help tests assert structure (groups present, subcommands visible) and agent-mode filtering, not exact prose. The contract is "these groups are visible in agent mode with these subcommands," not "the help text says exactly X."
 
-2. **Public seams for tests:** `register_hook()` added as a public method on `SpawnLifecycleService`. Tests stop poking `service._hooks`. When the internal structure changes, tests don't break.
+2. **Public seams for tests:** `register_hook()` added as a public method on `SpawnLifecycleService` (since deleted with its last caller, meridian-cli #795). Tests stop poking `service._hooks`. When the internal structure changes, tests don't break.
 
 3. **Split by contract:** The context-env test was split into `test_child_env_context.py`, `test_launch_context_env_runtime_overrides.py`, `test_launch_context_env_task_cwd.py`, and `test_launch_context_env_work_scope.py`. Each file tests one contract.
 

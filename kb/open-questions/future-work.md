@@ -287,7 +287,6 @@ the remaining Meridian-side item is in `src/meridian/lib/launch/`.
    Mars overlay field plus Meridian reading it from the launch bundle into
    `execution_policy.timeout` (minutes).
 
-2. **`resolve_policies()` is still the primary caller interface.** The canonical compiler lives in `compiler.py`, but `resolve_policies()` remains a thin wrapper and callers still consume `ResolvedPolicies`. Future cleanup: migrate callers to consume `CompilerResult` or `MaterializedLaunch` directly, then deprecate `resolve_policies()`.
 
 ---
 

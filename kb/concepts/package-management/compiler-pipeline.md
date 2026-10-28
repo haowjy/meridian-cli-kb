@@ -95,7 +95,7 @@ into per-harness projection format for target sync.
 ### Config Entries (`compiler/config_entries/`)
 
 Handles MCP server and selected hook config entries written into harness-native
-config files (`.claude/.mcp.json`, `.claude/settings.local.json`, `.codex/codex_mcp.json`, etc.).
+config files (`.mcp.json`, `.claude/settings.local.json`, `.codex/config.toml`, etc.).
 
 MCP and hooks reach this lane differently:
 

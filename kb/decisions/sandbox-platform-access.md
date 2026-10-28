@@ -373,7 +373,7 @@ The `mars-schema` crate parses the profile keys `network`, `network-allow` and
 `network-deny`, the `network` override in `model-policies` (no host lists there) and the
 host grammar, so `mars sync`, `mars check` and the crate's WASM build read them the same
 way. The Mars binary resolves `[settings] default_network` and the host lists from
-`mars.toml`, `mars.local.toml`, user config and CLI flags into the
+`mars.toml`, `mars.local.toml`, the Mars user `config.toml` and CLI flags into the
 [bundle object](#network-bundle-object), under the key names Meridian v0.14.0 reads.
 
 **Rejected:** moving network into `harness-overrides`, the per-harness native settings
@@ -406,11 +406,11 @@ The projected policy is a pure, harness-owned function of sandbox, the typed pol
 config. Approval, tool rules and the user's own harness config are deliberately not inputs;
 see [guardrail network inputs](#guardrail-network-inputs).
 
-**Codex passthrough key.** For one warning release, a profile's
-`harness-overrides.codex.sandbox_workspace_write.network_access` boolean wins over the
-portable field when Meridian can emit it as a `-c` pair; anything else is reported ignored and
-the portable value stands. The next release reserves the key. See
-[native-config](../concepts/native-config.md).
+**Codex passthrough key.** A profile's
+`harness-overrides.codex.sandbox_workspace_write.network_access` is reserved since
+meridian-cli 0.17.0 (#796): a fresh Codex launch that sets it fails with an error naming
+`network`, and a replayed snapshot drops it. It had a one-release window in which a boolean
+won over the portable field. See [native-config](../concepts/native-config.md).
 
 **Upgrade impact:** a constrained sandbox with no network mode is offline, including a
 primary whose `sandbox` comes from Meridian config. Profiles that need shell network declare

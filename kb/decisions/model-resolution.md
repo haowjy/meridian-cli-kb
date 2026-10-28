@@ -540,5 +540,5 @@ in that directory's `.context/CONTEXT.md`, and users read meridian-cli
 - [concepts/model-resolution/overview.md](../concepts/model-resolution/overview.md) — resolution mechanism
 - [concepts/model-resolution/aliases-and-routing.md](../concepts/model-resolution/aliases-and-routing.md) — canonical and harness-specific model IDs
 - [concepts/config-precedence.md](../concepts/config-precedence.md) — how agent overlay tier fits in the precedence ladder
-- [architecture/launch-system.md](../architecture/launch-system.md) — where `resolve_policies()` fits in the full launch factory
+- [architecture/launch-system.md](../architecture/launch-system.md) — where `resolve_launch_policy()` fits in the full launch factory
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — harness-specific managed-primary projection

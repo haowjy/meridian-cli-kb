@@ -19,7 +19,7 @@ Each field in `RuntimeOverrides` resolves independently via `resolve(*layers)` i
 ```
 CLI flags / request
   → env vars (MERIDIAN_MODEL, MERIDIAN_APPROVAL, …)
-    → [agents.<name>] overlay (mars.local.toml > mars.toml, delivered in the Mars bundle)
+    → [agents.<name>] overlay (mars.local.toml > mars.toml > Mars user config.toml, delivered in the Mars bundle)
       → agent profile frontmatter
         → project/user config defaults
           → model alias defaults
@@ -34,12 +34,12 @@ The fields in `RuntimeOverrides` are: `model`, `harness`, `agent`, `effort`, `sa
 
 ### Routing vs Policy Fields
 
-Fields are split into two categories, codified in `_ROUTING_OVERRIDE_FIELDS`:
+Fields are split into two categories:
 
 - **Routing fields** (`model`, `harness`, `agent`) — determine *where* to run
 - **Policy fields** (`effort`, `approval`, `sandbox`, `autocompact`, `timeout`) — determine *how* to run
 
-`model_policy_scope()` on `RuntimeOverrides` returns a copy containing only the policy fields (i.e. everything not in `_ROUTING_OVERRIDE_FIELDS`). It's used by the bundle execution policy resolver in `policies.py` to isolate the policy field resolution path. Because the exclusion is set-based, any new policy field added to `RuntimeOverrides` is automatically included — no hand-curation needed.
+`execution_policy_scope(allowed_fields)` on `RuntimeOverrides` (`core/overrides.py`) returns a copy holding only execution-policy fields; the bundle execution-policy resolver in `launch/policies.py` passes the fields the launch surface supports.
 
 **Policy fields have a more granular cascade than the simple layer order above.** The full 7-tier ladder for the policy fields Mars resolves (`effort`, `approval`, `sandbox`, `network`):
 
@@ -80,7 +80,6 @@ the launch bundle; the user-facing ladder is meridian-cli `docs/configuration/ma
 | `from_agent_profile(profile)` | Profile frontmatter |
 | `from_config(config)` | `config.primary.*` for primary launch |
 | `from_spawn_config(config)` | `config.default_model` for spawned agents |
-| `from_spawn_input(payload)` | `spawn create` REST API payload |
 
 **The harness identity handle `_MERIDIAN_HARNESS` is not read by `from_env()`**, because it is spawn-local metadata, not a user policy override (see [Launch System](../architecture/launch-system.md#_meridian_harness-child-env-injection)). A plain `MERIDIAN_HARNESS` env var is not read anywhere; the harness comes from CLI flags, profile and config (`primary.harness`, `defaults.harness`).
 

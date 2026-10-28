@@ -662,7 +662,7 @@ user-authorized write), and broad force adoption across unselected paths.
 `work:pyright-strict`; `work:two-tier-identity`). Shipped 2026-10-14: the Mars
 side, `--fallback-root`, in mars-agents 0.16.0 (PR #173); the Meridian side in
 meridian-cli PR #575 (merged to `main`, `release:minor`; released in v0.10.0
-after #579), which pins `mars-agents==0.16.0`.
+after #579), which pinned `mars-agents==0.16.0`.
 
 **Decision.** User scope for packages is an ordinary Mars project at
 `~/.meridian/mars/` (`get_user_home()/mars`, so a scratch `MERIDIAN_HOME`
@@ -724,8 +724,8 @@ authority is a lookup-only second root:
   and sandbox projection point at the user root's files. The bundle schema
   version stays 4.
 
-**The pin, and the probe behind it.** The `mars-agents==0.16.0` pin is what
-delivers a capable Mars; see the shipping order below. The probe guards every
+**The pin, and the probe behind it.** The `mars-agents==0.16.0` pin (and every
+later one) is what delivers a capable Mars; see the shipping order below. The probe guards every
 other `mars` (an older install, a dev build): Meridian passes
 `--fallback-root <user root>` only when `mars build launch-bundle --help`
 lists it, checked once per executable per process (cached, 10 s timeout). Any

@@ -115,7 +115,7 @@ Same as adding a CLI command above — the operation handler + `ops/commands.py`
 1. Add to the settings model in `lib/config/`
 2. Add to `RuntimeOverrides` in `lib/core/overrides.py` if it's a per-spawn override
 3. Add a classmethod constructor update to `RuntimeOverrides.from_*` methods
-4. Ensure `resolve_policies()` picks it up in `lib/launch/policies.py`
+4. Ensure `resolve_launch_policy()` picks it up in `lib/launch/policies.py`
 
 ## Testing Strategy
 

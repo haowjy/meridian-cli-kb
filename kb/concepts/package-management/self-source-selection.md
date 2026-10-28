@@ -81,8 +81,7 @@ content. Discovery,
 MCP discovery and staging therefore skip any directory holding a valid
 `.mars-plugin.json`, at any depth in any package, and report each skipped path
 ([D100](../../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24);
-a build doesn't report its own output directory). This is on mars-agents
-`release/v0.19.0`, not yet released. Other generated targets still need #161.
+a build doesn't report its own output directory). Shipped in Mars 0.19.0. Other generated targets still need #161.
 
 ## Flat-root containment
 

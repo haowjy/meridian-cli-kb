@@ -8,7 +8,12 @@ The rationale and rejected alternatives are in
 > **Status:** Meridian side on `main` since PR #575 (merged 2026-10-14; released in
 > v0.10.0 on 2026-10-14 after #579).
 > `--fallback-root` shipped in mars-agents 0.16.0 (PR #173, released
-> 2026-10-14), and meridian-cli pins `mars-agents==0.16.0`.
+> 2026-10-14); every meridian-cli release since bundles a Mars that has it.
+
+The user root here is a package root. It is not the user Mars *config* file,
+`~/.config/mars/config.toml` (`$MARS_CONFIG_DIR/config.toml`), which is the
+lowest Mars config layer under every project
+([D107](../decisions/package-management.md#d107-the-user-mars-layer-is-the-existing-configtoml-below-the-project-2026-10-28)), nor Meridian's own `~/.meridian/config.toml`.
 
 ## Roots
 
@@ -57,14 +62,15 @@ flowchart LR
   `build launch-bundle`, `agents show/list` (used by `spawn subagents`, which
   prints `root` or `fallback` per agent) and the read-only passthrough
   `agents` / `skills` subcommands. Never on mutations or `--user` calls.
-- **Configuration** comes from `primary` only: targets, aliases, models cache,
-  bootstrap docs, Mars defaults.
+- **Configuration** comes from `primary` only, never from the user root:
+  targets, aliases, models cache, bootstrap docs, Mars defaults. Mars itself
+  layers the user `config.toml` below the primary's `mars.toml`.
 - **Source paths.** Bundle `agent_source_path` and skill `source_path` are
   authoritative; Meridian rebuilds primary-root paths only for older bundle
   producers.
 
-**Capability probe.** The `mars-agents==0.16.0` pin is what puts a
-`--fallback-root`-capable Mars beside Meridian. The probe is the safety net for
+**Capability probe.** The bundled `mars-agents` pin (0.16.0 or later) is what
+puts a `--fallback-root`-capable Mars beside Meridian. The probe is the safety net for
 any other `mars` (an older install, a dev build):
 `mars_supports_fallback_root(executable)` (`catalog/mars_capabilities.py`) runs
 `mars build launch-bundle --help` with a 10 s timeout, cached per executable for

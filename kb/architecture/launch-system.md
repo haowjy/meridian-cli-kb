@@ -458,7 +458,6 @@ Key methods:
 - `prepare_spawn()` — resolve-before-persist; the streaming-serve entry point
 - `cancel()` — surface-neutral cancel pipeline; handles managed-primary, signal cancellation, finalizing races
 - `complete_spawn()` — idempotent terminal seam; acquires per-spawn lock internally
-- `update_metadata()` — surface-level metadata changes; runner-internal updates bypass this
 
 ## Composition contracts
 
@@ -502,8 +501,8 @@ gone.
 the spec; it decides no harness mechanism itself:
 
 1. `agent_copy_enabled(project_root, harness_id)` (`catalog/agent_copy.py`) reports
-   whether the project's Mars config makes native agent copies the delegation
-   mechanism for this harness.
+   whether the last Mars sync installed native agent copies for this harness
+   (`.mars/native-agents.json`), making them the delegation mechanism.
 2. `launch_permission_rules()` (`launch/permissions.py`) picks the platform rules: a
    sub-agent deny unless agent copies are on, a task-list deny on spawns unless the
    profile explicitly allows `task`, a built-in-agent rule unless
@@ -623,7 +622,7 @@ launch/
   plan.py               build_primary_spawn_request/runtime() — primary-path input builders
   process/              run_harness_process(); native/PTY/pipe launchers; primary-path executor
   streaming_runner.py   one-turn startup, connection, drain, teardown, and finalization
-  policies.py           resolve_policies() → ResolvedPolicies
+  policies.py           resolve_launch_policy() → ResolvedLaunchPolicy
   permissions.py        launch_permission_rules() — platform rules for a launch
   command.py            resolve_launch_spec_stage(), build_launch_argv()
   fork.py               materialize_fork() — sole callsite for adapter.fork_session()
@@ -633,7 +632,7 @@ launch/
   reference.py          load_reference_items(); template variable resolution
   env.py                build_env_plan(); build_harness_child_env()
   extract.py            enrich_finalize(): usage + session + report (spawn path)
-  signals.py            SignalForwarder, SignalCoordinator, SignalCallbackReceiver; forwarding and primary TERM/HUP cancel
+  signals.py            SignalReceiver, SignalCoordinator, SignalCallbackReceiver; forwarding and primary TERM/HUP cancel
 
 catalog/
   catalog_session.py    CatalogSession — operation-scoped catalog resolution state

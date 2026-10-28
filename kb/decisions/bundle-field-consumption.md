@@ -60,11 +60,9 @@ What Codex skips, each with its own report line:
   sandbox mode, approval policy, writable roots, notify, web search, and the
   `features.*` and `agents.*` tables). The block may add siblings to these but
   never replaces them; otherwise a passthrough could undo the profile's
-  sandbox or tool switches. The deprecated
-  `sandbox_workspace_write.network_access` key is a one-release exception: a boolean wins
-  with a warning only when the ordinary emitter can produce its addressable, TOML-encoded
-  `-c` pair. An unemitted candidate is reported ignored and leaves the portable projection
-  in place. The next release reserves it.
+  sandbox or tool switches. `sandbox_workspace_write.network_access`, once a
+  one-release exception, is reserved since meridian-cli 0.17.0 (#796): a fresh launch
+  that sets it fails, and a replayed snapshot drops it.
 - **Keys `-c` cannot address:** any component of the dotted key path that
   contains a dot, `=`, quote, whitespace or control character.
 - **Values outside what Codex `-c` takes:** Meridian encodes booleans, int64
@@ -76,7 +74,7 @@ that is not reserved, including model providers and MCP server commands. A
 package that carries a `harness-overrides` block is trusted code, the same as
 any hook it installs.
 
-**Evidence:** a live probe showed the deprecated `-c
+**Evidence:** a live probe showed the since-removed `-c
 sandbox_workspace_write.network_access=true` enables network under `workspace-write`; the
 portable top-level `network` field now owns the replacement projection.
 
@@ -84,10 +82,9 @@ portable top-level `network` field now owns the replacement projection.
 sandbox have a network knob and they are spelled differently; passthrough
 covers the need.
 
-> **Superseded (2026-10-23):** the owner decided on a `network` profile field, implemented
-> on the unmerged combined branch. See
+> **Superseded (2026-10-23):** the owner decided on a `network` profile field. See
 > [sandbox-platform-access.md](sandbox-platform-access.md#d-network-field). The passthrough
-> key survives for one warning release only.
+> key was removed in meridian-cli 0.17.0 (#796).
 
 ## D-compaction-projected: thresholds reach each harness's own knob {#d-compaction-projected}
 

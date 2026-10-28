@@ -51,8 +51,9 @@ already breaking it" (`chat:c8397`).
 `session.needs_permission` and shipped in the same release under the new
 scheme, so it has no deprecated name.
 
-Each old name maps to one replacement (`NEXT_MINOR_HOOK_CONFIG_BREAKS` in
-meridian-cli `lib/hooks/schema.py`); how old names load is
+Each old name maps to one replacement (`_REMOVED_EVENT_NAMES` in meridian-cli
+`lib/hooks/schema.py`, which now rejects the old name with an error naming the
+replacement); the window in which old names still loaded is
 [D-hook-deprecation-window](#d-hook-deprecation-window--old-names-load-for-one-minor-release):
 
 | Old | Replacement |
@@ -67,8 +68,9 @@ meridian-cli `lib/hooks/schema.py`); how old names load is
 on every `work start`, for existing items too.
 
 **No permanent aliases.** An alias gives one moment two names, which is the
-ambiguity the rename exists to remove. Old names are accepted only for the
-deprecation window, with a warning on every load, and then rejected.
+ambiguity the rename exists to remove. Old names were accepted only for the
+deprecation window, with a warning on every load, and have been rejected since
+meridian-cli 0.17.0.
 
 **Rejected:** `work.resume` for the choice event, since a newly created item
 isn't resumed, and `work.switch`, since `work start` also activates without
@@ -121,6 +123,10 @@ version of its own
 
 ## D-hook-deprecation-window — old names load for one minor release
 
+**Status:** The window closed in meridian-cli 0.17.0 (#796): every item below
+is now a row error, and `hooks list` has no `deprecated` status. User
+reference: meridian-cli `docs/upgrading.md`, "Removed hook names and keys".
+
 **Decision (2026-10-19, owner; supersedes rejection at load):** The old event
 names, `failure_policy`, and `when` conditions an event can never satisfy load
 with one warning per row during v0.11, and become config errors in the next
@@ -133,8 +139,7 @@ project's no-backwards-compatibility rule and applied the replacement policy
 to this PR first
 ([D-compat-policy](compatibility-versioning.md#d-compat-policy--one-minor-deprecation-new-builds-read-old-data-old-builds-refuse-new-data)).
 
-How the window behaves (meridian-cli `docs/upgrading.md` "Hook event names"
-is the user reference):
+How the window behaved:
 
 - **Old names.** The row registers on the new event and warns once.
   `meridian hooks check` exits 0 when deprecations are its only findings, and
@@ -154,9 +159,8 @@ is the user reference):
 rejects the new names. A shared config keeps the old names until
 every machine has upgraded.
 
-**Ending the window:** `NEXT_MINOR_HOOK_CONFIG_BREAKS` is the complete
-inventory of this compatibility behavior. Flipping its `mode` to `"error"`
-turns every entry into a load error.
+**Ending the window:** done in 0.17.0, which deleted the warning path and made
+each entry a hard-coded removal error.
 
 ---
 
@@ -230,9 +234,9 @@ synchronous sync before a primary launch with `--work` or `--from` work;
 
 **Decision (2026-10-18, lead):** Every hook failure logs and continues to the
 next hook. The `FailurePolicy` Plugin API type and the observe/post/gate event
-classes are deleted. A config row that still sets `failure_policy` loads with a
-warning and no effect until the next minor release
-([D-hook-deprecation-window](#d-hook-deprecation-window--old-names-load-for-one-minor-release)). The owner
+classes are deleted. A config row that still sets `failure_policy` is invalid
+since meridian-cli 0.17.0; it loaded with a warning during
+[D-hook-deprecation-window](#d-hook-deprecation-window--old-names-load-for-one-minor-release). The owner
 approved deleting the `gate` class and `when.status = "skipped"` ("add them")
 and asked for a kind filter in the same turn; removing `failure_policy`
 followed in review, once nothing honored it.
@@ -256,8 +260,7 @@ vocabulary.
 **Conditions are checked against what the event supplies.** `when.status`
 exists only on `spawn.finished`, and work events supply neither `when.agent`
 nor `when.kind`. A row that names its event and asks for a field the event
-cannot supply can never match: during the deprecation window it warns and is
-skipped, and in the next minor release it fails load. An unevented builtin row keeps its compatible default events enabled and
+cannot supply can never match, so it is an invalid row. An unevented builtin row keeps its compatible default events enabled and
 records the rest as disabled overrides. The disabled entries still replace
 lower-layer rows with the same `(name, event)`, so narrowing a project row
 cannot expose a user-layer action. The row fails only if no default can match.
@@ -299,7 +302,6 @@ producer-coverage test fails if those disagree; see
 
 ## Open and follow-up
 
-- **Next minor release:** flip `NEXT_MINOR_HOOK_CONFIG_BREAKS` to `"error"`.
 - **#692:** build hook dispatchers in one factory in `lib/hooks` (removing the
   `core` ↔ `hooks` import cycle and the duplicate in `notify`), build it once
   per command so a bad config warns once, and move work-event publishing below

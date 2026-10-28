@@ -27,10 +27,10 @@ harness-overrides:
   codex:
     model_reasoning_effort: high   # reserved: Meridian sets this from top-level effort, so it is skipped
     sandbox_workspace_write:
-      network_access: true          # deprecated exception for one warning release; use top-level network
+      network_access: true          # removed: a fresh launch fails; use top-level network
 ```
 
-For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, `tools`, and `network` remain the Mars semantic controls. A passthrough key normally never overrides a setting Meridian computes from them; the deprecated Codex network key is the one warning-release exception described below.
+For a Codex launch bundle, Mars preserves the `codex` block exactly under `execution_policy.native_config`. Top-level `effort`, `skills`, `tools`, and `network` remain the Mars semantic controls. A passthrough key never overrides a setting Meridian computes from them; the removed Codex network key is a launch error, described below.
 
 ---
 
@@ -91,7 +91,7 @@ Mars selects the block matching the resolved launch harness and ignores other bl
     "native_config": {
       "effort": "high",
       "skills": ["codex-only-skill"],
-      "sandbox_workspace_write.network_access": true
+      "model_verbosity": "low"
     }
   }
 }
@@ -112,17 +112,17 @@ as repeated `-c key=value` on both the subprocess and app-server paths:
 ```yaml
 harness-overrides:
   codex:
-    sandbox_workspace_write:
-      network_access: true
+    model_verbosity: low
 ```
 
-Projected during its warning release: `codex ... -c
-sandbox_workspace_write.network_access=true`. This key is deprecated in favor of top-level
-`network`. A boolean wins for compatibility only when the ordinary native-config emitter can
-address its segmented key and encode the value as a well-formed `-c` pair. A matching emitted
-value reports native and a conflict reports partial. A literal dotted key, null, non-boolean,
-empty map, or other unemitted candidate is reported ignored and leaves the portable network
-projection in place. The next release reserves the key and removes this exception.
+Projected: `codex ... -c model_verbosity="low"`.
+
+`sandbox_workspace_write.network_access` was removed in meridian-cli 0.17.0 (#796) in favor
+of top-level `network`. It is a reserved key: a fresh Codex launch whose profile sets it fails
+with an error naming `network`, raised through the adapter hook
+`reject_removed_native_config` (only Codex implements it). A replayed snapshot that still
+carries it drops it like any other reserved key, so `--continue` of an old spawn doesn't
+fail. Mechanism: meridian-cli `lib/harness/projections/.context/CONTEXT.md`.
 
 Other keys Meridian computes itself (model, reasoning effort, compaction, sandbox, approval,
 writable roots, notify, web search, `features.*`, `agents.*`) are skipped with a report

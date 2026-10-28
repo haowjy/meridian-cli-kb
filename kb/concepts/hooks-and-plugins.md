@@ -69,10 +69,9 @@ graph TD
 Every hook failure logs and continues; no hook can stop the event that fired
 it. The pre-0.11 names (`spawn.start`, `spawn.running`, `spawn.finalized`,
 `work.start`, `work.started`, `session.responded`, `session.cache_expiring`)
-still load for one minor release: the row registers on the replacement event,
-warns once, and keeps receiving its configured name as `event_name`. They
-become load errors in the next minor release. Why the names changed, how the
-deprecation window behaves, and what activation excludes are in
+are rejected since meridian-cli 0.17.0: the row is invalid, and the error names
+the replacement (meridian-cli `docs/upgrading.md`, "Removed hook names and
+keys"). Why the names changed and what activation excludes are in
 [The Hook Event Contract](../decisions/hook-event-contract.md).
 
 ---
@@ -113,10 +112,9 @@ Key configuration fields:
 | `when.kind` | Filter by spawn kind: `child`, `primary`, `streaming`; spawn and notification events |
 
 A row that names its `event` and sets a condition that event can never supply
-(work events supply neither `when.agent` nor `when.kind`) warns and is skipped
-during the deprecation window, and fails load in the next minor release. The
-same window covers `failure_policy`, which loads with a warning and no effect,
-and `when.status = ["skipped"]`, whose `skipped` value is dropped. An unevented builtin
+(work events supply neither `when.agent` nor `when.kind`) is invalid, and so are
+`failure_policy` and `when.status = ["skipped"]`. `hooks check` and `hooks list`
+report an invalid row; dispatch drops it and keeps the valid rows. An unevented builtin
 row keeps the default events its conditions can match and records the rest as
 disabled overrides, which still replace lower-layer rows of the same
 `(name, event)`. It fails only if no default can match. The `EVENTS` table in

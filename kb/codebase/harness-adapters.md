@@ -225,17 +225,19 @@ OpenCode v2 got none because it ignores `instructions` and has no message
 
 ## Claude Native Agent Routing
 
-Claude Code's `Agent` tool is gated by Mars `[settings.meridian.agent_copy]`. When
-`harnesses = ["claude"]` and `.claude` is in targets, generic `Agent` is allowed
-(the native agent surface is Meridian-owned). `targets` is the Mars setting listing
-the harness directories Mars installs into. Without agent copy, `Agent` is denied
-and delegation routes through `meridian spawn`. Built-in subagents (`Explore`,
+Claude Code's generic `Agent` tool is allowed when the last Mars sync installed at
+least one agent into Claude's native directory, as recorded in `.mars/native-agents.json`
+(meridian-cli #805). Whatever caused it counts: `[settings.meridian.agent_copy]` in any
+Mars config layer, `agent_emission = "always"`, or a bare `mars sync` outside Meridian.
+Otherwise `Agent` is denied and delegation routes through `meridian spawn`. Meridian
+reads the ledger instead of Mars config ([D108](../decisions/package-management.md#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28)). Built-in subagents (`Explore`,
 `Plan`, `General-purpose`/`general-purpose`) are denied unless
 `[harness.claude] allow_builtin_agents = true`.
 
 Since v0.12.0 both denies are platform rules:
 `bind_launch_context()` asks `catalog/agent_copy.py:agent_copy_enabled()` (reads
-`mars.toml` and `mars.local.toml`), `launch_permission_rules()` adds the sub-agent deny
+`.mars/native-agents.json`; missing, malformed or unknown-version means off),
+`launch_permission_rules()` adds the sub-agent deny
 with the names from the bundle's `tools.capability_natives`, and the Claude permission
 compile emits it. No profile rule opts out of the sub-agent deny
 ([D-permission-platform-rules](../decisions/tool-permissions.md#d-permission-platform-rules)).

@@ -271,7 +271,7 @@ sets only: tool grants, tool denies, network allow hosts and network deny hosts.
 sets, a plain list adds to what lower surfaces gave (union, canonicalised and deduplicated),
 and `{ replace = [...] }` discards lower surfaces' entries for that set before higher
 surfaces add again. A package profile cannot replace a deny set, and denies win over allows
-at enforcement. Surfaces, low to high: user config, `mars.toml` `[settings]`,
+at enforcement. Surfaces, low to high: the Mars user `config.toml`, `mars.toml` `[settings]`,
 `mars.local.toml` `[settings]`, profile, overlay, CLI. CLI host flags only add. Every other
 list keeps list replacement or whole-entry replacement. The authoritative statement is Mars `docs/config/mars-toml.md`
 ("Default merge semantics").
@@ -287,7 +287,7 @@ only scalars and `harness_order` in overlays, so nothing depended on set replace
 
 **Why a profile cannot replace a deny set:** package profiles sit above the consumer's
 `[settings]`, so a replaceable deny would let a package erase a company's denies. Replacing an
-allow set only narrows, so profiles may do it. Consumer surfaces (user config, `mars.toml`,
+allow set only narrows, so profiles may do it. Consumer surfaces (the Mars user `config.toml`, `mars.toml`,
 `mars.local.toml`, overlays) may replace anything they own; to remove a deny, delete it from
 the surface that set it.
 
@@ -308,8 +308,8 @@ form (a narrower one-off list uses `--network allowlist` with an overlay or prof
 after the profile's rules:
 
 - **Sub-agent deny.** Native sub-agent tools are denied on every launch unless
-  the project's Mars config makes native agent copies the delegation mechanism
-  for that harness. No profile rule opts out, scoped allows included, because
+  the last Mars sync installed native agent copies for that harness
+  (`.mars/native-agents.json`), making them the delegation mechanism. No profile rule opts out, scoped allows included, because
   Meridian cannot track work started that way. Built-in agents are denied
   unless `[harness.<id>] allow_builtin_agents = true`.
 - **Task-list deny on spawns,** unless the profile has an explicit unscoped

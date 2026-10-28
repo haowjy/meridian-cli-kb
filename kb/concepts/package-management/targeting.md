@@ -18,7 +18,7 @@ graph TD
     MODELS[".mars/models-merged.json"]
 
     CLAUDE[".claude/\nskills/ agents/ settings.json .mcp.json"]
-    CODEX[".codex/\nskills/ agents/ codex_mcp.json codex_hooks.json"]
+    CODEX[".codex/\nskills/ agents/ config.toml hooks.json"]
     OPENCODE[".opencode/\nskills/ agents/ opencode.json"]
     CURSOR[".cursor/\nskills/ agents/ mcp.json"]
     PI[".pi/skills/"]
@@ -117,10 +117,10 @@ MCP server and hook entries are compiled into harness-specific config files:
 | Harness | MCP location | Hook location |
 |---|---|---|
 | Claude | `.mcp.json` (project root) | `.claude/settings.local.json` `hooks` key |
-| Codex | `.codex/codex_mcp.json` | `.codex/hooks.json` |
-| OpenCode | `opencode.json mcp.<name>` | `.opencode/plugins/mars-<name>.ts` (file fragment) |
+| Codex | `.codex/config.toml` `[mcp_servers.<name>]` | `.codex/hooks.json` |
+| OpenCode | `.opencode/opencode.json` `mcp.<name>` | `.opencode/plugins/mars-<name>.ts` (file fragment) |
 | Cursor | `.cursor/mcp.json` | `.cursor/hooks.json` (MergeJson) |
-| Pi | N/A | `.pi/extensions/mars-<name>.ts` (file fragment) |
+| Pi | `.pi/mcp.json` | `.pi/extensions/mars-<name>.ts` (file fragment) |
 
 Mars manages its entries in these files without touching user-managed entries
 (append-and-lock approach). Stale entries from removed packages are cleaned up

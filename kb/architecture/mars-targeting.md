@@ -132,15 +132,15 @@ Mars compiles the same source profile to each target's native format.
 
 ## MCP and Hooks
 
-MCP config and hooks are also compiled to native harness directories:
+MCP config and hooks are also compiled to native harness directories (MCP paths as of Mars 0.24; mars-agents `docs/config/mcp-and-hooks.md` is the reference):
 
 | Harness | MCP location | Hook mode | Hook destination |
 |---------|-------------|-----------|------------------|
-| Claude | `.claude/.mcp.json` | MergeJson | `.claude/settings.local.json` `hooks` key |
-| Codex | `.codex/codex_mcp.json` | MergeJson | `.codex/hooks.json` |
+| Claude | `.mcp.json` (project root) | MergeJson | `.claude/settings.local.json` `hooks` key |
+| Codex | `.codex/config.toml` `[mcp_servers.<name>]` | MergeJson (hooks); MCP merges into TOML | `.codex/hooks.json` |
 | Cursor | `.cursor/mcp.json` | MergeJson | `.cursor/hooks.json` (mars-owned `version: 1` wrapper) |
-| OpenCode | `opencode.json mcp.<name>` | File | `.opencode/plugins/mars-<name>.ts` |
-| Pi | N/A | File | `.pi/extensions/mars-<name>.ts` |
+| OpenCode | `.opencode/opencode.json` `mcp.<name>` | File | `.opencode/plugins/mars-<name>.ts` |
+| Pi | `.pi/mcp.json` | File | `.pi/extensions/mars-<name>.ts` |
 
 Mars manages its entries in these files without touching user-managed entries
 (append-and-lock approach). A server whose `command` or `args` names

@@ -207,7 +207,7 @@ sources_not_searched`.
 **Archived chats** keep their binding and native file, so corpus search includes them.
 Search has no `--include-archives`. In `session browse`, archived rows appear under
 Status: Archived, and `/` searches the rows that view shows; the picker's own
-`--include-archives` flag is deprecated with no effect (meridian-cli PR #714).
+`--include-archives` flag was removed in meridian-cli 0.17.0 (#796).
 
 **`session index`.**
 - `rebuild` imports configured archive ZIPs, rebuilds the metadata index, then unlinks

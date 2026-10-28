@@ -79,8 +79,8 @@ bindings.
 
 **Status (2026-05): Partially resolved** — Mars now manages MCP server
 registrations as first-class config-entry artifacts: packages declare MCP
-servers, Mars materializes them into each target's MCP config (`.claude/.mcp.json`,
-`.codex/codex_mcp.json`, …), tracks provenance in `mars.lock`, and removes stale
+servers, Mars materializes them into each target's MCP config (`.mcp.json`,
+`.codex/config.toml`, …), tracks provenance in `mars.lock`, and removes stale
 entries when packages change. Collisions rank by shortest dependency depth, then
 declaration order, then name (D103). A package can also ship a server's files and name them with `${MARS_MCP_DIR}`
 ([D104](../decisions/package-management.md#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).

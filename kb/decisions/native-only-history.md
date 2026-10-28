@@ -458,7 +458,7 @@ copies. On this project only 15 Claude spawns (13 MB) were affected.
   `session browse --include-archives` stays, as a filter that adds archived rows to
   the picker (V1's call; it filters rows and no longer selects a read source).
   *Superseded 2026-10-21:* the picker's Status: Archived view replaces the flag,
-  which is deprecated with no effect
+  and the flag was removed in meridian-cli 0.17.0
   ([D-browse-query-before-limit](session-browse.md#d-browse-query-before-limit)).
 - **Result caps.** Search no longer truncates because a time budget ran out, and
   every hit is verified exactly. Common words still fill the 100-match cap with the

@@ -124,9 +124,10 @@ query left the TUI filter in place for a while, and two matchers drift; the one 
 sees only the loaded page is wrong by construction, so it was deleted.
 
 `/` remains transcript search over the rows the Status view shows. The old
-`--include-archives` flag is accepted with a warning and has no effect, for one
-minor release ([compatibility policy](compatibility-versioning.md)), because Status:
-Archived replaced it.
+`--include-archives` flag was removed in meridian-cli 0.17.0, after one minor release
+of being accepted with a warning and no effect
+([compatibility policy](compatibility-versioning.md)), because Status: Archived
+replaced it.
 
 ## D-browse-lineage-view: lineage is top-level `--fork` and `--from` ancestry of primary sessions {#d-browse-lineage-view}
 
