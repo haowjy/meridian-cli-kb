@@ -1,6 +1,6 @@
 # Test Determinism Infrastructure
 
-Meridian's test suite uses deterministic helpers to replace wall-clock sleeps with controlled fake-time advancement. This eliminates nondeterministic timing flakiness from async and multiprocess tests.
+Meridian's test suite uses deterministic helpers to replace wall-clock sleeps with controlled fake-time advancement, so a test's outcome doesn't depend on how fast the machine runs. Fake time covers only code that reads the patched clock; the sections below cover the other sources of flakiness (file-versus-API windows, processes still writing, interpreter boundaries).
 
 A flaky test is fixed this way or deleted; it is never retried, skipped or given a longer timeout ([D-no-flaky-tests](../decisions/testing.md#d-no-flaky-tests-fix-it-or-delete-it)). Each fake clock in Python comes from `tests.support.fakes.FakeClock`; don't add a local clock stub.
 

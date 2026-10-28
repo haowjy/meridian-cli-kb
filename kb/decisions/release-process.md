@@ -137,11 +137,13 @@ the same labels.
 
 **Why it is recorded here.** Agents reached for `release:minor` when a change
 felt big rather than when it broke something. The owner asked "why is 796
-minor...?" and "why is 254 minor?": #796 removed expired deprecations, so it
-stayed minor; #254 only widened the user `config.toml`, so it was relabelled
-patch. Mars #249 (OpenCode plugin agents, a pure addition) had already merged
-as `release:minor` and shipped as Mars 0.23.0 instead of a patch; it was left
-as released.
+minor...?" and "why is 254 minor?". meridian-cli #796 removed expired
+deprecations, so config that used to load now fails: breaking, so it stayed
+minor. mars-agents #254 only let the user `config.toml` accept more keys:
+nothing that worked stopped working, so it was relabelled patch. mars-agents
+#249 (OpenCode plugin agents, a pure addition) had already merged as
+`release:minor` and shipped as Mars 0.23.0 instead of a patch; it was left as
+released.
 
 ## D-integration-branch: breaking work split across PRs ships as one release
 
@@ -163,9 +165,10 @@ their own (only `main`'s first-parent commits reach the renderer), so their
 **Related CI change.** The PR-body check compares a PR's `CHANGELOG.md`
 against the tip of its base branch (`origin/<base ref>`), not
 `pull_request.base.sha`, which GitHub doesn't refresh when the base moves and
-only the body is edited (meridian-cli #806, mars-agents #276). Before the fix,
-#798 failed for the `## [0.16.4]` section `main` had gained after the branch
-was cut.
+only the body is edited (meridian-cli #806, mars-agents #276). With the stale
+SHA, a release section `main` gained later (`## [0.16.4]`) is in the PR's
+merge commit but not in the old base copy, so the check blamed #798 for
+adding it.
 
 ---
 

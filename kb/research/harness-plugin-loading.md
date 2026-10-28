@@ -100,14 +100,16 @@ What a Claude-format tree gets on Codex:
   hook commands run unchanged.
 - **Agents are not loaded.** Codex has no plugin agent component; subagents
   come from host TOML configuration. The agent files survive in the cache and
-  do nothing. A plugin also cannot install loose `.codex/agents/*.toml` into a
+  do nothing (the agent definitions shipped in the shared Claude-format tree).
+  A plugin also cannot install loose `.codex/agents/*.toml` into a
   user's project. Mars prints one warning that Codex plugin users get skills
   and hooks but not agents; users who want the agents install with mars.
   Rechecked at `rust-v0.165.0` on 2026-10-28: the manifest type still has no
   `agents` field. The upstream PR that would have added plugin agents
   (openai/codex#28845) closed unmerged. The owner chose to wait for upstream
-  rather than work around it
-  ([mars-agents#256](https://github.com/haowjy/mars-agents/issues/256)).
+  ([mars-agents#256](https://github.com/haowjy/mars-agents/issues/256)) over
+  the workaround of shipping each agent as a skill, which can't carry the
+  agent's tool and permission limits.
 - **MCP servers are callable**, but environment reaches them only one way.
   Codex forwards a variable listed by bare name in `env_vars`. It passes
   `"env": {"X": "${X}"}` and `$X` through literally, and a server with no
@@ -151,8 +153,7 @@ variable exists.
 - **Agents** are registered in code. In OpenCode v2,
   `ctx.agent.editor.update(id, fn)` creates the agent when the id is new, and
   the `subagent` tool can then spawn it (read from OpenCode 2.2.0 source on
-  2026-10-28; the 2.1.x study took the editor's missing `add` to mean plugins
-  can't create agents). `Agent.Info` has no skills field, so a plugin agent
+  2026-10-28). `Agent.Info` has no skills field, so a plugin agent
   can't preload skills; Mars keeps them as body guidance. Mars's generated
   `index.mjs` registers each agent as `<plugin>:<agent>` since Mars 0.23.0
   (mars-agents#249). An agent whose model has no provider-qualified id keeps

@@ -1383,8 +1383,9 @@ depends on one machine's file.
 
 **Why.** Asked to review a new user-level `local.toml`, the owner asked
 whether it "shouldn't it be called ~/config/mars/mars.local.toml". The lead
-answered that the name follows the rank: a `mars.local.toml` reads as "mine,
-everywhere" and would rank above the committed project file, while a file
+answered that the name follows the rank. In Mars a `.local` file outranks the
+file it sits beside (`mars.local.toml` over `mars.toml`), so a user
+`mars.local.toml` would promise to outrank every project; a file
 ranked below the project should follow the user-file pattern already in use
 (`curated.toml` drops both `mars.` and `.local`), which makes it the existing
 `config.toml`. The owner: "oh yeah, it should just be included in the
@@ -1406,9 +1407,8 @@ an effective setting gets it wrong; see
 
 ### D108: Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28)
 
-**Status:** Current choice (tech lead), applied in meridian-cli#805
-(released in 0.17.0, closes #799). The owner approved the fix's scope, not
-the rule in these words.
+**Status:** Current choice (tech lead; the owner approved the #799 fix, not
+this general wording), applied in meridian-cli#805 (released in 0.17.0).
 
 **Decision.** When Meridian needs an effective Mars setting, it asks Mars or
 reads a file Mars wrote: the launch bundle, `mars … --json` output,
@@ -1418,7 +1418,9 @@ reads a file Mars wrote: the launch bundle, `mars … --json` output,
 itself. Checking that a `mars.toml` exists, to locate the Mars root
 (`lib/catalog/mars_roots.py`), is not reading config. Each Mars-written file is
 read the same way: missing, unreadable, malformed or an unknown `version`
-means "not known" and degrades to the safe default, never a crash.
+means "not known", never a crash. For `native-agents.json` that means no
+native agents, so Claude's `Agent` stays denied; for `models-merged.json` it
+means no dependency aliases from that file.
 
 **Why.** Before #805, `lib/catalog/agent_copy.py` parsed `mars.toml` and
 `mars.local.toml` to decide whether Claude's native `Agent` tool should stay

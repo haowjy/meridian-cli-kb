@@ -85,10 +85,13 @@ keeps the test's cost. The owner: "Tests that fail intermittently under load
 
 - **Fix it** when it pins real behaviour nothing else covers and the timing
   dependence can be removed.
-- **Delete it** when it duplicates other coverage, pins implementation, or
-  can only pass by racing. Before deleting, break the product code it guards
-  and run the rest of the suite: if nothing else fails, the test is the only
-  coverage and stays. In #809 the owner asked "do we even need the tests...",
+- **Delete it** when it duplicates other coverage or pins implementation.
+  Before deleting, break the product code it guards and run the rest of the
+  suite: if nothing else fails, the test is the only coverage, so it is
+  rewritten to be deterministic rather than deleted. A test that can only pass
+  by racing and is the only coverage gets rewritten at a seam that removes the
+  race (an injected clock, an explicit gate); if no such seam exists, adding
+  one is part of the fix. In #809 the owner asked "do we even need the tests...",
   five tests were deleted, and this check reversed two of the deletions (the
   OpenCode idle-sensor and TTL wiring, and the message naming which
   `state.json` is quarantined); in each, the mutation failed only the deleted
@@ -96,8 +99,8 @@ keeps the test's cost. The owner: "Tests that fail intermittently under load
 - **A flake can be a product bug.** Two in #809 were: the Pi managed-bash
   task faulted when `ps` failed or timed out during terminate, and Ctrl-C
   arriving during `Thread.start()` in the primary runner left the child
-  running. Those were fixed in the product, which is why a test-only PR
-  shipped as `release:patch`.
+  running. Both were fixed in the product in the same PR, which therefore
+  shipped as `release:patch` instead of `release:skip`.
 
 **How a test becomes deterministic** (mechanism and cases in
 [test-determinism.md](../codebase/test-determinism.md)):

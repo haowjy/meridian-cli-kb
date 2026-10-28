@@ -3,6 +3,23 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-28 — post-0.19 follow-ups capture (meridian-cli 0.17.0–0.17.2, Mars 0.23–0.24)
+
+New decisions D106 (OpenCode plugin agents keep the default model), D107 (the user
+Mars `config.toml` layer), D108 (Meridian reads what Mars wrote) in
+[package management](decisions/package-management.md); D-no-flaky-tests in
+[testing](decisions/testing.md); D-minor-means-breaking and D-integration-branch in
+[release process](decisions/release-process.md). D100's OpenCode clause revised:
+OpenCode plugins now carry agents. Plugin loading research updated for OpenCode
+`ctx.agent` and the Codex recheck. Test determinism: wait deadlines, signal timeouts,
+and a raised-timeout remedy removed. Stale passages fixed after #795/#796/#797/#805
+and Mars 0.24: Codex `network_access`, hook deprecation window, `--include-archives`,
+agent-copy detection, MCP file paths, deleted symbols, `[defaults]`/`[primary]`
+model keys, old "unmerged" status lines. New vocabulary row separating the three
+"user config" locations. Corrections: two classes promoted (release labels, prompt
+edits routed to coders), candidates added.
+
+---
 ## 2026-10-28 — One ref parser and `locate()` (meridian-cli `refactor/ref-resolution`, #800)
 
 New [ref classification](decisions/ref-classification.md) page: D-ref-by-shape and
