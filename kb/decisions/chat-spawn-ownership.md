@@ -42,7 +42,7 @@ that chat's family, children included - wtf this is bad???"
    `spawn show`, `status`, `children`, `wait`, `cancel`, `done`, `rearm`,
    `report`, `message`, `--continue`, `--fork` and `--from`. This is the owner's
    ruling; changing it needs the owner.
-2. **Two questions, two owners.**
+2. **Two questions, two answers.**
    - *Whose chat is this?* `session_identity.chat_owner_spawn` answers it alone. It
      walks the chat's session generations from newest to oldest and returns the
      first generation's `spawn_id` whose spawn row exists. It reads no index and
@@ -148,11 +148,12 @@ concern, `chat:c9695`). Built on meridian-cli branch `refactor/ref-resolution`
 ### Problem
 
 Continue moved a chat's owner before the new run had started. A `--bg` continue
-published its spawn as the chat's owner from the parent, before handing off to
-the worker, so that a second continue in the hand-off window would see the chat
-busy instead of launching beside it. Once #800 made a held chat refuse a continue
-within seconds, refused and failed continues became common, and each one left the
-chat pointing at a run that never ran. The first fix withdrew the link on each
+linked its spawn to the chat from the parent, before handing off to the worker,
+so that a second continue in the hand-off window would see the chat busy instead
+of launching beside it. A continue that then failed before its session started
+left the chat's owner pointing at a run that never ran. Before #800 such a
+continue mostly hung on the chat lock; once a held chat refused within two
+seconds, a probe hit the flipped owner directly. The first fix withdrew the link on each
 failure exit; the next review found more exits. Separately, a spawn row was
 reserved with its caller's chat as a placeholder until its session bound its own,
 and `continue_chat_id` falls back to that field, so a continue refused before its
@@ -160,23 +161,31 @@ session started resumed or read the caller's conversation.
 
 ### Decision
 
-1. **The session start event is the only writer of a chat's owner.** The
-   pre-start publish and its withdrawal are deleted. Two racing continues no
-   longer both run a harness because `start_session` takes the chat's lifetime
-   lock: it waits at most two seconds for it, then refuses with "Chat cN is
-   held". The loser fails in its worker, and only one harness runs, for racing
-   and for back-to-back continues alike.
-2. **An exact continue reserves its row with its own target chat**, so a continue
-   refused before its session starts still names the chat it was continuing.
+1. **The session start event is the only writer of the generation→spawn link
+   that ownership is read from.** The pre-start link and its withdrawal are
+   deleted. Two continues of one chat can no longer run harnesses at the same
+   time, because `start_session` takes the chat's lifetime lock: it waits at
+   most two seconds, then refuses with "Chat cN is held". The loser's
+   `start_session` refuses (for `--bg`, in its worker, after the launching
+   command has returned). A later continue runs normally once the first exits.
+2. **An exact continue reserves its row with its own target chat.** An exact
+   continue (`--continue pN` or `--continue cN`) resumes that chat's session in
+   place, unlike `--fork` or a fresh child. Its row now names the target chat
+   from the start, so a continue refused before its session starts still
+   names the chat it was continuing.
 3. **The continue sweep keeps refusing a live owner, including one that ran
-   `/clear`.** A run holds its entry chat's lock until it exits, even after
-   `/clear` moved it to another chat, so letting that continue through would
-   only turn a clear refusal into a wait on the lock. The refusal now says the
-   owner has moved on.
+   `/clear`.** Before any row is written, the sweep tries the chat owner's
+   launch lock ([PR 2 as built](spawn-identity.md#pr-2-as-built-the-launch-lock-and-the-sweep))
+   and refuses if the owner is still running. A run holds its entry chat's
+   lifetime lock until it exits, even after `/clear` moved it to another
+   chat, so letting that continue through would only trade the refusal for a
+   wait on the lock. The refusal now says the owner has moved on.
 
-The cost: during the hand-off window, `spawn show`, `wait`, `cancel` and
-`message` by chat ID name the previous run, and a racer's refusal arrives from
-its worker rather than the command that launched it. A fresh child's
+The cost: from the continue's launch until its session's start event, `spawn
+show`, `wait` and `cancel` by chat ID name the previous run, which may already
+have finished, and `spawn message` refuses the chat if that run isn't live. A
+`--bg` racer's refusal arrives from its worker rather than the command that
+launched it. A fresh child's
 placeholder chat is unchanged (meridian-cli #810): reserving it with no chat
 needs every reader that groups children by `chat_id` to switch to
 `owner_chat_id`.

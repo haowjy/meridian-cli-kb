@@ -63,7 +63,8 @@ chat (one took the lowest chat, the other the highest).
    record is "untracked", and only where acting on a session Meridian never
    saw is a feature: primary `--continue` and `--fork`, `spawn --fork`, and the
    session read commands. `spawn --continue` refuses it, because it needs the
-   spawn's retained metadata.
+   spawn's retained metadata, and the spawn commands (`show`, `cancel` and the
+   rest) report it not found: there is no spawn to act on.
 3. **One native lookup.** `session_store.native_generations` finds a raw
    harness ID on any generation and picks the newest generation that has a
    native session key, else the newest. Resume and read share it. An ID
@@ -119,11 +120,13 @@ The rules behind the table:
    new state, and the docs steer users to `meridian --continue` and
    `meridian session browse`.
 3. **The occupant query is the one history-index read on this path.** It
-   reads the index's running spawns, rather than every spawn's state file.
-   When the index can't answer (incomplete, or a coordination error) the
-   command names the owner instead of failing. The index can only nominate
-   the occupant here: a damaged index degrades the answer to the owner, which
-   comes from the session journal, the authoritative file.
+   reads the index's running spawns, rather than every spawn's state file, and
+   checks each candidate whose current chat matches against its live session
+   lease and process scope before naming it. When the index can't answer (it
+   raises `HistoryIndexIncomplete` or a coordination error) the command names
+   the owner instead of failing. So the index only nominates: a candidate that
+   isn't live is skipped, and a missing one degrades the answer to the owner,
+   which comes from the session journal, the authoritative file.
 4. **Reading keeps fallbacks that resuming refuses.** The read commands still
    find reclaimed spawns and archive aliases through the history index,
    portable history UUIDs, and restored historical records. Reading an old
@@ -148,9 +151,10 @@ owner ruling.
 - Until a continuing run's session starts, `spawn show`, `wait`, `cancel` and
   `message` by chat ID name the previous run
   ([D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start)).
-- A fresh child that fails before its session starts carries its caller's chat
-  as a placeholder, so resuming or reading it opens the caller's conversation
-  (meridian-cli #810).
+- A fresh child spawn that fails before its session starts carries its
+  caller's chat as a placeholder, so `--continue pN` or `session log pN` on it
+  opens the caller's conversation. This is a known bug, open as meridian-cli
+  #810.
 
 ### Rejected
 

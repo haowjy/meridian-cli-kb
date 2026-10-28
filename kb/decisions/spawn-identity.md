@@ -188,12 +188,13 @@ shows them.
 | 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
 | 7 | Continue keeps the spawn ID | not started |
 
-PR 5 is independent and must land before 6. PRs 4–7 are unbuilt as of
-2026-10-28; after #800 ships, the owner wants a session dedicated to them: "PRs
-4-7 are unbuilt oh... after this... we shoul start another session dedicated to
-getting that back on track...", carrying #800's context "because its releated"
-([ref classification](ref-classification.md),
-[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start)). PR 2's residuals are listed
+PR 5 is independent and must land before 6. As of 2026-10-28, PRs 4, 6 and 7
+are not started and PR 5 is unmerged. The owner wants a session dedicated to
+them after #800 ships ("after this... we shoul start another session dedicated
+to getting that back on track..."), carrying #800's context "because its
+releated": PR 7 changes what a spawn ID names across continues, which the
+[ref classification](ref-classification.md) and
+[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start) rules depend on. PR 2's residuals are listed
 [below](#pr-2-as-built-the-launch-lock-and-the-sweep), and PR 3's
 [after them](#pr-3-as-built-read_derived-and-one-dead-launch-finalize).
 
@@ -252,11 +253,12 @@ second continue in that window would see the chat busy (`spawn:p8373`, reproduce
 with SIGSTOP); two truly concurrent continues of a dead source could still both
 start. On branch `refactor/ref-resolution` (#800, not merged as of 2026-10-28)
 that publish is deleted: `start_session` takes the chat's lifetime lock with a
-two-second bound and refuses the loser, which fails in its worker. One harness
-runs, racing or back to back, and `test_concurrent_continue_of_dead_source` now
+two-second bound and refuses the loser (a `--bg` loser fails in its worker). No
+two harnesses run on one chat at once, and `test_concurrent_continue_of_dead_source` now
 passes instead of being an expected failure. Why the publish went:
-[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start). PR 7's reopen
-contract, where continue keeps the spawn ID, still replaces this interim design.
+[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start). PR 7, where
+continue keeps the spawn ID, is still meant to replace this interim design; whether
+it keeps the bounded chat lock is not settled.
 
 **Accepted residuals:**
 - A cancel during the `--bg` hand-off window can SIGTERM the parent instead of the
