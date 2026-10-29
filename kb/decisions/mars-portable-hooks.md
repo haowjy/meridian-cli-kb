@@ -28,9 +28,9 @@ flowchart LR
 
 ## D-hooks-join-the-pipeline: hooks import and render like agents and skills
 
-**Decision (owner).** Hooks get one model in Mars's form, importers from each
-harness dialect and a renderer for each target, the same pipeline agents and
-skills use. Any Claude event may be declared; the per-target table decides
+**Decision (owner).** Hooks get one model in Mars's form, a renderer for each
+target and (planned for 0.26, not built) importers from each harness dialect:
+the same pipeline agents and skills use. Any Claude event may be declared; the per-target table decides
 where it renders, and every skip is reported. There is no list of "portable
 events" for authors to learn.
 
@@ -51,18 +51,23 @@ needed a second schema for every later kind of hook.
 groups hold `[[hooks.<Event>.hooks]]` handlers, with Claude's event and field
 names spelled exactly, camelCase included (`onFailure`, `statusMessage`). A
 script reads Claude's hook input on stdin and answers with exit 2 or Claude's
-JSON, limited to the answers every target shares for that event. `if` and
-`onFailure` keep Claude's meaning and defaults: a failing script lets the
-action run unless `onFailure = "block"`.
+JSON, limited to the answers every target shares for that event (the table
+is "What a script may answer" in mars-agents `docs/config/mcp-and-hooks.md`).
+`if` and `onFailure` keep Claude's meaning and defaults: a failing script lets
+the action run unless `onFailure = "block"`, which Claude 2.1.295+ and the
+generated OpenCode and Pi glue honour and Codex ignores.
 
 The owner: "make our syntax as close as possible to claude i think (for most
 stuf...?) although i guess we are using toml... at least be able to read
 claude hooks and spit out mars stuff".
 
-**Why.** Claude's shape already arrives natively in Claude, Codex and Cursor,
-which run a command, not code Mars controls; a Mars-defined neutral JSON would
-need a translator process inside each, and none of python3, node or `mars` is
-guaranteed to be installed. Copying Claude's names keeps import and export a
+**Why.** The script's stdin and stdout are runtime data, not config, so Mars
+can't convert them at sync time. Claude, Codex and Cursor already pass the
+script Claude-shaped input and read Claude-shaped answers, and they run the
+command directly, with no Mars code in between. A Mars-defined neutral JSON
+would need a translator process wrapped around every command on those
+harnesses, and none of python3, node or `mars` is guaranteed to be installed.
+OpenCode and Pi run Mars-generated TypeScript, which translates in place. Copying Claude's names keeps import and export a
 transcription. The answer limit exists because Codex parses every answer
 strictly (see the harness facts below).
 
@@ -92,17 +97,18 @@ file, or write files into a directory), its events with the matcher field
 each tests, its answer translation and the harness version last verified. The
 binary keeps placement on disk, lock ownership, kept hooks and sync
 diagnostics. The reader takes text and returns path-free diagnostics; the
-binary adds the location once.
+binary adds the location once. Keep it this way: a hook rule added in the
+binary is invisible to WASM consumers and to the importers.
 
 **Why.** Two consumers need the rules without the binary. Meridian Flow runs
 `mars-schema` as WASM and can preview every target's output (the
-`renderHooks` export). The 0.26 importers are the reverse of the same table,
-so they key on the `Target` row (a `dialect` field) instead of a second
-table. The final review found each target's hook facts in four places (the
-schema table, a string dispatch in the TypeScript renderer with a silent Pi
-fallback, an OpenCode check in the binary and the binary's own file table);
-collapsing them into one row is what a new harness version or a new target
-now changes.
+`renderHooks` export). The planned 0.26 importers are the reverse of the
+same table, so the plan is to add the dialect to the `Target` row (no such
+field exists yet) rather than build a second table. One row per target also
+means a new harness version or a new target changes one place; when the facts
+were spread over four (the schema table, a string dispatch in the TypeScript
+renderer that fell back to Pi, an OpenCode check in the binary, the binary's
+own file table), they drifted apart.
 
 **Rejected.** Hook parsing in the binary (`src/compiler/hooks/`), which left
 WASM unable to read hooks; and MCP's split, where the canonical form is
@@ -114,11 +120,14 @@ Rendering is pure text generation, so it belongs in the crate.
 **Decision (design lead, from review).** Each renderer checks its output
 against what the target's parser accepts. For Codex: `type` only `command` or
 `mcp_tool` (no `mcp_tool` on `SessionEnd`), `timeout` as whole seconds rounded
-up, no `null`s. Everything dropped is reported. A test deserializes every
-rendered Codex document against mirrored copies of Codex's config structs, so
-the hand-kept list can't drift silently. The Claude plugin tree is read by
-Claude, Codex and Grok, so its `hooks/hooks.json` gets the same Codex check
-while keeping Claude's event set.
+up, no `null`s. Everything dropped is reported.
+`crates/mars-schema/tests/codex_hooks_mirror.rs` deserializes rendered Codex
+documents against copies of Codex 0.164.0's config structs, so the renderer
+and the mirror can't disagree; the mirror itself is updated by hand when Codex
+changes, which is what `scripts/hook-smoke` (manual, live) is for. The Claude
+plugin tree is read by Claude, Codex and Grok, so its `hooks/hooks.json` keeps
+Claude's event set (Codex ignores events it doesn't know inside `"hooks"`) but
+drops the handlers Codex can't parse.
 
 **Why.** On Codex one handler it can't parse discards the whole
 `.codex/hooks.json`, so every hook in it stops running, the user's own
@@ -135,7 +144,8 @@ have let one `http` handler in a dependency disable the project's guards.
   hook's other events render. Any other failure, including one bad handler
   `timeout` or `onFailure`, keeps the whole hook exactly as the previous sync
   installed it, on every target and in its position in each event array, and
-  warns `hook-invalid-kept` naming the package and version.
+  warns `hook-invalid-kept` naming the package and version. A broken hook
+  that was never installed installs nothing, with the same warning.
 - Unknown fields inside handlers and matcher groups always pass through.
 
 **Why.** Staying strict everywhere means every field or Claude event a later
@@ -158,12 +168,14 @@ recording the directory.
 ## D-fragments-override-per-event: one writer per event on merge targets
 
 **Decision (design lead, from review).** On merge targets a native fragment
-replaces the generated entries only for the events it declares; an empty
-array turns an event off. On file targets the fragment installs beside the
+replaces this hook's generated entries only for the events it declares; an
+empty array turns that event off for this hook alone. On file targets the fragment installs beside the
 generated file. `skip-targets` drops the generated hook from a target
 entirely; with a fragment, that is the escape hatch when a harness API changes
-before Mars does. When `[hooks]` is present every target table must name its
-`fragment`, so a leftover `<target>.json` is never picked up silently.
+before Mars does. When `[hooks]` is present every target table
+(`[targets.".codex"]`) must name its `fragment = "codex.json"`, so a leftover
+`<target>.json` is never picked up silently; examples are under "Native
+fragments" in the mars-agents doc.
 
 **Why.** The first version let a fragment replace every generated entry of the
 hook on its target. A Codex import (portable `PreToolUse` plus a Codex-only
@@ -241,19 +253,22 @@ the reasons the rules above exist.
   effect is `ask`; under `--auto` or an `allow` rule the hook never fires.
 - The `patch` tool is an edit: it arrives like Codex's `apply_patch`, so an
   `Edit|Write` guard must parse the patch text or it is bypassed.
-- A failing shell command reports as completed with `exit: 1`; there is no
-  per-session start hook; the compaction callback doesn't say why it ran, so
-  `PreCompact` has no matcher there.
+- A failing shell command reports as completed with `exit: 1`, so
+  `PostToolUseFailure` is approximate there. There is no per-session start
+  hook, so `SessionStart` is skipped. The compaction callback doesn't say why
+  it ran, so a `PreCompact` group with a matcher is skipped.
 
 **Pi**
 - Emits `session_start` twice when a session is replaced; the generated glue
-  runs the script once per session id. Its `new` reason is Claude's `clear`.
+  runs the script once per session id. Its `new` reason (`/new` replaces the
+  conversation) reaches the script as Claude's `source: "clear"`.
 - `session_compact` fires after a successful compaction;
   `session_before_compact` returning `{cancel: true}` cancels it.
 
-## Hazard: a tmux guard blocks text that merely quotes the command
+## Hazard for agents testing the tmux guard
 
-`protect-tmux-server` is a `PreToolUse` guard on shell commands that refuses a
+meridian-base's `protect-tmux-server`, the hook this feature was built to
+carry, is a `PreToolUse` guard on shell commands that refuses a
 `tmux kill-session` (and similar) aimed at the default server. It matches the
 command text, so it also refuses a heredoc or `echo` that only quotes such a
 command, for example while writing a test, a doc or a commit message about the
