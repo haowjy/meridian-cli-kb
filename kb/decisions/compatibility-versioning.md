@@ -68,6 +68,16 @@ in the next minor. The hook contract is the first use; its window lives in
 Removals are tracked in the owning directory's `.context/TODO` (for hooks,
 meridian-cli `src/meridian/lib/hooks/.context/TODO`).
 
+**A field in a command's JSON output is CLI surface.** The written rule
+names config keys, hook names and CLI flags, but scripts parse JSON output, and
+removing a field breaks them as surely as removing a flag. v0.18.0 first
+removed `report_path` from the JSON of four `spawn` commands; under the owner's
+bar of no regressions against `main`, the field came back deprecated and leaves
+in the next minor release
+([spawn identity, final round](spawn-identity.md#final-round-no-regressions-against-main)).
+Applying the window to JSON fields was the tech lead's reading, not a ruling;
+meridian-cli `docs/releasing.md` doesn't list them yet.
+
 **Why refuse instead of guess.** The `__status.json` fallback shows the cost of
 substituting defaults: the data is not lost on disk, but the reader presents
 something false as normal, and a later write makes the loss real.
@@ -77,9 +87,9 @@ something false as normal, and a later write makes the loss real.
 kept shipping from `main`; one `release/0.11` → `main` PR (#697) shipped v0.11.0. The
 lead first proposed holding the breaking PRs on `main` under `release:skip`,
 which would have blocked patches; the owner objected ("I also still want to
-submit patches", then "isn't it just a minor version branch...?"). This was how
-0.11 shipped, not a standing rule: `docs/releasing.md` still describes
-releasing from PR merges to `main`.
+submit patches", then "isn't it just a minor version branch...?"). It became the
+standing rule for every minor or major release in
+[D-integration-branch](release-process.md#d-integration-branch-every-minor-or-major-release-collects-on-releasevxy0).
 
 ---
 

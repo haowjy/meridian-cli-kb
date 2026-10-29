@@ -141,6 +141,22 @@ uv run --extra dev python -m pyright --warnings  # type check: 0 errors, 0 warni
 Suppress with `# pyright: ignore[rule]  # reason` only; `# type: ignore` is
 disabled. See [static typing](../decisions/static-typing.md).
 
+**Rules about the source tree are lints, not tests.** Import layering, raw
+writes in `lib/state`, unregistered `MERIDIAN_*` names and per-launch paths are
+`Check` functions in `src/meridian/dev/lints.py`, run as one stage in both
+preflight gates; each has a planted violation in `tests/unit/dev/test_lints.py`
+so a rule that stops firing fails the suite. One mechanism, because a second
+one (`check_launch_paths`) drifted out of the full gate unnoticed. How to add a
+rule is in meridian-cli `src/meridian/dev/AGENTS.md`.
+
+A rule may skip modules whose text lacks a marker only when the marker is an
+identifier token (a name, attribute or module-path segment), which the source
+must spell as written. A string constant's value or a dotted name can be
+spelled many ways for one AST (`"rep" "ort.md"`, escapes,
+`from meridian.lib.state .paths import _X`, line continuations), so rules over
+those parse every module. The text filter they once used let all of those
+through; the full parse costs about 0.75 s per gate run.
+
 ## Important Invariants
 
 - **Never edit `.mars/` or native generated harness dirs** — generated output, overwritten by `meridian mars sync`

@@ -182,6 +182,64 @@ SHA, a release section `main` gained later (`## [0.16.4]`) is in the PR's
 merge commit but not in the old base copy, so the check blamed #798 for
 adding it.
 
+## D-release-parity: a release branch is compared against main before it merges
+
+**Decision.** Before an integration branch's PR merges to `main`, compare the
+release head with `main` three ways, and fix or document every difference that
+isn't an improvement:
+
+- **Benchmark on a copy of a real runtime.** Run the same commands on both
+  builds against a copy of a real `.meridian` runtime, in paired, alternating
+  runs, and report the median and range of the paired difference. Add a
+  synthetic copy scaled well past the real one (12,000 spawns for v0.18.0) to
+  find limits a real runtime hasn't reached yet.
+- **Run the same workflows on both builds.** Script the user workflows the
+  release touches, run them on each build in isolated runtimes, and diff the
+  normalized outputs.
+- **Audit the whole diff.** A reviewer classifies every behavior change in
+  `main...release` as improvement, intended (and in the changelog), or
+  regression.
+
+The fixes land on the release branch, and the comparison reruns on its final
+head. The results go in the release PR's Benchmarks section.
+
+**Why.** The owner, before v0.18.0 merged: "make sure we don't have any
+regressions from the behavior, only improvements, and make sure that's all on
+the release -> main PR" (`chat:c9758`, 2026-10-29). Part PRs are each reviewed
+against the release branch, never against `main`, so nothing else measures what
+the release as a whole changes for a user. For v0.18.0 the three checks found
+what no part review had: warm `spawn list` and `spawn stats` 80–100 ms slower,
+a first index build that failed at 12,000 spawns, `spawn report search` missing
+an earlier run's report after a continue, `report_path` removed from four JSON
+outputs with no deprecation, and a cancel race that skipped `spawn.finished`
+hooks ([the fixes](spawn-identity.md#final-round-no-regressions-against-main)).
+A failure that `main` shares, like the 12,000-spawn build, is no regression;
+fix it if cheap, otherwise file it.
+
+**Kind.** The owner's words were about v0.18.0. Applying the method to every
+minor or major release is the lead's current choice.
+
+## D-pr-body-summary: the PR body is a summary of the whole change
+
+**Decision.** meridian-cli's PR template (`.github/PULL_REQUEST_TEMPLATE.md`)
+has ten sections in the order a reviewer needs them: Changelog, Why, Examples,
+Benchmarks, Design decisions, Changes, Compatibility and risk, Verification,
+Deferred, References. Examples shows commands and their output, one block per
+change. Benchmarks is one `Before | After | Change` table with the method
+stated once above it. The template's comments are the only instruction an
+agent gets when it fills one in, so they carry the rules.
+
+**Why.** The owner: "the pr should basically be a summary of the entire PR and
+we want to make sure we quickly understand whats happening and the impacts, so
+we want benchmarks, walkthroughs" (`chat:c9758`, 2026-10-29). Before #846 the
+template had 17 sections; a reader got through four before learning what
+the PR did, three sections listed the same parts, and neither a walkthrough nor
+comparable numbers had a home. Ruled out: keeping performance inside
+Verification, where it was easy to skip, and keeping a prose Before / After
+beside Examples, which restated the changelog. The owner's sentence is the
+direction; the ten sections are the agent's design of it, a current choice.
+Only `## Changelog` is parsed by CI (`scripts/changelog-notes.py`).
+
 ---
 
 ## Open question: a stable release's notes after RCs

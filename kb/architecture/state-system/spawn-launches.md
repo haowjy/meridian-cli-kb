@@ -64,9 +64,10 @@ runner is alive, sets `launch`.
 actions, runner and debug logs, harness boundary files) is reached only through
 `LaunchPaths`, built in `state/paths.py` from a row. `launch` absent maps to the
 spawn directory itself, so a pre-upgrade row's launch 1 stays at the top level;
-present maps to `launches/<n>/`. A CI gate rejects per-launch file names as
-string literals outside `state/paths.py` and its TypeScript twin
-`shared/pi_state_paths.ts`. Its blind spot is pre-upgrade rows; for new spawns,
+present maps to `launches/<n>/`. The source lints (meridian-cli
+`src/meridian/dev/lints.py`, run in both preflight gates) reject per-launch
+file names as string literals, and `LaunchPaths` built anywhere, outside
+`state/paths.py` and its TypeScript twin `shared/pi_state_paths.ts`. Its blind spot is pre-upgrade rows; for new spawns,
 a reader that skips the resolver finds nothing and fails its first test, which
 is why launch 1 of a new spawn is not at the top level.
 
@@ -77,6 +78,11 @@ Spawn-level, unchanged by a reopen: `state.json`, `launch.lock`, `scope.json`,
 **Archive.** When a holder starts launch n+1 it first copies launch n's row,
 outcome included, to `launches/<n>/launch.json`. Nothing rewrites it later. A
 wait or cancel pinned to n reads it once `launch.n` has moved on.
+
+**Reports of earlier launches.** `spawn report show pN` shows the current
+launch's report. `spawn report search` reads every launch's report
+(`spawn_report_files` in `state/paths.py`) and names each hit by spawn ID, so a
+continue never hides an earlier run's report from search.
 
 ## The reopen
 
@@ -181,12 +187,14 @@ split shown as exact. Pi, OpenCode and Cursor report per launch and store no
 cumulative. Every runner seeds: the streaming runner, the primary runner and
 the black-box fold.
 
-**Known double counts:**
-- A v3 row's first reopen counts launch 1 again: the older record kept no
-  cumulative to subtract.
-- `--fork` and `--from` resume the source's native session in a new row with a
-  zero seed, so the new spawn counts the source session's usage again (#832,
-  which predates this release).
+**Known double count.** A v3 row's first reopen counts launch 1 again: the
+older record kept no cumulative to subtract.
+
+**Forks.** `--fork` resumes the source's native session in a new row, so its
+first report includes the source's usage too. `fork_usage_seed`
+(`launch/fork.py`) seeds the new row from the cumulative the source chat's
+owner spawn stored for that same native session; a different session or an
+unknown source seeds zero, and the fork counts the source's usage again.
 
 ## Waits, owed results and delivery
 
@@ -243,6 +251,30 @@ emits `spawn.started` and `spawn.finished`. Lifecycle event IDs hash
 `(spawn_id, event_type, n − 1)`, so launch 1 keeps the ID older builds gave it
 (hook dedupe still holds) and launch 2 doesn't dedupe against it. Payloads carry
 `spawn_id` and no launch number.
+
+## The history index
+
+The index (v13) holds each row's `record_json`, which every `spawn list` and
+`spawn stats` call parses and validates. Its read budgets and cold-build rules
+are in meridian-cli `src/meridian/lib/state/.context/history.md`. Two rules
+keep v4 from making it slower or more fragile than v0.17's:
+
+- **Default v4 fields stay out of `record_json`.** Most rows are v3 or never
+  continued, yet a full dump wrote empty `launch`, `prior_usage`,
+  `owed_launches` and `terminal.harness_cumulative` into each one, for every
+  read to parse again. Warm `list` and `stats` measured 80–100 ms slower than
+  v0.17 on a 3,024-spawn runtime; with these fields dropped (and `stats`
+  summing only what it prints) the difference is within noise.
+  `SpawnRecord.index_json()` omits a field holding its default, and
+  validation restores it, so the round trip is exact (checked on 3,035 real
+  rows). Write index rows through `index_json()`, never `model_dump_json()`.
+  A second projection model was ruled out: one more schema to keep in step.
+- **A failed first build latches.** A build that misses its budget leaves every
+  later index-backed command failing until `meridian session index rebuild`.
+  So the first build writes each row once and reuses the record it wrote
+  (re-reading it was about a third of build time), and it gets the same 60 s
+  budget as the explicit rebuild. A 12,000-spawn build still takes about 15 s;
+  a resumable build would remove the fixed cap and is not built.
 
 ## Older builds on the same runtime
 

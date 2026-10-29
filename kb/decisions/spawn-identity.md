@@ -10,10 +10,9 @@ run model is [D-spawn-run-identity](#d-spawn-run-identity).
 
 ## D-continue-reopens: `--continue` reopens the spawn in place under its launch lock (2026-10) {#d-continue-reopens}
 
-**Status:** built for v0.18.0, not yet on `main`: merged into the integration
-branch `release/v0.18.0` (#818, #825, #826, #829, #833, #834, #835, #837, #840),
-whose release PR is #812. The compatibility patch for older builds (#824) ships
-to `main` first as its own v0.17.x release. The owner
+**Status:** shipped in meridian-cli v0.18.0 (release PR #812; parts #818,
+#825, #826, #829, #833, #834, #835, #837, #840, #845). The compatibility patch
+for older builds (#824) shipped first as v0.17.5. The owner
 approved the design on 2026-10-28 (`chat:c9758`, `work:spawn-identity-v2`
 `design/design.md` revision 4). It builds the rest of
 [D-spawn-identity-v2](#d-spawn-identity-v2), whose PRs 4, 6 and 7 it replaces
@@ -59,7 +58,7 @@ choices an agent may revisit with evidence.
 | Cost and duration aggregate on every surface; nothing a user sees resets on a continue except status returning to `running`. Launches stay internal: they pin wait and cancel, keep owed results, and keep each run's files apart | "why do we even have runs... shouldn't it just be aggregated"; "if we continue, shouldn't it just be aggregated anyways? there shouldn't even be a change once we continue" | invariant |
 | The cancel rewrite and the bounded repair pass ship in v0.18.0, not later | "if we can do it do it now" | owner direction |
 | Redirect narrowed: a continue that names an older spawn of a chat, or the chat itself, reopens the chat's current spawn only when that keeps its parent and kind | "ok" | current choice |
-| `report_path` and `log_path` leave all output; output points at `meridian spawn report show pN` | "ok" | current choice |
+| `report_path` and `log_path` leave all output; output points at `meridian spawn report show pN` | "ok" | superseded for JSON: see [the final round](#final-round-no-regressions-against-main) |
 | Keep the stored `status` field, written by the holder only, one transition per launch | approved as recommended | current choice |
 | A continue that loses the chat race after committing shows pN `failed` ("Chat cN is held") until the next continue | approved as recommended | current choice |
 
@@ -117,18 +116,60 @@ Made by the tech lead; current choices.
 | Refusing a primary continue's policy flags | Base accepted them on the primary path; the refusal was an over-reach, caught by checking base. They now apply and stick |
 | Per-lane cancel-versus-report precedence | Two copies of one rule that disagreed; `derive` holds the one rule |
 
+### Final round: no regressions against main
+
+Before the release PR merged, the owner set the bar for it: "make sure we
+don't have any regressions from the behavior, only improvements, and make sure
+that's all on the release -> main PR" (`chat:c9758`, 2026-10-29). Three checks
+compared the release head with `main`: a benchmark on a copy of a real
+3,024-spawn runtime plus a 12,000-spawn synthetic copy, the same scripted
+workflows on both builds with outputs diffed, and an audit of the whole diff.
+How to run that comparison for any release is in
+[release-process.md](release-process.md#d-release-parity-a-release-branch-is-compared-against-main-before-it-merges).
+What they found and how #845 settled each one:
+
+- **`report_path` is restored in JSON, deprecated for one minor release.**
+  The owner's "ok" to taking paths out of output permitted the removal; it
+  didn't require it. Removing a JSON field scripts read, with no window,
+  breaks them, and the compatibility rule gives CLI surfaces one release of
+  deprecation ([D-compat-policy](compatibility-versioning.md#d-compat-policy--one-minor-deprecation-new-builds-read-old-data-old-builds-refuse-new-data)).
+  Text output stays path-free. The tech lead's call under the owner's bar;
+  a current choice. Ruled out: documenting the removal as a break.
+- **`spawn report search` covers every run's report.** After a continue it had
+  stopped finding the earlier run's report, which main found.
+- **The index stores no default v4 fields.** Warm `spawn list` and `spawn
+  stats` were 80–100 ms slower than main because every row's `record_json`
+  carried empty v4 fields that each read parsed again.
+  `SpawnRecord.index_json()` drops them; reading a row restores them.
+  Details in [spawn-launches.md](../architecture/state-system/spawn-launches.md#the-history-index).
+- **The first index build gets 60 s and writes each row once.** At about
+  12,000 spawns it ran past its 15 s budget and latched a failure that every
+  later command repeated (main fails the same way). Ruled out for now: a
+  resumable build, which is the general fix but a design of its own.
+- **The streaming runner masks termination from `complete_execution` through
+  `runner_completed`.** The redesign had moved the mask inside
+  `lifecycle.finalize`, where a deferred SIGTERM fires the moment `finalize`
+  returns, so a cancel racing the finish lost `runner_completed` and the
+  scope-release marks. See
+  [spawn-finalization.md](../architecture/spawn-finalization.md#streamingrunconclusion-one-turn-accumulator).
+- **Follow-ups cheap enough to take:** #832 (a fork seeds its usage baseline
+  from its source), #839, #841 (a runner heartbeat), #842.
+
+Rerun on the final head: every warm command's paired difference against main
+crosses zero, cancel of a running child is 10 s faster, and the 12,000-spawn
+first build succeeds where main fails.
+
 ### Residuals and follow-ups
 
-- A v3 row's first reopen counts launch 1's usage again; `--fork`/`--from`
-  count the source session again (#832).
+- A v3 row's first reopen counts launch 1's usage again.
 - An older Pi extension still loaded after a continue hides launch 1's result;
   the upgrade note says to restart Pi sessions.
-- #823 `work rename` skips a child row a newer build wrote; #831 lost
-  `spawn.finished` hooks around the terminal write; #836 collapse
-  `owned_parent_ids` and retire legacy ledgers; #838 one function to end a dead
-  launch; #839 a redirected continue is built from the named spawn's inputs;
-  #841 derived `finished_at` of a crashed streaming child; #842 signal-stop
-  budget gaps; #671 whether a parent's finish converges its descendants.
+- #823 `work rename` skips a child row a newer build wrote; #831 a durable
+  pending dispatch for `spawn.finished` (the child case v0.18.0 had regressed
+  is fixed); #836 collapse `owned_parent_ids` and retire legacy ledgers; #838
+  one function to end a dead launch; #671 whether a parent's finish converges
+  its descendants; a resumable first index build.
+- `report_path` leaves the JSON in the next minor release.
 - macOS remains unexercised.
 
 **Provenance:** `work:spawn-identity-v2` (`decisions.md`, `design/design.md`

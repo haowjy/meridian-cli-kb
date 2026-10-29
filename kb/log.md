@@ -3,7 +3,25 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
-## 2026-10-29 — spawn identity v2 capture (meridian-cli v0.18.0, `release/v0.18.0`, unmerged to `main`)
+## 2026-10-29 — v0.18.0 final round, PR template, source lints
+
+[D-continue-reopens](decisions/spawn-identity.md#final-round-no-regressions-against-main)
+gains the final round (#845): JSON `report_path` restored, deprecated, which
+supersedes the "paths leave all output" ruling for JSON; report search across
+runs; lean index rows; the 60 s first build; the runner-level termination mask;
+#832/#839/#841/#842 fixed; status set to shipped. Matching current-truth fixes
+in [spawn output contract](concepts/spawn-output-contract.md),
+[spawn launches](architecture/state-system/spawn-launches.md) (new "The history
+index" section, fork seed, lint gate) and
+[spawn finalization](architecture/spawn-finalization.md) (mask placement).
+New decisions in [release process](decisions/release-process.md):
+D-release-parity and D-pr-body-summary (#846).
+[Compatibility](decisions/compatibility-versioning.md): JSON fields as CLI
+surface; the stale "release branch is not a standing rule" claim replaced by a
+link to D-integration-branch. [Codebase guide](codebase/guide.md): source rules
+are lints (#848) and the identifier-only pre-filter rule.
+
+## 2026-10-29 — spawn identity v2 capture (meridian-cli v0.18.0)
 
 New [spawn launches](architecture/state-system/spawn-launches.md) page: one ID
 across launches, state v4, per-launch directories, the reopen and its fence,

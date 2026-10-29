@@ -193,8 +193,20 @@ calls `resolve_execution_terminal_state` in `core/spawn_lifecycle.py`, the one
 place a live runner decides report versus cancel; its table is in
 `src/meridian/lib/core/.context/CONTEXT.md`. The terminal write itself goes
 through `SpawnLifecycleService.finalize`, which defers SIGTERM and SIGHUP
-(`mask_termination`) for the length of the store write, so a closing terminal
-can't turn a finished launch into `crashed`. Hooks run after it, unmasked.
+(`mask_termination`) across the store write and the `spawn.finished` hooks, so
+a closing terminal can't turn a finished launch into `crashed` and a cancel
+racing the finish still gets its hooks.
+
+**Where the mask sits matters.** A deferred signal is re-delivered the moment
+its mask exits. A mask inside a callee therefore protects only the callee:
+when `finalize` returns, the signal fires, and the caller dies before its own
+remaining steps. The streaming runner has three such steps after `finalize`:
+marking spawn-owned scopes released, appending `runner_completed` to the
+lifecycle log, and unregistering its atexit callback. So it holds its own
+mask from `complete_execution` through `runner_completed` and the atexit
+unregister (`launch/streaming_runner.py`). The signal is deferred, never swallowed, and
+the runner still exits 143. When you add a step that must survive a cancel
+racing the finish, put it inside the outermost mask that covers the finish.
 
 ---
 
