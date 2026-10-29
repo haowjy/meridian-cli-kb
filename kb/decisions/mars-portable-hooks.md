@@ -178,9 +178,9 @@ replaces this hook's generated entries only for the events it declares; an
 empty array turns that event off for this hook alone. On file targets the
 native hook installs beside the generated file. `skip-targets` drops the
 generated hook from a target entirely; with a native hook, that is the escape
-hatch when a harness API changes before Mars does. When `[hooks]` is present
-every target table (`[targets.".codex"]`) must name its
-`native-hook = "codex.json"`, so a leftover `<target>.json` is never picked
+hatch when a harness API changes before Mars does. When a hook has `[hooks]`,
+each target table it declares (`[targets.".codex"]`) must name its file
+(`native-hook = "codex.json"`), so a leftover `<target>.json` is never picked
 up silently; examples are under "Native hooks" in the mars-agents doc.
 
 **Why.** The first version let a native hook replace every generated entry of
