@@ -133,16 +133,18 @@ and the outcome can be derived, not until the harness process exits.
 ### Prepare before reserve
 
 A spawn is prepared (model and harness resolution, prompt composition,
-workspace projection, permission pipeline) before its row is reserved, and a
-continue prepares before it commits the next launch. A setup error writes
-nothing, so there is no reserved row to clean up. After reservation, the
+workspace projection, permission pipeline) before its row is reserved, so a
+setup error leaves no row. A continue prepares before it commits the next
+launch: a setup error there commits nothing new, though the continue may
+already have written the previous launch's outcome and swept its processes. After reservation, the
 announce step creates the work item and emits lifecycle events.
 
 The detached background worker uses `Popen` with `start_new_session=True`, so it
 survives the launcher being killed. The window between the row's publication
-and the worker's adoption is covered by `launch.lock`, which the launcher holds
-from publication and hands to the worker: if the launcher dies first, the lock
-is free and the row reads `failed`/`crashed`.
+and the worker's adoption is covered by `launch.lock`: the launcher holds it
+from publication, and the worker inherits a duplicate of the descriptor when it
+starts. If the launcher dies before starting the worker, the lock is free and
+the row reads `failed`/`crashed`.
 
 This reverses the earlier reserve-before-prep order
 ([D-reserve-before-prep](../decisions/launch.md#d-reserve-before-prep-reserve-spawn-row-before-preparation-for-crash-recovery-pr-328-2026-06)),
@@ -236,10 +238,12 @@ and the repair pass and doctor never finalize them.
 Codex and OpenCode managed primaries have separate launcher, backend and TUI
 processes. The launcher is the runner and holds the lock. If it is SIGTERMed or
 SIGHUPed it finalizes `cancelled` (exit 130) itself. If it is SIGKILLed or
-OOM-killed, the row reads `failed`/`crashed`; the guardians stop the backend
+OOM-killed, the row reads `failed`/`crashed` (or `succeeded`/`cancelled` by the
+rule above); the guardians stop the backend
 group and TUI, and the next continue or cancel of that spawn stops whatever is
 left, backend and TUI included. Doctor's reaper claims only `spawn_owned`
-scopes, so it does not clean a managed primary's backend and TUI. See
+scopes, and a managed primary's backend and TUI are session-owned, so doctor
+leaves them unless the row recorded no scopes at all. See
 [managed-primary lifecycle](../architecture/managed-primary-lifecycle.md).
 
 ### Failure error codes
@@ -284,9 +288,9 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 
 ## Key Invariants
 
-1. A spawn state record exists before the harness process launches, and is prepared before it is reserved: a setup error writes nothing.
+1. A spawn state record exists before the harness process launches, and is prepared before it is reserved: a setup error leaves no new row or launch.
 2. A spawn keeps its ID across `--continue`; each launch writes into its own directory.
-3. Status readers never write state or signal processes. A held `launch.lock` means live; a free lock on a stored-active row means dead.
+3. Status readers never write state or signal processes. A held `launch.lock` reads as running (normally the runner; for seconds, a brief holder such as the repair pass); a free lock on a stored-active row means the launch is dead.
 4. A launch's terminal is written once, by a holder of its `launch.lock`: its runner, or for a dead launch a continue, cancel, the repair pass or doctor, all through `finalize_dead_launch`. A writer without the lock never writes launch facts into `state.json`.
 5. A dead launch with a durable report is `succeeded`, with or without a cancel request.
 6. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.

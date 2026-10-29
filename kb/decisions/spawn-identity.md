@@ -10,11 +10,10 @@ run model is [D-spawn-run-identity](#d-spawn-run-identity).
 
 ## D-continue-reopens: `--continue` reopens the spawn in place under its launch lock (2026-10) {#d-continue-reopens}
 
-**Status:** built, not yet on `main`. Every part is merged into
-`release/v0.18.0` and passed its final gate; the release PR to `main` is #812
-(parts #818, #825, #826, #829, #833, #834, #835, #837 and the gate fixes #840).
-The compatibility patch for older builds (#824) goes to `main` first as its own v0.17.x
-release, and was awaiting the owner's merge approval at capture. The owner
+**Status:** built for v0.18.0, not yet on `main`: merged into the integration
+branch `release/v0.18.0` (#818, #825, #826, #829, #833, #834, #835, #837, #840),
+whose release PR is #812. The compatibility patch for older builds (#824) ships
+to `main` first as its own v0.17.x release. The owner
 approved the design on 2026-10-28 (`chat:c9758`, `work:spawn-identity-v2`
 `design/design.md` revision 4). It builds the rest of
 [D-spawn-identity-v2](#d-spawn-identity-v2), whose PRs 4, 6 and 7 it replaces
@@ -59,11 +58,10 @@ choices an agent may revisit with evidence.
 |---|---|---|
 | Cost and duration aggregate on every surface; nothing a user sees resets on a continue except status returning to `running`. Launches stay internal: they pin wait and cancel, keep owed results, and keep each run's files apart | "why do we even have runs... shouldn't it just be aggregated"; "if we continue, shouldn't it just be aggregated anyways? there shouldn't even be a change once we continue" | invariant |
 | The cancel rewrite and the bounded repair pass ship in v0.18.0, not later | "if we can do it do it now" | owner direction |
-| A3, narrowed: a continue that names an older spawn of a chat reopens the chat's current spawn only when that keeps its parent and kind | "ok" | current choice |
+| Redirect narrowed: a continue that names an older spawn of a chat, or the chat itself, reopens the chat's current spawn only when that keeps its parent and kind | "ok" | current choice |
 | `report_path` and `log_path` leave all output; output points at `meridian spawn report show pN` | "ok" | current choice |
 | Keep the stored `status` field, written by the holder only, one transition per launch | approved as recommended | current choice |
 | A continue that loses the chat race after committing shows pN `failed` ("Chat cN is held") until the next continue | approved as recommended | current choice |
-| Every part lands on `release/v0.18.0`, and other minor-release work may join it | "do an integration branch for release/ 0.X (the next minor release); and we can combine it with everything else that lands into the integration branch if its needed" | current choice |
 
 Keeping that patch separate, on `main`, was the tech lead's call under
 `docs/releasing.md` ("work that must ship separately … gets its own release"):
@@ -73,8 +71,9 @@ it fixes older builds, so it helps only if it ships first.
 
 Made by the tech lead; current choices.
 
-- **A durable report outranks the outcome, with or without a cancel request.**
-  A dead launch with a durable report derives `succeeded` in every lane, so
+- **For a launch with no runner, a durable report decides the outcome, with or
+  without a cancel request.** A dead launch with a durable report derives
+  `succeeded` in every lane, so
   cancel never flips a crash to a success or the reverse. The first build kept
   two rules (lock-backed: cancel wins; lockless: report wins); the live runner
   and the design's claim step already let the report win, and one rule in
@@ -86,10 +85,9 @@ Made by the tech lead; current choices.
 - **No launch key on any CLI surface.** `collect` and `ack` take and return bare
   IDs and keep a delivered record; a delivered non-current launch carries its
   report inline.
-- **Continue flags:** each path accepts and refuses what it did before; accepted
-  flags apply and stick (`-m`, `--work`, `--desc`, a primary's policy flags).
-  `--work` on a continue was refused on both paths before, so accepting it is a
-  deliberate change.
+- **Continue flags:** each path accepts and refuses what it did before, except
+  `--work`, which both paths refused before and now accept. Accepted flags apply
+  and stick (`-m`, `--work`, `--desc`, a primary's policy flags).
 - **The cycle walk is unbounded by `max_depth`**; a visited set is the only
   bound.
 - **A runner's signal-triggered stop gets one budget below cancel's grace**

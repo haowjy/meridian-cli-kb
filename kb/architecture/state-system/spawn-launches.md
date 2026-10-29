@@ -7,9 +7,9 @@ the session browser) reopens `spawns/pN/` in place as launch n+1; `--fork` and
 and every child's `parent_id` stays valid.
 
 No user types, reads or sees `n`. It names a directory and pins waits, cancels
-and delivery ledgers. Everything a user sees (status, report, cost, tokens,
-duration) describes the spawn: status and report are the current launch's,
-usage is the total over every launch. User-facing behavior is in meridian-cli
+and delivery ledgers. Everything a user sees describes the spawn: status and
+report are the current launch's; cost, tokens and duration are totals over
+every launch. User-facing behavior is in meridian-cli
 `docs/upgrading.md#a-continue-keeps-the-spawn-id`. Why it is built this way:
 [D-continue-reopens](../../decisions/spawn-identity.md#d-continue-reopens).
 
@@ -86,9 +86,10 @@ colocated contract is in `src/meridian/lib/state/.context/CONTEXT.md` ("Launch
 ownership"); the steps in brief:
 
 1. **Target.** A chat ref, or an older spawn of a chain continued before the
-   upgrade, resolves to the chat's current spawn O. The redirect is refused when
-   it would change O's parent or kind, so a caller never moves a spawn it didn't
-   name.
+   upgrade, resolves to the chat's current spawn O. Such a redirect is refused
+   when it would change O's parent or kind, so a caller never moves a spawn it
+   didn't name. A continue that names its spawn directly may move it
+   ([parents](#the-reopen), below).
 2. **Acquire** pN's launch lock, non-blocking. Busy means refuse before any
    write. A lockless v3 row takes the converting acquisition.
 3. **Finish launch n** under the lock: write its derived outcome if it has none,
@@ -107,7 +108,8 @@ ownership"); the steps in brief:
 8. **Start the session.** `start_session` keeps the bounded chat lock from
    [D-owner-on-start](../../decisions/chat-spawn-ownership.md#d-owner-on-start).
    Losing that race after commit leaves launch n+1 `failed` ("Chat cN is held")
-   until the next continue, which targets the same chat; the owner accepted that.
+   until the next continue, which targets the same chat. It takes a native
+   `/resume` in a 2 s window, so this is accepted rather than fenced.
 
 **Kept across a reopen:** the ID, `history_id`, harness, agent, skills, the
 launch-policy snapshot, `work_id`, `desc`, `goal` (unless given). **Reset:**
@@ -126,7 +128,8 @@ stored chain can be longer than the depth limit, and a bounded walk missed real
 cycles in review.
 
 **Continue flags.** Each path accepts and refuses what it did before v0.18.0,
-and accepted flags now take effect and stick: `-m` changes the current launch's
+with one deliberate change: `--work` is now accepted on both paths. Accepted
+flags take effect and stick: `-m` changes the current launch's
 model, `--work`/`--desc` replace the spawn's own, and a primary continue's
 policy flags (approval, sandbox, network, effort, autocompact) update the
 stored launch-policy snapshot, so a later plain continue replays what the spawn
@@ -170,9 +173,8 @@ each terminal stores the harness's raw cumulative (`harness_cumulative`, an
 opaque per-harness value), `prior_usage` carries the last one, and the next
 launch's extractor subtracts it: launch usage = reported total − seed. Fresh
 spawns and rows with no stored cumulative seed zero. The seed is never inferred
-from the stream. An earlier build did infer it, as "the first result's
-cumulative minus that turn's `usage`", and review measured it wrong on real
-Claude streams: `usage` covers only the main model while `modelUsage` has a row
+from the stream. Inferring it as "the first result's cumulative minus that
+turn's `usage`" was built once and measured wrong on real Claude streams: `usage` covers only the main model while `modelUsage` has a row
 per subagent model, so a fresh launch that used a subagent subtracted its own
 subagent usage, and a session resumed on another model got a price-ratio cost
 split shown as exact. Pi, OpenCode and Cursor report per launch and store no
@@ -225,9 +227,9 @@ read a v4 row, so they only ever consumed launch 1. Retiring the legacy reads
 and collapsing `owned_parent_ids` to the caller waits on a deprecation window
 (#836).
 
-**`spawn collect` and `spawn ack` keep bare IDs.** The first build put launch
-keys on the wire. That broke Claude delivery, because the mod's ID pattern
-rejects `:`, and a bare `ack` could consume a running launch. Now `collect`
+**`spawn collect` and `spawn ack` keep bare IDs.** Launch keys on the wire break
+Claude delivery, because the mod's ID pattern rejects `:`, and they let a bare
+`ack` consume a running launch. `collect`
 returns bare, de-duplicated IDs and records what it handed out in the caller's
 `delivered` map; `ack pN` consumes exactly those launches, or with no record the
 spawn's finished, owed, unconsumed launches, never a running one. A delivered
@@ -250,8 +252,8 @@ failed, and a running v4 launch with no observed session made
 `live_observer_for_chat` refuse every chat. A compatibility patch (#824, to `main` as its own
 v0.17.x release) makes older builds treat a newer-format row as absent in the
 index, let it observe its chats only while its lock is held, and accept it as a
-parent. It must ship before v0.18.0; builds older than it stay broken against
-v4 rows. The index moved to v13 (its own sqlite file, marker namespace and
+parent. Builds without that patch stay broken against v4 rows, which is why
+the upgrade note asks every install sharing a runtime to update first. The index moved to v13 (its own sqlite file, marker namespace and
 failure latch) so older builds never validate a v4 `record_json`.
 
 | Older build | Against v4 rows |

@@ -99,9 +99,10 @@ Usage across launches is on
 
 `SpawnApplicationService.complete_spawn()` returns a `CompleteSpawnOutcome`
 (`wrote`, `transitioned`, `already_terminal`, `snapshot`, `spawn_id`). With no
-replacement path left, a caller sees either its own first terminal write
-(`wrote=True`) or a terminal that was already there (`wrote=False,
-already_terminal=True`). `complete_spawn()` always delegates to the store
+replacement path left, `wrote=True` means this call wrote the first terminal;
+`wrote=False` means it wrote nothing, because a terminal was already there
+(`already_terminal=True`), the row had moved past `expected_n`, or the row was
+missing. `complete_spawn()` always delegates to the store
 rather than skipping on a pre-lock read, so the "already terminal" decision is
 made under the lock. (The `accepted` property's docstring still says "first OR
 replacement"; it is just `wrote`.)
@@ -304,7 +305,7 @@ legacy files. See the legacy-upgrade decision in
 
 ### Write sequence (crash-only safety invariant)
 
-The runner makes one state write after the harness exits: the terminal, with
+The runner makes one status write after the harness exits: the terminal, with
 report-versus-cancel decided in memory. A crash anywhere before it frees the
 runner's `launch.lock`, and readers derive the outcome from the launch's
 directory ([derived status](state-system/derived-status.md#stored-and-derived-status)).

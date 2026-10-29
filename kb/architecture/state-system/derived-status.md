@@ -1,10 +1,13 @@
 # Derived Spawn Status
 
-A spawn's status comes from one fact: whether its runner still holds
-`spawns/<id>/launch.lock`. The runner takes that lock exclusively before the row
-is published and holds it until it exits; the kernel drops it when the runner
-dies, however it dies. No PID, file mtime, heartbeat or grace period decides the
-status of a lock-backed row.
+Whether a spawn is still running comes from one fact: whether
+`spawns/<id>/launch.lock` is held. The runner takes that lock exclusively before
+the row is published and holds it until it exits; the kernel drops it when the
+runner dies, however it dies. A brief holder (a repair, a prune) can also hold
+it for seconds, and readers then show `running` too. No PID, file mtime,
+heartbeat or grace period decides the status of a lock-backed row. Once the
+lock is free, the stored terminal or the launch's own files decide the
+outcome, as the table below shows.
 
 The stored `status` field in `state.json` stays, but it changes once per launch:
 a row is created (or reopened) `running`, and the lock holder writes the
@@ -150,9 +153,9 @@ launches: 1.6 s warm and 5.7 s cold at 2,890 rows, growing with the project.
 time under `locks/repair.lock`; candidates are the history index's stored-active
 rows in spawn-ID order, resuming after the `repair-cursor` file; at most 64 lock
 attempts and 32 recoveries per pass. Lockless rows are never touched, and a busy
-index skips the pass. A backlog behind any number of live spawns is reached
-within ⌈backlog / 64⌉ passes. The owner moved this, and the cancel rewrite, from
-"defer" into v0.18.0 ("if we can do it do it now").
+index skips the pass. The cursor moves past every row it visits, live or dead,
+so every active row is visited within ⌈active rows / 64⌉ passes, however many
+of them are live.
 
 Doctor keeps the full walk, because a human asked for it. It is also the only
 place that resolves a terminal row whose reaper cleanup claim outlived a crash.
@@ -161,9 +164,12 @@ place that resolves a terminal row whose reaper cleanup claim outlived a crash.
 
 Process cleanup is slow and can fail, so the reaper records its targets before
 it writes the outcome: a `before_finalize` callback snapshots the row's
-unreleased `spawn_owned` scopes into `spawns/<id>/reaper_cleanup_claim.json`
-(fallbacks when there is no scope list: a managed primary's backend and TUI from
-`primary_meta.json`, or the recorded `worker_pid`). After the write it
+unreleased `spawn_owned` scopes into `spawns/<id>/reaper_cleanup_claim.json`.
+Only when the row has no scope list at all does it fall back to a managed
+primary's backend and TUI from `primary_meta.json`, or the recorded
+`worker_pid`. A managed primary that recorded scopes has its backend and TUI as
+session-owned scopes, which the reaper does not claim; the next continue or
+cancel of that spawn stops them. After the write it
 terminates each claimed scope, marks it released, and keeps only the targets
 that raised. The claim file stays spawn-level, not per launch, so doctor's scan
 and the delete guard still find it after a reopen; a continue's step 3 resolves
@@ -175,9 +181,10 @@ is unknown, unlike cancel and the continue sweep.
 `SpawnApplicationService.cancel` is the only cancel lane; the sequence is in
 `src/meridian/lib/core/.context/cancel.md`. What matters across the system:
 
-- **One observation.** Cancel reads the row once and pins launch K. Nothing
-  re-reads by ID afterwards, so a continue that starts K+1 mid-cancel is never
-  signalled, swept or claimed.
+- **One observation.** Cancel reads the row once and pins launch K. Every later
+  read is pinned to K too (`poll_launch(spawn, K)`, `claim_dead_launch(expected_n=K)`),
+  so a continue that starts K+1 mid-cancel is never signalled, swept or
+  claimed.
 - **Intent goes into K's directory** (`cancel.json`), never into `state.json`.
   On a v3 row only, cancel also writes the legacy `cancel_intent` field, because
   an older-build runner decides `cancelled` from that field alone.
@@ -260,8 +267,8 @@ Each of these was a guess or a second writer that the lock replaces.
 - **#838:** cancel, the repair pass, doctor and continue each keep their own
   teardown of a dead launch; one function should end it.
 - The live runner ranks a non-zero exit code above a durable report, while a
-  dead launch lets the report win. The tech lead accepted the split: the
-  "report wins" ruling covers launches with no runner.
+  dead launch lets the report win. The split is accepted: the report-first rule
+  is for launches with no runner, where no exit code was recorded.
 
 ## Related Pages
 

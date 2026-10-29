@@ -354,12 +354,12 @@ is pre-existing and goes to its own issue; the diff between the two runs is
 what the PR owns. Probe briefs for a PR should ask for before/after pairs from
 the start, as PR 3's first probe did.
 
-The same check applies to a ruling. Building v0.18.0's continue path, the tech
-lead ruled that a primary `--continue` should refuse the launch-policy flags
-(approval, sandbox, network, effort, autocompact). Base had accepted them on that
-path and ignored them, so the ruling would have broken commands that worked; a
-re-read of base caught it, and the flags now apply and stick instead. Before
-ruling what a path should refuse, read what it accepts on base.
+The same check applies to a ruling about behavior. While v0.18.0's continue
+path was built, a ruling had a primary `--continue` refuse the launch-policy
+flags (approval, sandbox, network, effort, autocompact). Base accepted them on
+that path and ignored them, so the refusal would have broken commands that
+worked; a re-read of base caught it, and the flags now apply and stick instead.
+Before ruling what a path should refuse, read what it accepts on base.
 
 ### Settle a premise about an old build by running the old build
 
@@ -371,8 +371,9 @@ session started, so the scan recovered only a crash inside a narrow window, at
 the cost of a fifth resolver and two full scans per legacy row. It was deleted
 before merge.
 
-The same build met a second premise the code had encoded: that a Claude
-`result` event's `usage` is the session's usage for that turn. On a real stream
+A second premise in the same release was about a harness, not an old build:
+that a Claude `result` event's `usage` is the session's usage for that turn.
+Review captured real Claude streams, and on them
 `usage` covers only the main model, while `modelUsage` has a row per subagent
 model, so the usage baseline inferred from it subtracted a fresh launch's own
 subagent usage. The coder's check had passed because it used haiku as the main
