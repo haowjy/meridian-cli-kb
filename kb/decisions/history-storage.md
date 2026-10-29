@@ -174,6 +174,12 @@ The mechanism is described in
 **Status:** Implemented and independently verified on the feature branch at
 `c3ffcaa0`; shipped when PR #494 merged (2026-09-18, v0.5.0).
 
+**Budget changed in v0.18.0:** the automatic phase now gets 60 seconds, the
+same as an explicit rebuild. At about 12,000 spawns a first build ran past
+15 seconds, and the failure latch then failed every later command until a
+manual rebuild ([spawn launches](../architecture/state-system/spawn-launches.md#the-history-index)).
+The rest of this decision stands.
+
 **Decision:** A first operation that needs a missing history index gets
 one 15-second automatic initialization phase, separate from the ordinary two-second
 query budget. Workspace/global initialization shares one absolute 15-second deadline

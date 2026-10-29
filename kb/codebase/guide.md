@@ -145,16 +145,17 @@ disabled. See [static typing](../decisions/static-typing.md).
 writes in `lib/state`, unregistered `MERIDIAN_*` names and per-launch paths are
 `Check` functions in `src/meridian/dev/lints.py`, run as one stage in both
 preflight gates; each has a planted violation in `tests/unit/dev/test_lints.py`
-so a rule that stops firing fails the suite. One mechanism, because a second
-one (`check_launch_paths`) drifted out of the full gate unnoticed. How to add a
+so a rule that stops firing fails the suite. Keep one mechanism, so no rule
+runs in one gate and not the other. How to add a
 rule is in meridian-cli `src/meridian/dev/AGENTS.md`.
 
 A rule may skip modules whose text lacks a marker only when the marker is an
 identifier token (a name, attribute or module-path segment), which the source
-must spell as written. A string constant's value or a dotted name can be
-spelled many ways for one AST (`"rep" "ort.md"`, escapes,
-`from meridian.lib.state .paths import _X`, line continuations), so rules over
-those parse every module. The text filter they once used let all of those
+must spell as written. A string constant's value or a dotted name has many
+source spellings that parse to the same tree: `"rep" "ort.md"` is the value
+`report.md`, and `from meridian.lib.state .paths import _X` imports
+`meridian.lib.state.paths`. A text search for the value or the dotted name
+misses those spellings, so rules over them parse every module. The text filter they once used let all of those
 through; the full parse costs about 0.75 s per gate run.
 
 ## Important Invariants

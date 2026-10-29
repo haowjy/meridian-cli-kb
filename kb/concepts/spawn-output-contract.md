@@ -148,10 +148,11 @@ v0.18.0 a spawn's files live in per-launch directories, so text output prints
 no path and points at `meridian spawn report show <id>` instead. The JSON of
 `spawn show`, `spawn status`, `spawn report show` and `spawn report search`
 still carries `report_path` (the current run's report; for a search hit, that
-hit's file), deprecated for one minor release under the compatibility rule
+hit's file), deprecated since v0.18.0 under the compatibility rule
 ([D-compat-policy](../decisions/compatibility-versioning.md#d-compat-policy--one-minor-deprecation-new-builds-read-old-data-old-builds-refuse-new-data);
-user-facing note in meridian-cli `docs/upgrading.md`). It leaves the JSON in
-the next minor release, so new code should call `spawn report show` instead.
+user-facing note in meridian-cli `docs/upgrading.md`). Its removal is due,
+so read a report with `meridian spawn report show <id>`, never by opening the
+path.
 `log_path` is not in the JSON. Two fields are deliberately excluded:
 
 - **`report_body`**: opt-in via `--full`. Text mode keeps

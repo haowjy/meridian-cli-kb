@@ -204,8 +204,8 @@ remaining steps. The streaming runner has three such steps after `finalize`:
 marking spawn-owned scopes released, appending `runner_completed` to the
 lifecycle log, and unregistering its atexit callback. So it holds its own
 mask from `complete_execution` through `runner_completed` and the atexit
-unregister (`launch/streaming_runner.py`). The signal is deferred, never swallowed, and
-the runner still exits 143. When you add a step that must survive a cancel
+unregister (`launch/streaming_runner.py`). The signal is deferred, never swallowed: the
+runner still dies by it once the mask exits (exit 143 for SIGTERM). When you add a step that must survive a cancel
 racing the finish, put it inside the outermost mask that covers the finish.
 
 ---

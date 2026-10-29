@@ -72,11 +72,11 @@ meridian-cli `src/meridian/lib/hooks/.context/TODO`).
 names config keys, hook names and CLI flags, but scripts parse JSON output, and
 removing a field breaks them as surely as removing a flag. v0.18.0 first
 removed `report_path` from the JSON of four `spawn` commands; under the owner's
-bar of no regressions against `main`, the field came back deprecated and leaves
-in the next minor release
+bar of no regressions against `main`, the field came back deprecated
 ([spawn identity, final round](spawn-identity.md#final-round-no-regressions-against-main)).
-Applying the window to JSON fields was the tech lead's reading, not a ruling;
-meridian-cli `docs/releasing.md` doesn't list them yet.
+Give a JSON field the same window. That is the tech lead's reading, not an
+owner ruling: meridian-cli `docs/releasing.md` lists only config keys, hook
+names and CLI flags.
 
 **Why refuse instead of guess.** The `__status.json` fallback shows the cost of
 substituting defaults: the data is not lost on disk, but the reader presents

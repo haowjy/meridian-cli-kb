@@ -19,7 +19,10 @@ D-release-parity and D-pr-body-summary (#846).
 [Compatibility](decisions/compatibility-versioning.md): JSON fields as CLI
 surface; the stale "release branch is not a standing rule" claim replaced by a
 link to D-integration-branch. [Codebase guide](codebase/guide.md): source rules
-are lints (#848) and the identifier-only pre-filter rule.
+are lints (#848) and the identifier-only pre-filter rule. The automatic index build's
+budget (60 s since v0.18.0) corrected in
+[history storage](decisions/history-storage.md#d-history-index-initialization)
+and [portable history](architecture/state-system/portable-history.md).
 
 ## 2026-10-29 — spawn identity v2 capture (meridian-cli v0.18.0)
 

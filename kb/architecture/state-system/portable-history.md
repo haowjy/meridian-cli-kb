@@ -108,7 +108,7 @@ own schema alone (`native-search-v1.sqlite3`).
 
 ## Missing index initialization
 
-The first operation that needs a missing index gets one 15-second
+The first operation that needs a missing index gets one 60-second
 automatic initialization phase, separate from the ordinary two-second query budget.
 Reuse the schema's catch-up lock and recheck the database plus persisted failure
 state after acquiring it. A waiting caller uses a peer's successful publication;

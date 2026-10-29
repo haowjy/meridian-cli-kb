@@ -81,8 +81,9 @@ wait or cancel pinned to n reads it once `launch.n` has moved on.
 
 **Reports of earlier launches.** `spawn report show pN` shows the current
 launch's report. `spawn report search` reads every launch's report
-(`spawn_report_files` in `state/paths.py`) and names each hit by spawn ID, so a
-continue never hides an earlier run's report from search.
+(`spawn_report_files` in `state/paths.py`), so a continue never hides an
+earlier run's report from search. A hit names the spawn, never the launch;
+its JSON `report_path` (deprecated) is that hit's own file.
 
 ## The reopen
 
@@ -192,8 +193,8 @@ older record kept no cumulative to subtract.
 
 **Forks.** `--fork` resumes the source's native session in a new row, so its
 first report includes the source's usage too. `fork_usage_seed`
-(`launch/fork.py`) seeds the new row from the cumulative the source chat's
-owner spawn stored for that same native session; a different session or an
+(`launch/fork.py`) seeds the new row with the raw harness cumulative that the
+source chat's owner spawn stored for the same native session; a different session or an
 unknown source seeds zero, and the fork counts the source's usage again.
 
 ## Waits, owed results and delivery
@@ -257,14 +258,14 @@ emits `spawn.started` and `spawn.finished`. Lifecycle event IDs hash
 The index (v13) holds each row's `record_json`, which every `spawn list` and
 `spawn stats` call parses and validates. Its read budgets and cold-build rules
 are in meridian-cli `src/meridian/lib/state/.context/history.md`. Two rules
-keep v4 from making it slower or more fragile than v0.17's:
+keep state v4 rows from making the index slower or more fragile than in v0.17:
 
 - **Default v4 fields stay out of `record_json`.** Most rows are v3 or never
   continued, yet a full dump wrote empty `launch`, `prior_usage`,
   `owed_launches` and `terminal.harness_cumulative` into each one, for every
   read to parse again. Warm `list` and `stats` measured 80–100 ms slower than
   v0.17 on a 3,024-spawn runtime; with these fields dropped (and `stats`
-  summing only what it prints) the difference is within noise.
+  summing only what it prints) the range of paired differences spans zero.
   `SpawnRecord.index_json()` omits a field holding its default, and
   validation restores it, so the round trip is exact (checked on 3,035 real
   rows). Write index rows through `index_json()`, never `model_dump_json()`.

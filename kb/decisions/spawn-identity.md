@@ -152,24 +152,32 @@ What they found and how #845 settled each one:
   returns, so a cancel racing the finish lost `runner_completed` and the
   scope-release marks. See
   [spawn-finalization.md](../architecture/spawn-finalization.md#streamingrunconclusion-one-turn-accumulator).
-- **Follow-ups cheap enough to take:** #832 (a fork seeds its usage baseline
-  from its source), #839, #841 (a runner heartbeat), #842.
+- **Four open issues fixed in the same PR:** #832, a fork seeds its usage
+  baseline from its source instead of counting the source's usage again;
+  #839, a continue redirected to a chat's newest spawn is built from that
+  spawn's model, goal and policy; #841, a runner heartbeat, so a crashed
+  child's derived finish time is near its last activity; #842, every streaming
+  path's signal-triggered stop fits inside cancel's grace.
 
-Rerun on the final head: every warm command's paired difference against main
-crosses zero, cancel of a running child is 10 s faster, and the 12,000-spawn
-first build succeeds where main fails.
+Rerun on the final head, against main: for every warm command the range of
+paired differences spans zero (no measurable slowdown), cancelling a running
+child takes about 1 s instead of 11 s, and the 12,000-spawn first build
+succeeds where main fails.
 
 ### Residuals and follow-ups
 
-- A v3 row's first reopen counts launch 1's usage again.
+- A spawn created before v0.18.0 shows launch 1's usage twice in its totals
+  after its first continue.
 - An older Pi extension still loaded after a continue hides launch 1's result;
-  the upgrade note says to restart Pi sessions.
+  meridian-cli `docs/upgrading.md` tells users to restart Pi sessions.
 - #823 `work rename` skips a child row a newer build wrote; #831 a durable
   pending dispatch for `spawn.finished` (the child case v0.18.0 had regressed
   is fixed); #836 collapse `owned_parent_ids` and retire legacy ledgers; #838
   one function to end a dead launch; #671 whether a parent's finish converges
   its descendants; a resumable first index build.
-- `report_path` leaves the JSON in the next minor release.
+- `report_path` is due to leave the JSON: deprecated since v0.18.0, and
+  v0.19.0 shipped still carrying it. The removal is tracked in meridian-cli
+  `src/meridian/lib/ops/.context/TODO`.
 - macOS remains unexercised.
 
 **Provenance:** `work:spawn-identity-v2` (`decisions.md`, `design/design.md`

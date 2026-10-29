@@ -185,8 +185,8 @@ adding it.
 ## D-release-parity: a release branch is compared against main before it merges
 
 **Decision.** Before an integration branch's PR merges to `main`, compare the
-release head with `main` three ways, and fix or document every difference that
-isn't an improvement:
+release head with `main` three ways. Fix every regression, or name it in the
+release PR's changelog and upgrade notes:
 
 - **Benchmark on a copy of a real runtime.** Run the same commands on both
   builds against a copy of a real `.meridian` runtime, in paired, alternating
@@ -213,8 +213,8 @@ a first index build that failed at 12,000 spawns, `spawn report search` missing
 an earlier run's report after a continue, `report_path` removed from four JSON
 outputs with no deprecation, and a cancel race that skipped `spawn.finished`
 hooks ([the fixes](spawn-identity.md#final-round-no-regressions-against-main)).
-A failure that `main` shares, like the 12,000-spawn build, is no regression;
-fix it if cheap, otherwise file it.
+A failure that `main` shares, like the 12,000-spawn build, is not a
+regression: fix it when that is cheap, otherwise file an issue.
 
 **Kind.** The owner's words were about v0.18.0. Applying the method to every
 minor or major release is the lead's current choice.
@@ -226,8 +226,8 @@ has ten sections in the order a reviewer needs them: Changelog, Why, Examples,
 Benchmarks, Design decisions, Changes, Compatibility and risk, Verification,
 Deferred, References. Examples shows commands and their output, one block per
 change. Benchmarks is one `Before | After | Change` table with the method
-stated once above it. The template's comments are the only instruction an
-agent gets when it fills one in, so they carry the rules.
+stated once above it. Agents fill the template from the comments under
+each heading, so those comments carry the rules.
 
 **Why.** The owner: "the pr should basically be a summary of the entire PR and
 we want to make sure we quickly understand whats happening and the impacts, so
