@@ -1,46 +1,40 @@
 # Architecture: Spawn Finalization Subsystem
 
-The spawn finalization subsystem owns the transition from an active spawn to a terminal state (`succeeded`, `failed`, `cancelled`, or `timed_out`). Multiple concurrent writers can attempt finalization — the runner, the reaper, a cancel operation, a launch failure handler. The subsystem's job is to ensure exactly one terminal outcome wins while preserving diagnostic metadata from all writers.
+The spawn finalization subsystem owns the transition from a running launch to a terminal state (`succeeded`, `failed`, `cancelled`, or `timed_out`). Each launch's terminal is written **once, by the holder of its `launch.lock`**: normally the runner as it exits; for a launch whose runner died, the continue, cancel, repair pass or doctor that claimed the free lock. With one writer there is no race to arbitrate, and the first terminal write wins.
 
 For the spawn lifecycle itself, see
-[concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md). For the full
-status machine and projection authority model, see
-[spawn state](state-system/spawn-state.md).
+[concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md). For how readers
+derive status and who writes a dead launch's outcome, see
+[derived status](state-system/derived-status.md). Drain-loop planning and
+resident completion are in [drain-plans.md](drain-plans.md). This page owns the
+runner's terminal decision and the store-level write.
 
-Drain-loop planning and resident completion behavior are documented in
-[drain-plans.md](drain-plans.md). This page owns terminal-write authority and
-store-level finalization.
+## One writer, first terminal wins
 
-## Finalization Authority Hierarchy
+`spawn_store.finalize_spawn()` declines any write to a row that already has a
+terminal, whatever its origin, and, given `expected_n`, any write to a row that
+has moved past that launch. `origin` (`runner`, `launcher`, `launch_failure`,
+`cancel`, `reconciler`) is a label for diagnostics and telemetry; nothing
+compares it.
 
-The store resolves concurrent finalization races using an authority lattice inlined in `spawn_store.py:finalize_spawn()`. Two dimensions govern the decision: whether the spawn is already terminal, and whether the incoming origin is authoritative.
-
-**Authoritative origins:** `runner`, `launcher`, `launch_failure`, `cancel`  
-**Reconciler origins:** `reconciler` (the reaper)
-
-```
-current_status is active          → proceed (first terminal write — always wins)
-current_status is terminal (authoritative origin wrote it):
-  incoming is authoritative       → reject  (first authoritative wins)
-  incoming is reconciler          → reject
-current_status is terminal (reconciler wrote it):
-  incoming is authoritative       → replace (runner overrides inference)
-  incoming is reconciler          → reject
-```
-
-The authority check runs inside the locked finalize mutator, against the re-read snapshot. The earlier `terminal_policy.py` module was deleted when its sole second caller (the v1 reducer) was removed.
-
-Since identity-v2 PR 3 the reaper writes a lock-backed row's outcome only after claiming its free `launch.lock` ([dead-launch outcome](#dead-launch-outcome)), so the runner is already dead and the "runner overrides inference" row no longer fires from the runner. The lattice stays until PR 4 makes the lock holder the only writer.
+This replaced an authority lattice in which a `runner`-style origin could
+replace a `reconciler` terminal. The lattice existed because the reaper used to
+guess that a runner was dead and write over it; once the reaper and every other
+dead-launch writer had to claim the free lock first, the runner was provably
+gone and could never arrive later, so the replace branch had no caller. v0.18.0
+deleted it ([D-continue-reopens](../decisions/spawn-identity.md#d-continue-reopens)).
 
 ---
 
 ## Durable Completion Evidence Classification
 
-Explicit cancel intent normally wins finalization: a cancelled spawn should end
-as `cancelled` with exit `130`, suppress retries, and release process scopes.
-The exception is a **genuine durable completion report** produced before or
-despite a late cancel signal. Because durable completion can override cancel
-intent, Meridian classifies report text before using it as lifecycle evidence.
+A **genuine durable completion report** decides the outcome in two places. A
+live runner lets a durable report outrank a bare cancel request (execution
+facts such as a non-zero exit still outrank the report). A launch with no
+runner derives `succeeded` from a durable report with or without a cancel
+request ([derived status](state-system/derived-status.md#stored-and-derived-status)).
+Because a report can override cancel intent, Meridian classifies report text
+before using it as lifecycle evidence.
 
 Classification lives in `core/spawn_lifecycle.py` and is reused by extraction
 fallbacks and terminal-state resolution. The important classes are:
@@ -73,17 +67,17 @@ spawn from `cancelled` to `succeeded`.
 
 ## Store-Level Finalization (Under Per-Spawn Lock)
 
-`spawn_store.finalize_spawn()` runs the complete finalization sequence under the stable per-spawn lock at `locks/spawns/<id>.lock` (v2 format):
+`spawn_store.finalize_spawn()` runs inside `write_state_locked()`, under the
+per-spawn mutation lock at `locks/spawns/<id>.lock` (separate from the
+runner-lifetime `launch.lock`):
 
-1. Read current `state.json` for this spawn
-2. Call `decide_terminal_write()` with current state and incoming origin
-3. If disposition is `reject`: raise `_FinalizeRejected` (caught and returned as `FinalizeOutcome(wrote=False, ...)`)
-4. If disposition is `append` or `replace`: apply the terminal fields to the record and write the updated `state.json` atomically
-5. Return `FinalizeOutcome(wrote=True, transitioned=..., snapshot=...)`
+1. Re-read `state.json`.
+2. Decline if the row is no longer launch `expected_n` (when given) or already
+   has a terminal.
+3. Otherwise apply the terminal fields (`apply_finalize`) and write atomically.
 
-The per-spawn lock ensures the read-decide-write sequence is atomic across concurrent processes for one spawn without blocking writes to other spawns. Losers get `wrote=False` and do not write their event — they are genuinely no-op, not just logically overridden.
-
-(Legacy v1 used a global `spawns.jsonl.flock` — a single lock serialized all spawns. V2 replaces this with per-spawn locking, eliminating the global contention bottleneck. See [spawn state](state-system/spawn-state.md) for the locked mutation seam.)
+A declined write emits no event. See [spawn state](state-system/spawn-state.md)
+for the locked mutation seam.
 
 `write_state_locked()` returns a discriminated `LockedMutationResult`:
 - `Applied(before, after)` — the mutation persisted one atomic transition
@@ -94,44 +88,23 @@ Mutators return `SpawnRecord | Decline(reason)`; the repository wraps the
 result into the appropriate variant. The lifecycle layer derives `transitioned`
 from comparing `Applied.before.status` and `Applied.after.status`.
 
----
-
-## Reducer and Projection (Legacy V1 Reference)
-
-In the v1 JSONL model, the event reducer in `state/spawn/events.py` replayed `spawns.jsonl` to build a `SpawnRecord`. The reducer called `decide_terminal_write()` during projection to determine whether each event's terminal fields should be applied.
-
-In **v2**, state is a single `state.json` per spawn — no replay needed. `decide_terminal_write()` is still called, but at write time under `state.lock`, not at read time during projection. The authority policy is preserved; its application point shifted from read to write.
-
-**Non-terminal metadata merging** (the v1 partial-merge semantics) is not present in v2: the mutator function in `write_state_locked()` takes the full current record and returns an updated record. Accounting fields (tokens, cost, duration) are included in the finalize payload and applied in the mutator when the write is accepted.
+Accounting fields (tokens, cost, duration, and a cumulative harness's raw
+`harness_cumulative`) travel in the terminal and are applied in the same write.
+Usage across launches is on
+[spawn launches](state-system/spawn-launches.md#usage-across-launches).
 
 ---
 
-## CompleteSpawnOutcome: Rich Finalization Return
+## CompleteSpawnOutcome
 
-`SpawnApplicationService.complete_spawn()` returns a `CompleteSpawnOutcome` that tells callers exactly what happened:
-
-```python
-@dataclass(frozen=True)
-class CompleteSpawnOutcome:
-    wrote: bool               # True when finalize event was appended
-    transitioned: bool        # True when this was a state change
-    entered_finalizing: bool  # True when this call also set running→finalizing
-    already_terminal: bool    # True when spawn was terminal BEFORE this call
-    snapshot: SpawnRecord | None  # Post-write row state
-    spawn_id: SpawnId
-    
-    @property
-    def accepted(self) -> bool:
-        return self.wrote  # first write OR replacement
-```
-
-This enables callers to distinguish:
-- First terminal write (`wrote=True, already_terminal=False`)
-- Authoritative override of reconciler (`wrote=True, already_terminal=True`)
-- Race loser (`wrote=False, already_terminal=False`)
-- Pre-existing terminal (`wrote=False, already_terminal=True`)
-
-**CR1 fix**: Before the refactor, `complete_spawn()` short-circuited early when the pre-lock snapshot showed the spawn already terminal, bypassing the store's reducer. This meant the in-memory check and the store write weren't atomic — a concurrent writer could have written a reconciler event between the read and the "skip" decision. The fix: `complete_spawn()` always delegates to the store, which calls the policy under flock. The store is the authoritative decision point.
+`SpawnApplicationService.complete_spawn()` returns a `CompleteSpawnOutcome`
+(`wrote`, `transitioned`, `already_terminal`, `snapshot`, `spawn_id`). With no
+replacement path left, a caller sees either its own first terminal write
+(`wrote=True`) or a terminal that was already there (`wrote=False,
+already_terminal=True`). `complete_spawn()` always delegates to the store
+rather than skipping on a pre-lock read, so the "already terminal" decision is
+made under the lock. (The `accepted` property's docstring still says "first OR
+replacement"; it is just `wrote`.)
 
 ---
 
@@ -214,9 +187,13 @@ class StreamingRunConclusion:
 - Checks `has_durable_report_completion()` for report-backed success
 - Produces `ExecutionTerminalFacts` consumed by `resolve_execution_terminal_outcome()`
 
-(The `terminated_after_completion` field and `resolve_terminal_state()` method were
-removed in cleanup commit `c04171c2` — the durable-completion-vs-cancel resolution
-is now handled by `resolve_completion_cancel_precedence()` in `spawn_lifecycle.py`.)
+`complete_execution` then folds the durable cancel request into those facts and
+calls `resolve_execution_terminal_state` in `core/spawn_lifecycle.py`, the one
+place a live runner decides report versus cancel; its table is in
+`src/meridian/lib/core/.context/CONTEXT.md`. The terminal write itself goes
+through `SpawnLifecycleService.finalize`, which defers SIGTERM and SIGHUP
+(`mask_termination`) for the length of the store write, so a closing terminal
+can't turn a finished launch into `crashed`. Hooks run after it, unmasked.
 
 ---
 
