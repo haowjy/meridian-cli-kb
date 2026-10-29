@@ -224,6 +224,11 @@ was not a new mechanism but wiring the existing one from the right call site.
 
 #### D-REF-5: Cancel path manages scope cleanup inline, not via `core/process_cleanup.py`
 
+**Superseded (v0.18.0).** `signal_canceller.py` was deleted with the app-server
+cancel lane; the one cancel is `SpawnApplicationService.cancel`
+([cancel on the lock](../architecture/state-system/derived-status.md#cancel-on-the-lock)).
+D-REF-6's `runner_pid` fallback went with it: cancel signals only exact births.
+
 `signal_canceller.py` reads scope sidecars, calls `terminate_scope_sync()`, and marks
 scopes released directly — it does not delegate to `core/process_cleanup.py`.
 

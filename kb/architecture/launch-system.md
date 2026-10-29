@@ -405,7 +405,7 @@ Three concentric layers, each defined by function scope:
 **Resolution in the background worker:**  
 The background worker trusts the `BackgroundWorkerLaunchRequest` written by `execute_spawn_background()`. It does NOT re-resolve model or harness from the spawn record — the request is already fully resolved when persisted. Validation checks only `harness` (required) and `prompt` (required); [empty model](../decisions/model-resolution.md#model-optional-empty-model) is accepted because it means no managed model override, whether from a model-optional profile or from Mars clearing an incompatible model after a stronger harness override won.
 
-`execute_with_streaming()` in `streaming_runner.py` is the async executor: `mark_finalizing` CAS after harness exits, `enrich_finalize()` for usage/session/report extraction.
+`execute_with_streaming()` in `streaming_runner.py` is the async executor: after the harness exits it runs `enrich_finalize()` for usage/session/report extraction, then writes the launch's terminal once ([spawn finalization](spawn-finalization.md#one-writer-first-terminal-wins)).
 
 **Note:** `ops/spawn/prepare.py` uses `SPAWN_PREPARE` surface + `LaunchArgvIntent.REQUIRED` — it needs a real argv to populate `cli_command` for display. This is the exception; all execution paths use `SPEC_ONLY`.
 

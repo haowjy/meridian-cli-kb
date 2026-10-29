@@ -199,13 +199,14 @@ can't turn a finished launch into `crashed`. Hooks run after it, unmasked.
 
 ## PreparedExecutionHandoff: Session Scope Ownership Transfer
 
-`execute.py` decomposes foreground and background spawn execution into three phases:
+`ops/spawn/execute.py` prepares a spawn before it reserves the row
+(`_prepare_then_reserve`), so a setup error writes nothing. Execution then runs
+in two phases in `ops/spawn/execute_runner.py`:
 
-1. `_init_spawn()` — create spawn row, emit start event
-2. `_prepare_execution_handoff()` — resolve session, build launch context, enter session scope
-3. `_invoke_runner()` — delegate to `execute_with_streaming()`
+1. `_prepare_execution_handoff()` — resolve session, build launch context, enter session scope
+2. `_invoke_runner()` — delegate to `execute_with_streaming()`
 
-`PreparedExecutionHandoff` is the handoff value between phases 2 and 3. It owns the `ExitStack` that holds the session scope context manager:
+`PreparedExecutionHandoff` is the handoff value between the two phases. It owns the `ExitStack` that holds the session scope context manager:
 
 ```python
 @dataclass
@@ -266,32 +267,23 @@ nested into typed frozen sub-models. The split prevents the reaper from treating
 pre-finalization harness exit as spawn-level truth, and makes it structurally
 impossible to construct a terminal spawn without complete terminal facts.
 
-### Pre-finalization harness-exit fields
+### Legacy exit fields: `runner_exit`, `last_attempt_*`
 
-| Field | Type | Semantics |
-|-------|------|-----------|
-| `last_attempt_exit_code` | `int \| None` | Exit code captured after the harness drain |
-| `last_attempt_exited_at` | `str \| None` | ISO timestamp captured after the harness drain |
-
-These retained field names carry no spawn-level terminal meaning. A `0` exit code
-can precede a post-run guardrail failure or a crash before runner intent is persisted.
-
-### Runner terminal intent: `runner_exit: RunnerExitFacts | None`
-
-Frozen sub-model (`RunnerExitFacts`) holding the runner's resolved terminal outcome:
-`status: TerminalSpawnStatus`, `exit_code: int`, `error: str | None`,
-`exited_at: str`. Written exactly once, before `mark_finalizing()`.
-
-Authoritative presence check: `runner_exit is not None`. Backward-compatible
-property accessors (`runner_exit_status`, `runner_exit_code`, etc.) delegate to
-the sub-model so existing callers compile unchanged.
+`runner_exit` (`RunnerExitFacts`: the runner's resolved outcome) and
+`last_attempt_exit_code`/`last_attempt_exited_at` (the raw harness exit) are
+read-only legacy fields. No new-build code writes them; a reopen clears them
+with the other per-launch fields. They are read only to date a derived
+terminal's `finished_at` and for display in `spawn show`. Two writes used to
+precede the terminal (`record_runner_exit`, then `mark_finalizing`); both were
+deleted, and `record_exited` now only emits `spawn.process_exited` telemetry.
 
 ### Finalized outcome: `terminal: TerminalFacts | None`
 
 Frozen sub-model (`TerminalFacts`) holding the complete finalized state: `exit_code`,
 `finished_at`, `published_at`, `duration_secs`, token/cost metrics,
-`error`, `origin`. Does not carry status; top-level `status` is the sole status
-authority. Written by `apply_finalize()`.
+`error`, `origin`, `harness_cumulative` (the raw running total of a cumulative
+harness), `managed_scopes_pending`. Does not carry status; top-level `status` is
+the sole status authority. Written by `apply_finalize()`.
 
 ### Single status authority
 
@@ -301,7 +293,8 @@ so unknown fields on a v3 row are quarantined rather than silently accepted.
 When `status` is terminal, `terminal` must not be `None`; when `status` is
 active or `unknown`, `terminal` must be `None`.
 
-Writers stamp `v: 3`. Known legacy v2 shapes (flat runner-exit/terminal
+Writers stamp `v: 4` when the row has a `launch`, else `v: 3`
+([spawn launches](state-system/spawn-launches.md#on-disk)). Known legacy v2 shapes (flat runner-exit/terminal
 fields, the interim nested `terminal.status`, retired pre-main fields,
 pre-`published_at` history) upgrade in memory through `state/spawn/legacy.py`
 before the strict model validates — old history stays readable, and only
@@ -311,20 +304,10 @@ legacy files. See the legacy-upgrade decision in
 
 ### Write sequence (crash-only safety invariant)
 
-```
-1. Resolve terminal_facts from run conclusion
-2. lifecycle.record_runner_exit(RunnerExitFacts(...))  ← atomic state write
-3. complete_execution(terminal_facts) → mark_finalizing() → finalize(TerminalFacts(...))
-```
-
-A crash anywhere before step 3 frees the runner's `launch.lock`, and the spawn
-reads `failed`/`crashed` (or `cancelled` with a cancel request) whether or not
-`runner_exit` was recorded. `runner_exit` is diagnostic; it carries no terminal
-weight for a dead runner. Before identity-v2 PR 3 the reaper finalized from it, so
-a runner killed between 2 and 3 ended `succeeded`.
-
-All finalization paths must persist `runner_exit` before calling
-`complete_execution()`.
+The runner makes one state write after the harness exits: the terminal, with
+report-versus-cancel decided in memory. A crash anywhere before it frees the
+runner's `launch.lock`, and readers derive the outcome from the launch's
+directory ([derived status](state-system/derived-status.md#stored-and-derived-status)).
 
 ### Quarantine for out-of-vocab rows
 
@@ -336,26 +319,19 @@ contract.
 
 ### `runner_created_at_epoch`
 
-`psutil.Process(runner_pid).create_time()` captured when `runner_pid` is written. Status no longer reads it for lock-backed rows. It feeds the exact-birth PID checks that remain: `legacy_runner_alive` for rows with no lock file, the continue sweep's choice of refusal message, managed-primary cleanup, and cancel's signal targeting (still with a 30 s birth slack until PR 4).
+`psutil.Process(runner_pid).create_time()` captured when `runner_pid` is written. Status no longer reads it for lock-backed rows. It feeds the exact-birth checks that remain: `legacy_runner_alive` for rows with no lock file, the continue's choice of refusal message, managed-primary cleanup, and cancel's signal targeting, which signals only that exact `(pid, birth)`.
 
 ---
 
 ## Dead-launch outcome
 
-When a runner dies without finalizing, `SpawnApplicationService.finalize_dead_launch`
-writes the outcome every reader already derives: `cancelled` with the cancel
-request's exit code and error, else `failed`, exit 1, error `crashed`. It writes
-only while holding the claimed `launch.lock`, and only for a stored-active row.
-Neither `report.md` nor `runner_exit` changes the result: a report counts only
-through an outcome the runner wrote. The reaper calls it with origin
-`reconciler`, cancel convergence with origin `cancel`. Rows with no lock file are
-never finalized this way except by explicit cancel, which keeps the
-pre-identity-v2-PR-3 report/cancel lattice for them. Mechanism and callers:
-[derived status](state-system/derived-status.md#who-persists-a-dead-launchs-outcome).
-
-Before PR 3 the reaper ran a decision tree here (`decide_generic_reconciliation`
-in the deleted `reconciliation.py`) over `runner_exit`, recent activity, startup
-and post-exit graces, and report fallbacks. It is gone; the
+When a runner dies without writing its terminal, the next holder of its free
+lock writes the outcome readers already derive, through
+`SpawnApplicationService.finalize_dead_launch`: a continue, cancel, the
+background repair pass, or `doctor --kill-orphans`. The rule, the claim and the
+callers are on [derived status](state-system/derived-status.md#who-persists-a-dead-launchs-outcome).
+Before identity-v2 PR 3 the reaper ran a guessing decision tree here
+(`decide_generic_reconciliation`); the
 [deleted-mechanisms table](state-system/derived-status.md#deleted-mechanisms-do-not-bring-back)
 says why each piece must stay gone.
 
@@ -365,16 +341,17 @@ says why each piece must stay gone.
 
 | File | Role |
 |------|------|
-| `state/spawn_store.py` | `finalize_spawn()` under per-spawn lock with inlined authority check; single locked mutation dispatch |
+| `state/spawn_store.py` | `finalize_spawn()` (first terminal wins, `expected_n` guard), `start_spawn`, `reopen_spawn`; single locked mutation dispatch |
 | `state/spawn/repository.py` | V2 storage: `read_state`, `write_state_locked`, `scan_spawn_ids`; `StoredSpawnState` quarantine; `Applied`, `Declined`, `Missing` |
 | `state/spawn_aggregate.py` | Published-row lifetime: guarded artifact mutation plus deletion under stable outer spawn lock |
 | `state/spawn/legacy.py` | One-shot v2→v3 in-memory upgrade at the parse boundary; `RETIRED_LEGACY_FIELDS`; deletable once pre-v3 rows are gone |
 | `state/spawn/migration.py` | `ensure_v2_format()`: lazy one-shot migration from JSONL to per-spawn state.json |
 | `state/spawn/legacy_events.py` | V1 event types, reducer, parse; still used during migration |
-| `core/lifecycle.py` | `FinalizeOutcome` return type; mark_finalizing/finalize wrappers |
-| `core/spawn_service.py` | `CompleteSpawnOutcome`; `complete_spawn()` always delegates to store |
+| `core/lifecycle.py` | `SpawnLifecycleService`: `record_launch_facts`, `finalize` (masked store write, then hooks), lifecycle event IDs per launch |
+| `core/spawn_service.py` | `CompleteSpawnOutcome`; `complete_spawn()` always delegates to store; `finalize_dead_launch`; the one `cancel` |
+| `state/spawn_status.py` | `derive`, `read_derived`, `claim_dead_launch`, `poll_launch`/`wait_until` |
 | `ops/spawn/failure_policy.py` | Fixed terminal tuple for all launch failure sites |
-| `ops/spawn/execute.py` | 3-phase decomposition; `PreparedExecutionHandoff`; `ExitStack` transfer |
+| `ops/spawn/execute.py`, `execute_runner.py` | prepare-then-reserve; `PreparedExecutionHandoff`; `ExitStack` transfer |
 | `launch/streaming/terminal_arbitrator.py` | Single arbitration point; priority-ordered trigger race |
 | `launch/streaming_runner.py` | One-turn startup, drain, watchdog, teardown, `StreamingRunConclusion`, and finalization; delegates to `arbitrate_terminal()` |
 
@@ -382,13 +359,13 @@ says why each piece must stay gone.
 
 ## Related Pages
 
-- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — projection authority model and status machine
+- [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — the status machine
+- [state-system/derived-status.md](state-system/derived-status.md) — derived status, dead-launch writers, cancel
 - [drain-plans.md](drain-plans.md) — streaming drain-plan composition and resident completion.
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary.
-- [architecture/state-system/overview.md](state-system/overview.md) — JSONL store, atomic writes, flock locking, and the published spawn artifact lifetime boundary
+- [architecture/state-system/overview.md](state-system/overview.md) — state store, atomic writes, flock locking, and the published spawn artifact lifetime boundary
 - [decisions/state.md](../decisions/state.md) — design decisions for this subsystem
 - [Per-operation cost](per-operation-cost.md) — measured finalization floor and
   constant-time acceptance bar
 - [Cost cuts that weakened safety checks](../lessons/cost-cuts-and-safety-checks.md)
   — why the watchdog trigger must prove it caused the stop
-- [State decisions](../decisions/state.md) — projection authority and state-write rationale

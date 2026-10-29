@@ -167,10 +167,9 @@ owner ruling.
 | Split `cli/spawn.py` in the same change | The deprecation shims and help text are about 120 of its 1,573 lines; the bulk is `_spawn_create` (508 lines), its own refactor (meridian-cli #803) |
 
 **Revisit when:** a harness exposes a native `/resume` event Meridian can
-observe, chats gain a first-class owner field, or the spawn-identity redesign's
-"continue keeps the spawn ID"
-([D-spawn-identity-v2](spawn-identity.md#d-spawn-identity-v2), PR 7) lands and a
-spawn ID can again span chats.
+observe, chats gain a first-class owner field, or "continue keeps the spawn ID"
+([D-continue-reopens](spawn-identity.md#d-continue-reopens), built for v0.18.0)
+turns out to let one spawn ID span chats in a way these rules mis-resolve.
 
 **Provenance:** `work:ref-resolution`, `chat:c9695` (owner answers, lead
 decisions), issue #800 and its design and correction comments; classifier map

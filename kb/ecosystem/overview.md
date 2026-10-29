@@ -49,7 +49,7 @@ graph TD
 **Language:** Python (`uv`, `src/meridian/`)
 
 **Key responsibilities:**
-- Spawn lifecycle: `queued → running → finalizing → succeeded | failed | cancelled`
+- Spawn lifecycle: `running → succeeded | failed | cancelled | timed_out`, once per launch; `--continue` reopens the same spawn ID
 - Harness adapters for Claude, Codex, OpenCode, Direct
 - JSONL event stores (atomic writes, crash-tolerant reads)
 - Launch composition: resolves model, permissions, prompt, argv in one place (the prepare/bind pipeline in `lib/launch/context.py`)

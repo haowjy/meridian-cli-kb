@@ -15,6 +15,8 @@ goals, and start, continue, fork, or seed sessions.
 
 ### `spawn wait` no-arg discovers pending spawns by MERIDIAN_CHAT_ID lineage
 
+**Status:** the scope changed twice since. #599 moved the filter into the history index, and v0.18.0 (#807) replaced the chat match with a walk of the caller's subtree from `owned_parent_ids` ([spawn wait barrier](../concepts/spawn-wait-barrier.md#no-arg-wait-by-chat-lineage)). The barrier idea below stands.
+
 **Decision:** `meridian spawn wait` with no positional IDs collects all active spawns (`queued`, `running`, `finalizing`) whose `chat_id` matches `MERIDIAN_CHAT_ID`. The wait set is frozen at discovery time; spawns launched after discovery are not added.
 
 **Why:** Orchestrators frequently forgot to run `spawn wait` or lost track of individual spawn IDs. No-arg wait removes the bookkeeping burden — the orchestrator launches all background spawns, then runs one barrier command with no arguments.

@@ -598,6 +598,11 @@ instructions from drifting or inflating every prompt.
 
 ### D-reserve-before-prep: Reserve spawn row before preparation for crash recovery (PR #328, 2026-06)
 
+**Status:** superseded in v0.18.0 by prepare-then-reserve
+([D-continue-reopens](spawn-identity.md#d-continue-reopens)). The launch lock is
+held from the row's publication, so a reserved row can't be stranded, and
+preparing first means a setup error writes nothing. `queued` is no longer written.
+
 **Decision:** Background spawns write a durable `queued` row **before** preparation. Preparation succeeds → announce (work item, lifecycle events). Preparation fails → reserved row cleaned up, side-effect-free.
 
 **The crash window being closed:** A launcher SIGKILLed during preparation could leave a forever-invisible spawn (work item exists but `spawn list` shows nothing). Reserving the row first leaves a reconcilable `queued` row the reaper handles via `missing_runner_pid`.

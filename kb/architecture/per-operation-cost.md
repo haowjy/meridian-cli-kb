@@ -118,8 +118,8 @@ work would just move into the index (`spawn:p8095`).
   the planner POCs: `records(started DESC, local_id DESC)` 4.47 → 2.41 ms and
   `session_chats(ordinal DESC)` 1.63 → 0.014 ms.
 - **#592:** a cold index build holds the catch-up gate for 2.4–5.7 s. It mostly
-  happens at upgrade or after an index bump (v12 in #714; next in identity-v2
-  PR 4 and #418 B2).
+  happens at upgrade or after an index bump (v12 in #714, v13 in v0.18.0; next
+  in #418 B2).
 - **Deadline rule (#656, 2026-10-16).** A caller with a deadline must build the
   index *before* it starts its clock. `query()` keeps an absolute caller deadline
   across a cold build, so the build otherwise uses up the 2 s. Corpus search and
@@ -230,7 +230,7 @@ These don't grow with history, but they are the next-largest cost per launch:
     [lessons](../lessons/cost-cuts-and-safety-checks.md).
 - **#418 B1 → B2 → B3 (#418 open):** B1 shipped as #651 (v0.10.16). B2 (the
   journals, cutover, absorb, index v12) needs the owner's answers to design
-  questions 1–4 and 6–11, and comes after identity-v2 PR 4 (index v11). B3 removes
+  questions 1–4 and 6–11, and needs an index number above 13. B3 removes
   the O(spawns) observer and capture-owner scans, and with them the ~230 MiB close
   residual.
 

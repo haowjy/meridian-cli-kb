@@ -1,14 +1,154 @@
 # Decisions: Spawn Identity and Launch Containment
 
 How a spawn is named across launches, who decides its status, and what keeps a
-harness from outliving its runner. The superseded run model these replace is
-[D-spawn-run-identity](#d-spawn-run-identity).
+harness from outliving its runner. Current mechanism:
+[spawn launches](../architecture/state-system/spawn-launches.md) and
+[derived status](../architecture/state-system/derived-status.md). The superseded
+run model is [D-spawn-run-identity](#d-spawn-run-identity).
+
+---
+
+## D-continue-reopens: `--continue` reopens the spawn in place under its launch lock (2026-10) {#d-continue-reopens}
+
+**Status:** built, not yet on `main`. Every part is merged into
+`release/v0.18.0` and passed its final gate; the release PR to `main` is #812
+(parts #818, #825, #826, #829, #833, #834, #835, #837 and the gate fixes #840).
+The compatibility patch for older builds (#824) goes to `main` first as its own v0.17.x
+release, and was awaiting the owner's merge approval at capture. The owner
+approved the design on 2026-10-28 (`chat:c9758`, `work:spawn-identity-v2`
+`design/design.md` revision 4). It builds the rest of
+[D-spawn-identity-v2](#d-spawn-identity-v2), whose PRs 4, 6 and 7 it replaces
+with a fresh design (the owner: "design it better and newer").
+
+### The requirement
+
+`--continue pN` keeps `pN` for primaries and children; `MERIDIAN_SPAWN_ID` stays
+stable; children record the stable parent; status is written once, by the
+holder of the launch lock; each launch has its own directory. It closes #807
+(no-arg wait lost a continued primary's earlier children) and #810 (a fresh
+child borrowed its caller's chat before its own session started).
+
+### The decision
+
+**Reopen `spawns/pN/` in place, under the `launch.lock` the continue already
+takes.** The continue that holds pN's lock ends launch n (writes the outcome
+readers already derive, sweeps its processes), archives n's row to
+`launches/<n>/launch.json`, rewrites `state.json` as launch n+1, and hands the
+same lock to n+1's runner. `--fork` and `--from` still create a new spawn.
+
+Three rules make it safe: the lock serializes launches; a writer without the
+lock never writes launch facts into `state.json`; each launch writes into its
+own directory. The mechanism is on
+[spawn launches](../architecture/state-system/spawn-launches.md).
+
+**Why reopening is safe now, when #616's design rejected it.** Every per-launch
+writer would have needed a run fence, and terminal would stop being final. The
+lock is the fence for lifecycle writes. The other writers (cancel, session
+reclaim, prune, archive, signals) were found by enumerating every process that
+can act on a row without its lock, and each was moved into the launch's
+directory or under the lock ([the fence](../architecture/state-system/spawn-launches.md#the-fence)).
+A terminal is final per launch and archived unchanged.
+
+### Owner rulings (`chat:c9758`, 2026-10-28)
+
+The requirement and the aggregation ruling are the owner's own direction; the
+others are the owner accepting a recommendation, so they stand as current
+choices an agent may revisit with evidence.
+
+| Ruling | The owner's words | Kind |
+|---|---|---|
+| Cost and duration aggregate on every surface; nothing a user sees resets on a continue except status returning to `running`. Launches stay internal: they pin wait and cancel, keep owed results, and keep each run's files apart | "why do we even have runs... shouldn't it just be aggregated"; "if we continue, shouldn't it just be aggregated anyways? there shouldn't even be a change once we continue" | invariant |
+| The cancel rewrite and the bounded repair pass ship in v0.18.0, not later | "if we can do it do it now" | owner direction |
+| A3, narrowed: a continue that names an older spawn of a chat reopens the chat's current spawn only when that keeps its parent and kind | "ok" | current choice |
+| `report_path` and `log_path` leave all output; output points at `meridian spawn report show pN` | "ok" | current choice |
+| Keep the stored `status` field, written by the holder only, one transition per launch | approved as recommended | current choice |
+| A continue that loses the chat race after committing shows pN `failed` ("Chat cN is held") until the next continue | approved as recommended | current choice |
+| Every part lands on `release/v0.18.0`, and other minor-release work may join it | "do an integration branch for release/ 0.X (the next minor release); and we can combine it with everything else that lands into the integration branch if its needed" | current choice |
+
+Keeping that patch separate, on `main`, was the tech lead's call under
+`docs/releasing.md` ("work that must ship separately … gets its own release"):
+it fixes older builds, so it helps only if it ships first.
+
+### Rulings made while building
+
+Made by the tech lead; current choices.
+
+- **A durable report outranks the outcome, with or without a cancel request.**
+  A dead launch with a durable report derives `succeeded` in every lane, so
+  cancel never flips a crash to a success or the reverse. The first build kept
+  two rules (lock-backed: cancel wins; lockless: report wins); the live runner
+  and the design's claim step already let the report win, and one rule in
+  `derive` beats per-lane copies. This reverses the PR 3 rule that a report
+  counts only through an outcome the runner wrote.
+- **Cumulative harness usage is seeded from the previous launch's stored raw
+  cumulative**, an opaque per-harness field on the terminal, never inferred from
+  the stream. Fresh or unknown seeds zero.
+- **No launch key on any CLI surface.** `collect` and `ack` take and return bare
+  IDs and keep a delivered record; a delivered non-current launch carries its
+  report inline.
+- **Continue flags:** each path accepts and refuses what it did before; accepted
+  flags apply and stick (`-m`, `--work`, `--desc`, a primary's policy flags).
+  `--work` on a continue was refused on both paths before, so accepting it is a
+  deliberate change.
+- **The cycle walk is unbounded by `max_depth`**; a visited set is the only
+  bound.
+- **A runner's signal-triggered stop gets one budget below cancel's grace**
+  (grace minus 2 s), so cancel never SIGKILLs a runner that is still cleaning up.
+
+### Departures from D-spawn-identity-v2
+
+| v2 plan | Built | Why |
+|---|---|---|
+| State v4 as a nested `current` launch entry | Flat v4: v3 plus `launch: {n}`, `prior_usage`, `owed_launches`; v3 is "`launch` absent" | The holder resets flat fields in one write; readers, the index and the Pi schema stay unchanged |
+| Delete the stored `status` field | Keep it; one holder-only transition | Safety comes from the sole writer. Deleting it would touch every reader, the index columns, `--status`, stats buckets and the Pi schema, and make no write safer |
+| Cancel writes a `cancel_request` by compare-and-set on `state.json` | Intent in the launch's `cancel.json`, one observation, `claim_dead_launch(expected_n)` | A CAS on `state.json` is still a lockless write into the row the fence protects |
+| Index v11 with status columns | Index v13 with one side table for `owed_launches` | Status stays stored; v11 and v12 were taken by other work |
+| Pi ledger keys `{spawn_id, finished_at}` | `(spawn_id, n)`, in new files | A derived crash's `finished_at` changes once it is written; new files keep older builds from rewriting them |
+| — | Added: a compatibility patch for older builds (#824); #810; #807 for chains continued before the upgrade; reclaim, delete and capture under the lock; per-launch signals and counters; `owed_launches`; persistent wait pins; the app-server cancel lane deleted | Found on `main` while redesigning |
+
+### Rejected
+
+| Alternative | Why rejected |
+|---|---|
+| Bump the delivery ledgers' version in place | An older Python build reads an unknown version as absent and rewrites the document; an older Pi extension throws on it and stops delivering |
+| Launch keys (`p7:2`) in `collect`/`ack` output | Broke Claude delivery (the mod's ID pattern rejects `:`) and let a bare `ack` consume a running launch; the owner had ruled launches internal |
+| Inferring a cumulative harness's usage baseline from the stream | Measured wrong on real Claude streams: `usage` omits subagent models that `modelUsage` includes, and a cross-model resume got a price-ratio split shown as exact |
+| A full `sessions.jsonl` scan to find a pre-v0.5.0 child's session | Running v0.4.5 showed those builds rebound `chat_id` after the session started, so the scan only recovered a crash in a narrow window, at the cost of a fifth resolver and two full scans per legacy row |
+| A process-level registry of held launch locks, for the runner's own session-exit reclaim | Any brief holder in the same process (the repair thread) would pass as the runner; the runner passes its handle instead |
+| Cycle walk bounded by `max_depth` | Re-parenting moves subtrees, so stored chains exceed the depth limit; review found real cycles the bounded walk missed |
+| Refusing a primary continue's policy flags | Base accepted them on the primary path; the refusal was an over-reach, caught by checking base. They now apply and stick |
+| Per-lane cancel-versus-report precedence | Two copies of one rule that disagreed; `derive` holds the one rule |
+
+### Residuals and follow-ups
+
+- A v3 row's first reopen counts launch 1's usage again; `--fork`/`--from`
+  count the source session again (#832).
+- An older Pi extension still loaded after a continue hides launch 1's result;
+  the upgrade note says to restart Pi sessions.
+- #823 `work rename` skips a child row a newer build wrote; #831 lost
+  `spawn.finished` hooks around the terminal write; #836 collapse
+  `owned_parent_ids` and retire legacy ledgers; #838 one function to end a dead
+  launch; #839 a redirected continue is built from the named spawn's inputs;
+  #841 derived `finished_at` of a crashed streaming child; #842 signal-stop
+  budget gaps; #671 whether a parent's finish converges its descendants.
+- macOS remains unexercised.
+
+**Provenance:** `work:spawn-identity-v2` (`decisions.md`, `design/design.md`
+r1–r4, `DIVERGENCE/p2-legacy-scan.md`, `p3-cancel-status.md`,
+`p5a-launch-pinned.md`, `p5b-continue-reopens.md`, `reviews/`); `chat:c9758`;
+design leads `spawn:p10082`, `spawn:p10107`, `spawn:p10119`, `spawn:p10133`;
+final gate `spawn:p10265`, `spawn:p10266`, `spawn:p10267`, re-check `spawn:p10273`.
 
 ---
 
 ## D-spawn-identity-v2: one ID per spawn; status derived from a runner-held lock (2026-10) {#d-spawn-identity-v2}
 
-**Status:** approved by the owner on 2026-10-16 (`chat:c8003`: "I approve the
+**Status:** core decision current; its PRs 4, 6 and 7 were replaced by
+[D-continue-reopens](#d-continue-reopens), which is built for v0.18.0 and
+changes the plan below in places (status stays stored, v4 is flat, cancel
+writes no `cancel_request` into the row). The "on `main` today" text below
+describes the state before that release. Approved by the owner on 2026-10-16
+(`chat:c8003`: "I approve the
 design, but make sure u understand it and can explain it back to me again").
 The approved design is revision 3.1 (`work:v010-followups`
 `design-identity-v2/design.md`, `pr-plan.md`; decisions D45–D53, D55). It is
@@ -38,7 +178,8 @@ with the 30 s PID-birth slack.
   ([derived status](../architecture/state-system/derived-status.md#deleted-mechanisms-do-not-bring-back));
   the old rules survive only as history in
   [state decisions](state.md#mark_finalizing-cas-enables-orphan_finalization-distinction).
-  PR 4 deletes stored status, the CAS and the reaper's status writes.
+  v0.18.0 deleted the CAS and kept stored status with one holder-only write
+  ([D-continue-reopens](#d-continue-reopens)).
 
 ### The owner's questions
 
@@ -183,26 +324,19 @@ shows them.
 | 1 | Start gate + guardian; delete `parent_watchdog.py` and the PDEATHSIG branch | merged, #633 (`e2593004c`, v0.10.13); the owner's macOS smoke is still owed |
 | 2 | Launch lock + containment sweep (fixes #625) | merged, #647 (`60863fb78`, v0.10.18) |
 | 3 | `read_derived`: exact liveness for every reader; lenient quarantine | merged, #672 (`ea6c8cc3f`, v0.10.24; fixes #663) |
-| 4 | Sole-writer outcome; state v4; history index (v11 in the plan; `main` is at v12, so it needs v13+) | not started |
+| 4 | Sole-writer outcome; state v4; history index | replaced by [D-continue-reopens](#d-continue-reopens) (#833, #834) |
 | 5 | Cut the runtime artifact store | merged, #683 (`63300da6d`, 2026-10-19; closes #677) |
-| 6 | Per-launch directories through one `LaunchPaths` resolver | not started |
-| 7 | Continue keeps the spawn ID | not started |
+| 6 | Per-launch directories through one `LaunchPaths` resolver | replaced (#829, #834) |
+| 7 | Continue keeps the spawn ID | replaced (#835, #837) |
 
-PR 5 had to land before 6, and has. As of 2026-10-28, PRs 4, 6 and 7 are not
-started. The owner wants a session dedicated to
-them after #800 ships ("after this... we shoul start another session dedicated
-to getting that back on track..."), carrying #800's context "because its
-releated": PR 7 changes what a spawn ID names across continues, which the
-[ref classification](ref-classification.md) and
-[D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start) rules depend on. PR 2's residuals are listed
+PR 2's residuals are listed
 [below](#pr-2-as-built-the-launch-lock-and-the-sweep), and PR 3's
 [after them](#pr-3-as-built-read_derived-and-one-dead-launch-finalize).
 
-**Index versions across lanes:** #631 took v10, identity PR 4 takes v11, and
-#418 B2 takes v12. Whoever merges second bumps
-([D-session-per-chat-journals](state.md#d-session-per-chat-journals)). The
-session-browse redesign (PR #714, merged) has since taken v12 out of turn, so both
-lanes need numbers above 12; see the flag there.
+**Index versions across lanes:** #631 took v10 and the session-browse redesign
+(PR #714) took v12; v0.18.0 takes v13 for state v4
+([D-continue-reopens](#d-continue-reopens)). #418 B2 needs a number above 13
+([D-session-per-chat-journals](state.md#d-session-per-chat-journals)).
 
 ### PR 2 as built: the launch lock and the sweep
 
@@ -257,8 +391,8 @@ two-second bound and refuses the loser (a `--bg` loser fails in its worker). No
 two harnesses run on one chat at once, and `test_concurrent_continue_of_dead_source` now
 passes instead of being an expected failure. Why the publish went:
 [D-owner-on-start](chat-spawn-ownership.md#d-owner-on-start). PR 7, where
-continue keeps the spawn ID, is still meant to replace this interim design; whether
-it keeps the bounded chat lock is not settled.
+continue keeps the spawn ID, kept the bounded chat lock in `start_session`
+([D-continue-reopens](#d-continue-reopens)).
 
 **Accepted residuals:**
 - A cancel during the `--bg` hand-off window can SIGTERM the parent instead of the
@@ -355,6 +489,10 @@ They, and `cancel-all` now selecting every stored-active row, were stated in
 #672's body when the owner approved the merge (D86).
 
 **Residuals:**
+(The first two items were resolved in v0.18.0 by
+[D-continue-reopens](#d-continue-reopens): every lifecycle write is under the
+lock, cancel signals only exact births, a dead launch's cancel is one claim, and
+a derived `finished_at` is never empty.)
 - **Not claimed:** consistency against racing writes. Cancel's request, and the
   `finalizing` transition cancel writes for a managed primary, are still written
   outside the lock; PR 4 moves
@@ -401,8 +539,9 @@ probers `spawn:p8448`, `spawn:p8455`; investigator `spawn:p8456`.
   Bash tool, Pi's detached bash) survives the sweep once its parent is gone, as on
   `main`. It can't start a second harness, write status, or write into another
   launch's directory.
-- Builds older than PR 3 can't resume existing chats once PR 4 writes a v4 row.
-  PR 4's upgrade notes say so.
+- Builds older than the #824 compatibility patch break against v4 rows
+  ([older builds](../architecture/state-system/spawn-launches.md#older-builds-on-the-same-runtime));
+  the v0.18.0 upgrade notes say so.
 - Every Meridian lock assumes a local filesystem; this design adds no new
   dependency on that.
 

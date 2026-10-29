@@ -15,36 +15,35 @@ meridian spawn wait
 
 With no positional spawn IDs, `wait` discovers the caller's active wait set and
 the finished background children still owed to that caller.
-Active discovery is lineage-scoped: all spawns at any nesting depth inherit the
-same root chat ID.
+Active discovery walks the caller's subtree, at any depth.
 
 **Discovery filters:**
 
 | Filter | Detail |
 |---|---|
-| Owner chat (`owner_chat_id`, else `chat_id`) `== MERIDIAN_CHAT_ID` | Only spawns belonging to this chat tree |
-| Active set | `queued`, `running`, or `finalizing`; never capped |
+| Roots (`owned_parent_ids`) | A live primary: every primary row of its chat (chats continued before v0.18.0 hold several). Anyone else: the caller alone |
+| Active set | stored-active descendants of the roots (`running`, or a legacy `queued`/`finalizing`) that still derive active; never capped |
 | Owed finished set | Oldest 32 terminal, unconsumed, unleased background direct children; excess stays owed |
 | Self-exclusion | The current spawn (`MERIDIAN_SPAWN_ID`) is excluded from the wait set |
-| **Descendant-scoping** | When called from a nested spawn, only descendants of the caller are included (not siblings, ancestors, or the primary session) |
+| **Descendant-scoping** | Peers that merely share the chat are under no root, so a nested caller sees only its own descendants (not siblings, ancestors, or the primary session) |
 
 If `MERIDIAN_CHAT_ID` is unset (not running inside a harness session), the
 no-arg form returns an error — there is no meaningful chat scope to resolve.
 
-Since #599 (v0.10.8), the history index applies these filters in SQL. A root
-caller asks for active rows whose owner chat is `MERIDIAN_CHAT_ID`, and a nested
-caller asks for its active descendant projection. The traversal keeps terminal and
-archived ancestors, so active grandchildren under an archived parent are still
-found. The index only selects membership: each selected spawn is re-read from its
+The history index applies these filters in SQL: one recursive query with a
+multi-root anchor over the roots (#807, v0.18.0, which replaced an owner-chat
+filter that lost a continued primary's earlier children). The traversal keeps
+terminal and archived ancestors, so active grandchildren under an archived
+parent are still found. The index only selects membership: each selected spawn is re-read from its
 authoritative `state.json` before wait decides it is pending. Before #599,
 discovery materialized every indexed row and filtered in Python. The measured
 before/after cost is recorded on the [per-operation cost bar](../architecture/per-operation-cost.md).
 The SQL filter keeps discovery within that bar.
 
 The owed set comes from the same `owed.py` definition as Claude's hidden
-`spawn collect`: background direct children of every primary generation in the
-chat (only the caller's own for a nested caller), minus every recorded
-consumption and live lease ([what a lead is owed](child-result-delivery.md#what-a-lead-is-owed)).
+`spawn collect`: background direct children of the roots, plus launches a
+continue moved past before they were consumed (`owed_launches`), minus every
+recorded consumption and live lease, all keyed by launch ([what a lead is owed](child-result-delivery.md#what-a-lead-is-owed)).
 Owed rows are resolved once, never enter the polling loop or the "Waiting for N
 pending" table, appear under `owed_spawns` as header-only entries, and cannot
 fail the wait. Rows active at resolution stay under `spawns` with their full
@@ -193,6 +192,13 @@ adds `fail_fast` and `pending_ids` fields to the wire shape.
   from yield. When `--timeout` is not explicit, `hard_deadline = None` and
   only the checkpoint governs.
 
+**A re-run wait keeps waiting for the same launch.** `spawn wait pN` pins the
+launch it resolved, and the pin is stored in the caller's
+`observed-launches.json`, so a re-run after a yield still returns that launch's
+result even if pN was continued in between. The pin dies when that launch's
+result is consumed, when the caller continues pN, or one yield interval after
+the last poll ([pinned waits](../architecture/state-system/spawn-launches.md#waits-owed-results-and-delivery)).
+
 ### Checkpoint Output
 
 When the yield interval expires and spawns are still pending:
@@ -286,7 +292,7 @@ per-spawn ID tracking required.
 
 A lead that ignores the obligation and goes idle is not stuck on every harness:
 interactive Claude primaries and Pi sessions get owed results delivered as a new turn. Each wait
-records what it returned as consumed in `observed-spawns.json`; owed discovery
+records what it returned as consumed in `observed-launches.json`; owed discovery
 also honors Pi delivery receipts and explicit dismissals, so another route does
 not replay it. See
 [Child result delivery](child-result-delivery.md).

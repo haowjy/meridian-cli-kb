@@ -186,9 +186,9 @@ The index is cold:
 - at every schema-namespace bump, because a bump builds a fresh file
   ([above](#index-files-are-named-by-schema)).
 
-The schema is v12 today. Identity-v2 PR 4 and #418 B2 each plan a further bump
-(numbers unassigned; see the flag on
-[D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)),
+The schema is v13 from v0.18.0 (state v4's `owed_launches` side table, in its
+own file so older builds never read v4 rows), and #418 B2 plans a further bump
+([D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)),
 so each of those upgrades starts every runtime cold. Launch, startup repair and
 `doctor` don't warm the index. `meridian session index rebuild` is the only
 explicit warm-up. The build itself still holds the catch-up gate throughout (#592,

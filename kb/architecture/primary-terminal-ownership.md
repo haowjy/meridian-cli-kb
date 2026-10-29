@@ -339,14 +339,13 @@ in the byte path, and it was accepted.
   PR #658 was live-verified on PTY Claude for TERM, HUP, rapid HUP+TERM, `tmux
   kill-pane` and `systemctl --user stop` of a scope: each gives `cancelled`, 130,
   one session stop, no orphan.
-- **A signal during finalize still kills the launcher** (both paths, after
-  #658). Each receiver is unregistered before `_finalize_lifecycle()`, so a TERM
-  or HUP that lands in finalize hits the default disposition and the run stays
-  active. Both paths also replace the child's raw exit code with 130 at the
-  process layer. Both are acceptance criteria for identity-v2 PR 4 (sole-writer
-  outcome, [D-spawn-identity-v2](../decisions/spawn-identity.md#d-spawn-identity-v2)):
-  hold a latch-only receiver across the one outcome write, and carry the raw
-  code plus `cancelled` to the writer, mapping to 130 there.
+- **A signal during finalize.** Since v0.18.0 `SpawnLifecycleService.finalize`
+  defers SIGTERM and SIGHUP for the length of the terminal store write on every
+  runner, primary launchers included, so a hangup there can't leave the launch
+  `crashed`. A signal earlier in finalize (extraction) still hits the default
+  disposition and the launch reads `crashed`; hooks run after the write,
+  unmasked (#831). Both paths still replace the child's raw exit code with 130
+  at the process layer.
 - **#657: native black-box cancel has no KILL.** When the black-box path runs a
   native launcher, `terminate()` releases the root-only gate and the guardian
   sends one TERM. A TUI that ignores or slowly handles TERM can keep the shell's

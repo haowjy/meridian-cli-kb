@@ -8,7 +8,7 @@ spawns, so cleanup policy must treat them differently.
 Related pages:
 - [concepts/spawn-lifecycle.md](../concepts/spawn-lifecycle.md) — generic spawn status machine and crash recovery
 - [architecture/state-system/derived-status.md](state-system/derived-status.md) — lock-derived status and the one dead-launch writer
-- [architecture/spawn-finalization.md](spawn-finalization.md) — finalization authority lattice
+- [architecture/spawn-finalization.md](spawn-finalization.md) — the one terminal writer and the runner's terminal decision
 - [architecture/process-scope.md](process-scope.md) — process-scope ownership model; spawn_owned vs session_owned split for managed primaries; the start gate and guardian
 - [architecture/primary-terminal-ownership.md](primary-terminal-ownership.md) — native terminal for the TUI, shared job control, cancellation by order, exit-text rule
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — Codex/OpenCode adapter notes and approval routing

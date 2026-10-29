@@ -36,9 +36,9 @@ already breaking it" (`chat:c8397`).
 
 | Event | Fires when |
 |---|---|
-| `spawn.created` | A spawn record is first written, queued or already running |
-| `spawn.started` | A spawn enters `running`, on every path into it |
-| `spawn.finished` | A terminal spawn state is persisted |
+| `spawn.created` | A spawn record is first written (launch 1 only; a `--continue` reopens the spawn and does not fire it) |
+| `spawn.started` | A launch enters `running`, including each launch a `--continue` starts |
+| `spawn.finished` | A launch's terminal state is persisted |
 | `work.created` | `work start` creates a new item |
 | `work.activated` | Someone chose a work item; see [D-work-activation](#d-work-activation--activation-means-someone-chose-the-item) |
 | `work.done` | A work item is archived as done |

@@ -31,42 +31,34 @@ spawns (#600).
 
 ### Spawn Status Machine
 
-> **Decided, not built:** state v4 under
-> [D-spawn-identity-v2](../../decisions/spawn-identity.md#d-spawn-identity-v2)
-> (identity-v2 PR 4). Lifecycle fields move into a fixed-size `current` launch
-> entry. Status is derived from the runner-held `launch.lock` plus a once-written
-> outcome, and per-launch files move to `spawns/pN/launches/K/` (PR 6).
-
-Status progression is v2 per-spawn state plus the current terminal set:
+A row is created `running` and reopened `running` by `--continue`; the holder
+of `launch.lock` writes the terminal once per launch. Rows from builds before
+v0.18.0 may still carry `queued` or `finalizing`; nothing writes them now.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> queued: start_spawn()
-    queued --> running: mark_running()
-    running --> finalizing: mark_finalizing() CAS
-    finalizing --> succeeded: finalize_spawn(succeeded)
-    finalizing --> failed: finalize_spawn(failed)
-    finalizing --> timed_out: finalize_spawn(timed_out)
-    running --> failed: runner died (crashed)
-    running --> timed_out: timeout
-    running --> cancelled: cancel()
-    finalizing --> cancelled: cancel() (rare)
-    finalizing --> failed: runner died (crashed)
+    [*] --> running: start_spawn()
+    running --> succeeded: finalize_spawn(succeeded)
+    running --> failed: finalize_spawn(failed), or derived crashed
+    running --> cancelled: finalize_spawn(cancelled)
+    running --> timed_out: finalize_spawn(timed_out)
+    succeeded --> running: reopen_spawn()
+    failed --> running: reopen_spawn()
+    cancelled --> running: reopen_spawn()
+    timed_out --> running: reopen_spawn()
 ```
 
 Terminal statuses are `succeeded`, `failed`, `cancelled`, and `timed_out`. `timed_out` is a failure class distinct from generic `failed`, so user-facing filters and statistics can separate deadline failures from other errors. `SpawnStatus` is a `StrEnum` (`core/domain.py`); lifecycle sets are derived from a member→class map.
 
-Lifecycle evidence is nested into frozen sub-models (`RunnerExitFacts`, `TerminalFacts`). Top-level `status` is the sole status authority; `TerminalFacts` carries exit code, timestamps, metrics, error, and origin but does not repeat status. When `status` is terminal, `terminal` must not be `None`; active rows must not carry `terminal`. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a nested `terminal.status` or stale flat fields are quarantined. Collection reads partition valid rows from quarantine reports in immutable `SpawnScan` envelopes. See [spawn-finalization.md](../spawn-finalization.md) for the discriminated facts schema and quarantine contract.
+Top-level `status` is the sole status authority; `TerminalFacts` carries exit code, timestamps, metrics, error, and origin but does not repeat status. When `status` is terminal, `terminal` must not be `None`; active rows must not carry `terminal`. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with unknown fields are quarantined. Collection reads partition valid rows from quarantine reports in immutable `SpawnScan` envelopes. Schema v4 (a row with `launch`) and the per-launch layout are on [spawn launches](spawn-launches.md); the terminal facts are on [spawn finalization](../spawn-finalization.md).
 
-**Terminal writes use the projection authority rule**: a runner-origin terminal write supersedes a reconciler-origin write on the same spawn. The status a reader shows can differ from the stored one: a stored-active row whose `launch.lock` is free reads `failed`/`crashed` ([derived status](derived-status.md)). See [spawn-finalization.md](../spawn-finalization.md) for the full authority lattice.
-
-`mark_finalizing()` is a compare-and-swap from `running` → `finalizing`. It tells observers the harness has exited and the runner is draining. Since identity-v2 PR 3 nothing decides liveness from it; PR 4 deletes it with stored status.
+The status a reader shows can differ from the stored one: a stored-active row whose `launch.lock` is free reads as its derived terminal ([derived status](derived-status.md)). The first terminal write wins; nothing replaces it, whatever the origin.
 
 ### Locked Mutation Seam
 
 Every update to a published spawn calls `write_state_locked()`. It acquires the stable per-spawn lock at `locks/spawns/<id>.lock`, re-reads current `state.json`, applies a pure mutator function, and writes atomically. There is no public unlocked write path — the prior two-tier model (owner writes without lock / external writes with lock) was collapsed in PR #422 to eliminate the convention-enforced split that was the root cause of every reproduced lost-update bug.
 
-`start_spawn()` creates the initial `state.json` under the global `spawns_flock`, where ID reservation is also serialized. Once a spawn row is published, all subsequent mutations go through `write_state_locked()`.
+`start_spawn()` creates the initial `state.json` under the global `spawns_flock`, where ID reservation is also serialized. Once a spawn row is published, all subsequent mutations go through `write_state_locked()`. Per-launch fields are written only by the holder of the row's `launch.lock` ([the fence](spawn-launches.md#the-fence)).
 
 The same mutate-under-lock shape applies across all stores:
 - **Spawn state**: `write_state_locked()` — `locks/spawns/<id>.lock`
@@ -94,13 +86,12 @@ may recreate or change the aggregate.
 4. It performs the supplied artifact mutation or returns `False` without
    touching the spawn directory.
 5. `delete_published_spawn()` takes the same outer lock before removing the
-   directory.
+   directory, and also holds the row's `launch.lock` non-blocking (Busy: skip),
+   so a delete can't remove a row a continue has just reopened.
 
 If the writer wins, deletion waits and then removes the complete aggregate. If
 deletion wins, the writer observes no published row and fails closed. Artifact-
-specific locks remain nested inside the spawn lock. Heartbeats are the lighter
-case: they never create their parent and stop when deletion makes the path
-disappear. Harness connection startup and process adoption likewise require an
+specific locks remain nested inside the spawn lock. Harness connection startup and process adoption likewise require an
 already-published directory rather than creating one.
 
 This seam belongs above the persistence leaves because low-level atomic and
@@ -128,5 +119,7 @@ The original design used a global `spawns.jsonl` event log. Events were appended
 
 - [State system overview](overview.md) — state roots and subsystem map
 - [Session state](session-state.md) — the separate session journal and index projection
-- [Spawn finalization](../spawn-finalization.md) — terminal facts, authority lattice, and quarantine contract
+- [Spawn finalization](../spawn-finalization.md) — terminal facts and quarantine contract
+- [Spawn launches](spawn-launches.md) — launch numbers, per-launch directories, the reopen
+- [Derived status](derived-status.md) — status from the launch lock
 - [State decisions](../../decisions/state.md) — migration and concurrency rationale

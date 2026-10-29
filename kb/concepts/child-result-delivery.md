@@ -22,7 +22,7 @@ flowchart LR
     A["meridian spawn ack"]
     X["meridian spawn cancel"]
     S["spawn show / report show<br/>(terminal report body)"]
-    O[("spawns/&lt;primary&gt;/<br/>observed-spawns.json")]
+    O[("spawns/&lt;primary&gt;/<br/>observed-launches.json")]
     R[("pi-bash/&lt;primary&gt;/<br/>receipts + cleared ids")]
     W -- "lease while waiting,<br/>observed on exit" --> O
     P -- "reads CLI consumption<br/>and leases" --> O
@@ -56,11 +56,20 @@ and a Sonnet lead still answered "I'll report when it finishes" and went idle.
 
 A child is **owed** to a lead while all of these hold:
 
-- its `parent_id` is one of the chat's primary spawn ids. A resumed chat gets a
-  new primary spawn, and the children of earlier primaries are still owed to it;
+- its `parent_id` is the lead's spawn id. A continue keeps that id, so children of
+  earlier launches stay owed. Chats continued before v0.18.0 can still hold
+  several primary rows, and children of every one of them are owed to the
+  current primary;
 - it was launched in the background (`launch_mode == "background"`). A
   foreground spawn's result already went to the command that ran it;
-- no route has recorded it as consumed.
+- no route has recorded that launch of it as consumed.
+
+Owedness is per launch. Consumption is keyed `(spawn_id, n)`, so a child
+continued after its first result was consumed is owed again when its next
+launch finishes. A background launch that a continue moved past before the lead
+consumed it stays owed through the row's `owed_launches`
+([spawn launches](../architecture/state-system/spawn-launches.md#waits-owed-results-and-delivery)).
+None of this reaches the lead: every surface names the child by its bare id.
 
 Only direct children count. A child does not finish until its own descendants
 have, so a grandchild's result reaches the lead through its parent's report.
@@ -75,35 +84,40 @@ again (#718).
 ## Consumption sources
 
 There is no single consumption file shared by every route. Owed discovery
-unions three kinds of evidence for every relevant primary generation:
+unions these sources for every relevant primary row of the chat:
 
-- current and legacy `observed-spawns.json`: ids consumed by CLI commands that
-  showed the result (wait, ack, a completed cancel, or a terminal report-body
-  show);
-- `delivery-receipts.json`: exact Pi native admission;
-- `cleared-spawns.json`: results the user dismissed in Pi.
+- `observed-launches.json`: launches consumed by CLI commands that showed the
+  result (wait, ack, a completed cancel, or a terminal report-body show);
+- `launch-receipts.json`: exact Pi native admission;
+- `cleared-launches.json`: results the user dismissed in Pi;
+- the legacy `observed-spawns.json`, `delivery-receipts.json` and
+  `cleared-spawns.json`, read but never written; a bare id there counts as
+  launch 1 of that child, because builds that wrote them could only ever run
+  launch 1.
 
 The shared reader opens each source once per call. A damaged or unreadable
 source is skipped and diagnosed independently, so one truncated Pi receipt file
 cannot prevent wait or collect from honoring the remaining evidence.
 
-The current `observed-spawns.json` lives in the primary's own spawn directory,
-`spawns/<primary spawn id>/`, under the project's runtime state. It holds two
-things:
+`observed-launches.json` lives in the lead's own spawn directory,
+`spawns/<lead spawn id>/`, under the project's runtime state. It holds:
 
-- **observed ids**: durable. A child listed here was handed to the lead and is
-  never delivered automatically again.
+- **observed launches**: durable. A launch listed here was handed to the lead
+  and is never delivered automatically again.
 - **wait leases**: temporary. A running `spawn wait` holds a lease naming its
-  ids, its process id and that process's birth time, with an expiry. A lease
-  counts only while that exact process is alive, so a killed wait stops
-  covering its ids.
+  launches, its process id and that process's birth time, with an expiry. A
+  lease counts only while that exact process is alive.
+- **wait pins**: which launch a re-run `spawn wait` is still waiting for.
+- **delivered**: the launches the last `spawn collect` handed out, which
+  `spawn ack` consumes.
 
 Writers record under the calling spawn id. Readers that decide what is owed
-read only the owner's parent scope: every primary generation in a primary
-chat, or the nested caller alone. A lead that handled a child before a crash,
-then resumed under a new primary, has that evidence under the old primary. A
-reader that looked only at the current primary would deliver the child again
-at every idle. Recording a sibling under a nested non-owner is harmless because
+read only the owner's parent scope: every primary row of a primary chat
+(`owned_parent_ids`), or the nested caller alone. A chat continued before
+v0.18.0 has several primary rows, and a lead that handled a child under an
+earlier one has that evidence there; a reader that looked only at the current
+row would deliver the child again at every idle. Chats started on v0.18.0 have
+one row, because a continue keeps the id. Recording a sibling under a nested non-owner is harmless because
 the real parent's owed reader never consults that nested caller's observations.
 
 Writes take the caller's published-spawn lock, the per-spawn lock every
@@ -164,29 +178,16 @@ Contention, a read-only runtime, or another OS write failure logs a warning and
 leaves the command's output intact. That result can be delivered once more
 after a failed observation.
 
-### Transition from `pi-bash/`
+### Legacy ledger files
 
-Builds before PR #729 kept the file at `pi-bash/<primary>/observed-spawns.json`,
-a directory owned by Pi's background-bash extension. For one minor release after
-the move ships, both locations count:
-
-- **Every reader unions both files**: Python ops, Pi's disk watcher, and Pi's
-  TypeScript extension. A child is consumed if either file lists it, and leased
-  if either holds a live lease on it. A `spawn wait` started by an older build
-  may still be writing the old file. A damaged old file counts as empty: it is
-only a compatibility copy, and a later mirror write may replace it. A damaged
-new file keeps the handling every current file gets.
-- **Writers mirror to the old file when `pi-bash/<primary>/` exists.** A Pi
-  session started before an upgrade reads only the old file. Claude primaries
-  never have that directory, and the mirror never creates it.
-- **Nothing is migrated or deleted.** A still-running older `spawn wait` would
-  recreate a deleted old file.
-- **Rolling back** to an older build is safe for Pi primaries, which are
-  mirrored. A Claude primary's results consumed after the upgrade can be
-  delivered once more.
-
-Every transitional line in meridian-cli is tagged `legacy-observed-spawns
-(#719)`; removing them next minor release is one search.
+v0.18.0 moved every ledger to new file names instead of bumping a version in
+place: an older Python build reads an unknown version as absent and rewrites
+the whole document, and an older Pi extension throws on it and stops
+delivering. Older builds never open the new names, so they can re-deliver a
+result the new build consumed, once per run, but never lose one. The
+`pi-bash/<primary>/observed-spawns.json` mirror from the PR #729 move is
+retired. Collapsing the owner scope to the caller and dropping the legacy reads
+waits on a deprecation window (#836).
 
 ## Wait
 
@@ -269,7 +270,13 @@ changes (Claude died) or when it is killed. A delivery carries at most 32
 results. Each member contains its identity and
 terminal outcome, worker, failure when present, distinct task directory, and
 the exact `meridian spawn show <id>` lookup command. `collect` reads no report
-bodies and has no report-byte budget.
+body, except for a delivered launch that is no longer the child's current one:
+`spawn show` now describes the next launch, so that report travels inline,
+within a 64 KiB budget shared across the delivery. Collect returns bare,
+de-duplicated ids and records the launches it handed out in the caller's
+`delivered` map before the delivery is shown; `spawn ack <id>` consumes exactly
+those, or with no record the child's finished, owed, unconsumed launches, never
+a running one. Launch keys never reach the mod: its id pattern rejects `:`.
 
 **The mod** starts `collect` 2 s after a main-loop `turn.complete` with reason
 `answer`, and at `session.start` (a resumed or reloaded session is idle with

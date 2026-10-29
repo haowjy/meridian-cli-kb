@@ -51,11 +51,13 @@ graph TD
     MANUAL["notify.manual\nmeridian notify"]
 ```
 
-- `spawn.created` fires once the record is written, queued or already
-  running. `spawn.started` fires on every path into `running`, including a
-  spawn whose first persisted state is `running`. `spawn.finished` fires for
-  each persisted terminal write, so an authoritative rewrite of a reconciler's
-  terminal state fires it again with the same event ID.
+- `spawn.created` fires once, when the record is first written. Every launch,
+  including each one a `--continue` starts, fires `spawn.started` and then
+  `spawn.finished` when its terminal is persisted. A terminal is written once
+  per launch, so `spawn.finished` fires once per launch. Event IDs hash the
+  launch number, so launch 2's events don't dedupe against launch 1's, and
+  launch 1 keeps the ID older builds gave it. Payloads carry `spawn_id` and no
+  launch number.
 - `work start` on a new item fires `work.created`, then `work.activated`.
   Activation means a user or agent chose the item: `work start`, `work switch`
   (even to an archived item, even with no session), or a primary launch

@@ -271,8 +271,6 @@ clean exit into cancelled.
 
 **Handed on:** native black-box has no KILL after its one TERM (#657). The
 receiver is unregistered before finalize, and 130 replaces the raw exit code at
-the process layer. Both are identity-v2 PR 4 acceptance criteria
-([gaps](../architecture/primary-terminal-ownership.md#known-gaps)).
-
-**Revisit if** identity PR 4 moves the outcome write: the receiver should then
-span that write, not just the wait.
+the process layer ([gaps](../architecture/primary-terminal-ownership.md#known-gaps)).
+v0.18.0 masks SIGTERM and SIGHUP around the one terminal write on every runner,
+which covers the write itself but not the extraction before it.

@@ -141,7 +141,7 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### `mark_finalizing` CAS enables `orphan_finalization` distinction
 
-**Status:** superseded in part. Identity-v2 PR 3 removed the reason below: the reaper no longer reads `finalizing`, a dead runner is `crashed` whichever window it died in, and nothing writes `orphan_finalization` or `orphan_run` ([derived status](../architecture/state-system/derived-status.md)). The CAS itself still runs on `main` as a status marker; [D-spawn-identity-v2](spawn-identity.md#d-spawn-identity-v2) PR 4 deletes it, and the runner then writes one outcome instead of `record_runner_exit` → `mark_finalizing` → `finalize`.
+**Status:** superseded. Identity-v2 PR 3 removed the reason below: the reaper no longer reads `finalizing`, a dead runner is `crashed` whichever window it died in, and nothing writes `orphan_finalization` or `orphan_run` ([derived status](../architecture/state-system/derived-status.md)). v0.18.0 deleted the CAS itself: the runner writes one terminal instead of `record_runner_exit` → `mark_finalizing` → `finalize` ([D-continue-reopens](spawn-identity.md#d-continue-reopens)).
 
 **Decision:** After the harness process exits, `streaming_runner.py` atomically transitions the spawn from `running` to `finalizing` (compare-and-swap) before beginning drain and report extraction. The reaper uses this state to distinguish `orphan_finalization` from `orphan_run`.
 
@@ -151,13 +151,12 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 ### Terminal write policy as a pure function (terminal_policy.py)
 
-> **Superseded (PR #423 wave 4, 2026-07).** `terminal_policy.py` was deleted.
-> The authority lattice is now inlined in `spawn_store.py:finalize_spawn()` as
-> a four-line check inside the locked mutator. The v1 reducer that also called
-> it no longer exists, so the single-caller justification for a separate module
-> evaporated. The authority rule itself is unchanged: authoritative origins
-> replace reconciler-origin terminals; all other terminal-to-terminal writes
-> are rejected.
+> **Superseded.** PR #423 wave 4 (2026-07) deleted `terminal_policy.py` and
+> inlined the lattice in `spawn_store.py:finalize_spawn()`. v0.18.0 deleted the
+> lattice itself: only a holder of the launch lock writes a terminal, and the
+> first terminal wins whatever the origin
+> ([D-continue-reopens](spawn-identity.md#d-continue-reopens),
+> [spawn finalization](../architecture/spawn-finalization.md#one-writer-first-terminal-wins)).
 
 **Decision (2026-05, spawn-finalization-refactor):** The finalization authority lattice is encoded as a pure function `decide_terminal_write(current_status, current_terminal_origin, incoming_origin)` in `state/spawn/terminal_policy.py`. The store calls this function under flock; the reducer calls it during event projection.
 
@@ -173,7 +172,7 @@ Current mechanism: [project identity architecture](../architecture/state-system/
 
 **Why:** The original short-circuit check (`if is_terminal: return early`) was a non-atomic read-then-skip. A concurrent writer could have appended a reconciler event between the read and the early return, allowing the caller to believe the spawn was already-terminal-by-authoritative when it was actually only-terminal-by-reconciler. The fix makes the store the sole decision authority: the read, decision, and write are all under flock.
 
-**Effect:** Callers now receive a `CompleteSpawnOutcome` that accurately reflects whether _this_ call wrote the terminal event, whether it replaced a prior reconciler event, or whether a prior authoritative event already existed. The `snapshot` field carries post-write state regardless of outcome.
+**Effect:** Callers receive a `CompleteSpawnOutcome` that reflects whether _this_ call wrote the terminal or one already existed. The `snapshot` field carries post-write state regardless of outcome. (The "replaced a prior reconciler event" case went with the lattice in v0.18.0.)
 
 ---
 
@@ -227,7 +226,7 @@ O(1). The canonical dataset and timing provenance are recorded in
 **Quiescence gate rejected:** The migration does not wait for running spawns to finish. This was deliberate: users always have running spawns, so a quiescence gate would never trigger in practice. Safety net: the reconciler (reaper) handles any spawn whose runner died mid-migration by reading v2 state and finalizing via the normal path.
 
 **Integration with spawn-finalization architecture:**
-- `decide_terminal_write()` is preserved as a pure function — application point shifted from read-time (v1 reducer) to write-time (v2 `write_state_locked()` mutator). The authority lattice and `CompleteSpawnOutcome` contract are unchanged.
+- `decide_terminal_write()` moved from read time (v1 reducer) to write time (the v2 `write_state_locked()` mutator). The lattice was later deleted ([above](#terminal-write-policy-as-a-pure-function-terminal_policypy)).
 - Per-spawn locking in v2 eliminates the global `spawns.jsonl.flock` contention bottleneck.
 
 **Known remaining gap:** sessions never got the same split; they are still one global log ([D-session-per-chat-journals](#d-session-per-chat-journals) is the accepted fix). Listing now goes through the history index, but two per-spawn paths still read every `state.json` ([spawn state](../architecture/state-system/spawn-state.md), [per-operation cost](../architecture/per-operation-cost.md)).
@@ -246,14 +245,10 @@ work item's `design-591/design-B.md`, `decision-B.md`, `pr-plan-B.md`).
 - **Owner answers** (`decision-B.md` "Owner answers"): Q5, automatic retirement of
   `sessions.jsonl` (B4), is **yes** (2026-10-16). Questions 1–4 and 6–11 are still
   open and must be answered before B2.
-- **B2** comes after identity-v2 PR 4, which was planned to take index v11, with B2
-  taking v12.
-  > [!FLAG] **Needs human review**
-  > The session-browse redesign (meridian-cli PR #714, merged 2026-10-21) bumped
-  > the history index on `main` from v10 straight to **v12** for lineage edges and
-  > model observations, taking B2's reserved number and skipping v11. Identity-v2
-  > PR 4 ([spawn identity](spawn-identity.md)) and B2 now need new numbers above
-  > 12; nobody has assigned them yet.
+- **B2** was planned after identity-v2 PR 4 (index v11), taking v12. The
+  session-browse redesign (PR #714) took v12, and v0.18.0's state v4 took v13
+  ([D-continue-reopens](spawn-identity.md#d-continue-reopens)), so B2 needs a
+  number above 13.
 
 On `main` sessions are still the one global log. #591 was closed as a duplicate of
 #418, which has owned this work since the 2026-07 thermo-nuclear audit.
@@ -294,8 +289,8 @@ in D25):
   state file would need a new derived schema and a read-modify-write on every
   update, to save about 1 ms.
 - **Index bumps in sequence:** #631 took v10 (8 and 9 were burned by unreleased
-  #616 builds), identity-v2 PR 4 ships v11, B2 ships v12. Whichever merges second
-  bumps.
+  #616 builds); v12 and v13 went to other work (see B2 above). Whichever merges
+  next bumps.
 - **Pre-B builds are unsupported for reads** against a cut-over runtime; their
   writes are still absorbed. The cutover fails loudly on a read-only runtime.
 - **Corpus search cuts over other projects' runtimes** when it initializes them.
@@ -416,8 +411,7 @@ just wrote. B2 changes these bodies and nothing else. The colocated contract is
   rows the accepted generation equals the last bucket. That is false when a
   generation key is reused: the key keeps its original ordinal. No current writer
   reuses a key (all use `uuid4`), but joining on the accepted generation needs a
-  new index namespace, B1's contract is no format change, and v11 belongs to
-  identity-v2 PR 4. B2 carries absorbed rows and its own bump (v12), so "latest =
+  new index namespace, and B1's contract is no format change. B2 carries absorbed rows and its own bump (v12), so "latest =
   accepted" lands there. Non-index `chat_record` readers keep accepted-record
   semantics.
 - **Eager close-path imports are a walk plus a named tuple** (M14). A daemon thread
@@ -446,7 +440,7 @@ reuses this oracle and the pass/lock probe
 | Alternative | Why rejected |
 |---|---|
 | A standalone native-identity lookup for the capture guard (MEM-2 as first scoped) | Native identity isn't indexed and observers have no per-chat rows on `main`, so it would duplicate B1's native-scope seam and conflict with it |
-| Startup repair from history-index candidates | A dirty index makes catch-up project the log into memory, the cost being removed, and a stale disposable projection could hide an orphan. Repair streams the authority (`iter_repair_candidates`); identity-v2 PR 4 swaps only its predicate |
+| Startup repair from history-index candidates | Rejected for B1: a dirty index makes catch-up project the log into memory, and a stale projection could hide an orphan. **Later reversed** for the background pass: v0.18.0's `recover_crashed_launches` takes candidates from the index's active rows, skips the pass when the index is busy or past its timeout, and leaves the full `iter_repair_candidates` walk to `doctor`, which still finds what a stale index hides ([repair pass](../architecture/state-system/derived-status.md#the-background-repair-pass)) |
 | A dirty marker to skip startup repair | Another state file to keep correct; identity-v2 bounds the pass anyway |
 | A per-chat read looped by multi-chat callers | Invariant 1 |
 | Rebuilding cross-chat order from timestamps | Invariant 2 |
@@ -749,7 +743,7 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 > deleted. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a
 > nested `terminal.status` are quarantined rather than silently accepted.
 
-**Decision (updated):** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. Top-level `status` is the sole status authority. `TerminalFacts` carries no status field. When status is terminal, `terminal` must not be `None`; when status is active or `unknown`, `terminal` must be `None`. `extra="forbid"` on the persisted model quarantines rows with extra fields, including any legacy `terminal.status`.
+**Decision (updated):** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. (Since v0.18.0 nothing writes `runner_exit`; it is a read-only legacy field.) Top-level `status` is the sole status authority. `TerminalFacts` carries no status field. When status is terminal, `terminal` must not be `None`; when status is active or `unknown`, `terminal` must be `None`. `extra="forbid"` on the persisted model quarantines rows with extra fields, including any legacy `terminal.status`.
 
 **Rejected (original wave 2-3 approach):** Enforced-equivalence discriminant (`status == terminal.status`) with `_RevalidatedFrozenModel.model_copy` revalidation. This worked but duplicated status authority across two fields, requiring a validator, a custom base class, and 17 compatibility properties. The thermo-nuclear audit identified the duplication as unnecessary complexity; wave 4 removed the second field entirely.
 

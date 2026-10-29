@@ -9,7 +9,8 @@ Architecture pages explain how Meridian realizes its concepts in code: subsystem
 - [idle-adapters.md](idle-adapters.md) — Current idle adapter locations, per-harness coverage, runtime contracts, and known fragility.
 - [state-system/overview.md](state-system/overview.md) — JSONL event stores, atomic writes, locking, reaper reconciliation, and migrations.
 - [state-system/project-identity.md](state-system/project-identity.md) — Committed and ad-hoc identity tiers, path-derived keys, read purity, and retention.
-- [spawn-finalization.md](spawn-finalization.md) — Terminal write policy, authority lattice, and finalization races.
+- [spawn-finalization.md](spawn-finalization.md) — The one terminal writer, the runner's report-versus-cancel decision, and terminal arbitration.
+- [state-system/spawn-launches.md](state-system/spawn-launches.md) — One spawn ID across launches: the reopen, per-launch directories, usage, owed results.
 - [drain-plans.md](drain-plans.md) — Streaming drain-plan composition and resident completion behavior.
 - [completion-drain-coordination.md](completion-drain-coordination.md) — Shared composition-first Pi/resident completion, cached indexed descendant refresh, and publish-before-cleanup invariant.
 - [pi-lifecycle.md](pi-lifecycle.md) — Current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior.

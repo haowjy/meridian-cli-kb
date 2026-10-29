@@ -247,7 +247,7 @@ emits `spawn.started` and `spawn.finished`. Lifecycle event IDs hash
 One v4 row used to break older builds runtime-wide: a history-index rebuild hit
 `SpawnStateQuarantined` and latched a failure, so every index-backed command
 failed, and a running v4 launch with no observed session made
-`live_observer_for_chat` refuse every chat. Patch P0 (#824, to `main` as its own
+`live_observer_for_chat` refuse every chat. A compatibility patch (#824, to `main` as its own
 v0.17.x release) makes older builds treat a newer-format row as absent in the
 index, let it observe its chats only while its lock is held, and accept it as a
 parent. It must ship before v0.18.0; builds older than it stay broken against

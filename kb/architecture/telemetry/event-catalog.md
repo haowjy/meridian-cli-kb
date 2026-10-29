@@ -74,7 +74,7 @@ Sparse lifecycle correlation markers: process exit and terminal outcomes only. F
 | `spawn.cancelled` | `operational` | `spawn_id` |
 | `spawn.timed_out` | `operational` | `spawn_id` |
 
-The core lifecycle service also emits `spawn.created` and `spawn.started` to its observers (hooks, and the debug observer under `MERIDIAN_DEBUG=1`). They are not registered here, and `SpawnTelemetryObserver` drops them (`TERMINAL_TELEMETRY_EVENTS` in `telemetry/observer.py`), so `meridian telemetry query` never shows them. Through v0.10.28 these were named `spawn.queued` and `spawn.running`; v0.11.0 renamed them to match the hook events.
+The core lifecycle service also emits `spawn.created` (first launch only) and `spawn.started` (every launch) to its observers (hooks, and the debug observer under `MERIDIAN_DEBUG=1`). They are not registered here, and `SpawnTelemetryObserver` drops them (`TERMINAL_TELEMETRY_EVENTS` in `telemetry/observer.py`), so `meridian telemetry query` never shows them. Through v0.10.28 these were named `spawn.queued` and `spawn.running`; v0.11.0 renamed them to match the hook events.
 
 `spawn.failed` carries structured error data via `make_error_data()`: exception type, message, and stack trace.
 

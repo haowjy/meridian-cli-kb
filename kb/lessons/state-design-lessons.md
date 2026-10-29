@@ -88,7 +88,7 @@ If the process dies between steps 2 and 3, the intent file survives and the rena
 
 **The lesson:** When multiple processes can write terminal state for the same record, you need an explicit authority ordering — not just a timestamp or a mutex. Timestamps require clock synchronization. Mutexes block. Authority rules are append-safe and correct without coordination.
 
-**What replaced it:** an authority ordering resolves the race; exact liveness removes it. Since PR 3 the reaper writes only after claiming the dead runner's `launch.lock`, so no runner can arrive later. PR 4 makes the lock holder the only writer and deletes the lattice.
+**What replaced it:** an authority ordering resolves the race; exact liveness removes it. Since PR 3 the reaper writes only after claiming the dead runner's `launch.lock`, so no runner can arrive later. v0.18.0 made the lock holder the only writer and deleted the lattice ([D-continue-reopens](../decisions/spawn-identity.md#d-continue-reopens)). The lesson stands for systems that can't make liveness exact.
 
 ---
 
@@ -158,8 +158,9 @@ decide wrongly.
 
 Moving the boundary removes the class instead of fencing it:
 - only the process that holds the launch's lock writes its outcome, once;
-- cancel records a request and signals, and the reaper records crashes only
-  while holding the lock;
+- cancel records a request in the launch's own directory and signals, and
+  every writer of a crash (continue, cancel, the repair pass, doctor) writes
+  only while holding the lock;
 - everyone else derives status from the outcome and the lock.
 
 A dead runner writes nothing and a live one blocks the next launch, so no late

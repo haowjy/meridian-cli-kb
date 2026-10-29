@@ -12,17 +12,16 @@ This page covers what goes wrong, why, and how to recover. Each pattern includes
 **What happened:** The runner died without writing an outcome: hard kill, OOM,
 host reboot, or a crash while extracting the report. Every runner holds
 `spawns/<id>/launch.lock` for its life, and the kernel freed it when the runner
-died, so every reader shows `crashed` on the next read. If a cancel had been
-requested, the spawn shows `cancelled` instead. `report.md` or a recorded
-successful runner exit doesn't turn it into `succeeded`: only an outcome the
-runner itself wrote counts
+died, so every reader shows `crashed` on the next read, unless the launch left a
+durable report (then `succeeded`) or a cancel was requested (then `cancelled`)
 ([derived status](../architecture/state-system/derived-status.md)).
 
-Until something persists it, `state.json` still says `running` (or `queued`,
-`finalizing`); readers show the derived `crashed`. Plain `meridian doctor` lists
-such spawns as `dead_spawns_unfinalized`. `meridian doctor --kill-orphans`, the
-background repair of the next fresh primary launch, or `spawn cancel` writes the
-outcome and cleans up recorded process scopes.
+Until something persists it, `state.json` still says `running` (or, on rows from
+older builds, `queued`/`finalizing`); readers show the derived outcome. Plain
+`meridian doctor` lists such spawns as `dead_spawns_unfinalized`. The next
+`--continue` of that spawn, `spawn cancel`, `meridian doctor --kill-orphans`, or
+the bounded background repair of a later primary launch writes the outcome and
+cleans up recorded process scopes.
 
 Rows from older builds may carry `orphan_run`, `orphan_finalization`,
 `missing_runner_pid` or `orphan_primary`. Those were the pre-identity-v2-PR-3

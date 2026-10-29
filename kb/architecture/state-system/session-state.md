@@ -91,7 +91,7 @@ list, raises.
 per-native-ID files for the facts that cross chats. A one-time cutover splits the
 old log, and rows that older builds keep appending are absorbed at the next
 command. B1 (the seam) shipped in #651. B2 swaps the seam's bodies and waits on the
-owner's open design questions and on identity-v2 PR 4
+owner's open design questions
 ([D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)).
 Until it lands, describe and test sessions as the global log above.
 

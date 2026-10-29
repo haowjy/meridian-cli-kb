@@ -3,6 +3,30 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-29 — spawn identity v2 capture (meridian-cli v0.18.0, `release/v0.18.0`, unmerged to `main`)
+
+New [spawn launches](architecture/state-system/spawn-launches.md) page: one ID
+across launches, state v4, per-launch directories, the reopen and its fence,
+usage across launches with cumulative-harness seeding, pinned waits,
+`owed_launches`, launch-keyed ledgers, bare-ID collect/ack, older builds on one
+runtime. New decision [D-continue-reopens](decisions/spawn-identity.md#d-continue-reopens)
+with owner and build rulings, departures from D-spawn-identity-v2, and rejected
+alternatives; D-spawn-identity-v2's status and PR table updated.
+[Derived status](architecture/state-system/derived-status.md) rewritten to
+current truth (stored status with one holder write, report-first derive rule,
+dead-launch writers, the repair pass, cancel on the lock). Deleted mechanisms
+removed from [spawn finalization](architecture/spawn-finalization.md),
+[spawn lifecycle](concepts/spawn-lifecycle.md) and
+[spawn state](architecture/state-system/spawn-state.md): the authority lattice,
+`mark_finalizing`, `queued`/`finalizing` as written statuses, `runner_exit` as a
+written field, `signal_canceller.py`, reserve-before-prep. Delivery pages
+(child-result delivery, Pi coordination and vocab, wait barrier) moved to the
+new ledger names and launch keys. Superseded notes on D-reserve-before-prep,
+D-REF-5, the lattice-era state decisions, and the rejected index-candidate
+repair (reversed for the background pass). Index-version notes moved to v13.
+Lessons: old-build premises, fake-harness timing, CLI output as a schema,
+check base before ruling. One correction occurrence added.
+
 ## 2026-10-29 — Mars 0.25 portable hooks capture
 
 New [Mars portable hooks](decisions/mars-portable-hooks.md) decision page: why

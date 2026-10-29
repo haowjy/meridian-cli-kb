@@ -143,8 +143,10 @@ default shape with selection layered on top when needed.
 ### `spawn show`
 
 The JSON default is a sparse projection: spawn identity, status, timing,
-model, agent, description, `report_path`, and a bounded 500-char
-`report_summary`. Two fields are deliberately excluded:
+model, agent, description, and a bounded 500-char `report_summary`. Since
+v0.18.0 no output carries `report_path` or `log_path`: a spawn's files live in
+per-launch directories, and output points at `meridian spawn report show <id>`
+instead of a path. Two fields are deliberately excluded:
 
 - **`report_body`**: opt-in via `--full`. Text mode keeps
   report-by-default UX; JSON default carries only the bounded summary.

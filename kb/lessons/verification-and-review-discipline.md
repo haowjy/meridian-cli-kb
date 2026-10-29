@@ -354,6 +354,57 @@ is pre-existing and goes to its own issue; the diff between the two runs is
 what the PR owns. Probe briefs for a PR should ask for before/after pairs from
 the start, as PR 3's first probe did.
 
+The same check applies to a ruling. Building v0.18.0's continue path, the tech
+lead ruled that a primary `--continue` should refuse the launch-policy flags
+(approval, sandbox, network, effort, autocompact). Base had accepted them on that
+path and ignored them, so the ruling would have broken commands that worked; a
+re-read of base caught it, and the flags now apply and stick instead. Before
+ruling what a path should refuse, read what it accepts on base.
+
+### Settle a premise about an old build by running the old build
+
+The v0.18.0 design (`work:spawn-identity-v2`) assumed that children from
+releases before v0.5.0 never bound their own chat, and added a full
+`sessions.jsonl` scan per legacy row to find their sessions. Review installed
+`meridian-cli==0.4.5` and ran it: those releases did rebind `chat_id` once the
+session started, so the scan recovered only a crash inside a narrow window, at
+the cost of a fifth resolver and two full scans per legacy row. It was deleted
+before merge.
+
+The same build met a second premise the code had encoded: that a Claude
+`result` event's `usage` is the session's usage for that turn. On a real stream
+`usage` covers only the main model, while `modelUsage` has a row per subagent
+model, so the usage baseline inferred from it subtracted a fresh launch's own
+subagent usage. The coder's check had passed because it used haiku as the main
+model: the subagent row merged into the main one and hid the difference.
+
+A premise about what an older release wrote, or what a harness emits, is a
+claim about a running system. Install the old release, or capture a real event
+stream with the shape you depend on (a subagent on a different model from the
+main one), before building on it.
+
+### Unit-green parts can break at the seams a fake doesn't model
+
+Two parts of v0.18.0 passed their own suites and broke once integrated:
+
+- **Launch keys in CLI output.** `spawn collect` started printing `p7:2`. The
+  Claude delivery mod, a JavaScript consumer of that output, matches spawn IDs
+  with a pattern that rejects `:`, so delivery stopped. CLI output with a
+  machine consumer is a schema with cross-language readers, like
+  [persisted state](state-design-lessons.md#cross-language-consumers-of-persisted-schema).
+  The fix kept bare IDs on every CLI surface.
+- **The fake harness stops instantly.** A real Claude runner's signal-triggered
+  stop took about 10 s, longer than cancel's 5 s grace, so cancel SIGKILLed the
+  runner: the launch lost its usage, and a background task in its own process
+  group survived. Every cancel test used the fake harness, and only the final
+  gate's live Claude review found it. The fixes bounded each harness's signal
+  stop below the grace and made the group kill reach descendants outside the
+  group.
+
+A fake harness proves the protocol, not the timing or the consumers. For a
+change to timing budgets or to output another program parses, run one real
+harness and one real consumer before calling the parts green.
+
 ## Measurement Discipline
 
 Measurements need a recoverable provenance note: command or method, dataset,

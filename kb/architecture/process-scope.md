@@ -348,7 +348,8 @@ Four sync cleanup paths exist. All route through `terminate_scope_sync()` when a
 ### Dead-launch repair (the reaper)
 
 `state/reaper.py:reconcile_active_spawn()` runs from `meridian doctor
---kill-orphans` and the primary-launch background repair thread. It claims the
+--kill-orphans`; the primary-launch background pass (`recover_crashed_launches`)
+claims and recovers rows the same way, bounded per pass. It claims the
 spawn's free `launch.lock`, records a cleanup claim of the unreleased
 `spawn_owned` scopes in `process_scopes.json`, writes the dead launch's outcome,
 then terminates each claimed scope and marks it released. With no scope records
@@ -358,8 +359,9 @@ Details: [cleanup claims](state-system/derived-status.md#the-reapers-cleanup-cla
 
 ### Continue sweep
 
-`launch/continue_sweep.py:sweep_before_continue()` runs on every continue path
-before any harness starts (#647, identity-v2 PR 2). It takes the source's
+Step 3 of the reopen in `launch/continue_launch.py` (which replaced PR 2's
+`continue_sweep.py`) runs on every continue path before any harness starts
+([the reopen](state-system/spawn-launches.md#the-reopen)). It takes the source's
 runner-held `spawns/pN/launch.lock` non-blocking. Held means the runner is alive:
 the continue is refused and nothing is signalled. Free means it is dead: each
 unreleased, birth-verified scope gets `terminate_scope_sync(reason="continue_sweep")`
@@ -368,21 +370,17 @@ released without a signal. An old spawn ID first resolves to its chat's current
 owner (`chat_record(chat).spawn_id`), which is refused if live and swept if dead.
 Rules and residuals: [PR 2 as built](../decisions/spawn-identity.md#pr-2-as-built-the-launch-lock-and-the-sweep).
 
-### Cancel path (`signal_canceller.py`)
+### Cancel path
 
-The cancel path manages scope cleanup inline — reads `process_scopes.json`, calls
-`terminate_scope_sync()`, marks scopes released. It does not delegate to
-`core/process_cleanup.py`.
-
-This is intentional: `signal_canceller.py` has a live event loop and uses
-`asyncio.to_thread` for blocking calls. `core/process_cleanup.py` is sync-only and
-called from the reaper. Keeping cancel self-contained preserves the
-`signal_canceller → platform/ + state/` dependency direction without requiring an
-upward dep on `core/`.
-
-Spawns with corrupt/missing scope records are handled by a fallback inside the
-cancel path: use `runner_pid` + `terminate_tree_sync()`. Both paths are live — the
-fallback handles failed scope recording and older state left on disk.
+`SpawnApplicationService.cancel` is the only cancel. A live runner gets SIGTERM
+and then SIGKILL of its tree, by exact birth only. A launch with no runner is
+torn down under its claimed lock by `state.managed_primary.tear_down_dead_launch`:
+a managed primary's backend and TUI first, then every recorded scope, each by
+exact birth, with graces bounded by the cancel's deadline. An unknown birth is
+never signalled. Since v0.18.0, `terminate_pgid` also SIGTERMs snapshotted
+descendants outside the group, so a harness's background task in its own
+process group dies inside the grace instead of surviving the cancel. Sequence:
+[cancel on the lock](state-system/derived-status.md#cancel-on-the-lock).
 
 ### Session-exit reclamation
 
@@ -423,8 +421,7 @@ kill/finalize decisions depend on it.
 
 Its consumers ask about scopes, not spawn status, so identity-v2 PR 3 left them
 on it: the chat-busy check before `--continue` (`live_observer_for_chat`), session
-archive, and runner-history prune. PR 4 moves the chat-busy check to
-`read_derived`. Spawn status never reads it.
+archive, and runner-history prune. Spawn status never reads it.
 
 ---
 

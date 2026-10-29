@@ -72,7 +72,7 @@ the open issues and how they depend on each other:
   B1, the read/append seam, shipped as #651 (v0.10.16;
   [D-session-read-seam](../decisions/state.md#d-session-read-seam)). B2 needs the
   owner's answers to design questions 1–4 and 6–11 (Q5, automatic retirement, is
-  yes) and comes after identity-v2 PR 4. B3 removes continue's O(spawns)
+  yes). B3 removes continue's O(spawns)
   live-observer scan and capture's owner scan, the ~230 MiB primary-close residual.
   #591 was closed as its duplicate.
 - [#612](https://github.com/haowjy/meridian-cli/issues/612): session teardown reads

@@ -166,7 +166,7 @@ flushes while retaining undelivered work for normal recovery.
 
 `sendMessage()` queues a native message and returns no admission proof. The
 custom message carries one `delivery_id` and its exact `work_ids`. Pi's native
-`message_start` hook writes a durable `delivery-receipts.json` receipt for that
+`message_start` hook writes a durable `launch-receipts.json` receipt for that
 membership before the public RPC event is exposed. Python observes that exact
 public event only after marking the parent active, then writes the corresponding
 `delivery-observations.json` entry. Receipt and observation are separate
@@ -188,7 +188,7 @@ bounded failure contract, not atomic exactly-once delivery. An older
 unconsumed result whose former admission had only the retired timestamp marker
 may be delivered again after upgrade.
 
-Explicit waiters reserve spawn IDs in `observed-spawns.json` under a lease
+Explicit waiters reserve launches in `observed-launches.json` under a lease
 containing caller identity, owner PID, process-birth epoch, expiry, and IDs. Only
 a live matching process lease suppresses a concurrent notice. Expired or
 ownership-lost reservations cease suppressing, while durable exact observations
@@ -212,19 +212,23 @@ provider price is unknown. Tool-result payloads do not become model usage.
 
 ## Authority files
 
-All files live under `pi-bash/<parent>/` except `observed-spawns.json`, which
-lives in `spawns/<parent>/`; the checked-out source schema is
+All files live under `pi-bash/<parent>/` except `observed-launches.json`, which
+lives in `spawns/<parent>/`. Every consumption key is a launch, `(spawn_id, n)`;
+a bare id in a legacy file counts as launch 1. The candidate cache is keyed the
+same way, and the state scan re-adds a child whose `launch.n` has moved, so a
+continued child is delivered again for its next launch
+([spawn launches](../state-system/spawn-launches.md#waits-owed-results-and-delivery)). the checked-out source schema is
 `src/meridian/pi_runtime/.context/delivery-contract.md`. Their durable roles
 are:
 
 | File | Authority |
 |---|---|
 | `bash-records.json` | Bash task facts, wait-consumption marker, and unresolved execution/storage evidence. |
-| `observed-spawns.json` | Durable caller-scoped result observations plus process-owned temporary wait leases. Not Pi-private: `spawn wait`, Claude's `spawn ack`, cancelled outcomes, and CLI show surfaces that print terminal reports write it; Claude and Pi delivery read it ([child result delivery](../../concepts/child-result-delivery.md)). Python's owner is `lib/state/spawn_observations.py`. For one minor release Pi also reads the old `pi-bash/<parent>/` copy and writers mirror to it ([transition](../../concepts/child-result-delivery.md)). |
-| `delivery-receipts.json` | Exact native message admission and work membership. |
+| `observed-launches.json` | Durable caller-scoped result observations plus process-owned temporary wait leases, wait pins and the last collect's `delivered` record. Not Pi-private: `spawn wait`, Claude's `spawn ack`, cancelled outcomes, and CLI show surfaces that print terminal reports write it; Claude and Pi delivery read it ([child result delivery](../../concepts/child-result-delivery.md)). Python's owner is `lib/state/spawn_observations.py`. The legacy `spawns/<parent>/observed-spawns.json` is read, never written; the `pi-bash/` mirror is retired ([legacy ledger files](../../concepts/child-result-delivery.md#legacy-ledger-files)). |
+| `launch-receipts.json` | Exact native message admission and work membership. The legacy `delivery-receipts.json` is read, never written. |
 | `delivery-observations.json` | Exact matching public RPC events observed by Python. |
 | `delivery-fault.json` | Bounded diagnostics for scan, admission, and persistence failures, separate from task execution. |
-| `cleared-spawns.json` | User dismissal from the `/spawn` view; not delivery or child authority. |
+| `cleared-launches.json` | User dismissal from the `/spawn` view; not delivery or child authority. The legacy `cleared-spawns.json` is read, never written. |
 
 Missing authority means empty only when no obligation requires evidence. Present
 malformed, wrong-parent, or invalid-schema evidence is unknown. The shared
