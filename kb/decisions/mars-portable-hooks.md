@@ -1,23 +1,27 @@
 # Decisions: Mars Portable Hooks
 
-> **Status:** On mars-agents `release/v0.25.0` (PR #296, with the
-> legacy-ownership removal in #282); ships in Mars 0.25.0 through release PR
-> #281 once the owner approves it. Importers and Cursor rendering are planned
-> for 0.26 and not built. The mechanism and the per-harness tables are in
-> mars-agents `docs/config/mcp-and-hooks.md` ("Declaring Hooks in a Package")
-> and `crates/mars-schema/AGENTS.md` (the `hooks` row). This page records why
-> the feature is shaped this way, what was rejected, and the harness behaviour
+> **Status:** Shipped in three Mars releases. 0.25.0: the model, the
+> renderers for Claude, Codex, OpenCode and Pi, and the WASM render export.
+> 0.26.0: `fragment` renamed to `native-hook` (the old key still works for one
+> release and warns `hook-fragment-deprecated`; removal is planned for 0.27,
+> mars-agents #303). 0.26.1: the OpenCode plugin tree loads hooks generated
+> from `[hooks]` (#307). Not built: the importers, the WASM import exports and
+> Cursor rendering, now planned for 0.27. The mechanism and the per-harness
+> tables are in mars-agents `docs/config/mcp-and-hooks.md` ("Declaring Hooks
+> in a Package") and `docs/plugin-authoring.md`. This page records why the
+> feature is shaped this way, what was rejected, and the harness behaviour
 > behind it.
 
 A package's `hooks/<name>/hook.toml` may declare a `[hooks]` table: Claude
 Code's hooks JSON, written in TOML. Mars renders it for every managed target
 (Claude, Codex, OpenCode, Pi) and reports each event or answer a target can't
-carry. Native per-target files (fragments: `claude.json`, `codex.json`,
-`opencode.ts`, `pi.ts`) still work beside it or alone.
+carry. A native hook, a per-target file in the harness's own format
+(`claude.json`, `codex.json`, `cursor.json`, `opencode.ts`, `pi.ts`), still
+works beside it or alone; the target table names it with `native-hook`.
 
 ```mermaid
 flowchart LR
-    T["hook.toml<br/>[hooks] + fragments"] --> S["mars-schema<br/>read, one Target row<br/>per target, render"]
+    T["hook.toml<br/>[hooks] + native hooks"] --> S["mars-schema<br/>read, one Target row<br/>per target, render"]
     S --> M["merge targets<br/>.claude settings.local.json<br/>.codex hooks.json"]
     S --> F["file targets<br/>.opencode/plugins/mars-name.hooks.ts<br/>.pi/extensions/mars-name.hooks.ts"]
     B["mars binary<br/>placement, lock,<br/>kept hooks, diagnostics"] --> M
@@ -29,7 +33,7 @@ flowchart LR
 ## D-hooks-join-the-pipeline: hooks import and render like agents and skills
 
 **Decision (owner).** Hooks get one model in Mars's form, a renderer for each
-target and (planned for 0.26, not built) importers from each harness dialect:
+target and (planned, not built) importers from each harness dialect:
 the same pipeline agents and skills use. Any Claude event may be declared; the per-target table decides
 where it renders, and every skip is reported. There is no list of "portable
 events" for authors to learn.
@@ -102,7 +106,7 @@ binary is invisible to WASM consumers and to the importers.
 
 **Why.** Two consumers need the rules without the binary. Meridian Flow runs
 `mars-schema` as WASM and can preview every target's output (the
-`renderHooks` export). The planned 0.26 importers are the reverse of the
+`renderHooks` export). The planned importers are the reverse of the
 same table, so the plan is to add the dialect to the `Target` row (no such
 field exists yet) rather than build a second table. One row per target also
 means a new harness version or a new target changes one place; when the facts
@@ -157,57 +161,114 @@ way. Keeping it in position matters because Codex keys hook trust on array
 position: a kept entry that moved to the end of its event made both guards
 need re-trust.
 
-**Known limit.** The lock records no hook source directory, so a kept hook is
-found by the `name` the broken file still declares, read leniently. A renamed
-hook whose `name` line is itself unreadable is missed; mars-agents #289 tracks
-recording the directory.
+**How a kept hook is found.** The lock records each dependency hook's
+directory (`source_path`), so a broken hook is found whatever its file says.
+A lock without that field, from an older Mars or one written by crash
+recovery, falls back to the `name` the broken file still declares, read
+leniently. mars-agents #302 tracks setting `source_path` when the lock is
+built rather than in a later pass.
 
 **Rejected.** Lenient validation for the project's own hooks: a typo such as
 `visiblity` would silently remove the project's guard.
 
-## D-fragments-override-per-event: one writer per event on merge targets
+## D-native-hooks-override-per-event: one writer per event on merge targets
 
-**Decision (design lead, from review).** On merge targets a native fragment
+**Decision (design lead, from review).** On merge targets a native hook
 replaces this hook's generated entries only for the events it declares; an
-empty array turns that event off for this hook alone. On file targets the fragment installs beside the
-generated file. `skip-targets` drops the generated hook from a target
-entirely; with a fragment, that is the escape hatch when a harness API changes
-before Mars does. When `[hooks]` is present every target table
-(`[targets.".codex"]`) must name its `fragment = "codex.json"`, so a leftover
-`<target>.json` is never picked up silently; examples are under "Native
-fragments" in the mars-agents doc.
+empty array turns that event off for this hook alone. On file targets the
+native hook installs beside the generated file. `skip-targets` drops the
+generated hook from a target entirely; with a native hook, that is the escape
+hatch when a harness API changes before Mars does. When `[hooks]` is present
+every target table (`[targets.".codex"]`) must name its
+`native-hook = "codex.json"`, so a leftover `<target>.json` is never picked
+up silently; examples are under "Native hooks" in the mars-agents doc.
 
-**Why.** The first version let a fragment replace every generated entry of the
-hook on its target. A Codex import (portable `PreToolUse` plus a Codex-only
-`PreModelRequest` fragment) would then have lost its own guard on Codex.
-Merging fragment and generated entries for the same event would give one lock
-key two writers.
+**Why.** The first version let a native hook replace every generated entry of
+the hook on its target. A Codex import (portable `PreToolUse` plus a
+Codex-only `PreModelRequest` native hook) would then have lost its own guard
+on Codex. Merging native and generated entries for the same event would give
+one lock key two writers.
 
-## D-two-releases: export in 0.25, import and Cursor in 0.26
+## D-native-hook-name: the per-target file is a native hook
 
-**Decision (design lead).** 0.25 ships the model, rendering to Claude, Codex,
-OpenCode and Pi, the sync reports and the WASM render export. 0.26 adds the
+**Decision (owner, 2026-10-29).** The target-table key and every code,
+diagnostic and docs name use `native-hook`. Mars 0.25 shipped the word
+`fragment`, which no harness uses: Claude and Codex call these files hooks,
+OpenCode plugins, Pi extensions. The owner asked for the rename at once rather
+than after the importers. Mars 0.26 accepts `fragment` for one release with
+`hook-fragment-deprecated`, and setting both keys is an error
+(`hook.native-hook-conflict`). The diagnostic and npm renames
+(`nativeHookProblem`) make it a minor release on its own.
+
+**Accepted cost.** Mars 0.25's reader rejects `native-hook`, so a published
+package that switches early stays at its last good install for 0.25 users;
+the mars-agents doc tells authors when to switch.
+
+## D-plugin-trees-carry-generated-hooks: a plugin tree installs what sync installs
+
+**Decision (owner chose to fix it before the consumer rebuild; shape from
+review of #307).** A plugin package's OpenCode tree writes the same
+`mars-<name>.hooks.ts` that `mars sync` installs into
+`.opencode/plugins/`, places it in the hook's directory and loads it from
+`index.mjs`. A hook with both `[hooks]` and an `opencode` native hook loads
+both, under their own ids. `${MARS_HOOK_TARGET}` is filled at load, with
+`.opencode`, in native and generated files alike. An authored file named like
+the generated adapter fails the build, so neither silently overwrites the
+other. The Claude tree's `hooks/hooks.json` is described under
+D-render-what-the-target-parses.
+
+**Why.** Before 0.26.1 the OpenCode tree loaded only native hooks, so a
+package that moved its `opencode.ts` into `[hooks]` lost the hook there:
+meridian-base's tmux guard vanished for OpenCode plugin users, with only a
+`plugin-native-hook-dropped` warning. With the tree carrying generated
+adapters, no package needs an `opencode.ts` to reach a plugin tree.
+
+**Still dropped.** The Cursor tree gets no `[hooks]` and warns
+`plugin-native-hook-dropped`; a Cursor hook needs a `cursor.json` native hook
+there. Mars renders no Cursor hooks yet (D-release-split).
+
+## D-release-split: export first, then the rename, then import and Cursor
+
+**Decision (design lead; reordered when the owner asked for the rename).**
+0.25 ships the model, rendering to Claude, Codex, OpenCode and Pi, the sync
+reports and the WASM render export. 0.26 is the `native-hook` rename
+(D-native-hook-name), with 0.26.1 fixing the OpenCode plugin tree. The
 importers, the WASM import exports and Cursor rendering (exit-code answers
-only, unverified: Cursor can't be run here and `.cursor` is unmaintained). The
-0.25 model is already the import target, and 0.26 adds no field to it.
+only, unverified: Cursor can't be run here and `.cursor` is unmaintained) move
+behind it, planned for 0.27 beside the `fragment` alias removal. The 0.25
+model is already the import target, and the importers add no field to it.
 Claude agent and skill frontmatter hooks stay out of the model: Claude runs
 them only while that agent or skill is active, and no other harness has scoped
 hooks.
 
 The 0.25 legacy-ownership removal (mars-agents `src/target/.context/TODO`'s
-"Remove in 0.25" list) ships in the same release as its own PR, merged into
-the release branch first so the hooks code builds on the smaller removal
+"Remove in 0.25" list) shipped in the same release as its own PR, merged into
+the release branch first so the hooks code built on the smaller removal
 paths. The owner: "I think u should also ship the mars stuff to remove as
-well". How the parts collect on `release/v0.25.0` is
+well". How the parts collected on `release/v0.25.0` is
 [D-integration-branch](release-process.md#d-integration-branch-every-minor-or-major-release-collects-on-releasevxy0).
 
-**After 0.25 ships (planned, not done).** meridian-base moves
-`protect-tmux-server` to one `[[hooks.PreToolUse]]`, deletes its four
-adapters, switches `run.py` to exit 2 with the reason on stderr and requires
-`mars >= 0.25.0`; Codex users re-trust once. `context-autosync` becomes
-`SubagentStop` + `SessionEnd`. `deny-interactive-prompts` stays a Codex-only
-fragment: its rules were written for Codex hanging on prompts, and making it
-portable is a behaviour change the owner hasn't asked for.
+## Consumers
+
+The Meridian prompt packages moved to `[hooks]` once 0.26 shipped:
+
+- **meridian-base 0.14.0** moved `protect-tmux-server` to one
+  `[[hooks.PreToolUse]]` and `context-autosync` to `SubagentStop` +
+  `SessionEnd`, and deleted their native hooks. The guard now blocks with
+  exit 2 and the reason on stderr; the package requires `mars >= 0.25.0`.
+  `deny-interactive-prompts` stays a Codex-only native hook (`codex.json`):
+  its rules were written for Codex hanging on prompts, and making it portable
+  is a behaviour change the owner hasn't asked for.
+- **meridian-prompter 0.6.2** widened its meridian-base range to
+  `>=0.13.0, <0.15.0`; its old `<0.14.0` bound blocked dependency resolution
+  for meridian-dev-workflow.
+- **meridian-dev-workflow 0.16.5** requires meridian-base `>=0.14.0` and
+  regenerated its `plugin/` tree with Mars 0.26.1, so the OpenCode tree
+  carries `mars-protect-tmux-server.hooks.ts`. Its `requires-mars` stays at
+  `>=0.20.0`: only rebuilding the tree needs 0.26.1, and a higher floor would
+  block installs on older Mars in a patch release.
+- **meridian-cli** bundles Mars and pins it exactly: 0.19.0 pins Mars 0.26.0
+  (#847). The 0.26.1 pin for 0.19.1 is haowjy/meridian-cli#849, not merged.
 
 ---
 
@@ -276,12 +337,12 @@ guard. Write that text with a file-writing tool, not through the shell.
 
 ## Follow-ups
 
-mars-agents issues: #289 (record a hook's source directory in the lock), #290
-(OpenCode plugin tree drops generated hooks), #291 (sync summary should list
-rewritten generated files), #292 (`plugin_output` special-cases `.claude` by
-name), #293 (`src/sync/mod.rs` over the 1,000-line limit), #294 (verify the
-generated TypeScript on Windows), #295 (per-event default timeouts on OpenCode
-and Pi; today every event defaults to 600 s).
+mars-agents issues: #294 (run the generated TypeScript live on Windows; the
+process-tree kill shipped untested there), #301 (`mars sync --diff` reports a
+user-edited generated hook file as "would write"), #302 (set a hook's
+`source_path` when the lock is built), #303 (remove the `fragment` alias in
+0.27). The importers and Cursor rendering are planned work, not tracked by an
+issue.
 
 ## Related
 
@@ -294,5 +355,6 @@ and Pi; today every event defaults to 600 s).
   collected on
 
 Provenance: `work:mars-portable-guards` (decisions D1–D25, divergences
-001–007, final review), `chat:c9752`, `chat:c9802`; mars-agents PRs #282,
-#296, #281.
+001–008, final review, the 0.26 and 0.26.1 chains), `chat:c9752`,
+`chat:c9802`; mars-agents PRs #282, #296, #281, #299, #300 (0.25), #304, #306
+(0.26), #307 (0.26.1); meridian-base 0.14.0; meridian-cli #847, #849.
