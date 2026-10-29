@@ -195,6 +195,8 @@ behave the same way, and it stays as is unless the owner says otherwise.
 
 ## Related
 
+- [mars-portable-hooks.md](mars-portable-hooks.md): Mars 0.25, the release that
+  collected the legacy-ownership removal and portable hooks on `release/v0.25.0`
 - [compatibility-versioning.md](compatibility-versioning.md): what counts as a
   breaking change, and so which label a PR needs
 - [../lessons/release-sequencing.md](../lessons/release-sequencing.md): ordering

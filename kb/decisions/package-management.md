@@ -1444,6 +1444,7 @@ rather than parse its config in Meridian.
 
 ## Related
 
+- [mars-portable-hooks.md](mars-portable-hooks.md) — Mars 0.25 portable `[hooks]`: Claude's hook syntax rendered per target, rules in `mars-schema`, validation by origin
 - [decisions/model-resolution.md](model-resolution.md) — Mars alias authority, how aliases flow into resolution
 - [launch.md](launch.md) — composition pipeline, harness adapters
 - [concepts/package-management/overview.md](../concepts/package-management/overview.md) — package model mechanism

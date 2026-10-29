@@ -3,6 +3,17 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-10-29 — Mars 0.25 portable hooks capture
+
+New [Mars portable hooks](decisions/mars-portable-hooks.md) decision page: why
+hooks join Mars's import → model → render pipeline in Claude's syntax, why every
+rule lives in `mars-schema`, Codex parser checks, validation by origin with kept
+hooks, per-event fragment override, the 0.25/0.26 split, live harness hook facts
+with versions, and the tmux-guard quoting hazard. Indexed in `index.md`,
+`decisions.md` and `decisions/overview.md`; linked from release process and
+package management. [Release process](decisions/release-process.md) checked against
+the owner's 0.25 rulings: no change needed.
+
 ## 2026-10-28 — post-0.19 follow-ups capture (meridian-cli 0.17.0–0.17.2, Mars 0.23–0.24)
 
 New decisions D106 (OpenCode plugin agents keep the default model), D107 (the user
