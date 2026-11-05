@@ -475,6 +475,39 @@ which cwd the harness actually ran in rather than assuming the recorded one.
 
 ---
 
+## "Resume Failed" Can Mean the Harness Never Ran
+
+After the user moved a project and `meridian --continue` printed `Session resume
+failed`, the lead told them Claude had run and exited non-zero, and its work notes
+said prelaunch had linked the transcript into the new store. Neither happened. `bind_entry` runs
+before `prepare_prelaunch`, refused the moved store as `entry_mismatch`, and the
+runner exited before exec. The design lead found it by reading the code path and the
+same signature in an earlier spawn's `failure.json` and `runner-lifecycle.jsonl`
+(`spawn:p9758`: reason `entry_mismatch`, expected and observed stores at setup). The
+wrong story mattered: it made the first plan "find the file and resume", which could
+not work after a move
+([decision](../decisions/native-session-identity.md#paths-move-only-through-relocate)).
+**Rule:** before explaining a failed launch, read the spawn's `failure.json` reason
+and `runner-lifecycle.jsonl` to see whether the harness started at all.
+
+---
+
+## Constrain What an Inference Can Output, Not Only How It Infers
+
+`relocate cN` and its hints had to guess where a chat moved from. Each review round
+found the guess wrong in a new arrangement: a worktree chat pulled out of its
+worktree, every sibling worktree flagged as a copy, a move already applied named
+again, a moved worktree offered a move into the main checkout. Each fix narrowed the
+candidate list, and the next round found another case. Four rounds in, the fix that
+held was on the output side: print or offer a runnable command only when both ends
+are known, and otherwise name the gone directory with a placeholder or print nothing.
+Inference can still miss, but a miss now costs a placeholder, not a command that
+moves the wrong chat or is certain to fail.
+**Rule:** when a heuristic's output is an action the user runs, decide first what it
+may emit when it is unsure, and make that safe; then improve the guess.
+
+---
+
 ## Cross-References
 
 - [History-storage decisions](../decisions/history-storage.md) — per-schema index files

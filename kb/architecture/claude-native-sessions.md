@@ -70,8 +70,12 @@ adapter's `prepare_prelaunch`) opens exactly
   `sessionId` must equal the ID. A missing, empty, torn, or malformed first line, or
   an ID that is not a plain file name, refuses with
   `NativeSessionUnavailable(missing)`. A readable `sessionId` naming another session
-  refuses with `NativeEntryMismatch`. It never searches the ambient config root,
-  `~/.claude`, or other projects.
+  refuses with `NativeEntryMismatch`. It never searches the ambient config root or
+  `~/.claude`. One search exists, on PR #868 (not yet merged): when a tracked
+  `--continue`'s recorded file is *absent*, the adapter looks for that exact ID in
+  every project folder under the recorded config root and links one distinct copy
+  back into the recorded store
+  ([rule](../decisions/native-session-identity.md#paths-move-only-through-relocate)).
 - Otherwise it places the file into the child's own store,
   `<child config root>/projects/<child slug>/<id>.jsonl`. When source and child share
   a config root that is a symlink, created under a unique temporary sibling name and

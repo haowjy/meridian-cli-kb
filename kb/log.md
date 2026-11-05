@@ -3,6 +3,21 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-11-05 — session relocate (PR #868, unmerged)
+
+[Native session identity](decisions/native-session-identity.md) gains "Paths move
+only through `relocate`": the owner's rulings, rejected alternatives, the
+both-ends-known rule for printed commands, limits (#863, #864, #867), a fourth
+unavailable reason `store_moved`, the exact-ID Claude miss search in the typed-failure
+paragraph, and the `relocate` exception to the binding rule. Matching one-line
+exceptions in [native session binding](architecture/native-session-binding.md),
+[session state](architecture/state-system/session-state.md) and
+[Claude native sessions](architecture/claude-native-sessions.md). Two lessons in
+[native session identity lessons](lessons/native-session-identity.md); the inherited-env
+smoke leak recurred ([dogfooding](lessons/dogfooding-pr-builds.md)). Corrections
+register: a third session for the `release:minor` class.
+
+---
 ## 2026-10-29 — v0.18.0 final round, PR template, source lints
 
 [D-continue-reopens](decisions/spawn-identity.md#final-round-no-regressions-against-main)

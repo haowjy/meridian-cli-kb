@@ -4,7 +4,10 @@
 v0.7.0. A Claude final-exit verification extension (2026-10-11) was implemented and then
 replaced the same day by last-observed current-chat tracking, shipped in v0.9.5
 (PR #559, merged 2026-10-12 as `1e5fc390`; see
-[Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).** The combined implementation is PR #534 (`feat/native-session-identity`),
+[Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).
+Extended 2026-11-05 for moved directories and stores
+([Paths move only through `relocate`](#paths-move-only-through-relocate)); that code is
+on PR #868 (`feat/session-relocate`), not yet merged.** The combined implementation is PR #534 (`feat/native-session-identity`),
 merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
@@ -34,8 +37,15 @@ has open now."
   primary and spawn paths share the refusal message. Failure is typed:
   `unbound` (the chat never acquired a key), `missing` (the key's transcript is gone
   or not yet persisted), or `ambiguous_native_file` (more than one file claims the
-  key). There is no fallback to another candidate ID, primary metadata, an adapter
-  scan, an ambient harness root, or runner history. A tracked reference without a
+  key), or `store_moved` (a Claude child would run in a different store than the
+  recorded one, because the project or config root moved). There is no fallback to
+  another candidate ID, primary metadata, an adapter scan, an ambient harness root, or
+  runner history. One exact-ID search exists: when a tracked Claude `--continue` finds
+  the recorded transcript file absent, it looks for that ID in every project folder
+  under the recorded config root, validates each header, and links one distinct copy
+  (the `.jsonl` and its `<id>/` folder) back into the recorded store. Several distinct
+  copies refuse and list them; another config root is never searched. The link lives
+  in the harness store; nothing found this way enters Meridian's state. A tracked reference without a
   recorded harness refuses instead of guessing one. Reads follow the same rule: a
   tracked chat or spawn needs its complete recorded key `(harness, store, id)`, and
   a record missing its store is `unbound` even when a legacy `claude_config_dir`
@@ -46,7 +56,7 @@ has open now."
 - **Two typed failures, one route.** A contradiction (observed identity ≠ the key) is
   `NativeEntryMismatch` with stable code `entry_mismatch` and structured
   expected/observed evidence. Unavailability is
-  `NativeSessionUnavailable(ref, unbound | missing | ambiguous_native_file)`. Both
+  `NativeSessionUnavailable(ref, unbound | missing | ambiguous_native_file | store_moved)`. Both
   reach terminal classification through the same path (runner finalization, or
   `ops/spawn/failure_policy` for refusals before the runner), and neither permits exit
   allocation or invocation attribution. Before the whole-change fix pass, Pi's
@@ -173,7 +183,10 @@ ambient roots.
 
 ## One binding rule, one drift rule
 
-**Binding.** A chat's key only gains fields; it never changes them. One pure rule
+**Binding.** A chat's key only gains fields; launch and observation never change them.
+The one exception is a `relocate` event, which replaces `native_store` where it equals
+the event's old store and never touches the harness or session ID
+([Paths move only through `relocate`](#paths-move-only-through-relocate)). One pure rule
 decides every write and every replay: `bind(prior, attempted)` returns
 - `Bound` when empty fields fill;
 - `Same` when nothing is new;
@@ -362,6 +375,100 @@ decision](legacy-native-import.md); its implementation is documented in the
 [architecture page](../architecture/legacy-native-import.md). Imported keys still
 obey this page's immutable binding rule, and runner-history bytes never become proof.
 
+## Paths move only through `relocate`
+
+A chat's recorded paths, its `native_store`, and each harness's own record of the
+session's directory change only when the user runs `meridian session relocate`.
+`--continue` never rebinds. When it sees that the chat moved, it stops before launch
+and prints the relocate command; on a terminal it offers to run it. How to use the
+command is in meridian-cli `docs/troubleshooting.md` ("A moved project directory or
+Claude store"); the journal row and its fold are in `src/meridian/lib/state/.context/CONTEXT.md`
+("Relocate rows"); the Claude search seam is in `src/meridian/lib/harness/.context/CONTEXT.md`.
+
+**Why a moved project broke Claude before any file was missing.** A Claude child
+always runs at the control root, so its store is `<config root>/projects/<slug of the
+control root>`. `bind_entry` binds that store before exec, and `bind` never replaces a
+recorded store. After `mv ~/repos/tether ~/repos/muxen`, the `-muxen` store conflicted
+with the recorded `-tether` one, and Meridian refused with `entry_mismatch` before
+Claude started. A Claude `--continue` from any checkout other than the recorded one
+fails the same way (`spawn:p9758`, a main-checkout continue of a worktree chat). So a
+Claude chat cannot resume after its project moves until its recorded store moves,
+whether or not the transcript is found. Codex, OpenCode and Pi never lose a transcript
+in a move, but OpenCode (`session_v2.directory`) and Pi (the transcript header `cwd`)
+refuse to resume while their recorded directory is gone. Codex resumes anywhere.
+
+**What the owner settled (2026-11-05), in their words:**
+
+- The search on a miss: "when a recorded path is missing... search for it by the
+  session id only... it might take longer because we searched all possible places
+  then. but then we give them `meridian session relocate --from ... --to ...` because
+  it moved?" The first plan was to resume from the found file and only print the hint.
+  That cannot work after a project move (the store conflict above), so the owner chose
+  to stop before launch, with a prompt: "it should be relocate now vs relocate all vs
+  dont relocate (and end the thing?)". They accepted dropping "relocate all" while the
+  old directory still exists.
+- As built, the search covers less than "all possible places": only the recorded
+  config root. The store check already holds the child to that root, so a copy under
+  another root could never be resumed anyway.
+- Reads (`session log`, `export`, `search`) print the hint and do not search. The hint
+  and prompt also cover continuing from another checkout while the old one exists.
+- Relocate may edit harness state: OpenCode through its own
+  `POST /api/session/<id>/move`, Pi by rewriting the header `cwd`. Claude gets links
+  into the new store; Codex needs nothing. Transcripts are never moved, deleted or
+  truncated.
+- Release level: "but its new...? so it can be patch?" The `relocate` row is a v1
+  event, which older builds drop as an unknown name. The first plan wrote it at v2 so
+  older builds would refuse relocated chats, and shipped it as a minor. That refusal
+  bought nothing: an older build continuing a relocated Claude chat from the new
+  directory already fails with `entry_mismatch`, and the OpenCode and Pi directories
+  are already fixed on the harness side.
+
+**Rejected:**
+
+- *Resume once against an alias of the recorded store.* Every identity check would have
+  to translate between two stores, and one missed translation saves the new location
+  as a second chat: the guessed-identity failure this page exists to prevent.
+- *A successor chat at the new path.* The `cN` users know would change.
+- *Rewriting `sessions.jsonl` in place.* It destroys the record and races appenders.
+- *Printing each harness's manual fix instead of editing OpenCode and Pi state.* Those
+  fixes work only in a TUI, so every `spawn --continue` of those chats would keep
+  failing.
+
+**Where the chat moved from is inferred narrowly, and a command is printed only when
+both ends are known.** `relocate cN` without `--from` infers the old directory from the
+harness's own record, then the recorded `control_root`. It never uses `task_cwd` or
+`execution_cwd`: a worktree chat points those at its worktree on purpose, and the
+target is always the project root the user runs from. Wider inference produced a wrong
+or failing command in four review rounds: it pulled a worktree chat out of its
+worktree, flagged every sibling worktree as a copy, and named moves already applied.
+What ended it was a rule on the output. Meridian offers or prints a runnable command
+only when it knows both ends. Otherwise it names the recorded directory that is gone,
+with a `--to <where it is now>` placeholder, or prints nothing. Inference may still
+miss a case, but a miss now yields no command rather than a harmful one. A worktree
+that itself moved needs an explicit `--from`.
+
+**How the no-discovery rule survives the search:**
+
+| What the rule protects | How the search keeps it |
+|---|---|
+| The ID is never inferred | It searches by the recorded ID only and validates each file's header |
+| A guess is never saved | `--continue` records nothing in Meridian's state; only `relocate`, which the user runs, writes paths |
+| A present file is never second-guessed | It runs only when the recorded file is absent |
+| No ambient-root decoy | Only the recorded config root is searched |
+| Ambiguity is refused | Several distinct copies refuse; nothing picks the newest or largest |
+
+Relocate cannot fix a wrong ID, only a moved path: it rewrites `native_store` and path
+fields, and `--native PATH` must carry the recorded session ID in its header.
+
+**Limits.** Each is a GitHub issue:
+- The miss-path search is Claude-only ([#863](https://github.com/haowjy/meridian-cli/issues/863)).
+- A project without `[project] id` gets a new identity when it moves, and relocate does
+  not re-home its chats ([#864](https://github.com/haowjy/meridian-cli/issues/864)).
+- A SIGKILLed relocate can orphan its OpenCode serve ([#867](https://github.com/haowjy/meridian-cli/issues/867)).
+- An older build that continues a Claude chat from the old checkout after `relocate cN`
+  appends a generation the new fold drops as a binding conflict. The turns survive:
+  both stores point at one file.
+
 ## Rejected alternatives
 
 - **Observed-entry-only rule with a Pi RPC primary.** Rejected for the reasons above.
@@ -461,6 +568,7 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 | Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
 | Claude current chat | Last-observed `SessionStart` journal, locked chat + `current_chat_id` publication; single-pointer routing also covers Pi's proven exits, entry-owned policy at final binding, lexical pump lifetime, validated old-state normalization | PR #559, released in v0.9.5: native qualification at `22eab4ad` (Claude 2.1.296, one Haiku turn, clear/continue/fresh/fork/SIGTERM); final gate at `c6c017f0` (2447 Python, one skipped; 108 runtime tests), independent closure approved |
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
+| Moved directories | `store_moved` stop before launch, terminal prompt, `meridian session relocate`, Claude miss-path search, OpenCode/Pi harness-side directory edits | PR #868 (`feat/session-relocate`), `release:patch`, not yet merged; live-checked on all four harnesses with cheap models, plus 0.19.3 against relocated state. Provenance: `work:session-relocate` (`DIVERGENCE/` 001-009, `design/harnesses.md` probes), `chat:c10119`, spawns `spawn:p10438`-`spawn:p10479` |
 
 Verification included isolated installed-build probes of supported workflows across
 Claude, Codex, OpenCode and Pi, targeted archive/read/search re-probes, and focused/full

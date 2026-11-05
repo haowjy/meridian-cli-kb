@@ -72,7 +72,11 @@ binding rule. It is pure and fieldwise:
 - no change is `Same`.
 
 A conflict is never applied: the kept key stays. `bind` does not look at the bind
-source; `assigned` and `observed` obey the same immutability.
+source; `assigned` and `observed` obey the same immutability. The one rule that
+replaces a field is `native_binding.relocate_key`, which the fold applies for a
+`relocate` row: it swaps `native_store` where it equals the row's old store and
+leaves the harness and session ID alone (PR #868, not yet merged;
+[decision](../decisions/native-session-identity.md#paths-move-only-through-relocate)).
 
 **Who uses it.**
 - **Replay:** the pure replay fold, public as `state/session_fold.py`, uses `bind`

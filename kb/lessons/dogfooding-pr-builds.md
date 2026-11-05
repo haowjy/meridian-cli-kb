@@ -68,6 +68,15 @@ from a clean environment.
 The [config precedence](../concepts/config-precedence.md) page explains how `-C`
 works.
 
+**It recurred with the rule in the brief (2026-11-05, `work:session-relocate`).** A
+coder's brief said to clear the inherited variables, and one early smoke command
+still ran without clearing them. It started a stray Codex spawn (`spawn:p10463`) in
+the real meridian-cli project and appended a wrong `relocate` row to its
+`sessions.jsonl`, which the coder then removed by truncating the file under its lock.
+Its later commands went through a wrapper that clears the inherited variables, and
+none of them leaked. A rule an agent must remember on every command fails on the
+first one it forgets: give smoke runs that wrapper from the first command.
+
 ## Installing a test build can replace the user's `meridian`
 
 **What happened.** A lane installed its test wheel with `UV_TOOL_DIR` set to a
