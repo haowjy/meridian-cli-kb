@@ -4,7 +4,7 @@
 Sessions track one immutable native key per chat (`harness`, `native_store`,
 `harness_session_id`), work-item attachment, primary-spawn relationships,
 and lifecycle (created → active → closed). The key only gains fields, except that a
-`relocate` row replaces `native_store` (PR #868, not yet merged;
+`relocate` row replaces `native_store` (PR #868, shipped in v0.19.5;
 [rule](../../decisions/native-session-identity.md#paths-move-only-through-relocate)). Every write and
 replay goes through one pure rule, `bind(prior, attempted) → Bound | Same | Conflict`,
 and a conflict is never applied. The pure replay fold is public as

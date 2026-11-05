@@ -75,7 +75,7 @@ A conflict is never applied: the kept key stays. `bind` does not look at the bin
 source; `assigned` and `observed` obey the same immutability. The one rule that
 replaces a field is `native_binding.relocate_key`, which the fold applies for a
 `relocate` row: it swaps `native_store` where it equals the row's old store and
-leaves the harness and session ID alone (PR #868, not yet merged;
+leaves the harness and session ID alone (PR #868, shipped in v0.19.5;
 [decision](../decisions/native-session-identity.md#paths-move-only-through-relocate)).
 
 **Who uses it.**

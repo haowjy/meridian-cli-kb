@@ -71,7 +71,7 @@ adapter's `prepare_prelaunch`) opens exactly
   an ID that is not a plain file name, refuses with
   `NativeSessionUnavailable(missing)`. A readable `sessionId` naming another session
   refuses with `NativeEntryMismatch`. It never searches the ambient config root or
-  `~/.claude`. One search exists, on PR #868 (not yet merged): when a tracked
+  `~/.claude`. One search exists, since v0.19.5 (PR #868): when a tracked
   `--continue`'s recorded file is *absent*, the adapter looks for that exact ID in
   every project folder under the recorded config root and links one distinct copy
   back into the recorded store
