@@ -75,7 +75,9 @@ the real meridian-cli project and appended a wrong `relocate` row to its
 `sessions.jsonl`, which the coder then removed by truncating the file under its lock.
 Its later commands went through a wrapper that clears the inherited variables, and
 none of them leaked. A rule an agent must remember on every command fails on the
-first one it forgets: give smoke runs that wrapper from the first command.
+first one it forgets. Give smoke runs a wrapper from the first command: a script that
+runs `env -i HOME=<scratch home> PATH=$PATH TERM=dumb <build> "$@"`, so neither
+`MERIDIAN_*` nor `_MERIDIAN_*` reaches the build.
 
 ## Installing a test build can replace the user's `meridian`
 

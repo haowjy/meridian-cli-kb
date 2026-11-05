@@ -379,8 +379,11 @@ obey this page's immutable binding rule, and runner-history bytes never become p
 
 A chat's recorded paths, its `native_store`, and each harness's own record of the
 session's directory change only when the user runs `meridian session relocate`.
-`--continue` never rebinds. When it sees that the chat moved, it stops before launch
-and prints the relocate command; on a terminal it offers to run it. How to use the
+`--continue` never rebinds. It stops before launch when a Claude child would run in a
+different store than the recorded one, or when the directory the harness itself
+records (Claude, OpenCode, Pi) is gone, and prints the relocate command; on a terminal
+it offers to run it. Codex records no directory it depends on, so a Codex continue is
+not stopped; its existing "task_dir is unavailable" warning ends with the command. How to use the
 command is in meridian-cli `docs/troubleshooting.md` ("A moved project directory or
 Claude store"); the journal row and its fold are in `src/meridian/lib/state/.context/CONTEXT.md`
 ("Relocate rows"); the Claude search seam is in `src/meridian/lib/harness/.context/CONTEXT.md`.
@@ -399,26 +402,27 @@ refuse to resume while their recorded directory is gone. Codex resumes anywhere.
 
 **What the owner settled (2026-11-05), in their words:**
 
-- The search on a miss: "when a recorded path is missing... search for it by the
-  session id only... it might take longer because we searched all possible places
-  then. but then we give them `meridian session relocate --from ... --to ...` because
-  it moved?" The first plan was to resume from the found file and only print the hint.
+- Search on a miss, then point at relocate: "when a recorded path is missing...
+  search for it by the session id only... it might take longer because we searched
+  all possible places then. but then we give them `meridian session relocate --from
+  ... --to ...` because it moved?" The first plan was to resume from the found file and only print the hint.
   That cannot work after a project move (the store conflict above), so the owner chose
   to stop before launch, with a prompt: "it should be relocate now vs relocate all vs
   dont relocate (and end the thing?)". They accepted dropping "relocate all" while the
   old directory still exists.
-- As built, the search covers less than "all possible places": only the recorded
-  config root. The store check already holds the child to that root, so a copy under
-  another root could never be resumed anyway.
+- The search covers only the recorded config root, not "all possible places": the
+  store check already holds the child to that root, so a copy under another root
+  could never be resumed. This narrowing was the build's call, not the owner's.
 - Reads (`session log`, `export`, `search`) print the hint and do not search. The hint
   and prompt also cover continuing from another checkout while the old one exists.
 - Relocate may edit harness state: OpenCode through its own
   `POST /api/session/<id>/move`, Pi by rewriting the header `cwd`. Claude gets links
   into the new store; Codex needs nothing. Transcripts are never moved, deleted or
-  truncated.
+  truncated; the Pi edit changes only the `cwd` field of the transcript's first line.
 - Release level: "but its new...? so it can be patch?" The `relocate` row is a v1
-  event, which older builds drop as an unknown name. The first plan wrote it at v2 so
-  older builds would refuse relocated chats, and shipped it as a minor. That refusal
+  event, which older builds drop as an unknown name, so the change is a patch. The
+  first plan wrote it at v2 so older builds would refuse relocated chats, and labelled
+  the change a minor for that reason. That refusal
   bought nothing: an older build continuing a relocated Claude chat from the new
   directory already fails with `entry_mismatch`, and the OpenCode and Pi directories
   are already fixed on the harness side.
@@ -438,10 +442,11 @@ refuse to resume while their recorded directory is gone. Codex resumes anywhere.
 both ends are known.** `relocate cN` without `--from` infers the old directory from the
 harness's own record, then the recorded `control_root`. It never uses `task_cwd` or
 `execution_cwd`: a worktree chat points those at its worktree on purpose, and the
-target is always the project root the user runs from. Wider inference produced a wrong
-or failing command in four review rounds: it pulled a worktree chat out of its
-worktree, flagged every sibling worktree as a copy, and named moves already applied.
-What ended it was a rule on the output. Meridian offers or prints a runnable command
+target is always the project root the user runs from. Wider inference produced wrong
+or failing commands: it pulled a worktree chat out of its worktree, flagged every
+sibling worktree as a copy, named moves already applied, and offered to move a moved
+worktree's chat into the main checkout. Narrowing the candidates never closed the
+class; a rule on the output did. Meridian offers or prints a runnable command
 only when it knows both ends. Otherwise it names the recorded directory that is gone,
 with a `--to <where it is now>` placeholder, or prints nothing. Inference may still
 miss a case, but a miss now yields no command rather than a harmful one. A worktree
@@ -452,7 +457,7 @@ that itself moved needs an explicit `--from`.
 | What the rule protects | How the search keeps it |
 |---|---|
 | The ID is never inferred | It searches by the recorded ID only and validates each file's header |
-| A guess is never saved | `--continue` records nothing in Meridian's state; only `relocate`, which the user runs, writes paths |
+| A guess is never saved | `--continue` records nothing in Meridian's state (its only write is the link in the harness store); only `relocate`, which the user runs, writes paths |
 | A present file is never second-guessed | It runs only when the recorded file is absent |
 | No ambient-root decoy | Only the recorded config root is searched |
 | Ambiguity is refused | Several distinct copies refuse; nothing picks the newest or largest |
