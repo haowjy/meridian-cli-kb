@@ -6,8 +6,8 @@ replaced the same day by last-observed current-chat tracking, shipped in v0.9.5
 (PR #559, merged 2026-10-12 as `1e5fc390`; see
 [Current chat replaces final-exit proof for Claude](#current-chat-replaces-final-exit-proof-for-claude)).
 Extended 2026-11-05 for moved directories and stores
-([Paths move only through `relocate`](#paths-move-only-through-relocate)); that code is
-on PR #868 (`feat/session-relocate`), not yet merged.** The combined implementation is PR #534 (`feat/native-session-identity`),
+([Paths move only through `relocate`](#paths-move-only-through-relocate)); shipped in
+v0.19.5 (PR #868, merge `b114f7bb6`).** The combined implementation is PR #534 (`feat/native-session-identity`),
 merged to `main` as `3dae2434`; #519, #520, #526 and #531 are closed as superseded. The code and live-probe
 reconciliation are captured in the phase table below.
 - exact entry for Pi, Claude, Codex and OpenCode, and Pi exit mapping;
@@ -573,7 +573,7 @@ fields, and `--native PATH` must carry the recorded session ID in its header.
 | Continuation safety | Unsupported fork/resume and cross-harness continuation refuse before row creation | Combined PR #534; no in-place or fresh-start fallback |
 | Claude current chat | Last-observed `SessionStart` journal, locked chat + `current_chat_id` publication; single-pointer routing also covers Pi's proven exits, entry-owned policy at final binding, lexical pump lifetime, validated old-state normalization | PR #559, released in v0.9.5: native qualification at `22eab4ad` (Claude 2.1.296, one Haiku turn, clear/continue/fresh/fork/SIGTERM); final gate at `c6c017f0` (2447 Python, one skipped; 108 runtime tests), independent closure approved |
 | Archive | Explicit apply captures the bound native snapshot before selection; ZIP omits retired runner streams when the snapshot exists | Combined PR #534; targeted Claude, Codex, OpenCode and Pi re-probe passed |
-| Moved directories | `store_moved` stop before launch, terminal prompt, `meridian session relocate`, Claude miss-path search, OpenCode/Pi harness-side directory edits | PR #868 (`feat/session-relocate`), `release:patch`, not yet merged; live-checked on all four harnesses with cheap models, plus 0.19.3 against relocated state. Provenance: `work:session-relocate` (`DIVERGENCE/` 001-009, `design/harnesses.md` probes), `chat:c10119`, spawns `spawn:p10438`-`spawn:p10479` |
+| Moved directories | `store_moved` stop before launch, terminal prompt, `meridian session relocate`, Claude miss-path search, OpenCode/Pi harness-side directory edits | Shipped in v0.19.5 (PR #868, merge `b114f7bb6`); live-checked on all four harnesses with cheap models, plus 0.19.3 against relocated state. Provenance: `work:session-relocate` (`DIVERGENCE/` 001-009, `design/harnesses.md` probes), `chat:c10119`, spawns `spawn:p10438`-`spawn:p10479` |
 
 Verification included isolated installed-build probes of supported workflows across
 Claude, Codex, OpenCode and Pi, targeted archive/read/search re-probes, and focused/full
