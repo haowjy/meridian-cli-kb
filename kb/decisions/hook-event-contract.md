@@ -123,46 +123,7 @@ version of its own
 
 ## D-hook-deprecation-window — old names load for one minor release
 
-**Status:** The window closed in meridian-cli 0.17.0 (#796): every item below
-is now a row error, and `hooks list` has no `deprecated` status. User
-reference: meridian-cli `docs/upgrading.md`, "Removed hook names and keys".
-
-**Decision (2026-10-19, owner; supersedes rejection at load):** The old event
-names, `failure_policy`, and `when` conditions an event can never satisfy load
-with one warning per row during v0.11, and become config errors in the next
-minor release. A row on an old name registers on the replacement event.
-
-This reversed the branch's first design, which failed config load on every old
-name ("`'spawn.start' was removed; use 'spawn.started'`") on the grounds that
-Meridian had no users to migrate. Before #688 merged, the owner dropped the
-project's no-backwards-compatibility rule and applied the replacement policy
-to this PR first
-([D-compat-policy](compatibility-versioning.md#d-compat-policy--one-minor-deprecation-new-builds-read-old-data-old-builds-refuse-new-data)).
-
-How the window behaved:
-
-- **Old names.** The row registers on the new event and warns once.
-  `meridian hooks check` exits 0 when deprecations are its only findings, and
-  `hooks list` marks the row `deprecated`. Rows on `spawn.start` and
-  `work.start` never fired before; they now run, and their warning says so.
-- **The row keeps its configured name in the payload.** `HookContext.event_name`,
-  JSON `event_name` and `MERIDIAN_HOOK_EVENT` carry the old name for a row
-  configured with it, so a script that branches on the event name keeps working
-  until its config is migrated. This was the lead's call.
-- **`failure_policy`** loads, warns and has no effect.
-- **`when.status = ["skipped"]`** drops `skipped` with a warning. If no status
-  remains, the row is skipped rather than widened to match every status.
-- **Impossible conditions on a row that names its event** warn and skip the
-  row, so it no longer shadows a lower-file row with the same name and event.
-
-**Mixed-version machines.** v0.11 accepts both name sets; v0.10.x still
-rejects the new names. A shared config keeps the old names until
-every machine has upgraded.
-
-**Ending the window:** done in 0.17.0, which deleted the warning path and made
-each entry a hard-coded removal error.
-
----
+See `docs/releasing.md#compatibility-and-versioning` for the deprecation policy and `docs/upgrading.md` for removed hook names.
 
 ## D-work-activation — activation means someone chose the item
 

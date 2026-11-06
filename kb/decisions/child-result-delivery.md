@@ -15,16 +15,6 @@ review (`spawn:p8822`), `work:claude-spawn-watch`. Shipped in meridian-cli
 v0.11.9 (PR #724). Follow-ups #717–#722; #719 is
 [D-observed-spawns-location](#d-observed-spawns-location).
 
-### Problem
-
-A Claude primary that ran `meridian spawn --bg` and ended its turn without
-`meridian spawn wait` stalled: nothing started its next turn when the child
-finished. The spawn guidance already said to wait, and models still skipped it.
-Pi primaries did not stall, because Pi's `meridian-spawn-watch` extension
-delivers child results as a new turn. The goal was the same guarantee for
-Claude from the runtime rather than the prompt: an idle lead that is owed
-results receives them as a turn, as if it had waited.
-
 ### Decision
 
 - **Split.** Python owns every decision: which children are owed, when a batch
