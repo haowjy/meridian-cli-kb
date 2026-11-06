@@ -24,10 +24,3 @@ Readers derive liveness from the launch lock without persisting state. A repair 
 
 A harness cannot execute until its process scope and verified birth are durable. A small POSIX guardian observes runner death and terminates the owned process group; a later birth-checked sweep is the backstop. A parent-death signal alone reaches only a direct child and misses binaries behind wrappers. On the root-only terminal path the guardian sends one TERM, not a delayed KILL that could hit a reused PID. Processes that leave the owned group can survive the sweep. See [process containment](../lessons/process-containment.md).
 
-## Rejected public run identity {#d-spawn-run-identity}
-
-A `pN.K` public run model was proposed to fence old writes. It gave the bare spawn ID two meanings and replicated a second identity across the system. One public ID and a launch lock preserve the same separation without that ambiguity.
-
-## Release comparison {#final-round-no-regressions-against-main}
-
-Compare a release branch as a whole against main; part reviews can miss cross-part regressions. The identity release comparison found lost older reports, a removed JSON field, a cancellation race and measurable listing slowdowns. See [release parity](release-process.md#d-release-parity-a-release-branch-is-compared-against-main-before-it-merges).

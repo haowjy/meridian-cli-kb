@@ -25,8 +25,8 @@ multi-chat read is one pass. Unfiltered folds per primary close went 7 → 0 and
 runner 1 → 0. **The slope in bytes is still there**: every filtered pass reads the
 whole file, and a primary close makes 10 of them. What shrank is the decode and the
 resident memory, plus the wall time that went with them (table above). The #418
-gate of 0 full-log reads per launch, close, continue or wait is B2's, when each
-chat's rows live in their own journal. Bulk reads still outside the seam:
+gate of 0 full-log reads per launch, close, continue or wait depends on the
+proposed per-chat journals. Bulk reads still outside the seam:
 `list_all_session_records`, `list_session_generations`, and
 `legacy_native_import.py`'s raw reads.
 

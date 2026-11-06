@@ -18,9 +18,9 @@ For mechanism, see:
 
 ## Targeting: `.agents/` to `.mars/`
 
-### `.agents/` eliminated; `.mars/` is Meridian's compiled read surface
+### `.mars/` is Meridian's compiled read surface
 
-**Decision:** `.agents/` is removed as a mars target. Meridian reads agents and skills from `.mars/`. Skills are emitted to every enabled harness's native skill directory. Agent emission to native harness directories is conditional on `agent_emission` setting and `MERIDIAN_MANAGED` env var.
+Meridian reads agents and skills from `.mars/`. Mars warns that `.agents/` is a deprecated link target and emits skills to enabled harnesses' native skill directories. Agent emission to native harness directories is conditional on the `agent_emission` setting and `MERIDIAN_MANAGED` environment variable.
 
 **Why:** `.agents/` caused confusion — `.agents/agents/` was Meridian-only, `.agents/skills/` caused overlap with harness skill dirs, and the name implied cross-tool portability that didn't exist. Now Meridian reads from `.mars/`, and each harness's native skill directory gets a copy.
 
@@ -50,11 +50,11 @@ Hook lowering keeps `bash` as the interpreter on Windows, adjusting only quoting
 
 ## Skill Schema
 
-### Universal skill frontmatter schema (name, description, model-invocable, user-invocable, allowed-tools, license, metadata)
+### Skill frontmatter
 
-**Decision:** The canonical SKILL.md frontmatter has seven fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
-
-A `compatibility` field was rejected — would require Mars to understand harness semantics. `metadata` is pass-through for tooling use.
+Mars reads skill identity, description, invocability, license, compatibility,
+metadata and harness overrides. Skill-level tool policy is not supported; its
+old spellings are removed fields. See [skill schema](../concepts/skill-schema.md).
 
 
 ---
@@ -135,40 +135,21 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ### `upgrades_available` counts direct dependencies only
 
-**Decision:** The "upgrades available" count shown in `mars sync` output is restricted to packages that appear in `effective.dependencies` (direct deps). Transitive-only packages with newer versions available are excluded from the count.
-
-**Problem that triggered this:** `mars sync` reported N upgrades available, but `mars upgrade --bump` did nothing — or reported 0 outdated packages. The UX was contradictory: a hint that promises actionable work produces no action.
-
-**Root cause:** `sync` counted all `graph.nodes` (direct + transitive). `outdated` and `upgrade --bump` only iterated `config.dependencies` (direct deps). Transitive packages with newer versions were counted as "upgradeable" but were never actionable through any user command.
-
-**Solution:** Filter the count to packages whose name is a key in `effective.dependencies`. Transitive-only packages with newer versions are excluded because no user command can act on them.
-
-**Alternatives rejected:** shared count function (premature coupling), actionable transitive upgrades (breaks lockfile semantics), split count display (adds complexity for non-actionable info).
+The sync upgrade count includes direct dependencies only, matching what `mars upgrade --bump` can act on. Counting transitive updates made sync advertise upgrades that the command could not perform.
 
 ---
 
 ## Init Command
 
-### Filesystem scan for mars content discovery, not JSON model coupling
+### Filesystem scan for Mars content discovery
 
-**Decision:** After `mars add` completes, the Python `run_init_flow()` reads materialized content by scanning `.mars/` subdirectories dynamically (`_scan_mars_content()` in `init_ops.py`), not by deserializing a Pydantic model that mirrors the mars Rust `JsonReport` struct.
-
-**Why filesystem over JSON model:**
-- The mars JSON report shape is an implementation detail of the Rust `JsonReport` struct, not a published contract. Coupling Python to it means Python changes whenever mars adds a new content category, renames a field, or restructures the report.
-- Filesystem scanning automatically picks up new content types (new `.mars/` subdirectories) without any Python changes.
-- The `.mars/` directory layout IS the stable contract — it is what mars materializes for consumers to use. Meridian already reads agents/skills from `.mars/` at runtime; reading the same tree for counts is consistent.
-
-**Alternatives rejected:** Parse `mars add --json` output (couples Python to internal Rust struct), define a Pydantic `MarsJsonReport` model (same coupling, plus schema drift).
+After `mars add`, Meridian scans the materialized `.mars/` directories for content. This uses the tree consumed at runtime and avoids coupling Python to Mars's internal JSON report shape.
 
 ---
 
-### Honest field naming — `packages_requested` not `packages_resolved`
+### Requested packages in init results
 
-**Decision:** The field holding the user-supplied package specifiers in `InitResult` is named `packages_requested`, not `packages_resolved`.
-
-**Why:** "Resolved" implies the full resolved dependency set, including transitive dependencies installed by mars. This field holds only what the user passed to `--add` — the input specifiers. "Requested" is honest about the scope. The resolved set is internal to mars and not surfaced by `InitResult`.
-
-**General principle:** Field names should describe what the data actually contains, not what you wish it contained. A field named for its aspirational content is a latent mislead — it tells the next reader that the data is more complete than it is.
+`InitResult.packages_requested` contains only package specifiers passed to `--add`, not the resolved dependency graph.
 
 ---
 
@@ -292,21 +273,9 @@ carries everything Meridian needs.
 
 ---
 
-### Routing parity invariant — `mars models resolve` and `mars build launch-bundle` share `routing::evaluate_candidates()`
+### Routing parity between model resolution and launch
 
-**Decision:** The `mars models resolve <model>` command and `mars build launch-bundle --model <model>`
-both call the same `routing::evaluate_candidates()` function. The harness they select and the
-confidence they assign for a given input are guaranteed to be identical by shared code, not by
-convention.
-
-**Why:** Before the routing refactor (PR #51), `mars models resolve` used a separate harness
-inference path from `mars build launch-bundle`. A user who ran `mars models resolve sonnet` to
-preview routing could see a different harness than what the bundle would actually emit. This
-made debugging routing mismatches difficult and undermined the usability of `models resolve`
-as a preview tool.
-
-**Practical consequence:** `mars models resolve <token>` is a reliable preview — identical routing by shared code, not convention.
-
+`mars models resolve` and the launch bundle use the same candidate evaluator. A separate inference path previously let the preview select a different harness from launch.
 
 ---
 
@@ -338,7 +307,7 @@ as a preview tool.
 
 ---
 
-### Native hook fragments {#d91-native-hook-fragments-replace-command-synthesis-2026-07}
+### Native hook fragments
 
 Native hook fragments let authors express target-specific behavior without Mars inventing harness event mappings. Portable hooks now coexist with native overrides; see [portable hooks](mars-portable-hooks.md).
 
@@ -518,7 +487,7 @@ physical claims and provenance for every unfinished path.
 
 ---
 
-### Explicit force and self ownership {#d96-explicit-force-takes-over-a-selected-canonical-self-path-2026-09-22}
+### Explicit force and self ownership
 
 Explicit `mars sync --force` can adopt a selected unowned canonical self item; normal sync refuses. Matching bytes alone never establish ownership, and symlinked paths remain ineligible. A failed apply may leave an adopted write unowned, requiring force on retry; pending-canonical recovery covers new absent outputs, not force adoption.
 

@@ -79,7 +79,7 @@ automatically. A cross-marketplace dependency installs only when that
 marketplace is already registered and the root catalog allowlists it
 (`allowCrossMarketplaceDependenciesOn`); otherwise the install "succeeds"
 and the plugin fails to load. A dependency names a registered marketplace,
-never a URL. Mars does not use plugin dependencies (D100), partly because
+never a URL. Mars does not use plugin dependencies, partly because
 Codex ignores them.
 
 ## Codex CLI

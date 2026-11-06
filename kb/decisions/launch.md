@@ -54,7 +54,7 @@ Spawn guidance and agent inventory are injected for profiles with delegation cap
 
 Prompt packages name portable capabilities; Meridian launch guidance maps them to CLI commands. Packages are also used by runtimes with app tools and no shell, so embedding Meridian syntax makes their judgment nonportable.
 
-### D-reserve-before-prep: Reserve spawn row before preparation for crash recovery (PR #328, 2026-06)
+### Prepare before reserving a spawn
 
 Preparation precedes spawn reservation; setup errors need not create a row. A launch lock protects a published row from being stranded. See [spawn identity](spawn-identity.md#d-continue-reopens).
 

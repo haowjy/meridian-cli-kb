@@ -147,7 +147,7 @@ starts. If the launcher dies before starting the worker, the lock is free and
 the row reads `failed`/`crashed`.
 
 This reverses the earlier reserve-before-prep order
-([D-reserve-before-prep](../decisions/launch.md#d-reserve-before-prep-reserve-spawn-row-before-preparation-for-crash-recovery-pr-328-2026-06)),
+([spawn preparation](../decisions/launch.md#prepare-before-reserving-a-spawn)),
 which wrote a `queued` row first so a crash during preparation left a visible
 row. With the lock held from publication, a reserved row can no longer be
 stranded, and preparing first means a failure leaves nothing behind.
