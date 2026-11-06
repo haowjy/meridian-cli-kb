@@ -201,11 +201,11 @@ session. use `meridian spawn message c9297 etc...'".
    address. Without the check, a child
    told to answer an OpenCode primary would run a command that exits 1.
 
-   The check is coarser than the post. It asks whether the harness registers an
+   On main the check falls short of that rule. It asks whether the harness registers an
    inbox and whether the sender is a child, while the post also needs a published
    inbox socket, a live process, or a child's control socket. So a `--bare` Claude
-   primary, or a child with no socket, is offered a reply that fails. Under review
-   on branch `fix/reply-route` (no PR yet, not merged): the frame runs the post's
+   primary, or a child with no socket, is offered a reply that fails. In review
+   as PR #879 (`fix/reply-route`), not merged: the frame runs the post's
    own resolution, and a child needs its socket. It does not connect, so a dead
    socket on a live runner still gets the line, and a child still binding its
    socket is framed as having no route.
@@ -303,10 +303,13 @@ stdin write that nothing confirmed. The contract, per harness, is in meridian-cl
 `src/meridian/lib/harness/.context/CONTEXT.md` ("Inject Acknowledgment") on that
 branch; what follows is what that page does not say.
 
-`send_user_message` returns a kind, `posted` or `acknowledged`, and the kind travels
-to the sender. It is stated by the connection because only the connection knows
-whether it waited for a harness answer. Neither word claims the model read the
-message.
+On that branch, `send_user_message` returns a kind, and the kind travels to the sender.
+`acknowledged` means the harness answered the request that carried the message, and
+the CLI prints "Message delivered". `posted` means the write finished and nothing
+confirmed it, and the CLI prints "Message posted … (no receipt)". Claude children are
+posted; Codex, OpenCode and Pi children are acknowledged. The connection states the
+kind because only it knows whether it waited for an answer. Neither word claims the
+model read the message.
 
 **Why a return value.** A static capability flag would be smaller today, but
 [D-unified-delivery](#d-unified-delivery) needs a delivery port that returns this same
@@ -338,15 +341,15 @@ journal status was added after those runs.
 choice. Until it merges, `ControlActionCoordinator` also retries `TimeoutError`,
 `ConnectionError` and `OSError`.
 
-`ControlActionCoordinator.run_action` retries `ConnectionNotReady` and nothing else.
-That is the one error every connection raises before writing. Codex `turn/start`
+On that branch, `ControlActionCoordinator.run_action` retries `ConnectionNotReady` and
+nothing else. That is the one error every connection raises before writing. Codex `turn/start`
 waits for its JSON-RPC response after the write, so a slow reply raises `TimeoutError`
 with the turn already started, and retrying that starts a second turn. A fake
 connection that writes and then times out reached the harness twice before this
 change and once after. No real Codex timeout was forced, so the duplicate turn itself
 is inferred.
 
-The failure text says so: "timed out after the request was sent; it may have been
+The failure text on that branch says so: "timed out after the request was sent; it may have been
 delivered and was not resent". `spawn message` waits 35 s, longer than the 30 s Codex
 and Pi request timeouts, so that text usually reaches the sender.
 
@@ -363,8 +366,8 @@ separate bug, #874.
 
 ## D-unified-delivery: every live launcher serves one control socket (2026-10, not built) {#d-unified-delivery}
 
-**Status:** current choice, not built, and not confirmed for building. None of this
-exists in any branch. The owner's whole input was three clicks on the lead's
+**Status:** not built, awaiting the owner's confirmation. None of this exists in any
+branch. The owner's whole input was three clicks on the lead's
 recommended options (`chat:c9424`, 2026-10-26): "Unified socket (Recommended)", "No
 route until relaunch (Recommended)", "Refactor PR, then routes (Recommended)". The
 sentences in the work item's design notes are the lead's. On 2026-11-06 the lead told
@@ -376,8 +379,8 @@ building (`chat:c10170`). A confirmation request is in `work:native-primary-mess
 
 `spawn message` has two transports chosen by `kind == "primary"`: the control socket
 for children, and a CLI-side post into Claude's inbox. Adding Codex, OpenCode and Pi
-on that structure adds a third route and a second reachability rule, and each harness
-inherits the bugs in the reply check and the retry.
+on that structure gives each its own route and its own check of whether a reply can
+reach it, and each inherits the bugs in the reply check and the retry.
 
 ### Choice
 
@@ -390,14 +393,14 @@ inherits the bugs in the reply check and the retry.
    because a live launcher owns its child and that PID cannot be reused while it serves.
 3. A primary launched by an older build serves no socket and has no route until it is
    relaunched. No fallback code.
-4. A refactor PR comes first (the port, the dead socket verbs, Claude onto the launcher
-   socket), then Codex and OpenCode, then Pi.
+4. A refactor PR comes first, then Codex and OpenCode, then Pi. The refactor adds the
+   port, moves Claude onto the launcher socket, and deletes the `interrupt`,
+   `permission_reply` and `user_input_reply` socket verbs, which no client sends.
 
 Probes removed the two worries that could have overturned this. The Codex observer
 survives TUI attach, so no reconnect is needed, and approvals reach the TUI, so an
 injected turn does not stall on a request only Meridian can see
-([research](../research/reaching-a-live-tui.md#codex)). Earlier notes assumed the
-opposite of both.
+([research](../research/reaching-a-live-tui.md#codex)).
 
 ### Rejected
 
@@ -418,8 +421,7 @@ whose launcher died loses its route.
 
 - **Pi:** the launcher serves the socket and forwards to an extension listener (two
   hops, keeps "the launcher serves" true), or the extension serves it (one hop, needs a
-  new variable for the runtime root). The lead's recommendation moved from extension to
-  launcher.
+  new variable for the runtime root). The lead recommends the launcher.
 - **OpenCode:** an injected turn reads as a human prompt to the idle sensor, so it
   counts as activity. The lead recommends accepting that.
 - **Codex mid-turn:** steer into the TUI's turn, as `send_user_message` does today. The

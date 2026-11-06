@@ -9,7 +9,7 @@ No Meridian build uses these routes for a primary yet; the plan that would is
 | | Codex 0.164.0 | OpenCode 2.1.4 | Pi 1.4.0 |
 |---|---|---|---|
 | Route in | A second app-server client sends `turn/start` or `turn/steer` | `POST /api/session/{id}/prompt` | An extension calls `pi.sendUserMessage`; nothing reaches the process from outside |
-| Shows in the TUI | Yes, within about 1 s | Yes, the call returns in about 5 ms | Yes, rendered like typed input |
+| Shows in the TUI | Yes, within about 1 s | Yes, live; the HTTP call itself returned in about 5 ms | Yes, rendered like typed input |
 | Session is busy | `turn/steer` with `expectedTurnId` lands in the current turn | `delivery: "steer"` (the default) arrives at the next step boundary; `"queue"` runs as its own turn afterwards | Pass `deliverAs: "steer"` or `"followUp"`; without it the call throws while streaming |
 | Model and agent | The thread's settings, including a TUI `/model` change, with no notification to other clients | The session's committed choice; a TUI `/models` or Tab choice counts only after the TUI submits a prompt | The live model, thinking level, tools and system prompt |
 | Approvals | Both clients get the request; either may answer | The TUI shows the prompt; the TUI or `POST .../permission/{reqId}/reply` answers | The same `tool_call` handlers run, so `meridian-permissions` applies |
@@ -38,8 +38,8 @@ auto-answer on a primary, or it would beat the human to it. The probe set
 `approvalsReviewer` to `"user"` to get real prompts, because this user's Codex config
 defaults to `auto_review`, so a default launch may behave differently.
 
-`clientId` tells turns apart on the wire: a TUI-typed `userMessage` carries one and
-another client's injected message has `clientId: null`.
+`clientId` shows who sent a message: a TUI-typed `userMessage` carries one, and an
+injected message from another client has `clientId: null`.
 
 ## OpenCode
 
@@ -72,8 +72,10 @@ API. Pi's own example of an external trigger is a file watcher,
   runs, so an injection there makes that prompt throw "Agent is already processing"
   and drops it. The TUI also subscribes later, so it would not show the run.
 - **A rejection disappears.** A failed `sendUserMessage` becomes an "Extension error"
-  line in the TUI and never returns to the caller. Compaction refuses a prompt this
-  way. Check `ctx.isIdle()` first to choose `deliverAs`.
+  line in the TUI and never returns to the caller. A prompt sent during compaction
+  fails this way, and `ctx.isIdle()` does not guard against it.
+- **Choose `deliverAs` from `ctx.isIdle()`.** A busy session needs the option, or the
+  call throws.
 - **`sendMessage` can be matched; `sendUserMessage` cannot.** `sendMessage` carries
   `customType` and `details`, which survive into `message_start` and `message_end`,
   but the TUI shows a custom block rather than a user turn. `sendUserMessage` is

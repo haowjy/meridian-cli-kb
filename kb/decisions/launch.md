@@ -407,13 +407,13 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 ### D-continue-needs-prompt: `spawn --continue` requires a prompt (2026-11, in review) {#d-continue-needs-prompt}
 
-**Status:** in review on branch `fix/continue-requires-prompt` (#712), no PR yet, not merged. This is the lead's proposal, and the owner has not confirmed it. The owner raised the question it answers (`chat:c10170`, 2026-11-06): "generally, --continue, without p means it just... doesn't do anyhting in thie current deinfition", while asking whether subagents should become peers that close themselves. They then asked for that to be filed: "gh issue the \"voluma agents are long running\" as future enhancment" (#871). Rule: meridian-cli `src/meridian/lib/ops/spawn/AGENTS.md` on that branch.
+**Status:** a proposal awaiting the owner's confirmation, in review as PR #881 (`fix/continue-requires-prompt`, issue #712), not merged. A bare continue may gain a meaning later (#871). The owner raised the question it answers (`chat:c10170`, 2026-11-06): "generally, --continue, without p means it just... doesn't do anyhting in thie current deinfition", while asking whether subagents should become peers that close themselves. They then asked for that to be filed: "gh issue the \"voluma agents are long running\" as future enhancment" (#871). Rule: meridian-cli `src/meridian/lib/ops/spawn/AGENTS.md` on that PR's branch.
 
 **Choice.** A continue with an empty prompt exits 1 before any launch, and the fallback to the source's original prompt is deleted.
 
-**Why.** That fallback looked for a prompt the continue path never loads and `state.json` no longer holds, so `spawn --continue pN` always failed with a misleading "no stored prompt". Repairing it would resend the finished task. The check sits at the top of `spawn_continue_sync`, which the CLI, `--dry-run` and the `spawn.continue` operation all reach. A CLI-only check would leave the other entries on the old message.
+**Why.** That fallback looked for a prompt the continue path never loads and `state.json` no longer holds, so `spawn --continue pN` with no prompt always failed with a misleading "no stored prompt". Repairing it would resend the finished task. The check sits at the top of `spawn_continue_sync`, which the CLI, `--dry-run` and the `spawn.continue` operation all reach. A CLI-only check would leave the other entries on the old message.
 
-**Revisit when:** #871 gives a bare continue a meaning, or file delivery on resume is checked, which would decide whether a continue with `-f` and no prompt is allowed.
+**Revisit when:** #871 gives a bare continue a meaning, or file delivery on resume is verified, which would settle whether `-f` alone is enough input for a continue.
 
 ---
 

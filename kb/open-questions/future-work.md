@@ -25,10 +25,11 @@ OpenCode primaries already run behind a Meridian-held backend connection
 
 **Direction:** [D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery)
 replaces the per-harness port with one socket that every live launcher serves. It is
-not built, and the owner has not confirmed it for building. The harnesses are not the
-obstacle: a second client's message reaches a live Codex or OpenCode TUI, and a Pi
-extension can inject one ([what each accepts](../research/reaching-a-live-tui.md)).
-What is missing is Meridian's endpoint. For OpenCode, the connection adapter can
+not built, and the owner has not confirmed it for building. Each harness offers a
+building block: a second client's message reaches a live Codex or OpenCode TUI, and an
+extension inside the Pi process can inject one
+([what each accepts](../research/reaching-a-live-tui.md)). Meridian's endpoint is what
+is missing. For OpenCode, the connection adapter can
 project a later HTTP prompt using the committed native agent/model/variant; nothing in
 `spawn message` reaches that adapter while the TUI runs.
 

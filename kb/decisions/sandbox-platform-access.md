@@ -278,9 +278,9 @@ has none for rules).
 
 ## D-escape-loads: what an escaped `meridian spawn` runs stays out of the agent's reach (2026-11, in review) {#d-escape-loads}
 
-**Status:** in review on branches `fix/launching-cli-bin` (#764) and
-`fix/safe-module-launch`, neither merged and neither with a PR yet. Tech-lead current
-choices. The owner's only word on #764 was "ok" after the lead explained that Pi
+**Status:** in review, and everything in this section describes the branches, not
+main. `fix/launching-cli-bin` fixes issue #764 and `fix/safe-module-launch` adds `-P`;
+neither is merged or has a PR yet. Tech-lead current choices. The owner's only word on #764 was "ok" after the lead explained that Pi
 extensions run `meridian` by name (`chat:c10170`); they have not seen the shim's shape
 or `-P`. Mechanism, on those branches: `src/meridian/lib/launch/.context/CONTEXT.md`
 ("The Launching Build on the Child PATH") and `src/meridian/lib/platform/AGENTS.md`.
@@ -298,7 +298,7 @@ and a shim there made nothing worse. Review reversed it: `runtime_root` and `/tm
 projected writable, and both Codex's rule and Claude's exclusion run `meridian spawn`
 outside the sandbox, so a writable shim would let a sandboxed agent run anything
 unsandboxed. The user-home directory is readable and executable but not writable,
-checked under bwrap. If `MERIDIAN_HOME` falls inside the working directory, a projected
+checked with bwrap directly, not inside a harness's own sandbox. If `MERIDIAN_HOME` falls inside the working directory, a projected
 root or `/tmp`, the launch warns and leaves PATH alone.
 
 **A shim, not `MERIDIAN_CLI_BIN`.** Hooks and extensions reach `meridian` by name,
