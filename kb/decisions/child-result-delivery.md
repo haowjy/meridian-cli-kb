@@ -12,8 +12,7 @@ Claude automatic delivery carries lookup headers, not report bodies. This bounds
 
 > [!FLAG] **Needs human review**
 > Open: should Pi deliveries also become header-only? Undecided; Pi keeps its
-> excerpts until the owner decides. The lead asked twice in `chat:c8820` without
-> an answer.
+> excerpts while the question remains open.
 
 ## D-no-arg-wait-owed-bounded: no-arg wait returns a bounded header-only owed batch (2026-10) {#d-no-arg-wait-owed-bounded}
 
@@ -110,8 +109,7 @@ an unbounded stale backlog into one model turn.
 
 ## D-no-arg-wait-since-started: report later children without expanding the barrier (2026-10) {#d-no-arg-wait-since-started}
 
-**Status:** owner decision in `work:wait-since-started` (2026-10-24);
-open as meridian-cli #753.
+**Status:** open as meridian-cli #753.
 
 ### Problem
 
@@ -136,7 +134,7 @@ failed.
   rows the 32-row cap held back. That exclusion runs before the cap, so an old
   backlog cannot crowd out a new completion. Membership, not finish time: a
   first draft compared `finished_at` with the wait's start and dropped children
-  that crashed with no recorded finish time (review p9267).
+  that crashed with no recorded finish time .
 - **The trailer is not delivery.** Its rows are not waited on, leased, consumed,
   counted, or included in fail-fast, aggregate failure, or exit-code decisions.
   `--no-observe` has the same trailer. JSON exposes `since_started_spawns`.
@@ -152,8 +150,7 @@ failed.
 - **Add later children to the blocked-on set.** A producer could extend the
   barrier indefinitely and make its exit timing depend on work launched after
   the caller chose what to wait for.
-- **Tell the caller to run wait again.** The owner explicitly chose no hint
-  line; the section reports state without prescribing another blocking action.
+- **Tell the caller to run wait again.** The section reports state without prescribing another blocking action.
 - **A second query shape or per-poll discovery.** Either would drift from the
   primary-chat/nested-subtree scope or add repeated index cost to the hot loop.
 

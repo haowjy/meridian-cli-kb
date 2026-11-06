@@ -106,7 +106,7 @@ What a Claude-format tree gets on Codex:
   and hooks but not agents; users who want the agents install with mars.
   Rechecked at `rust-v0.165.0` on 2026-10-28: the manifest type still has no
   `agents` field. The upstream PR that would have added plugin agents
-  (openai/codex#28845) closed unmerged. The owner chose to wait for upstream
+  (openai/codex#28845) closed unmerged. The project waits for upstream
   ([mars-agents#256](https://github.com/haowjy/mars-agents/issues/256)) over
   the workaround of shipping each agent as a skill, which can't carry the
   agent's tool and permission limits.
@@ -215,21 +215,7 @@ declares no `type`, and its OpenCode entry is `index.mjs`.
 
 ## Sources
 
-Synthesized from the probe and source-study reports of
-`work:harness-plugin-export` (archived with the work item):
-`spawn:p9291` (install probe across harnesses), `spawn:p9290` (Codex and
-OpenCode loader source at rust-v0.164.0 and v2.1.3), `spawn:p9288`
-(published formats), `spawn:p9297` (OpenCode JS registration),
-`spawn:p9305` (project-local enablement), `spawn:p9328` (Claude
-cross-marketplace dependencies), `spawn:p9329` (Claude agent `skills:`
-preload), `spawn:p9340` (same-marketplace dependencies), `spawn:p9473`,
-`spawn:p9478` and `spawn:p9479` (Grok install and live turns),
-`spawn:p9474` (Cursor docs and account wall), `spawn:p9475` and
-`spawn:p9477` (OpenCode package, hooks, MCP, git install), `spawn:p9480`
-(the `type: module` break), `spawn:p9533` (live verification of built
-trees, Cursor schema validation), `spawn:p9535` (Grok MCP and Codex
-environment forms), `spawn:p9556` and `spawn:p9560` (OpenCode project MCP
-and `mcp list`). Claude plugin references:
+Claude plugin references:
 [plugin components](https://code.claude.com/docs/en/plugins/components),
 [subagent frontmatter](https://code.claude.com/docs/en/sub-agents#frontmatter-reference).
 Codex `env_vars` parsing:

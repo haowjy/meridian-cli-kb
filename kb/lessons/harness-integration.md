@@ -22,8 +22,7 @@ A scratch harness config hides user hooks. If a mod observes inputs another hook
 
 **The mechanism:** plugin hooks, Pi extensions, Mars hooks and the model's shell all run
 `meridian` by name. With an older build first on PATH, a Pi session launched by 0.19.5
-ran `meridian spawn show --no-observe` on 0.14.0 and failed with "Unknown option" (#764,
-`spawn:p10500`).
+ran `meridian spawn show --no-observe` on 0.14.0 and failed with "Unknown option" (#764).
 
 **Reproducing it:** launch with the build's binary, not `uv run`. `uv run` puts the
 worktree's `.venv/bin` first on PATH, so the skew vanishes and the bug looks fixed.

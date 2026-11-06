@@ -15,9 +15,7 @@ See `docs/releasing.md#compatibility-and-versioning` for the deprecation policy 
 Activation means a user or agent chose a work item, including a primary attaching it. Inheritance, rename maintenance and clear do not count. Inheritance would otherwise run the default blocking autosync for every child spawn; work events lack a spawn-kind filter.
 
 > [!FLAG] **Needs human review**
-> The lead asked the owner whether primary launches should fire activation
-> ("Say if you'd rather launches didn't fire it", `chat:c8397`) and got no
-> answer. The behavior above is the lead's default, not an owner decision.
+> Whether primary launches should fire activation remains open.
 
 ## D-autosync-default-events — `spawn.finished`, `work.activated`, `work.done`
 

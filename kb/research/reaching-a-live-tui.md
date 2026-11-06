@@ -17,9 +17,7 @@ No Meridian build uses these routes for a primary yet; the plan that would is
 
 **What the evidence covers.** Codex and OpenCode were probed live with a plain
 websocket client and HTTP calls, not through Meridian's own connection classes
-(`spawn:p9741`, Linux). Codex's fan-out was also read from its source
-(`spawn:p9723`). Pi was read from the 1.4.0 source and docs and never run
-(`spawn:p9736`). All three hold for the versions named and can change with any
+on Linux. Codex's fan-out was also read from its source. Pi was read from the 1.4.0 source and docs and never run. All three hold for the versions named and can change with any
 release.
 
 ## Codex

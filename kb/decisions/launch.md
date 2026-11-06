@@ -64,7 +64,7 @@ Pi needs native skill and context discovery for available skills and project ins
 
 ### D-continuation-target-constrained-selection: explicit continuation requests remain target-constrained
 
-**Decision (C7 settled):** Exact primary and spawn continuation accept an explicit
+**Decision:** Exact primary and spawn continuation accept an explicit
 `--model` request, and every such request emits a warning. Mars revalidates the
 current target and exclusion constraints under the same harness; the literal
 canonical/provider pin is retained so an alias cannot drift during continuation.
@@ -90,7 +90,7 @@ literal, and ambiguous tracked/untracked/mixed ownership requires explicit
 `--harness`; known p/c references retain their recorded harness and file
 detection does not silently replace it. Native reference is `833dc1f2`.
 
-The remaining C7 work is the spawn native-fork/reference-form audit and
+The remaining work is the spawn native-fork/reference-form audit and
 coordinated final gates/PR/release.
 
 ### D-primary-identity-delayed-binding: fresh and native-fork primary selection waits for identity
@@ -105,16 +105,10 @@ model discovery.
 
 If identity binding fails, the failure propagates while adapter cleanup and
 session stop still run. This keeps the binding error visible without leaking a
-live adapter or masking the original error. This is a partial C7 increment:
+live adapter or masking the original error. The following remain open:
 streaming-serve recording, OpenCode streaming named-model transport, spawn
-native-fork/reference-form audit, and coordinated final gates/PRs remain open.
+native-fork/reference-form audit, and coordinated final gates/PRs.
 
-**Evidence:** `work:target-constrained-fallback` (primary-identity seed/fork
-drivers, native-fork fake executable drivers, binding-failure and quiet
-transcript controls; reviewer `p6231` closure and runtime `p6225`).
-
-**Evidence:** `work:target-constrained-fallback` (`c7-primary-review.md`,
-`c7-primary-probe.md`, `c7-spawn-probe-luna.md`, `c7-spawn-seed-closure-luna.md`).
 
 ### D-streaming-opencode-target-constrained-fallback: accepted startup selection is attempt-bound
 
@@ -140,8 +134,3 @@ session; otherwise the matched session's recorded spawn ID is used, with exact
 chat/harness checks. Untracked or pruned provenance fails honestly, and
 `--harness` disambiguates ownership rather than history. Native primary/spawn/
 c-prefixed sequences preserve recorded models.
-
-**Evidence:** `work:target-constrained-fallback` (streaming/OpenCode CLI and
-process red/green drivers; `evidence/c7-opencode-evidence-closure-luna.md`,
-review approved; fake processes plus real CLI/Mars, not paid native execution).
-Codex changes in this increment are fixture snapshots only.

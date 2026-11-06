@@ -86,10 +86,7 @@ removes the tool from the catalog.
 
 ## Sources
 
-Probes `spawn:p8760`, `spawn:p8761`, `spawn:p8762`, `spawn:p8766`,
-`spawn:p8768` and the upstream source reading in `work:long-view-review`
-(`opencode-profile-findings.md`, `upstream-opencode-config-semantics.md`,
-`opencode-fix1-verification.md`). Upstream: `anomalyco/opencode` tags
+Upstream: `anomalyco/opencode` tags
 `v2.0.29` and `v1.19.3`: for v2, `packages/core/src/config/plugin/instruction.ts`,
 `session/context.ts`, `config/variable.ts`, `config/normalize.ts`,
 `config/plugin/agent.ts`, `agent.ts` and `session/runner/model.ts`; for v1,

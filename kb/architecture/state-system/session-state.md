@@ -38,12 +38,11 @@ uniqueness checks need the full snapshot (`scope=None`). A corrupt row poisons o
 its own chat: other chats still read and bind, while reading that chat, or the full
 list, raises.
 
-**The accepted plan, B2 not built:** per-chat journals,
+**The accepted plan is not built:** per-chat journals,
 `session-state/chats/<cN>.jsonl`, each the only authority for its chat, plus small
 per-native-ID files for the facts that cross chats. A one-time cutover splits the
 old log, and rows that older builds keep appending are absorbed at the next
-command. B1 (the seam) shipped in #651. B2 swaps the seam's bodies and waits on the
-owner's open design questions
+command. The seam shipped in #651; replacing its implementation awaits open design questions
 ([D-session-per-chat-journals](../../decisions/state.md#d-session-per-chat-journals)).
 Until it lands, describe and test sessions as the global log above.
 
@@ -60,7 +59,7 @@ lacks:
   `project_session_generation`, and persists the working state as `session_chats`.
   Recency selects a chat's highest-ordinal generation bucket.
   That can differ from the accepted generation when a generation key is reused;
-  making the index follow the accepted generation is B2's change, with its own bump.
+  making the index follow the accepted generation requires a schema bump.
 - **Search projection** (`history-index/native-search-v1.sqlite3`): normalized display
   text keyed by native key, with no chat IDs. Chats are joined at query time from the
   fold with `by_native_key`

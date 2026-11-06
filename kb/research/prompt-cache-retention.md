@@ -5,11 +5,9 @@ sits idle. Checked 2026-10-08 against Codex CLI `rust-v0.161.0`, OpenCode
 `v1.18.34`, Pi 1.1.0 and the OpenAI and Anthropic prompt-caching docs. Pi's
 `openai-codex`, `xai` and `deepseek` providers, and the ChatGPT backend, were
 checked 2026-10-13; the backend's idle window was probed 2026-10-14.
-Provenance: `work:idle-cache-notify` (`spawn:p7423`) and
-`work:idle-ttl-detection` (`spawn:p7724`, `spawn:p7824`).
 
 **Cache policy depends on authentication and provider, not a universal idle
-TTL.** Project-provided evidence from the owner on 2026-10-20 records indefinite retention
+TTL.** Project-provided evidence from 2026-10-20 records indefinite retention
 and cache hits on resumption for signed-in Codex and Work. API-key use is
 separate: supported Responses API models offer a 30-minute default or a
 12-hour option. Neither is the rationale for Meridian's child-completion
@@ -24,9 +22,9 @@ endpoint; their applicability still needs checking.
 
 | Harness | Idle retention by default | Can the user extend it? | Source |
 |---|---|---|---|
-| Claude Code | 1 h or 5 min, chosen per request bucket (main conversation vs. everything else). Each transcript cache write records `ephemeral_1h_input_tokens` or `ephemeral_5m_input_tokens`, so the TTL can be read from the transcript instead of assumed. | `CLAUDE_CODE_PROMPT_CACHE_TTL` (env, Claude Code 2.1.242+) or the `promptCacheTtl` setting chooses the main-conversation TTL; `claude -p` counts as a main conversation, 1 h by default on subscription usage. Built-in subagents use `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`. | Claude Code transcripts; planning session `chat:c7275`; [Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself) |
-| Pi | **5 min** (short retention) on Anthropic. Other providers differ; see [Pi providers](#pi-providers). | `PI_CACHE_RETENTION=long` → Anthropic `cache_control.ttl: "1h"`, OpenAI `prompt_cache_retention: "24h"`. Not on the `openai-codex` provider: Pi 1.1.0's `openai-codex-responses.js` sends only `prompt_cache_key` and ignores the variable. | Pi `docs/environment-variables.md`; `packages/ai/test/cache-retention.test.ts`; installed Pi 1.1.0 (`chat:c7347`) |
-| Codex CLI | Signed-in Codex: indefinite retention on resumption per the owner-supplied OpenAI statement. API-key sessions follow the API contract. | No Codex retention setting was found in the inspected `rust-v0.161.0` schema; API capability is not proof of a CLI setting. | `work:child-completion` K9; inspected Codex source |
+| Claude Code | 1 h or 5 min, chosen per request bucket (main conversation vs. everything else). Each transcript cache write records `ephemeral_1h_input_tokens` or `ephemeral_5m_input_tokens`, so the TTL can be read from the transcript instead of assumed. | `CLAUDE_CODE_PROMPT_CACHE_TTL` (env, Claude Code 2.1.242+) or the `promptCacheTtl` setting chooses the main-conversation TTL; `claude -p` counts as a main conversation, 1 h by default on subscription usage. Built-in subagents use `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`. | Claude Code transcripts; [Claude Code prompt caching](https://code.claude.com/docs/en/prompt-caching#choose-the-ttl-yourself) |
+| Pi | **5 min** (short retention) on Anthropic. Other providers differ; see [Pi providers](#pi-providers). | `PI_CACHE_RETENTION=long` → Anthropic `cache_control.ttl: "1h"`, OpenAI `prompt_cache_retention: "24h"`. Not on the `openai-codex` provider: Pi 1.1.0's `openai-codex-responses.js` sends only `prompt_cache_key` and ignores the variable. | Pi `docs/environment-variables.md`; `packages/ai/test/cache-retention.test.ts`; installed Pi 1.1.0 |
+| Codex CLI | Signed-in Codex: indefinite retention on resumption per the OpenAI statement. API-key sessions follow the API contract. | No Codex retention setting was found in the inspected `rust-v0.161.0` schema; API capability is not proof of a CLI setting. | OpenAI statement; inspected Codex source |
 | OpenCode | Anthropic: **5 min**. It sends `cache_control: {type: "ephemeral"}` without a `ttl` (`packages/llm/src/cache-policy.ts:40-41`). OpenAI-compatible routes get no inline cache hints and rely on provider defaults. | No built-in config key. The internal `CachePolicy.ttlSeconds` needs caller or plugin code. | `anomalyco/opencode` at `v1.18.34` |
 
 ## OpenAI retention, which Codex inherits
@@ -55,7 +53,7 @@ established for this endpoint.**
   `chatgpt.com/backend-api/codex/responses/compact`
   ([openai/codex#17809](https://github.com/openai/codex/issues/17809)), and
   `prompt_cache_options` is reported unsupported as well.
-- The owner-supplied OpenAI statement establishes indefinite retention for
+- The OpenAI statement establishes indefinite retention for
   signed-in Codex and Work. It does not by itself establish the same contract
   for every third-party client using this endpoint.
 - Pi's 5-minute WebSocket idle expiry on this provider is connection pooling,
@@ -69,12 +67,9 @@ product statement or settle its applicability to Pi and OpenCode.
 
 #### Measured idle window (2026-10-14)
 
-Historical probes are recoverable through `spawn:p7824` and
-`work:idle-ttl-detection`. A new third-party-client measurement needs distinct
+A new third-party-client measurement needs distinct
 prefixes or serial runs so one request cannot refresh another gap's entry.
-The owner supplied [this discussion of the OpenAI statement](https://www.reddit.com/r/codex/comments/1xb9prz/caching_upgraded_massively/)
-in `chat:c8468` (entry 29); the accepted project interpretation is recorded in
-`work:child-completion`, `decisions.md` K9. The signed-in product statement was
+See [this discussion of the OpenAI statement](https://www.reddit.com/r/codex/comments/1xb9prz/caching_upgraded_massively/). The signed-in product statement was
 not independently reverified during this capture; the API options above were. Meridian's operational choice is
 [the completion decision](../decisions/completion-drain.md).
 
@@ -157,9 +152,7 @@ That depends on how the harness builds the request, not on the provider.
 OpenCode 1.x and 2.x store compactions in different tables (`message` versus
 `session_message`). Mixing them is how the 1.x cold sample was once read as
 2.x. Pi's fix is upstream: earendil-works/pi#10577 adds an opt-in in-context
-compaction for verified models (tracked in haowjy/meridian-cli#593). Source:
-`work:harness-compaction-cache` (`evidence/opencode-cache-by-provider.md`,
-`research/opencode.md`, `research/pi.md`).
+compaction for verified models (tracked in haowjy/meridian-cli#593)..
 
 ## Pi cache warming
 
@@ -180,8 +173,7 @@ Only a short-retention Anthropic Pi session with `cacheWarming: idle` could
 get warmed past Meridian's schedule, which would make its warning premature.
 If Pi starts declaring OpenAI lifetimes, or a user adds `modelOverrides.promptCache`,
 re-check this. The lightest fix would be for the Pi extension to pass the
-effective warming decision into `idle arm`. Source:
-`work:harness-compaction-cache` `research/pi-cache-warming.md`.
+effective warming decision into `idle arm`..
 
 Recheck this page when Codex, OpenCode or Pi releases a new version, when a
 provider changes its cache-lifetime docs, or when signed-in product guarantees

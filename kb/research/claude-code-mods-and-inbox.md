@@ -9,17 +9,15 @@ messages to ([cross-session messaging](https://code.claude.com/docs/en/cross-ses
 Both were tried in print mode (`claude -p`, one prompt, then exit) and in the
 interactive TUI. Checked 2026-10-17
 against Claude Code 2.1.302 with Haiku, on Linux, by live probes in a dedicated
-tmux server. Provenance: `work:claude-mod-inject` (`probe-mod-inject.md`
-`spawn:p8410`, `probe-tui-mod.md` `spawn:p8415`, `probe-inbox-socket.md`
-`spawn:p8419`, research `spawn:p8416`).
+tmux server.
 Later-version findings in the table are explicitly versioned and cover only
 `$.ui.status` behavior probed for the rejected status-row design in
 [#706](https://github.com/haowjy/meridian-cli/pull/706). They describe the host
 API, not a Meridian feature. [Mod hooks for idle delivery](#mod-hooks-for-idle-delivery-21307)
-was checked on 2.1.307 for the Claude spawn watcher (`work:claude-spawn-watch`).
+was checked on 2.1.307 for the Claude spawn watcher.
 The `crossSessionInbound` values, hold causes and settings precedence under
 [Inbound controls](#inbound-controls) were read from the 2.1.310 bundle and
-matched against messages held in a live auto-mode session (`spawn:p9612`, PR #777).
+matched against messages held in a live auto-mode session (PR #777).
 The other observations remain scoped to 2.1.302.
 
 **The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
@@ -134,12 +132,11 @@ that's permission laundering."). Transcripts from 2.1.310 to 2.1.312 show about 
 characters per message, roughly 130 tokens by the 4-characters-per-token rule of thumb,
 which is an estimate and not a count. The text is hardcoded (read from the 2.1.319
 binary), and no setting removes it. Children receive messages over stdin and do not get
-it. The owner called it "kind a waste of tokens" and asked "is there a way to turn this
-off?" (`chat:c10170`); the answer found is no.
+it.
 
 **No inbox yet, or at all.** Claude publishes the socket only once `SessionStart` runs.
 In a folder not yet trusted, the trust prompt blocks that, so a post fails as if the
-session had no inbox until a human accepts the prompt (`spawn:p10517`, 2026-11-06). A
+session had no inbox until a human accepts the prompt (2026-11-06). A
 `--bare` launch publishes none.
 
 ### Inbound controls
@@ -175,7 +172,7 @@ peer message for review, `refuse` turns peer messages away.
   bypassing session then acts on any other session's message without review.
 - **The token claims own-child status.** Claude treats a sender presenting the
   messaging token as a process it started; on macOS that skips the inbound
-  controls (research `spawn:p8416`; not probed on macOS).
+  controls (not probed on macOS).
 
 **Trap: `--settings` outranks user settings.** Passing `crossSessionInbound`
 through a launch's `--settings` would override a value the user set in their own

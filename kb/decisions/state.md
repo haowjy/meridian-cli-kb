@@ -85,7 +85,7 @@ Where no project Mars root exists, agents, skills, model aliases and launch targ
 
 July's model rested on three premises: committed identity, a marker at the literal CWD, and zero-TOML operation. Together they turned every directory that received a write into a committed project. The record never priced that. A census on 2026-10-14 found 326 `meridian.toml` markers under `/tmp` (260 distinct ids, 3 with state in the real `~/.meridian/projects/`; the rest came from smoke tests with scratch homes) and 97 under `~/gitrepos`. `~/.meridian/projects/` held 163 roots: 6 matched a marker in a real repository, and 158 (65 MB) were UUID roots nothing could attribute to a path.
 
-The revision keeps all three premises and narrows the first: committed identity is how state is *shared*, not the only way to *have* it. The user asked whether ad-hoc roots just move the litter into `~/.meridian/`. They do keep the root count. What they add is attribution (`origin.json` names the path) and a retention rule that can reclaim them.
+The design keeps all three premises and narrows the first: committed identity is how state is *shared*, not the only way to *have* it. The user asked whether ad-hoc roots just move the litter into `~/.meridian/`. They do keep the root count. What they add is attribution (`origin.json` names the path) and a retention rule that can reclaim them.
 
 **What July's rationale still governs.** The id is committed so clones and worktrees share history, and it is lazy so a project survives a move. Both remain true for committed projects. Identity still never walks up (#335: an ancestor walk silently joined the wrong project).
 
@@ -521,7 +521,7 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### Single status authority with non-duplicating terminal facts
 
-> **Updated (PR #423 wave 4, 2026-07).** Wave 4 chose the non-duplicating
+> **Updated (PR #423, 2026-07).** The decision uses the non-duplicating
 > design that the earlier enforced-equivalence approach approximated: terminal
 > status lives ONLY in the top-level `status` field. `TerminalFacts` carries
 > exit code, timestamps, metrics, error, and origin — but not status.
@@ -531,15 +531,15 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 **Decision (updated):** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. (Since v0.18.0 nothing writes `runner_exit`; it is a read-only legacy field.) Top-level `status` is the sole status authority. `TerminalFacts` carries no status field. When status is terminal, `terminal` must not be `None`; when status is active or `unknown`, `terminal` must be `None`. `extra="forbid"` on the persisted model quarantines rows with extra fields, including any legacy `terminal.status`.
 
-**Rejected (original wave 2-3 approach):** Enforced-equivalence discriminant (`status == terminal.status`) with `_RevalidatedFrozenModel.model_copy` revalidation. This worked but duplicated status authority across two fields, requiring a validator, a custom base class, and 17 compatibility properties. The thermo-nuclear audit identified the duplication as unnecessary complexity; wave 4 removed the second field entirely.
+**Rejected (earlier approach):** Enforced-equivalence discriminant (`status == terminal.status`) with `_RevalidatedFrozenModel.model_copy` revalidation. This worked but duplicated status authority across two fields, requiring a validator, a custom base class, and 17 compatibility properties. The thermo-nuclear audit identified the duplication as unnecessary complexity; the decision removed the second field entirely.
 
-**Rejected (original wave 2-3 alternative):** Sole-carrier (a single discriminated union carrying both status and facts). The non-duplicating approach achieves the same structural guarantee without changing the persisted record shape beyond deleting one field.
+**Rejected (earlier alternative):** Sole-carrier (a single discriminated union carrying both status and facts). The non-duplicating approach achieves the same structural guarantee without changing the persisted record shape beyond deleting one field.
 
 ---
 
 ### Applied/Declined/Missing discriminated mutation result
 
-> **Updated (PR #423 wave 4, 2026-07).** `MutationOutcome(wrote, snapshot,
+> **Updated (PR #423, 2026-07).** `MutationOutcome(wrote, snapshot,
 > reason)` was replaced by a discriminated union: `Applied(before, after) |
 > Declined(snapshot, reason) | Missing`. Each variant carries exactly the
 > evidence its callers need. Duplicate cancel requests return
@@ -553,12 +553,12 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### Normalize-once EventSemantics descriptor per raw event
 
-> **Updated (PR #423 wave 4, 2026-07).** The `SemanticEvent` union
+> **Updated (PR #423, 2026-07).** The `SemanticEvent` union
 > (`ActivitySemanticEvent | TerminalSemanticEvent | SignalClearedSemanticEvent`)
 > and the `SemanticClass` flag-bag were deleted. They were an unused
 > intermediate representation: three legacy scalar queries (`terminal_outcome`,
 > `activity_transition`, `clears_signal`) re-dispatched per event, the drain
-> interpreted twice, and connections re-interpreted. Wave 4 replaced them with
+> interpreted twice, and connections re-interpreted. This was replaced by them with
 > one typed `EventSemantics` descriptor (fields: `activity`, `clears_signal`,
 > `terminal`) attached to `NormalizedHarnessEvent`. Each raw event is
 > normalized exactly once; downstream consumers read the descriptor.
@@ -567,7 +567,7 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 **Rejected:** Strict rejection at raw parsing — harness CLIs are unpinned; new event types arrive across minor releases. The open envelope / typed descriptor preserves forward compatibility without ignoring classification responsibility.
 
-**Rejected (wave 2-3 intermediate):** `SemanticEvent` discriminated union with `SemanticClass` flag-bag. This created an IR that no consumer used directly: every downstream path extracted scalar properties, re-dispatching by union variant. The descriptor-over-union choice eliminates the intermediate type and the per-consumer dispatch.
+**Rejected (intermediate):** `SemanticEvent` discriminated union with `SemanticClass` flag-bag. This created an IR that no consumer used directly: every downstream path extracted scalar properties, re-dispatching by union variant. The descriptor-over-union choice eliminates the intermediate type and the per-consumer dispatch.
 
 ---
 
@@ -579,7 +579,7 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ---
 
-### Three-way work store split: work_state / work_store / work_repository (PR #423 wave 4, 2026-07)
+### Three-way work store split: work_state / work_store / work_repository (PR #423, 2026-07)
 
 **Decision:** The monolithic `work_store.py` was split into three modules with distinct roles: `work_state.py` (models, metadata codec, slug normalization, shared directory-location primitives), `work_store.py` (pure read projections), and `work_repository.py` (all mutations serialized behind `work-store.flock`). Nine mutation pass-through wrappers and 13 private cross-imports were deleted.
 

@@ -20,20 +20,17 @@ Profile rules bind primaries as well as spawns. The human can widen their own in
 
 ## D-permission-headless-ask: `ask` in a spawn is refused at once {#d-permission-headless-ask}
 
-**Decided (owner):** a spawn has no human to answer, so a supported `ask` is
+A spawn has no human to answer, so a supported `ask` is
 refused immediately with a reason the model can read, recorded in the spawn's
 `permission_requests.jsonl`, and listed by `meridian spawn show`
-(`denied_requests` in `--json`). The owner chose "refuse and log it"; never
-routing the request to the parent agent was part of the recommendation the
-owner accepted. A primary keeps `ask`. Claude spawns disable permission prompts; Pi's extension
+(`denied_requests` in `--json`). The request is not routed to the parent agent. A primary keeps `ask`. Claude spawns disable permission prompts; Pi's extension
 blocks with Meridian's reason. Approval requests a harness raises from its own
 approval mode are refused and journaled the same way, which needed the Codex
 reply `decline` and the OpenCode V2 reply key `decision`.
 
-> [!FLAG] **Needs human review.** The lead accepted the OpenCode divergence
-> below without an owner ruling; the owner was told and has not answered.
+> [!FLAG] **Needs human review.** The OpenCode divergence below remains open for review.
 
-**Accepted divergence (OpenCode):** the owner mechanism lowers `ask` to native
+**Accepted divergence (OpenCode):** the native mechanism lowers `ask` to native
 `deny` in OpenCode spawns. So the model sees OpenCode's own refusal text, not
 Meridian's reason, and a tool native policy removes from the catalog produces no
 attempted call to journal. Forcing Meridian's reason would need a mediation hook,

@@ -76,7 +76,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 **Why:** Authors need a way to give one agent a skill no other agent sees. `model-invocable: false` plus `load` does that: the owning agent always has the text, and no other agent pays a description line for it or loads it because the description looked relevant. If invocability also gated explicit loads, that role-specific skill would have to be model-invocable, and every agent would carry its description on every turn.
 
-**Where it lives:** Mars builds the launch bundle's `skills.loaded` and `skills.available` without reading invocability (`src/build/prompt.rs`, "model-invocable gates global discovery, not explicit profile references"). Meridian composes every bundle-loaded skill ([D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness)). The load/available split arrived in mars-agents `d1d48d1` (2026-05-30); the owner restated the rule as something authors rely on on 2026-10-17. See [how skills reach an agent](../concepts/skill-loading.md).
+**Where it lives:** Mars builds the launch bundle's `skills.loaded` and `skills.available` without reading invocability (`src/build/prompt.rs`, "model-invocable gates global discovery, not explicit profile references"). Meridian composes every bundle-loaded skill ([D-skill-single-path](launch.md#d-skill-single-path-loaded-skills-are-composition-documents-on-every-harness)). See [how skills reach an agent](../concepts/skill-loading.md).
 
 **Revisit if:** a harness starts honoring its native invocability flag for content Meridian composes into the prompt, or Meridian ever routes loaded skills through a native skill list again.
 
@@ -406,8 +406,7 @@ unrenamed content available in its own checkout.
 rule. The declared-package contribution is filtered to agents and skills only,
 but other convention kinds still participate in grounding. A nested
 distribution becomes eligible if all shallower convention items disappear;
-there is no permanent `cw/` or distribution-directory exclusion. The owner
-explicitly chose this fallback over a new discovery policy.
+there is no permanent distribution-directory exclusion.
 
 **Flat-root consequence:** A package-root `SKILL.md` uses the declared package
 name while retaining `_self` ownership. Its resources are filtered before
@@ -788,43 +787,17 @@ physical trees under `<dir>/` (default `plugin/`):
 | `opencode` | OpenCode | OpenCode loads only a JavaScript module |
 
 The loader facts behind this split are in
-[harness-plugin-loading.md](../research/harness-plugin-loading.md). The
-owner widened the scope from Claude-first: "it should be for claude, codex,
-opencode, and cursor (cursor plugin support because thats how it works with
-grok i think)". Probes then showed Grok reads the Claude tree, not the
-Cursor one, so Grok became a fifth harness on the Claude tree. The tech lead
-made `[plugin] harnesses` default to all five.
-The owner approved that default on 2026-10-26, and decided that a harness
-added in a later release joins it too (mars-agents#211): mars exists to make
-packages easy for non-technical users and to widen distribution, so an
-author who doesn't list `harnesses` gets every supported harness. Listing
-`harnesses` opts out. A release that adds a harness must say so in its
-release notes.
+[harness-plugin-loading.md](../research/harness-plugin-loading.md). `[plugin] harnesses` defaults to all supported harnesses, including any added in a later release (mars-agents#211): Mars aims to make packages easy to distribute. Listing `harnesses` opts out. A release that adds a harness must say so in its release notes.
 
-- **OpenCode ships agents; Codex doesn't.** The first build shipped OpenCode
-  skills, MCP and hooks only, on the belief that no OpenCode API adds an
-  agent, and the owner accepted the loss: "just having skills mcp and hooks
-  but no agents is alright", because "most of the agent definitions should
-  actually BE in the skills rather than the agent bodies (agents become
-  wrappers around a collection of skills + selected model for the job + i
-  guess permissions)". That principle governs how prompt packages are
-  written, not mars. A later source read of OpenCode 2.2.0 found that
-  `ctx.agent` creates agents, so since mars-agents#249 (Mars 0.23.0) the
-  generated `index.mjs` registers them; their model rule is
-  [D106](#d106-opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28).
-  Codex plugins still can't carry agents, and the owner chose to wait for
-  upstream (mars-agents#256).
+- **OpenCode ships agents; Codex does not.** OpenCode 2.2.0 supports agent registration through `ctx.agent`, so since mars-agents#249 (Mars 0.23.0) the generated `index.mjs` registers them; their model rule is [OpenCode plugin agent models](#d106-opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28). Codex plugins cannot carry agents; upstream support is awaited (mars-agents#256).
 - **The OpenCode package is the repo itself**: one root `package.json`
   whose `main` and `files` point into `<dir>/opencode/`, installed with
-  `opencode plugin add git+…`, not published to npm. The owner's answer was
-  "repo root I think? what does that mean?"; the tech lead chose this form.
-- **Cursor ships on its documentation.** The owner has no Cursor account
-  ("no, i only have grok"), and Cursor refuses plugin commands without one.
+  `opencode plugin add git+…`, not published to npm..
+- **Cursor ships on its documentation.** Cursor refuses plugin commands without one.
   The generated manifest and catalog pass Cursor's published JSON schemas;
   nothing has run on the binary.
 - **Support is published as tables generated from the build's own data.**
-  The owner asked for "a few tables in the README of mars listing what is
-  supported where". The mars-agents README's component-support and
+  The mars-agents README’s component-support and
   verification-level tables render from the same harness and tree tables
   that drive the build's diagnostics, and a test fails when the README
   disagrees. Support state (supported, dropped with warning, impossible) is
@@ -832,19 +805,13 @@ release notes.
   Cursor's "supported" can't read as tested.
 - **Each harness with a binary was checked live on built plugins**: Claude,
   Codex, Grok and OpenCode installed the built output and ran skills with
-  resources, agents where loadable, hooks and MCP. The owner's bar was "we
-  just need to make sure it works".
+  resources, agents where loadable, hooks and MCP.
 - **Hooks reach a tree only through the fragment written for that
   harness.** Mars never translates one harness's hook events into another's,
   exactly as `mars sync` installs them; a hook with no fragment for a built
   tree is omitted with a warning.
 
-**Diagnostics are warnings unless publishing would be unsafe.** Asked about
-failing the build on leftover Meridian and Mars terms, the owner said "it
-should just be a warning tho... also... meridian will become an app soon
-lol": a plugin may run where neither is installed, so the author should see
-the text, but the author decides. The tech lead extended this to every
-content and support finding. Errors are kept for configuration, IO, write
+**Diagnostics are warnings unless publishing would be unsafe.** A plugin may run where neither Meridian nor Mars is installed, so authors should see references to them and decide whether to change them. Content and support findings are warnings. Errors are kept for configuration, IO, write
 safety, publishing metadata, and graphs `mars sync` would also refuse.
 
 The rest follows from the plugin being a published artifact rather than a
@@ -912,27 +879,20 @@ code in mars-agents `src/build/AGENTS.md`, `src/build/.context/CONTEXT.md`,
 
 **Why one plugin of the whole graph:** An earlier design built one plugin per
 graph package, linked by plugin `dependencies`, and chose which dependency
-items to ship by following references in prose. The owner corrected both:
-"no, we don't need the meridian-base plugin... right?" The graph is what a
+items to ship by following references in prose. The graph is what a
 mars user gets, so it should be what a plugin user gets; prose references are
 an unreliable second definition of content. Plugin dependencies also fail on
 the harness side: Codex ignores them, and a Claude cross-marketplace
 dependency installs only when the user has already registered and allowlisted
 the other marketplace.
 
-**Not centered on cw.** creative-writing-skills is the only existing hand-built
-plugin, and the first design took its needs (extras, standalone variants,
-adopting a hand-built tree) as requirements. The owner pushed back on
-centering the design on cw. Those features are out; cw can migrate to this
-build later.
-
 **Rejected alternatives:**
 
 | Option | Why not |
 |---|---|
-| One plugin per graph package, linked by `dependencies` | Owner correction; Codex ignores dependencies, and Claude cross-marketplace dependencies need the user to register the other marketplace first |
-| Select dependency items by following references | Owner correction: the graph defines content |
-| Plugin extras, standalone variants, `--adopt` | cw-specific; a hand-built tree is replaced in a reviewed commit instead |
+| One plugin per graph package, linked by `dependencies` | Codex ignores dependencies, and Claude cross-marketplace dependencies need the user to register the other marketplace first |
+| Select dependency items by following references | The graph defines content |
+| Plugin extras, standalone variants, `--adopt` | A hand-built tree can be replaced in a reviewed commit instead |
 | One tree for every harness, with Cursor and OpenCode overlays | Cursor's hook token, hook file and agent lowering differ, and OpenCode needs JavaScript anyway |
 | Translating Claude hook events into OpenCode events | Guesswork with no `SubagentStop` equivalent, and sync doesn't do it |
 | `mars build plugin` as the only entry point | Releases would ship stale plugins |
@@ -948,15 +908,7 @@ build later.
 >   is all five; adding a sixth harness would silently add a tree to every
 >   package that relies on it. Open as
 >   [mars-agents#211](https://github.com/haowjy/mars-agents/issues/211).
-> - **Choices built as recommended without an explicit yes.** The owner
->   was offered the release defaults (`dir = "plugin"`, name and
->   marketplace from the package, all five harnesses, `--no-plugins`), the
->   `[package]` `authors`/`homepage`/`license` keys, mars owning the root
->   files, a `mars check` warning for a `requires-mars` floor below 0.19.0,
->   and shipping dependencies' exported hooks. The replies were "accept
->   what" and "we just need to make sure it works...", which the tech lead
->   took as acceptance. The warnings-not-errors extension beyond term
->   checks is likewise unconfirmed.
+> - **Release and publishing defaults need review.** These include output directory, naming, supported harnesses, package metadata, root-file ownership, the `requires-mars` warning and dependency hooks. Extending warnings beyond term checks is also unconfirmed.
 
 **Known gaps** (mars-agents issues): [#198](https://github.com/haowjy/mars-agents/issues/198), OpenCode hook fragments in the
 named-export shape `mars sync` documents don't load; [#199](https://github.com/haowjy/mars-agents/issues/199), the OpenCode sync
@@ -1076,10 +1028,7 @@ moved hooks.
 
 ### D104: Packaged MCP servers install through the hook directory path (2026-10-27)
 
-**Status:** Current choice. The owner asked for `${MARS_MCP_DIR}` (mars-agents
-#204) and approved its two tests ("sure, add it, the mars snyc infinite hang
-sounds bad"); the shape is the tech lead's, from two code reviews and three
-structure reviews. Shipped in mars 0.20.4 (PR #233); the follow-ups to
+**Status:** Shipped in mars 0.20.4 (PR #233); the follow-ups to
 selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
 `src/sync/AGENTS.md`, `src/compiler/AGENTS.md`, `src/build/AGENTS.md`,
 `docs/config/mcp-and-hooks.md` and `docs/internals/sync-pipeline.md`.
@@ -1141,7 +1090,7 @@ selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
 
 ### D105: Meridian hosts own full-name namespaces under `harness-overrides` (2026-10-27)
 
-**Status:** Current choice; the full names are the owner's call. Shipped in
+**Status:** Shipped in
 Mars 0.22.0 (mars-agents#248). meridian-cli reads only the new namespace from
 meridian-cli#790, merged into `release/v0.17.0` with Mars 0.23.4 bundled; it
 reaches users in meridian-cli 0.17.0 (integration PR #798).
@@ -1172,8 +1121,7 @@ reaches users in meridian-cli 0.17.0 (integration PR #798).
   top-level Meridian-only fields would couple the shared schema to one
   host's runtime settings; the namespace and `[settings.meridian.*]` already
   had that job. No published package used either key.
-- *Full names:* the owner asked "can we name the full thing for both", then
-  chose "rename everywhere". `meridian` could mean the product family or the
+- *Full names:* `meridian` could mean the product family or the
   CLI, so an author reading `harness-overrides.meridian` could not tell which
   host it addressed; `flow` had the same problem for Meridian Flow.
 - *meridian-cli reads only the new spelling:* its profile reader looks the
@@ -1188,7 +1136,7 @@ and `docs/upgrading.md`.
 
 ### D106: OpenCode plugin agents keep OpenCode's default model when the model is ambiguous (2026-10-28)
 
-**Status:** Current choice, the owner's. Shipped with mars-agents#249
+**Status:** Shipped with mars-agents#249
 (Mars 0.23.0). Mechanism: mars-agents `src/build/AGENTS.md` (the
 `NoDeterministicId` fallback).
 
@@ -1202,10 +1150,7 @@ default model. The plugin does not evaluate `model-policies` when it loads.
 **Why.** An OpenCode user may reach the same model through Anthropic directly,
 OpenRouter, opencode-go or another provider, and the plugin can't know which
 providers that user has. Pinning, say, `anthropic/...` would break every user
-without that provider. The owner: "shipping opencode on the default model is
-probably correct... theres just too many models that we don't know what models
-they are using". Model policies stay out for the same reason, and because they
-are "kinda meridian only": Meridian evaluates them at launch against a live
+without that provider. Model policies stay out for the same reason, and because Meridian evaluates them at launch against a live
 model catalog, which a plugin loading inside OpenCode doesn't have.
 
 **Rejected.** Resolving the alias at build time to one provider's id, and
@@ -1215,7 +1160,7 @@ way to ask which providers the user has.
 
 ### D107: The user Mars layer is the existing `config.toml`, below the project (2026-10-28)
 
-**Status:** Current choice, the owner's. Shipped in Mars 0.23.3
+**Status:** Shipped in Mars 0.23.3
 (mars-agents#254, which replaced the closed #250); meridian-cli bundles a Mars
 that reads it from 0.17.0. Mechanism: mars-agents `docs/config/mars-toml.md`;
 meridian-cli `docs/upgrading.md` ("User `config.toml` now applies").
@@ -1233,15 +1178,7 @@ config.toml  <  mars.toml  <  mars.local.toml  <  CLI
 `mars build plugin` and `mars check` ignore it, so a published plugin never
 depends on one machine's file.
 
-**Why.** Asked to review a new user-level `local.toml`, the owner asked
-whether it "shouldn't it be called ~/config/mars/mars.local.toml". The lead
-answered that the name follows the rank. In Mars a `.local` file outranks the
-file it sits beside (`mars.local.toml` over `mars.toml`), so a user
-`mars.local.toml` would promise to outrank every project; a file
-ranked below the project should follow the user-file pattern already in use
-(`curated.toml` drops both `mars.` and `.local`), which makes it the existing
-`config.toml`. The owner: "oh yeah, it should just be included in the
-config.toml ...". One user file at one rank, rather than `config.toml` for
+**Why.** In Mars a `.local` file outranks the file beside it, so a user `mars.local.toml` would imply it outranks every project. The lower-ranked user file follows the existing naming pattern and uses `config.toml`. One user file at one rank avoids `config.toml` for
 some defaults and a second file for the rest at another rank.
 
 **Rejected.**
@@ -1258,8 +1195,7 @@ an effective setting gets it wrong; see
 
 ### D108: Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28)
 
-**Status:** Current choice (tech lead; the owner approved the #799 fix, not
-this general wording), applied in meridian-cli#805 (released in 0.17.0).
+**Status:** Applied in meridian-cli#805 (released in 0.17.0).
 
 **Decision.** When Meridian needs an effective Mars setting, it asks Mars or
 reads a file Mars wrote: the launch bundle, `mars … --json` output,
