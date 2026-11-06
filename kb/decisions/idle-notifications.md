@@ -296,10 +296,7 @@ native TUI was attached and successfully called `thread/compact/start`. Both
 WebSocket clients and the TUI remained usable, and the TUI rendered the
 completion. This corrects any categorical claim that backend compaction is
 impossible, but production kept compacting through tmux: approval routing was
-not exercised, and the actuator was never switched. A backend actuator would
-remove the screen-gated composer clear
-([D-idle-compact-over-drafts](idle-compaction-actuator.md#d-idle-compact-over-drafts--compaction-wins-over-unsent-text)),
-but nobody has evaluated it as a replacement.
+not exercised, and the actuator was never switched. A backend actuator could avoid clearing the composer through the screen, but it was never evaluated as a replacement.
 Provenance: `evidence/codex-backend-compact-probe.md` (`work:idle-cache-notify`).
 
 **Why the Claude mod is bundled, not mars-synced:** the mod is code coupled

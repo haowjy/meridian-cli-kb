@@ -50,7 +50,6 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/release-process.md](decisions/release-process.md) — How meridian-cli and mars-agents release from labeled PR merges: the release job is the only `CHANGELOG.md` writer (notes come from PR bodies), a queued release run skips a merge an earlier release already contains, unlabeled merges cut an RC, no merge queue or required checks by owner choice; a release branch is compared against `main` (benchmark, same workflows, whole-diff audit) before it merges; the PR body is a ten-section summary with Examples and Benchmarks; open question on stable notes after RCs
 - [decisions/compatibility-versioning.md](decisions/compatibility-versioning.md) — The compatibility policy (v0.11.0, #695) that replaced "no backwards compatibility": one-minor deprecation of config keys, hook names and CLI flags (JSON output fields included, per v0.18.0); new builds read old data, old builds refuse newer data; integer format versions only where another build reads; `__status.json` `v` staged; version checks on decisions, not blind appends; history index named by schema and session format; idle state as the absent-state exception
 - [decisions/idle-opencode-v2.md](decisions/idle-opencode-v2.md) — OpenCode 2.x sensor selection, inbox return semantics, primary stream lifetime; its durable compaction confirmation is history (Meridian idle compaction removed).
-- [decisions/idle-compaction-actuator.md](decisions/idle-compaction-actuator.md) — Superseded by D-idle-compaction-removed (Meridian no longer compacts idle sessions). Compaction over unsent drafts, including the Codex screen-gated actuator decision.
 - [decisions/idle-compaction-growth-floor.md](decisions/idle-compaction-growth-floor.md) — Superseded by D-idle-compaction-removed. Idle compaction only when growth past a baseline beats a per-harness break-even (r = 0.5; Claude, Codex and OpenCode 2.x costs; Pi never until #593; OpenCode 1.x push only); baseline lifecycle, arm and fire context reads, override, patch release despite the key rename; v0.10.6
 - [decisions/idle-ttl-detection.md](decisions/idle-ttl-detection.md) — Idle TTL detection: launch-recorded native-store resolution and Pi provider TTL mapping, including estimated and unknown lifetimes.
 - [decisions/state.md](decisions/state.md) — Why dual-root state, JSONL event sourcing, crash-only reads/writes, concurrency by construction, typed state contracts, the single JSONL commit rule, and two-tier project identity (committed vs ad-hoc, no carry-over at `init`, ad-hoc retention); also the per-chat session journals (#418 design B; B2 not built) and D-session-read-seam, the shipped B1 read/append seam and its invariants (#634, #651).
@@ -183,7 +182,6 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/workspace/overview.md](architecture/workspace/overview.md) — Workspace as filesystem permission mechanism (not working memory); `--add-dir` arguments, scope boundary
 - [architecture/workspace/config-schema.md](architecture/workspace/config-schema.md) — `[workspace.<name>]` TOML sections in `meridian.toml` / `meridian.local.toml`, entry naming, validation
 - [architecture/workspace/resolution.md](architecture/workspace/resolution.md) — `resolve_workspace_snapshot()`: merge algorithm, `WorkspaceSnapshot` types, path evaluation, flow to launch
-- [architecture/workspace/migration.md](architecture/workspace/migration.md) — Legacy `workspace.local.toml` fallback, `[[context-roots]]` → named sections migration command and phase plan
 
 ---
 
@@ -208,11 +206,11 @@ High-level orientation for making changes — where to start, what owns what, ho
 Operational knowledge for running, configuring, and diagnosing Meridian in practice.
 
 - [operations/overview.md](operations/overview.md) — Operations domain overview and runbook map
-- [operations/health-checks.md](operations/health-checks.md) — `meridian doctor`: two-tier design (cheap per-project default vs explicit global), background per-project repairs (dogfood migration, late legacy binding, legacy Pi recovery), stale pruning, live-spawn warnings
+- [operations/health-checks.md](operations/health-checks.md) — Doctor scope, status and pruning rationale
 - [operations/session-archive-pruning.md](operations/session-archive-pruning.md) — Explicit, dry-run-first cleanup of redundant retired runner-history files
 - [operations/troubleshooting.md](operations/troubleshooting.md) — Common failure patterns (a `crashed` spawn and `dead_spawns_unfinalized`, a primary killed with its pane by systemd's `OOMPolicy=stop` (now a `continue` drop-in on tmux scopes), a dead managed-primary launcher, locked files, harness startup failures) and recovery procedures
-- [operations/configuration-guide.md](operations/configuration-guide.md) — Practical config setup: TOML file locations, `[workspace]` entries, env vars, profile overrides, resolution verification
-- [operations/init-command.md](operations/init-command.md) — `meridian init --add` contract: bootstrap sequence, auto-link, primary agent handling, idempotency, JSON output
+- [operations/configuration-guide.md](operations/configuration-guide.md) — Links to configuration reference, precedence and workspace architecture
+- [operations/init-command.md](operations/init-command.md) — Project setup, preservation of user choices and identity
 - [operations/bootstrap-command.md](operations/bootstrap-command.md) — `meridian bootstrap --add`: first-run setup alias that runs init steps then launches a guided session with the primary agent
 
 ---
@@ -266,7 +264,7 @@ Hard-won knowledge from building the system — failures, surprises, and approac
 Tracked uncertainties, deferred work, and known future cleanup.
 
 - [open-questions/overview.md](open-questions/overview.md) — Open questions domain overview and deferred-work map
-- [open-questions/mars-feature-gaps.md](open-questions/mars-feature-gaps.md) — Known Mars capability gaps: permissions, tools, MCP integration, hook materialization (as of April 2026)
+- [open-questions/mars-feature-gaps.md](open-questions/mars-feature-gaps.md) — Open package capability, distribution, and model-routing questions
 - [open-questions/process-scope.md](open-questions/process-scope.md) — Process-scope cleanup follow-ups: dead-wrapper/live-child escapes and metadata-only lifecycle projection
 - [open-questions/future-work.md](open-questions/future-work.md) — Deferred items by domain, including the separate #498 live-primary injection-control gap, Jupyter Workbench structural follow-ups, decision follow-ups, and longer-horizon design questions
 
@@ -281,20 +279,20 @@ The broader Meridian ecosystem: companion repos, their roles, and how they compo
 
 ### Prompt Packages
 
-- [ecosystem/prompt-packages/overview.md](ecosystem/prompt-packages/overview.md) — The package graph: which packages exist, published vs local dependencies, where inventories live, version-pin traps
-- [ecosystem/prompt-packages/meridian-base.md](ecosystem/prompt-packages/meridian-base.md) — Root package: shared workers, coordination skills, model aliases, hooks; why it has no lead and spawning isn't a skill
-- [ecosystem/prompt-packages/meridian-dev-workflow.md](ecosystem/prompt-packages/meridian-dev-workflow.md) — Dev package: leads, specialists, lifecycle skills; how the fixed pipeline became risk-staffed leads, and retired pieces not to revive
+- [ecosystem/prompt-packages/overview.md](ecosystem/prompt-packages/overview.md) — Package dependency boundaries and version-pin hazards
+- [ecosystem/prompt-packages/meridian-base.md](ecosystem/prompt-packages/meridian-base.md) — Shared package, domain-neutral guidance and permissions hazard
+- [ecosystem/prompt-packages/meridian-dev-workflow.md](ecosystem/prompt-packages/meridian-dev-workflow.md) — Development package and reasons for risk-scaled staffing
 - [ecosystem/prompt-packages/meridian-prompter.md](ecosystem/prompt-packages/meridian-prompter.md) — Prompt engineering package: prompt-dev, reviewer, tester, researchers; proportional verification; depends on base (others reference it locally only)
-- [ecosystem/prompt-packages/prompt-principles.md](ecosystem/prompt-packages/prompt-principles.md) — How the `/prompt-principles` skill is organized (body plus level resources), and claims it dropped
+- [ecosystem/prompt-packages/prompt-principles.md](ecosystem/prompt-packages/prompt-principles.md) — Prompt craft boundaries and unsupported claims to avoid
 
 ### Jupyter Workbench
 
-- [ecosystem/jupyter-workbench/overview.md](ecosystem/jupyter-workbench/overview.md) — Two-package split (jupyter-workbench + microct-analysis), FastMCP adapter, key design decisions, why pyvista-cli was eliminated
-- [ecosystem/jupyter-workbench/architecture.md](ecosystem/jupyter-workbench/architecture.md) — Hexagonal architecture, Ports and Adapters pattern, service boundaries (Session/Execution/Snapshot/Lineage), DTO contract, microct-analysis boundary rules
-- [ecosystem/jupyter-workbench/runtime-model.md](ecosystem/jupyter-workbench/runtime-model.md) — Why Jupyter over plain REPL, no-daemon design, session lifecycle state machine, append-only notebook model, PyVista+trame in-kernel visualization
+- [ecosystem/jupyter-workbench/overview.md](ecosystem/jupyter-workbench/overview.md) — Notebook runtime and scientific-domain boundary
+- [ecosystem/jupyter-workbench/architecture.md](ecosystem/jupyter-workbench/architecture.md) — Shared service layer and domain boundary
+- [ecosystem/jupyter-workbench/runtime-model.md](ecosystem/jupyter-workbench/runtime-model.md) — Persistent kernel, replay, and notebook provenance
 
 ### MicroCT Analysis
 
-- [ecosystem/microct-analysis/overview.md](ecosystem/microct-analysis/overview.md) — Agent architecture (analyst + specialists vs rejected alternatives), domain-agnostic design, workflow note system, slice-examination-loop skill, confidence gating contract
-- [ecosystem/microct-analysis/measurement-design.md](ecosystem/microct-analysis/measurement-design.md) — Two measurement domains (femoral 3D surface vs tibial 2D slice), root cause of prior errors, OA6-1RK acceptance oracle, PCA orientation as design extrapolation, Amira SOP growth plate separation, SCANCO vs Amira threshold distinction
-- [ecosystem/microct-analysis/toolkit-implementation.md](ecosystem/microct-analysis/toolkit-implementation.md) — Generic tools layer, 3DMedAgent pattern, watershed failure root cause and fix (sphere markers), CoordinateFrame contract, multi-plane rendering, OA6-1RK validation results (all 6 indices pass)
+- [ecosystem/microct-analysis/overview.md](ecosystem/microct-analysis/overview.md) — Current study-design, analysis, and review workflow
+- [ecosystem/microct-analysis/measurement-design.md](ecosystem/microct-analysis/measurement-design.md) — Measurement domains, orientation hazards, and limits of validation
+- [ecosystem/microct-analysis/toolkit-implementation.md](ecosystem/microct-analysis/toolkit-implementation.md) — Watershed markers, visual review, and coordinate-frame hazards
