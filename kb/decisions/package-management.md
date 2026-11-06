@@ -93,7 +93,7 @@ old spellings are removed fields. See [skill schema](../concepts/skill-schema.md
 
 **Decision (narrowed 2026-10):** A skill body is selected by harness alone. Mars uses `variants/<harness>/SKILL.md` if that file exists, and the base `SKILL.md` otherwise. Model-level variants are not supported: no part of the system picks a body by model token or canonical model ID.
 
-**Superseded design.** The original record specified a four-step exact-match ladder: `variants/<harness>/<requested-token>/SKILL.md`, then `variants/<harness>/<canonical-id>/SKILL.md`, then `variants/<harness>/SKILL.md`, then `SKILL.md`. The two model-identity steps existed because authors might write either form (`variants/claude/sonnet/` or `variants/claude/claude-sonnet-4-5/`). Only the harness and base steps were ever built into the Mars launch bundle (`src/build/prompt.rs`, since mars-agents `ecbcff4`, 2026-05-17). Meridian's filesystem `SkillRegistry` kept the full ladder, but by 2026-10 only replay of old launch snapshots reached it, and it was deleted when Mars became the sole skill resolver ([D-mars-sole-skill-resolver](#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
+An earlier design included model-specific variants, but Mars never selected them. Meridian's separate resolver once did; it was deleted when Mars became the sole skill resolver ([skill resolution](#d-mars-sole-skill-resolver-meridian-never-resolves-skills)).
 
 **Why narrowed:** No prompt package ships a `variants/` directory, and no one has asked for a model-specific skill body. Rebuilding model-level selection in Mars before anyone needs it was rejected.
 
@@ -839,8 +839,6 @@ the other marketplace.
 
 | Option | Why not |
 |---|---|
-| One plugin per graph package, linked by `dependencies` | Codex ignores dependencies, and Claude cross-marketplace dependencies need the user to register the other marketplace first |
-| Select dependency items by following references | The graph defines content |
 | Plugin extras, standalone variants, `--adopt` | A hand-built tree can be replaced in a reviewed commit instead |
 | One tree for every harness, with Cursor and OpenCode overlays | Cursor's hook token, hook file and agent lowering differ, and OpenCode needs JavaScript anyway |
 | Translating Claude hook events into OpenCode events | Guesswork with no `SubagentStop` equivalent, and sync doesn't do it |
