@@ -1,15 +1,4 @@
-# codebase/overview — Codebase Domain
+# Codebase
 
-Codebase pages orient contributors to where implementation concerns live and which modules own which responsibilities.
+The source checkout's `src/meridian/AGENTS.md`, its `.context/CONTEXT.md`, and `tests/AGENTS.md` orient contributors. See [codebase guide](guide.md), [harness adapters](harness-adapters.md), and [testing decisions](../decisions/testing.md).
 
-## Pages
-
-- [guide.md](guide.md) — Where to start for common change types and subsystem ownership.
-- [cleanup-program.md](cleanup-program.md) — Known structural debt, the phased cleanup plan, and the phase-1 and phase-2 outcomes.
-- [harness-adapters.md](harness-adapters.md) — Harness capability matrix, primary event scope, and cross-harness comparison.
-- [Telemetry architecture](../architecture/telemetry/overview.md) — durable diagnostic events and their boundary with state and transient logs.
-- [tools.md](tools.md) — KG analysis, Mermaid validation, and Markdown extraction.
-- [work-items.md](work-items.md) — Cross-module work attachment, scratch directories, rename propagation, hook coordination.
-- [session-operations.md](session-operations.md) — `session log / search / export`: compaction segments, transcript extraction workflow, and user-facing command guidance.
-- [session-log-rendering.md](session-log-rendering.md) — Internal rendering pipeline: ToolCall normalization, clean vs raw output, `--raw`/`--no-truncate` flag design, content pipeline order.
-- [test-determinism.md](test-determinism.md) — Test determinism infrastructure: `AsyncDeterminism` + `FakeClock`, `process_race.py` cross-process harness, advance-past-boundary principle, behavioral vs safety-bound timeouts, lock-holding "live" fixtures, race tests red-proven against split implementations.

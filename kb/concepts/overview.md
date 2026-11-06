@@ -4,26 +4,26 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 
 ## Pages
 
-- [spawn-lifecycle.md](spawn-lifecycle.md) — Spawn status machine, crash recovery from the runner-held launch lock, and who persists a dead spawn's outcome.
-- [spawn-wait-barrier.md](spawn-wait-barrier.md) — Chat-lineage wait sets, yield checkpoints, and barrier discipline.
-- [spawn-output-contract.md](spawn-output-contract.md) — Report-first spawn output, transcript pointer behavior, and metadata disclosure levels.
-- [state-model.md](state-model.md) — Dual-root state split, JSONL event sourcing, crash-only recovery, and UUID keying.
-- [../codebase/work-items.md](../codebase/work-items.md) — WorkScope model (named vs ambient), cross-module work attachment, worktree assignment, and hook coordination.
-- [harness-abstraction.md](harness-abstraction.md) — Policy/mechanism split, adapter contract, terminal status semantics per harness, and harness-agnostic constraints.
-- [composition-pipeline.md](composition-pipeline.md) — Semantic IR to harness-specific argv/env projection.
-- [hooks-and-plugins.md](hooks-and-plugins.md) — Lifecycle hooks, built-in hooks, shell hooks, and plugin boundary.
-- [extension-system.md](extension-system.md) — Unified command definition, extension registry, surfaces, and dispatcher.
-- [skill-schema.md](skill-schema.md) — Universal SKILL.md frontmatter, per-harness lowering, and harness-level skill variants.
-- [skill-loading.md](skill-loading.md) — Loaded vs available vs `model-invocable`: which skills an agent receives and through which channel.
-- [native-config.md](native-config.md) — Native config passthrough escape hatch, shape validation, harness scoping, and per-harness projection.
-- [bootstrap-docs.md](bootstrap-docs.md) — Two-tier bootstrap document discovery and `meridian bootstrap` launch behavior.
-- [config-precedence.md](config-precedence.md) — Config file merge order and runtime override chain.
-- [context-resolution.md](context-resolution.md) — Work, KB, archive, and strategy path resolution.
-- [session-initiation.md](session-initiation.md) — Four-mode session initiation model: --continue, --fork, --fork-fresh, --from; identity lock; continue replay of recorded work/task-dir and launch policy; four-layer content composition; bare flag inference; session re-entry model (Resume/Fork/Blocked) for browse-driven activation.
-- [continuation-model-selection.md](continuation-model-selection.md) — Target-constrained continuation model selection and startup selection/transport.
-- [workspace-projection.md](workspace-projection.md) — Workspace entries, merge semantics, and snapshot projection.
+- [spawn-lifecycle.md](spawn-lifecycle.md)
+- [spawn-wait-barrier.md](spawn-wait-barrier.md)
+- [spawn-output-contract.md](spawn-output-contract.md)
+- [state-model.md](state-model.md)
+- [../codebase/work-items.md](../codebase/work-items.md)
+- [harness-abstraction.md](harness-abstraction.md)
+- [composition-pipeline.md](composition-pipeline.md)
+- [hooks-and-plugins.md](hooks-and-plugins.md)
+- [extension-system.md](extension-system.md)
+- [skill-schema.md](skill-schema.md)
+- [skill-loading.md](skill-loading.md)
+- [native-config.md](native-config.md)
+- [bootstrap-docs.md](bootstrap-docs.md)
+- [config-precedence.md](config-precedence.md)
+- [context-resolution.md](context-resolution.md)
+- [session-initiation.md](session-initiation.md)
+- [continuation-model-selection.md](continuation-model-selection.md)
+- [workspace-projection.md](workspace-projection.md)
 
 ## Subtrees
 
-- [model-resolution/](model-resolution/) — How model names become concrete models: aliases, routing, profiles, policies.
-- [package-management/](package-management/) — Mars package sync, current-package source selection, `.mars/` compiled store, targeting, and sync model.
+- [model-resolution/](model-resolution/)
+- [package-management/](package-management/)

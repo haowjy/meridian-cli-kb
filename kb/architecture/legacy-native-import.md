@@ -1,171 +1,18 @@
-# Legacy Native Session Import
+# Legacy native session import
 
 ## Legacy import
 
-Shipped in v0.7.0 (PR #534, merge `3dae2434`); #520, #526 and #531 are closed as
-superseded. The rules and user decision are in the
-[decision](../decisions/legacy-native-import.md).
-
-**Trigger.** `ops/runtime.py`'s `resolve_runtime_authority_for_read` and
-`resolve_runtime_authority_for_write` call
-`ops/legacy_native_import.maybe_import_legacy_native_sessions(runtime_root)`.
-Commands that never resolve a runtime root, such as `--help`, do not trigger it. A
-root without `sessions.jsonl` is left alone, so an untouched project gets no state
-files. When the marker `<runtime_root>/legacy-native-import-v1.json` exists, the
-importer returns after checking it; late binding is a separate repair described below.
-
-**Sequence.**
-
-1. Take `locks/legacy-native-import.lock`, then check the marker again. A concurrent
-   process waits here and then finds the marker.
-2. Build the report without the sessions lock. Read `sessions.jsonl` as raw rows,
-   including historical `harness_session_ids` arrays and every recorded cwd
-   (`execution_cwd`, `task_cwd`, `control_root`). Scan spawn rows for the chat's own
-   `harness_session_id`. Validate candidates against native stores.
-3. Enter `session_bindings()`. For each accepted chat, check again under the lock. A
-   chat that gained a complete key concurrently is skipped. A chat whose recorded IDs
-   or `session_instance_id` changed is counted as `ambiguous_id`. A bind conflict is
-   also counted as `ambiguous_id`. Every other accepted chat is bound with
-   `source="legacy_import"`, and the whole batch is appended with one fsync.
-4. After the context commits, write the marker atomically. It holds the schema
-   version, a timestamp, per-harness counts for `imported`, `missing`, `ambiguous`,
-   `ambiguous_id`, `no_session_id`, and `unsupported`, the unbound chat IDs for each
-   reason, and the bindings. Print one line to stderr:
-   `Imported native sessions for N of M existing chats; K left unbound (details: …)`.
-
-The lock order is import lock, then history-mutation lock, then sessions lock. Native
-I/O and the spawn scan happen before the sessions lock is taken, so live launches are
-not blocked behind the Codex walk or the OpenCode reads.
-
-**Crash recovery.** If the process dies after the append but before the marker, the
-next run starts again. Chats that already have a `legacy_import` row are counted as
-imported and are not bound a second time. A torn tail from the single batch append is
-repaired like any other torn JSONL line, and the chats it covered are bound again.
-
-**Candidates** (`lib/harness/legacy_native_stores.py`). This is a single module that
-dispatches on harness ID. It is deliberately not an adapter protocol hook, because
-the logic runs once. Each store value must equal what PR 1 records for a new chat of
-that harness. It is derived through the adapter's own `native_store_for_launch` from
-recorded facts, and the ambient `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, and `OPENCODE_DB`
-are ignored.
-
-| Harness | Candidate stores | Exact check |
-|---|---|---|
-| Claude | `<config root>/projects/<slug>` for each distinct recorded cwd of the chat and its spawns. The config root is the recorded `claude_config_dir`, else the default home. | First-line `sessionId` of `<store>/<id>.jsonl` |
-| Codex | `<home>/sessions` from recorded launch-policy env, else the default home. Relative homes resolve against a recorded cwd. | One `rglob` per store builds an ID→paths index, then the shared `codex_rollout.resolve_exact_rollout` validates it (the same function live reads use): more than one file is `ambiguous_native_file`, otherwise `session_meta.payload.id` must match |
-| OpenCode | Resolved DB path from recorded env, else the default | The adapter's exact reader, in place, opened `mode=ro`; SQL errors raise |
-| Pi | Meridian's unscoped Pi sessions root (where interactive primaries live), plus `<root>/<spawn_id>/` for the chat's own spawns | Pi `session` header `id`; a match in more than one candidate is `ambiguous`. 0.6.7 recorded no Pi ID, so its Pi chats are `no_session_id`; [legacy Pi recovery](#legacy-pi-recovery) proves some of them later |
-| Cursor, historical records | none: `unsupported` | — |
-
-**OpenCode reads in place.** The import calls the same exact `mode=ro` reader that
-live reads use, on the live database. It writes the WAL shared-memory read marks
-that any SQLite reader writes, OpenCode included. An earlier cut copied the DB and
-WAL to a private snapshot and fingerprinted it to detect a torn copy. That cost about
-6 GB of scratch and 17–26 s per attempt on the 6.3 GB live DB, and it re-ran on every
-deferred attempt while OpenCode kept writing. What still matters from that cut: a
-lookup that hits `sqlite3.Error` raises instead of reporting "absent". A swallowed
-error once made 201 of 251 sessions look absent, and the marker would have made that
-permanent ([lesson](../lessons/native-session-identity.md#a-once-only-marker-turns-transient-failures-into-permanent-ones)).
-
-**Deferral.** `SpawnStateQuarantined`, `OSError` and `sqlite3.Error` are caught
-around the whole import. Then:
-- no marker is written;
-- the command prints `Native session import deferred for …` and continues;
-- an atomic `legacy-native-import-deferral.json` note starts a 15-minute backoff,
-  so commands inside the window skip the import quietly;
-- success removes the note and writes the marker.
-
-Quarantined spawn rows are not skipped, because they could carry a conflicting ID.
-Journal rows with the wrong shape are skipped rather than raised: non-dict records,
-non-string cwds, null ID arrays.
-
-**Report mode.** `python -m meridian.lib.ops.legacy_native_import RUNTIME_ROOT` prints
-the report JSON. It skips CLI startup, runtime resolution, telemetry, and the automatic
-import, so it writes nothing under Meridian state or native stores. It is a
-development entry point, not a CLI command.
-
-**Cost.** The first cut appended each bind separately, with three fsyncs per bind
-while holding the sessions lock. A synthetic run of 3,000 Claude imports took 180.9 s.
-Batching the append in one `SessionBindings` commit brought that to about 0.5 s.
-On a copy of the real meridian-cli root, the whole import, 2,133 of 7,004 chats,
-took 3.75 s.
+A once-only import binds legacy chats only when recorded facts identify an exact native source. Transient I/O failures defer the import instead of marking candidates absent: a once-only marker would otherwise make the error permanent. One swallowed SQLite error made 201 of 251 sessions look absent. See [legacy import decisions](../decisions/legacy-native-import.md) and the source checkout's `src/meridian/lib/ops/.context/CONTEXT.md`.
 
 ## Late binding after the marker
 
-An old build can finish writing a native session ID to a chat after the once-only
-import has already recorded that chat under `unbound.no_session_id`. The ordinary
-import does not scan or repair it on later reads. `bind_late_legacy_sessions()` uses
-the typed `ImportReport` marker to consider only those recorded misses, resolves an
-exact store and validates the native header, then rechecks the chat identity and
-generation while binding. Each eligible row is recorded as attempted, including
-non-matches; malformed marker data causes no mutation. This repair runs only in
-`meridian doctor` and primary-launch background repairs. It does not run on every
-command, browse row, or transcript read.
+Older builds may record an ID after the import; doctor and primary background repair revisit the marker's eligible misses with exact validation.
 
 ## Legacy Pi recovery
 
-`recover_legacy_pi_sessions()` in `ops/legacy_native_import.py` binds 0.6.7 Pi chats
-that the import listed under `no_session_id`. The proof rule and why it needs content
-proof are in the [decision](../decisions/legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair).
-Like late binding, it runs only from `meridian doctor` (`doctor_sync`) and
-primary-launch background repairs (`schedule_background_repairs`).
-
-1. Take the import lock and read the marker. Consider marker-listed chats not yet in
-   the marker's `pi_recovery_tried` list; old markers default the field to `[]`, so
-   each gets one pass. Keep Pi chats that are still keyless and `kind == "spawn"`.
-2. `retained_chat_facts` gathers, per chat: the spawn (from spawn rows,
-   `sessions.jsonl` `spawn_id`, or archive receipts for reclaimed spawns), recorded
-   cwds, the run window, the retained prompt and the report. For a reclaimed spawn it
-   reads `starting-prompt.md` or `report.md` from the ZIP member through
-   `retention_archive.read_archived_member`, which checks that one member against the
-   catalog receipt's per-file sha256 rather than verifying the whole archive.
-3. The Pi evidence helpers in `harness/legacy_native_stores.py` list the spawn's own
-   session dir and validate each file the same way live reads do (header `type:
-   session` with an `id`, version 1 to 3, exact `*_<id>.jsonl`), returning cwd,
-   header time, first user message and final assistant text. The helpers only
-   report evidence; the proof decision stays in ops.
-4. Drop IDs already bound to any chat, then drop IDs that more than one chat claims.
-   Exactly one survivor must remain, and `content_proof` must pass.
-5. In one `session_bindings()` context, recheck that the chat is still keyless with
-   the same `session_instance_id` and that no chat now holds the ID, then `bind()`
-   with `source="legacy_pi_recovery"`. Conflicts are skipped.
-6. Add every examined chat to `pi_recovery_tried`, move bound chats from
-   `no_session_id` to `bindings`, and rewrite the marker atomically.
-
-When any chat binds, doctor reports `repaired: legacy_pi_sessions` and a
-`legacy_pi_sessions:` line with the bound and unbound counts plus an example
-`session repair` ref. On the meridian-cli copy the first doctor run took about 26 s,
-and a rerun reported `repaired: none` in 3.8 s.
+Uniqueness is not proof of identity. Automatic recovery requires matching retained content as well as a unique candidate; shared-root primary sessions require manual repair. See [the recovery decision](../decisions/legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair).
 
 ## Session repair
 
-`meridian session repair REF [--native PATH] [--force]` (`ops/session_repair.py`)
-is the manual path for any chat left unbound, for Claude, Codex, OpenCode and Pi
-(Cursor has no native binding). REF is a
-chat or spawn ref; raw harness session IDs are refused. It shares
-`retained_chat_facts` and the evidence helpers with the recovery pass.
+Manual repair validates the chosen native source, then rechecks identity and ownership under the session lock. A force option permits a cwd or time mismatch but cannot override an existing binding or ownership conflict.
 
-- **Without `--native`, read-only.** A bound chat reports its binding. For an
-  unbound chat, candidate listing covers Pi (the spawn's session dir, or the shared
-  root for primaries) and Claude (the recorded project store). Each candidate shows
-  its evidence and match flags plus the exact bind command, with `--force` appended
-  when a cwd or time check fails. Codex and OpenCode take `--native` only.
-- **With `--native`, validate then bind.** `native_session_evidence` checks the file
-  through the adapter's own resolver. An OpenCode database holds many sessions, so
-  it binds only a chat that already records its session ID. A cwd mismatch or an
-  out-of-window start needs `--force`. Inside one `session_bindings()` context the
-  chat must still be keyless and no other chat of that harness may own the ID; then
-  `bind()` runs with `source="user_repair"`. Neither refusal yields to `--force`.
-
-The old repair path (`session_repair_target.py`,
-`read_latest_primary_spawn_for_chat_read_only`, and the "observed" ID-only writes)
-was deleted with this rewrite.
-
-**Provenance:** `work:native-harness-session-identity` (user decision "Auto-import
-once" in `decision.md`; brief `prompts/pr1-legacy-import.md`); commits `96e146d0`,
-`ce8b6df5`, `8e8fe485`; review `spawn:p7091` (`evidence/pr1-legacy-review.md`),
-recheck `spawn:p7093` (`evidence/pr1-legacy-recheck.md`); in-place OpenCode read,
-deferral backoff and Pi root candidates `evidence/pr1-install-readiness-report.md`
-(commits `5695f5c9`, `38e40862`, `a3769c39`). Legacy Pi recovery and session repair:
-measurement `spawn:p7228` (`evidence/measure-pi-legacy-recovery.md`), implementation
-`spawn:p7229` (commits `1ab75dee`, `0245ae64`), merged into PR #534 @ `50f95c1a`; shipped in v0.7.0 (`3dae2434`).
