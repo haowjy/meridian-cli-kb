@@ -276,6 +276,65 @@ workspace-write parent launched a child that finished, and a read-only agent ran
 Codex loads project rules only for trusted projects), and a per-invocation `-c` key (Codex
 has none for rules).
 
+## D-escape-loads: what an escaped `meridian spawn` runs stays out of the agent's reach (2026-11, in review) {#d-escape-loads}
+
+**Status:** in review on branches `fix/launching-cli-bin` (#764) and
+`fix/safe-module-launch`, neither merged and neither with a PR yet. Tech-lead current
+choices. The owner's only word on #764 was "ok" after the lead explained that Pi
+extensions run `meridian` by name (`chat:c10170`); they have not seen the shim's shape
+or `-P`. Mechanism, on those branches: `src/meridian/lib/launch/.context/CONTEXT.md`
+("The Launching Build on the Child PATH") and `src/meridian/lib/platform/AGENTS.md`.
+
+[The escape](#d-sandbox-spawn-escape) runs `meridian spawn` outside the sandbox, so
+anything that process loads from a path the agent can write runs unsandboxed. Both
+changes below close one such route. Neither is confinement: the
+[guardrail's limit](#d-delegation-floor) still stands, and #747 still owns that.
+
+**The shim lives under the user home, because every nearer place is writable.** When
+`meridian` on a harness's PATH is not the build that launched it, the launcher prepends
+a directory holding only a `meridian` shim, `~/.meridian/bin/<hash>/meridian`. A probe
+first recommended `runtime_root`, reasoning that #747 already made that root writable
+and a shim there made nothing worse. Review reversed it: `runtime_root` and `/tmp` are
+projected writable, and both Codex's rule and Claude's exclusion run `meridian spawn`
+outside the sandbox, so a writable shim would let a sandboxed agent run anything
+unsandboxed. The user-home directory is readable and executable but not writable,
+checked under bwrap. If `MERIDIAN_HOME` falls inside the working directory, a projected
+root or `/tmp`, the launch warns and leaves PATH alone.
+
+**A shim, not `MERIDIAN_CLI_BIN`.** Hooks and extensions reach `meridian` by name,
+including Mars-installed hooks Meridian does not own. A variable fixes only the callers
+patched to read it. Exporting both adds a second mechanism with nothing left for it to
+fix. A venv `bin/` was rejected too, because it would also change `python` and `pip`
+for the agent.
+
+**A dead shim fails loud.** If the interpreter is gone, `meridian` exits 127. Falling
+back to the next `meridian` on PATH was tried in the probe and silently ran the old
+build, which is the bug this fixes.
+
+**`-P` covers the implicit working-directory entry and not `PYTHONPATH`.** `python -m`
+puts the working directory first on `sys.path`, and the background worker's working
+directory is the project, so a `meridian/` directory there ran in place of the package.
+That was reproduced in a plain shell with the planted file running in the worker. `-P`
+closes that entry, on every re-exec through `module_argv` and in the shim. An empty or
+relative `PYTHONPATH` entry still resolves to the working directory:
+`PYTHONPATH=. meridian --version` ran the planted file in the console script itself,
+which never reaches `module_argv`. `-I` was rejected because it drops user-site
+installs; `-E` keeps them and is undecided.
+
+**Open, for the owner (#876):** whether environment and project config count as
+sandbox-reachable. Other routes remain, none tried in a real sandbox: `PYTHONPATH`, the
+hooks in `meridian.toml`, and a project-local `.venv` holding the build. A dev build run
+from a workspace writable to its own sandbox has the same exposure through the shim. If
+these count, the fix belongs at the `meridian spawn` rule rather than at each route.
+
+**Not verified.** Nobody has run any of this inside a real harness sandbox. Whether
+Codex's rule still matches when `meridian` resolves to the shim is expected but
+untested, because the rule matches the command the shell saw. The shim pins the
+interpreter, not the build, so `uv tool upgrade` under a live session moves it. Login
+shells rebuild PATH and drop the shim; Pi's did in the probe, and interactive Claude
+2.1.319 keeps it. The shim writes `-P` by hand; it should use `module_argv` once both
+branches land.
+
 ## D-network-field: modes, host sets and sandbox-derived default {#d-network-field}
 
 **Current choice (owner-agreed, 2026-10-24):** `network` is `allow`, `deny`, or `allowlist`,

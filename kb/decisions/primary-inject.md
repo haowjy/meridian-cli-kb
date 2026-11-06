@@ -2,9 +2,12 @@
 
 How `meridian spawn message` reaches a **primary**: a session a human started in a
 harness TUI, how every message names its sender
-([D-spawn-message-frame](#d-spawn-message-frame)), and how one session addresses
+([D-spawn-message-frame](#d-spawn-message-frame)), how one session addresses
 another, in this project or another
-([D-spawn-message-address](#d-spawn-message-address)). A spawned child is injected through its `control.sock`, which the
+([D-spawn-message-address](#d-spawn-message-address)), and how the sender learns what
+happened to its message ([D-delivery-kind](#d-delivery-kind),
+[D-no-retry-after-write](#d-no-retry-after-write)). The plan to give every primary a
+route is [D-unified-delivery](#d-unified-delivery). A spawned child is injected through its `control.sock`, which the
 child's `SpawnManager` serves over the harness connection. A primary runs the
 harness TUI directly and has no `SpawnManager`, so nothing serves that socket.
 The code contract for the route below is in meridian-cli
@@ -124,7 +127,7 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
 | Claude Code channels | Research preview, organisation-gated, and a custom server needs `--dangerously-load-development-channels` |
 | Remote Control | Routed through the cloud; needs a claude.ai login |
 | A `harness == "claude"` branch in the CLI | Harness specifics belong in `lib/harness/` |
-| Routing through `SpawnManager` / `ControlActionCoordinator` | A primary has no in-process connection; faking `inbound_seq` would lie |
+| Routing through `SpawnManager` / `ControlActionCoordinator` | A Claude primary has no in-process connection; faking `inbound_seq` would lie. Codex and OpenCode primaries do hold one, which [D-unified-delivery](#d-unified-delivery) builds on |
 | A `HarnessCapabilities` boolean | The CLI would still own Claude's wire format |
 | Persisting the launch gate's `birth_epoch` on the spawn record for the PID check | New spawn-record state for one consumer |
 | `is_process_alive(created_after=started_at)` | `started_at` is the spawn's start, not this Claude process's, and its 30 s guard is coarse |
@@ -132,8 +135,10 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
 ### Consequences
 
 - Codex, OpenCode and Pi primaries still have no message route; they fail at once
-  with the #498 message. Each fills the same port when it gains one
+  with the #498 message
   ([future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498)).
+  [D-unified-delivery](#d-unified-delivery) would replace this port rather than fill
+  it per harness.
 - `spawn message` cannot tell a user whether a message was held or refused. Claude
   sends status receipts only to a reply socket a real sender names, in an
   undocumented format; the follow-up is in meridian-cli
@@ -195,9 +200,15 @@ session. use `meridian spawn message c9297 etc...'".
    route here" instead; a message with no sender identity says it has no reply
    address. Without the check, a child
    told to answer an OpenCode primary would run a command that exits 1.
-   `primary_inbox()` in `lib/harness/bundle.py` is the one lookup behind both
-   `post_to_primary()` and the reachability check `primary_accepts_messages()`,
-   so the frame and the post cannot disagree.
+
+   The check is coarser than the post. It asks whether the harness registers an
+   inbox and whether the sender is a child, while the post also needs a published
+   inbox socket, a live process, or a child's control socket. So a `--bare` Claude
+   primary, or a child with no socket, is offered a reply that fails. Under review
+   on branch `fix/reply-route` (no PR yet, not merged): the frame runs the post's
+   own resolution, and a child needs its socket. It does not connect, so a dead
+   socket on a live runner still gets the line, and a child still binding its
+   socket is framed as having no route.
 3. **The chat id comes from the sender's own record**, not `$MERIDIAN_CHAT_ID`,
    which names the conversation that launched the sender and would point a
    reply at the wrong session.
@@ -280,3 +291,142 @@ native sender address that survives `-C`.
 **Provenance:** `chat:c9677` (owner requests, lead decisions); trigger sessions
 `chat:c9618` and meridian-flow `chat:c14995`; reviews `spawn:p9988`,
 `spawn:p9992`.
+
+---
+
+## D-delivery-kind: the sender is told how far a message got (2026-11, in review) {#d-delivery-kind}
+
+**Status:** in review as PR #878 (`fix/message-receipt`), not merged. Tech-lead
+choice; the owner has not ruled on the wording. Until it merges, `spawn message`
+prints "Message delivered" for any successful response, including a Claude child's
+stdin write that nothing confirmed. The contract, per harness, is in meridian-cli
+`src/meridian/lib/harness/.context/CONTEXT.md` ("Inject Acknowledgment") on that
+branch; what follows is what that page does not say.
+
+`send_user_message` returns a kind, `posted` or `acknowledged`, and the kind travels
+to the sender. It is stated by the connection because only the connection knows
+whether it waited for a harness answer. Neither word claims the model read the
+message.
+
+**Why a return value.** A static capability flag would be smaller today, but
+[D-unified-delivery](#d-unified-delivery) needs a delivery port that returns this same
+shape, so a flag would be replaced by that work and the return value extended by it.
+Inferring the kind from the harness id in `SpawnManager` was rejected because harness
+specifics stay in `lib/harness/`.
+
+**A missing field reads as `posted`.** A launcher from an older build does not say
+how far the message got, so the CLI claims no more than it was told. This freezes the
+word: once the PR ships, renaming `acknowledged` on the wire would downgrade older
+launchers' replies to "posted".
+
+**This does not change decision 4 of
+[D-claude-primary-inbox](#d-claude-primary-inbox).** The Claude inbox writes nothing
+back, so it stays posted. A Pi primary could only report posted too, because
+`sendUserMessage` returns nothing
+([research](../research/reaching-a-live-tui.md#pi)).
+
+**What was run.** Against a build merging the patch branches, Claude children printed
+posted, and Codex, OpenCode 2.x and Pi children printed delivered (`spawn:p10517`).
+OpenCode V1 is marked `acknowledged` from reading its code only, and the `posted`
+journal status was added after those runs.
+
+---
+
+## D-no-retry-after-write: a control action is retried only if nothing was written (2026-11, in review) {#d-no-retry-after-write}
+
+**Status:** in review as PR #877 (`fix/no-retry-after-write`), not merged. Tech-lead
+choice. Until it merges, `ControlActionCoordinator` also retries `TimeoutError`,
+`ConnectionError` and `OSError`.
+
+`ControlActionCoordinator.run_action` retries `ConnectionNotReady` and nothing else.
+That is the one error every connection raises before writing. Codex `turn/start`
+waits for its JSON-RPC response after the write, so a slow reply raises `TimeoutError`
+with the turn already started, and retrying that starts a second turn. A fake
+connection that writes and then times out reached the harness twice before this
+change and once after. No real Codex timeout was forced, so the duplicate turn itself
+is inferred.
+
+The failure text says so: "timed out after the request was sent; it may have been
+delivered and was not resent". `spawn message` waits 35 s, longer than the 30 s Codex
+and Pi request timeouts, so that text usually reaches the sender.
+
+**Rejected:** an idempotency key per message, because Codex and Claude have no way to
+deduplicate a turn; translating timeouts in each connection, because only the
+coordinator knows the failure followed a journalled send.
+
+**Cost:** the coordinator also carries interrupt and the permission and user-input
+replies, so a transient failure on one of those is now reported once. Nothing in
+Meridian's CLI sends the two reply verbs. A repeated interrupt after a failed one is a
+separate bug, #874.
+
+---
+
+## D-unified-delivery: every live launcher serves one control socket (2026-10, not built) {#d-unified-delivery}
+
+**Status:** current choice, not built, and not confirmed for building. None of this
+exists in any branch. The owner's whole input was three clicks on the lead's
+recommended options (`chat:c9424`, 2026-10-26): "Unified socket (Recommended)", "No
+route until relaunch (Recommended)", "Refactor PR, then routes (Recommended)". The
+sentences in the work item's design notes are the lead's. On 2026-11-06 the lead told
+the owner this design "was never settled" and would be checked with them before
+building (`chat:c10170`). A confirmation request is in `work:native-primary-message-routes`
+`u-recommendation.md`; the owner has not answered.
+
+### Problem
+
+`spawn message` has two transports chosen by `kind == "primary"`: the control socket
+for children, and a CLI-side post into Claude's inbox. Adding Codex, OpenCode and Pi
+on that structure adds a third route and a second reachability rule, and each harness
+inherits the bugs in the reply check and the retry.
+
+### Choice
+
+1. `ControlSocketServer` takes a delivery port instead of a `SpawnManager`. Every live
+   launcher serves it: `SpawnManager` for children, the connection the launcher already
+   holds for Codex and OpenCode primaries, and a sink in the PTY launcher for Claude
+   (forwarding to the inbox) and Pi.
+2. The CLI keeps one path. `post_to_primary`, `primary_accepts_messages`, the
+   `primary_inbox` port, the `kind == "primary"` branch and the PID-reuse guard go,
+   because a live launcher owns its child and that PID cannot be reused while it serves.
+3. A primary launched by an older build serves no socket and has no route until it is
+   relaunched. No fallback code.
+4. A refactor PR comes first (the port, the dead socket verbs, Claude onto the launcher
+   socket), then Codex and OpenCode, then Pi.
+
+Probes removed the two worries that could have overturned this. The Codex observer
+survives TUI attach, so no reconnect is needed, and approvals reach the TUI, so an
+injected turn does not stall on a request only Meridian can see
+([research](../research/reaching-a-live-tui.md#codex)). Earlier notes assumed the
+opposite of both.
+
+### Rejected
+
+| Alternative | Why rejected |
+|---|---|
+| Per-harness `primary_inbox` ports behind the CLI branch | Keeps the `kind` branch and a reachability rule per harness |
+| A library resolver returning `ControlSocket`, `NativeInbox` or `Unreachable`, with the CLI posting | Managed primaries need a launcher socket anyway: only the launcher holds the observer, and OpenCode's attach password is never on disk. A second transport would keep the branch forever |
+| A one-release fallback for older primaries | Primaries are short-lived |
+| One PR for everything | The refactor can land before the routes it enables |
+
+### Costs
+
+A socket-serving thread in the synchronous PTY launcher, which has no event loop.
+Primaries get the 30 s discovery poll instead of failing at once. A Claude process
+whose launcher died loses its route.
+
+### Open for the owner
+
+- **Pi:** the launcher serves the socket and forwards to an extension listener (two
+  hops, keeps "the launcher serves" true), or the extension serves it (one hop, needs a
+  new variable for the runtime root). The lead's recommendation moved from extension to
+  launcher.
+- **OpenCode:** an injected turn reads as a human prompt to the idle sensor, so it
+  counts as activity. The lead recommends accepting that.
+- **Codex mid-turn:** steer into the TUI's turn, as `send_user_message` does today. The
+  lead recommends this.
+- **The port:** `deliver(text) -> DeliveryKind` where any failure raises, which removes
+  `InjectResult`, `on_result` and `inbound_seq`. A review proposed it (`spawn:p10531`).
+
+**Provenance:** `work:native-primary-message-routes` `design-notes.md`,
+`u-recommendation.md`, `explore-unified-delivery.md`; structural review
+`spawn:p9722`; probes `spawn:p9741`, `spawn:p9736`; session mining `spawn:p10549`.

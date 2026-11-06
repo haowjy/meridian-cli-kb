@@ -19,16 +19,18 @@ route through Claude Code's own inbox socket, behind the optional
 ([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
 PR #668). Codex, OpenCode and Pi primaries have none: `spawn message` fails at
 once with "<harness> primaries have no message route yet (see #498)", and a
-sender on one of them gets no reply command in its message frame. Each
-harness plugs its route into the same `primary_inbox` port. Codex and OpenCode
-primaries already run behind a Meridian-held backend connection (app-server
-WebSocket, HTTP/SSE), which a route could use.
+sender on one of them gets no reply command in its message frame. Codex and
+OpenCode primaries already run behind a Meridian-held backend connection
+(app-server WebSocket, HTTP/SSE), which a route could use.
 
-For OpenCode, the connection adapter can project a later HTTP prompt using the
-committed native agent/model/variant, but a native probe could not reach that
-adapter path while the primary TUI was live; it failed after the primary ended.
-This is an endpoint/ownership gap, not evidence that model projection reset the
-native choice.
+**Direction:** [D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery)
+replaces the per-harness port with one socket that every live launcher serves. It is
+not built, and the owner has not confirmed it for building. The harnesses are not the
+obstacle: a second client's message reaches a live Codex or OpenCode TUI, and a Pi
+extension can inject one ([what each accepts](../research/reaching-a-live-tui.md)).
+What is missing is Meridian's endpoint. For OpenCode, the connection adapter can
+project a later HTTP prompt using the committed native agent/model/variant; nothing in
+`spawn message` reaches that adapter while the TUI runs.
 
 **Boundary:** #498 owns primary inject for Codex, OpenCode and Pi. Do not hide
 that work inside #497 or claim public-primary injection coverage from
@@ -40,7 +42,7 @@ documents the adapter-level boundary; [launch-system.md](../architecture/launch-
 documents primary launch composition.
 
 **Provenance:** `work:next-minor-planning/probes/followup-497-native/REPORT.md`;
-`spawn:p6060`.
+`spawn:p6060`; two-client probe `spawn:p9741`.
 
 ---
 

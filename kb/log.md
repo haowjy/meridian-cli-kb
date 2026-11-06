@@ -3,6 +3,20 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-11-06 — message delivery patches and #498 plan (in review, not merged)
+
+New [reaching a live TUI](research/reaching-a-live-tui.md): Codex, OpenCode and Pi facts
+from the work item's probes. [Primary inject](decisions/primary-inject.md) gains
+D-delivery-kind, D-no-retry-after-write and D-unified-delivery; D-spawn-message-frame no
+longer claims the frame and the post cannot disagree, and the coordinator rejection now
+names Claude only. [Sandbox platform access](decisions/sandbox-platform-access.md) gains
+D-escape-loads; [launch](decisions/launch.md) gains D-continue-needs-prompt. Removed from
+[future work](open-questions/future-work.md) and
+[harness adapters](codebase/harness-adapters.md): `primary_inbox` as each harness's
+plug-in point, and the claim that OpenCode cannot be reached live. Two corrections
+candidates from `chat:c10170`.
+
+---
 ## 2026-11-06 — Mars warning fixes (mars-agents #323, #324, in review)
 
 [Package management](decisions/package-management.md#warnings) gains a Warnings

@@ -405,6 +405,18 @@ and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-ha
 
 ---
 
+### D-continue-needs-prompt: `spawn --continue` requires a prompt (2026-11, in review) {#d-continue-needs-prompt}
+
+**Status:** in review on branch `fix/continue-requires-prompt` (#712), no PR yet, not merged. This is the lead's proposal, and the owner has not confirmed it. The owner raised the question it answers (`chat:c10170`, 2026-11-06): "generally, --continue, without p means it just... doesn't do anyhting in thie current deinfition", while asking whether subagents should become peers that close themselves. They then asked for that to be filed: "gh issue the \"voluma agents are long running\" as future enhancment" (#871). Rule: meridian-cli `src/meridian/lib/ops/spawn/AGENTS.md` on that branch.
+
+**Choice.** A continue with an empty prompt exits 1 before any launch, and the fallback to the source's original prompt is deleted.
+
+**Why.** That fallback looked for a prompt the continue path never loads and `state.json` no longer holds, so `spawn --continue pN` always failed with a misleading "no stored prompt". Repairing it would resend the finished task. The check sits at the top of `spawn_continue_sync`, which the CLI, `--dry-run` and the `spawn.continue` operation all reach. A CLI-only check would leave the other entries on the old message.
+
+**Revisit when:** #871 gives a bare continue a meaning, or file delivery on resume is checked, which would decide whether a continue with `-f` and no prompt is allowed.
+
+---
+
 ### D-stable-system-prompt: the system prompt depends only on what defines the conversation (2026-10) {#d-stable-system-prompt}
 
 **Status:** current choice, shipped in meridian-cli v0.16.0 (PR #786, with #768). The work-goal pointer follows the owner's suggestion ("I think into the system prompt, the best move is probably provide a quick link to always check the goal with some command or something"); the owner approved the one test the reviewers proposed; the placement rules are tech-lead decisions after three review rounds. Mechanism: `src/meridian/lib/launch/AGENTS.md` ("Don't put per-launch values in the system prompt") and `.context/CONTEXT.md`. `work:post-0-19-followups`, `chat:c9182`.

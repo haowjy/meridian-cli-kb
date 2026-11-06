@@ -115,6 +115,15 @@ Seen once. Each moves into the table on its second occurrence.
   3rd party eventuality?" (a dead-code review proposed deleting the extension
   capability check; it stays as the third-party-extension seam, recorded in
   meridian-cli `lib/extensions/.context/CONTEXT.md`).
+- **Queued a fix without saying what the behaviour would then be.** Say what the
+  command does after the fix before ranking it. `chat:c10170` 2026-11-06 "um... oh,
+  continue without p...? but then what does it do after? it has no instructions...?"
+  (the lead listed #712 as next work; asked, it replied "You're right, and I ranked this
+  too high").
+- **Asked the human what the agent could check itself.** Scan the local state first and
+  bring findings. `chat:c10170` 2026-11-06 "u can just audit it... maybe...? ... (just
+  scan locally what stuff i have installed and the different config)" (the lead kept
+  asking which warnings the owner meant).
 - **Started work another session already owned.** Check who owns a task before
   launching it. `chat:c9589` 2026-10-28 "actually c15072 is doing the bump"
   (the lead had launched a Mars 0.24 bump lane; it was cancelled).

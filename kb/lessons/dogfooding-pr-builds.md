@@ -79,6 +79,12 @@ first one it forgets. Give smoke runs a wrapper from the first command: a script
 runs `env -i HOME=<scratch home> PATH=$PATH TERM=dumb <build> "$@"`, so neither
 `MERIDIAN_*` nor `_MERIDIAN_*` reaches the build.
 
+**Harness variables leak the same way (2026-11-06).** A smoke primary launched from
+inside an agent inherited `CLAUDE_CODE_CHILD_SESSION`, so Claude reported "Transcript
+saving is off" and `/exit` warned `native_transcript_missing` after a long session
+(`spawn:p10517`). The `env -i` wrapper clears these too; a filter on `MERIDIAN_*` does
+not.
+
 ## Installing a test build can replace the user's `meridian`
 
 **What happened.** A lane installed its test wheel with `UV_TOOL_DIR` set to a

@@ -84,8 +84,11 @@ supply the report for the parent spawn.
 
 Cross-harness death and injection contracts are behavioral: a connection close
 must carry the best available exit/error evidence, and a successful injection
-result must mean the harness acknowledged or durably accepted the input. Fakes
-must model these contracts rather than returning universal success.
+result must mean the harness acknowledged or durably accepted the input. A Claude
+child breaks that rule today: its result means only that the stdin write finished,
+and [D-delivery-kind](../decisions/primary-inject.md#d-delivery-kind) (PR #878, in
+review) makes each result say which it was. Fakes must model these contracts rather
+than returning universal success.
 
 No primary has a `SpawnManager` serving a control socket, and a Claude or Pi
 primary has no Meridian connection at all, so injection into a primary goes

@@ -128,6 +128,20 @@ transcript row is `type:"user"`, `isMeta:true`, `turnOrigin:"peer"`,
 sender's verified OS pid and start time. The model is told the message came from
 another Claude session, not from its user.
 
+**Peer-safety text.** Claude Code wraps each inbox message in `Another Claude session
+sent a message:` plus a closing paragraph ("This came from another Claude session ...
+that's permission laundering."). Transcripts from 2.1.310 to 2.1.312 show about 610
+characters per message, roughly 130 tokens by the 4-characters-per-token rule of thumb,
+which is an estimate and not a count. The text is hardcoded (read from the 2.1.319
+binary), and no setting removes it. Children receive messages over stdin and do not get
+it. The owner called it "kind a waste of tokens" and asked "is there a way to turn this
+off?" (`chat:c10170`); the answer found is no.
+
+**No inbox yet, or at all.** Claude publishes the socket only once `SessionStart` runs.
+In a folder not yet trusted, the trust prompt blocks that, so a post fails as if the
+session had no inbox until a human accepts the prompt (`spawn:p10517`, 2026-11-06). A
+`--bare` launch publishes none.
+
 ### Inbound controls
 
 The receiving session's `crossSessionInbound` setting governs whether posts get
