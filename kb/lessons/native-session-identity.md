@@ -14,7 +14,7 @@ A projection must share the authority's rule instead of reimplementing it. Real 
 
 ## A Test Helper That Reads Runner Bytes Trips the Blind Trap
 
-A test helper is subject to the same read restrictions as the code it tests. A test mode also needs a positive assertion that it reached subprocesses: otherwise a silently disabled mode can produce deceptively better results.
+A test helper is subject to the same read restrictions as the code it tests. A test mode also needs a positive assertion that it reached subprocesses: otherwise a silently disabled mode can produce deceptively better results. At `sitecustomize` time, `sys.argv[0]` is `-m` for `python -m`; gating instrumentation on the eventual entry-point name misses those children.
 
 ## An In-Place Projection Upgrade Breaks the Build Still Running
 
