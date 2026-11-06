@@ -23,4 +23,3 @@ Readers derive liveness from the launch lock without persisting state. A repair 
 ## Start gate and guardian {#d-start-gate-guardian}
 
 A harness cannot execute until its process scope and verified birth are durable. A small POSIX guardian observes runner death and terminates the owned process group; a later birth-checked sweep is the backstop. A parent-death signal alone reaches only a direct child and misses binaries behind wrappers. On the root-only terminal path the guardian sends one TERM, not a delayed KILL that could hit a reused PID. Processes that leave the owned group can survive the sweep. See [process containment](../lessons/process-containment.md).
-
