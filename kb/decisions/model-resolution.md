@@ -48,7 +48,7 @@ release; this is a release gate, not a reason to weaken the API boundary.
 
 An absent managed model lets the harness choose its default. A stronger harness override can also clear an incompatible model. Older snapshots represent absence as an empty string; a fake model token would instead be sent as an override.
 
-### D72: `[agents.<name>]` overlay config as the project-scoped override surface
+### Project-scoped agent overlays {#d72-agentsname-overlay-config-as-the-project-scoped-override-surface}
 
 Project-specific agent policy belongs in Mars overlays, not generated agent files that sync overwrites. The overlay rules and precedence are in [model policies](../concepts/model-resolution/model-policies.md) and [config precedence](../concepts/config-precedence.md#routing-vs-policy-fields).
 
@@ -56,13 +56,11 @@ Project-specific agent policy belongs in Mars overlays, not generated agent file
 
 Enabled targets bound routing before availability and authentication checks. Profile model-policy entries provide backup candidates independently of which settings rule matches; otherwise changing the primary can hide earlier backups. See [fallback participation](../concepts/model-resolution/model-policies.md#fallback-participation).
 
-### D76: Harness-specific model IDs via RunnablePath
+### Harness-specific model IDs via RunnablePath {#d76-harness-specific-model-ids-via-runnablepath}
 
 A canonical model can need different native IDs, such as a provider-qualified ID for OpenCode and a bare one for Codex. Mars supplies the selected harness-specific value; every native model selection boundary must use it. An explicit harness narrows routing but does not grant permission or establish support or authentication.
 
-### D86: `mars models prompting` — canonical command name and agent-first resolution {#d86-mars-models-prompting}
-
-> [!FLAG] **Needs human review** — D86 ID collision with [package-management.md](package-management.md) routing-parity D86 (`mars models resolve` / `mars build launch-bundle` share `routing::evaluate_candidates()`). Renumber or cross-link one decision before treating either as authoritative by ID alone. Flagged 2026-06-20.
+### Agent-first prompting guidance
 
 Prompting guidance resolves an agent through the same policy as launch before looking up its model guidance. A shallow duplicate resolver can give guidance for a model that routing later replaces. Agent names are tried before aliases because callers normally ask about the agent they plan to spawn. Guidance is on demand rather than added to every launch prompt.
 
