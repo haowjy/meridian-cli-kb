@@ -1,56 +1,6 @@
-# State Roots and Work Items
+# State roots and work items
 
+A work directory's location determines whether it is active or archived, so interrupted moves can be retried without treating stale metadata as authority. Per-item links let running executions follow the directory as it moves. See [work and checkout links](../../decisions/session-work-links.md) and the source checkout's `src/meridian/lib/state/.context/CONTEXT.md`.
 
-Work items use a different storage pattern from spawns: **one `__status.json` file per work directory** under the context work root (e.g. `<context.work>/<slug>/__status.json`). The work store is split into three modules: `work_state.py` owns models (`WorkItem`, `StoredWorkItemState`), the metadata codec, slug normalization, and shared directory-location primitives; `work_store.py` provides pure read projections; `work_repository.py` serializes all mutations (status updates, healing, directory-namespace operations) behind the stable project-level `work-store.flock`.
+Work metadata travels between builds. Readers preserve unknown fields and refuse a newer format on mutation, protecting information written by newer builds. See [compatibility versioning](../../decisions/compatibility-versioning.md#d-staged-version-add--readers-learn-a-version-one-release-before-writers-write-it).
 
-Archiving moves the entire directory to the archive root. Directory location is the **sole** authority for active-vs-archived state; `archived_at` is stored but never decides. Archive moves the directory first, then updates `__status.json` inside it, so a crash between the two still reads as archived. Reopen writes the status first, then moves, so an interrupted reopen leaves the item archived and re-running it repairs it. A move refuses when both locations exist and never deletes either copy.
-
-The work store also owns two links per item under the runtime root, `work-items/<id>/work` (the directory, wherever it is) and `work-items/<id>/task` (the item's checkout), republished inside `work-store.flock` before and after every mutation of the item. Running agents reach the item through them, which is why archive needs no session write; see [per-execution work and checkout links](../../decisions/session-work-links.md). Work-item `status` is an open string vocabulary (not a closed enum) because custom labels exist; `"done"` is reserved for archived items; empty status is rejected.
-
-## ID Generation
-
-**Project IDs** come from the identity seam ([project identity](project-identity.md)).
-A committed project's three-word id is minted by `ensure_project_identity()`,
-which atomically edits `meridian.toml` under the project-config transaction;
-concurrent writers converge by re-reading under that lock. An ad-hoc id is a
-path hash and is never written into the directory.
-
-**Spawn IDs** and **session IDs** come from monotonic counters under their
-store locks and render as `p1`, `p2`, … and `c1`, `c2`, … respectively.
-
-## Format version and unknown fields
-
-`__status.json` is synced across machines through the context repo, so another
-build reads it. Since v0.11.0 the reader accepts a `v` field (absent means 1) and
-refuses a newer one; writers do not emit `v` yet, because v0.10.x readers reject
-unknown fields
-([D-staged-version-add](../../decisions/compatibility-versioning.md#d-staged-version-add--readers-learn-a-version-one-release-before-writers-write-it)).
-The stored model (`StoredWorkItemState`) allows extra fields and writes them back, so a field from a newer
-build survives this build's updates; each unknown field warns once per file per
-command. A newer `v` lists as `requires-newer-meridian`, separate from the item's
-status. Every mutation goes through `work_repository.write_state_locked`, which
-strictly loads every active and archived copy of the item first, so rename, done, reopen, delete and duplicate
-cleanup refuse before touching disk. Other malformed files warn before falling back
-to directory-derived defaults.
-
-## Read vs Write Resolution
-
-Read paths call `resolve_project_runtime_root_or_none()` when zero state is a
-valid result, or `resolve_project_runtime_root()` when identity is required.
-Neither creates identity: both go through the read authority, which uses
-`resolve_project_identity()`. Write paths call
-`resolve_project_runtime_root_for_write()`, which goes through
-`ensure_project_identity()`.
-
-| Resolver | Mutates identity? | Result |
-|---|---|---|
-| `resolve_project_runtime_root_or_none()` | No | Runtime root, or `None` (unminted committed id or unmaterialized ad-hoc place) |
-| `resolve_project_runtime_root()` | No | Runtime root or error |
-| `resolve_project_runtime_root_for_write()` | Yes: mints a committed id or materializes the ad-hoc root | Runtime root |
-
-## Related Pages
-
-- [State system overview](overview.md) — the complete state-root layout
-- [Project identity](project-identity.md) — tiers, ad-hoc keys and retention
-- [State model](../../concepts/state-model.md) — why committed identity is separate from runtime state
-- [Workspace architecture](../workspace/overview.md) — context resolution that selects the work root

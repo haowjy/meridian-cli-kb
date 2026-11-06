@@ -139,8 +139,7 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
   request itself reads the cache sets c (below). Meridian used this for its own
   idle compaction until it was deleted
   ([D-idle-compaction-removed](../decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions));
-  the superseded break-even is
-  [D-idle-compaction-growth-floor](../decisions/idle-compaction-growth-floor.md#d-idle-compaction-growth-floor--compact-on-growth-past-a-per-harness-break-even).
+  the old break-even no longer governs Meridian idle behavior.
 
 ## Does the compaction request read the cache?
 
