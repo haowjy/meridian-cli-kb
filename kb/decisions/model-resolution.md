@@ -266,27 +266,6 @@ launch-policy resolver ([D73](#d73-canonical-launch-parameter-compiler-in-compil
 launch policy, so it moved with the resolver: Mars also writes native agent files
 from it, which a Meridian-only overlay could never reach.
 
-#### Original design (2026-05-05, superseded)
-
-Overlays sat in `meridian.toml`, `meridian.local.toml` and
-`~/.meridian/config.toml`, deep-merged by Meridian (user, then project, then
-project-local) and fed to Meridian's launch-parameter compiler. Fields were
-`model`, `harness`, `effort`, `approval`, `sandbox` and `autocompact`. List
-override fields (`skills`, `tools`, `disallowed-tools`, `mcp-tools`) were rejected
-with a warning, because a user-authored overlay that silently ignored them would
-mislead. `model-policies` was three-state with replacement: `[]` suppressed every
-conditional rule, and a non-empty list replaced the profile's rules, on the view
-that merging rule sets creates ordering ambiguity and cannot suppress an
-inherited rule. Mars's prepend semantics dropped that suppression ability.
-
-**Alternatives rejected then, and still rejected:**
-- Editing `.mars/agents/` directly — overwritten by sync.
-- User-global config as the primary solution — no project-scoped experiments
-  without side effects on every project.
-- `config set/get` for `agents.*` — users edit TOML directly.
-
----
-
 ### D73: Canonical launch-parameter compiler in `compiler.py` with pure-data contract
 
 > **Superseded.** Routing now resolves through Mars launch-bundle. `compiler.py` is deprecated.

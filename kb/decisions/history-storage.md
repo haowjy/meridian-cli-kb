@@ -77,48 +77,6 @@ caching, and a second transcript parser.
 Database-file portability does not make the transcript independently readable, and
 each additional interpretation or service becomes another correctness dependency.
 
-### D-history-bounded-preview: previews are disposable projections of canonical history (2026-09-14)
-
-**Superseded 2026-10-21** by
-[D-browse-transcript-on-demand](session-browse.md#d-browse-transcript-on-demand):
-browse no longer previews on highlight, and the preview cache, accumulator and
-offline labels are deleted (meridian-cli PR #714). Kept for the reasoning; the one-normalizer rule survives as the shared
-transcript reader.
-
-**Partly superseded 2026-09-25** ([native-only history](native-only-history.md)):
-- **Checkpoints.** Previews read only native sources, so the append-only checkpoint
-  path for Meridian's runner streams is deleted.
-- **Rebuild.** `session index rebuild` no longer warms previews: the warm loop
-  re-folded and re-resolved every chat. Previews refresh lazily.
-- **Still current:** the rest (same normalizer, bounded cache, offline labeling).
-
-**Decision:** The browser caches a bounded recent-message projection produced by
-the same canonical normalizer as full reads. It does not cache grouped render
-entries as conversation authority. Selection is cache-first; refresh is selected-only
-and latest-only. Neither metadata catch-up nor rebuild parses transcript bodies for
-previews; a preview is built when its row is selected.
-
-A cached offline preview is usable only for the same selected verified digest and
-must be labeled offline. Selection, preview, and direct ZIP reads never restore or
-launch history.
-
-*Superseded 2026-09-25 (runner streams are no longer a preview source); kept for
-the reasoning:* controlled append-only streams could resume from a complete-line
-checkpoint. The checkpoint recorded both consumed extent and observed source size: the former is the
-parsed boundary, while the latter includes any incomplete suffix seen at capture.
-Witness changes are accepted only for real controlled growth. Replacement,
-truncation, same-size rewrite, or other external editing requires rebuild; mutable
-native sources use fresh snapshots.
-
-**Why:** Responsive selection does not justify a second history model. Separating
-consumed extent from observed size prevented an incomplete tail from being mistaken
-for already-consumed content, while keeping incremental work for the writer shape
-Meridian controlled.
-
-**Rejected:** full-conversation or FTS storage, render-only clipping, a second parser,
-full hashing on every append, and treating stat/tail witnesses as proof of arbitrary
-external mutation safety.
-
 ### D-history-reclaim-gate: hash under shared capture, revalidate and retire briefly under exclusive ownership (2026-09-14)
 
 **Decision:** Archive capture brackets a full hash with exact source witnesses under
@@ -556,82 +514,6 @@ normally through their binding. The member stays in the ZIP for manual extractio
 
 **Revisit if:** the stored record format itself changes shape; then the digest needs
 an explicit version, not a model-dependent recipe.
-
-
-### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
-
-**Status:** Superseded as a future write-path decision by
-[native-session-identity](native-session-identity.md) and
-[native-only history](native-only-history.md): runner history is neither read (PR 2)
-nor written (PR 3), and old runner-history files are not decoded. The stream-and-snapshot
-model below records the earlier choice. It is kept because it explains why the
-stream was once retained. Native snapshots survive in the replacement design as
-archive members of the bound key. Legacy runner-history members stay inert bytes.
-
-**Superseded decision:** `history.jsonl` keeps its existing stream/retry-evidence meaning.
-Qualified native-primary history is published atomically as a separate snapshot
-inside the same record aggregate and becomes canonical through one shared source
-selection boundary. This is preferred to append-only begin/body/commit sections,
-which contaminate runner evidence and require abandoned-section recovery. File
-existence or nonempty output does not prove capture completeness. Exact association
-comes from the completed record, while the descriptor states the native observation
-interval/scope rather than pretending to prove a past stop-time cutoff.
-
-Capture preserves provider-native authority rather than normalized display events.
-OpenCode now supplies a harness-owned raw-row representation containing the exact
-session plus ordered message/part rows, identities, relationships, unsupported
-material, and original payloads from one read-only transaction. Shared normalization
-interprets those records for display and report consumers. This raw input is not yet
-a qualified capture: storage completeness and rendering support remain separate
-outcomes.
-
-New archives explicitly declare the canonical transcript member and bind a versioned,
-immutable original capture descriptor into portable identity. Restore may assign
-inert local aliases, but rearchive carries the original descriptor unchanged so
-archive -> restore -> rearchive -> restore still validates without the original
-native store or first ZIP. Old archives retain their original implicit
-`history.jsonl` recipe and are never rewritten.
-
-Canonical snapshot validation is incremental and deadline-aware. A prefix whose
-seal/count/digest has not been fully checked is partial, never verified-empty or
-complete; search, export, preview, and retention consume the same storage/rendering
-outcome rather than inventing surface-specific fallbacks. Retention requires full
-validation before reclaim.
-
-**Scope correction:** The earlier exact-stop frontier requirement is superseded,
-not proved. The user asked to repair existing post-stop capture; its selected scope
-is a complete consistent native observation associated with the exact record. A
-real OpenCode counterexample and independent contract audit justify rejecting a
-new universal frontier/ownership protocol. Preserve known-incomplete/unavailable
-failures and exact reclaim checks. One provider/materializer qualification result
-distinguishes complete observation, known incomplete, unavailable and unsupported.
-Existing lifecycle facts and supported native markers reject known unfinished input;
-consistent bytes alone do not qualify it. Delayed preparation retries the same checks
-and may qualify resolved output without discarding earlier interruption evidence;
-valid captures remain immutable. Integrated implementation/runtime evidence is still
-required.
-
-Capture-purpose selection already binds post-stop maintenance to the exact completed
-primary spawn rather than the latest chat generation. State, primary sidecar, and
-exact-generation session facts feed one normalized candidate helper. Selection
-requires singleton agreement; the owner guard conservatively refuses a possible
-same-harness match when recorded facts conflict. A distinct harness may reuse the
-same opaque native ID without aliasing. Exact-generation live leases and unreleased
-scopes block reading even when the native ID exists only in spawn metadata, and a
-second check runs before publication. These same-runtime observations are safety
-preconditions, not an external-writer or cross-machine fence. Children prepare only
-existing retained streams and never fall back to native-primary storage.
-
-**Why:** Investigation separated two causes of issue #499. The repaired Pi grammar
-had dispatched only RPC `message_end`, so native on-disk `type=message` records
-normalized to zero. Independently, PR #494 introduced existence-only capture guards
-that can certify a partial stream while fuller native history exists. The identity
-and source-selection preconditions are now repaired, but the old ingest guard and
-envelope writer still require the qualified snapshot implementation.
-
-**Rejected:** overwriting the stream, append-section transactions, normalized-text
-capture, per-surface parsers, fallback based on message count, and treating ZIP byte
-integrity as proof that the selected transcript was complete.
 
 
 ## Related

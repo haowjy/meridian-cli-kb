@@ -348,43 +348,6 @@ Rejected: landing first in 0.19.0 (schema v1 would have to merge it through its 
 Meridian's side merged before its Mars pin moved; see the upgrade below.
 
 
-#### Upgrading Meridian's Mars to 0.20 {#upgrading-meridians-mars-to-020}
-
-**Status:** shipped in meridian-cli v0.15.0 (PR #783), pinning mars-agents 0.20.2 (schema
-v1). meridian-cli `docs/upgrading.md` ("Mars 0.20.0 (schema v1)") walks every Mars 0.19 and
-0.20 break and what a Meridian user changes.
-
-**Split (the owner's, 2026-10-26):** the pin shipped in its own PR, after provided skills,
-because pinning hands every Mars 0.19 and 0.20 break to Meridian users who upgrade: overlays
-that stop loading, `--frozen` failing until one plain sync, and effort that moves on packaged
-profiles. Hearing the list, the owner asked "hmmm... uh... should we really be shipping the
-mars upgrade lol", then agreed to the lead's split: "yeah split it that way". The prompt
-packages migrate to schema v1 after this release and require it, because `mars migrate` adds
-`requires-mars >= 0.20.0`, which a Meridian bundling Mars 0.18.4 refuses.
-
-**Meridian owns its users' Mars breaks (current choice).** The upgrade notes say what a
-Meridian user changes in overlays, profiles and env vars, and the release checked every
-forwarded `meridian mars` command the way Meridian invokes it. Rejected: linking Mars's
-release notes alone, which are written for package authors.
-
-**Pin 0.20.2, not 0.20.0 (current choice).** 0.20.0 and 0.20.1 refuse
-`meridian mars check <path>`, because Meridian appends `--root`, and fail to sync a
-dependency without a `mars.toml` whose `skills/` holds a stray file (mars-agents #226).
-A sweep of all 63 forwarded `meridian mars` invocations on 0.20.2, replayed with the same
-argv on 0.18.4, found no other difference beyond commands 0.18.4 lacks.
-
-**Package-mutating Mars commands need a root.** `meridian mars migrate` and `provide` refuse
-to run outside a project Mars root unless given `--user`, like `add`; `migrate --check` only
-reports and stays allowed. Without the guard, `migrate` run outside a project rewrote the
-user-level profiles under `~/.meridian/mars`.
-
-The effort changes this upgrade brought are recorded in
-[D-model-policy-rule-beats-profile-default](model-resolution.md#d-model-policy-rule-beats-profile-default)
-and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-harness).
-
-
----
-
 ### D-continue-replays-recorded-launch-contract: same-session continue is not live policy recomputation
 
 **Decision (2026-07):** Primary `--continue` and spawn `--continue` replay the recorded launch contract for tracked source sessions/spawns instead of resolving a new launch from current CWD/env/config.
