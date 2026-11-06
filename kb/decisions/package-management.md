@@ -42,52 +42,9 @@ For mechanism, see:
 
 ---
 
-### D36: MCP/hook collision precedence matches agent precedence (local wins, declaration order)
-
-> **Superseded:** D98 replaces the hook half of this decision, and
-> [D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
-> replaces the MCP precedence with shortest dependency depth first (released in
-> mars 0.19.0). Local still wins and declaration order still breaks
-> ties at equal depth.
-
-**Original decision:** MCP server and hook name collisions resolve via: local
-(`_self`) beats dependency; among dependencies, declaration order in
-`mars.toml [dependencies]` wins; alphabetical source name breaks ties within
-the same scope.
-
-**Current scope:** That precedence remains the MCP rule. Hooks now follow D98:
-selected dependency collisions are errors, and the project-local overlay may
-shadow a dependency.
-
-**Why:** Users already understand "local shadows dependency" from agent behavior. Applying the same model required zero new concepts. For MCP, aborting on every collision was overly strict — same-name servers from different packages have an unambiguous winner.
-
-**Implementation note:** `graph.order` is alphabetical, not declaration order — declaration-order precedence requires reading `mars.toml` directly.
-
-**Alternatives rejected:** Error on all collisions (too strict), merge collisions (semantically ambiguous — MCP servers are atomic units).
-
----
-
 ### D37: Windows hooks keep `bash` interpreter; adjust quoting per platform
 
 Hook lowering keeps `bash` as the interpreter on Windows, adjusting only quoting. Git for Windows ships bash; extension-based dispatch is over-engineered for V0 when all hooks are `.sh` files. *(Low impact — POSIX-first policy makes this largely historical.)*
-
----
-
-### D38: `LockIndex` for O(1) lock lookups; lock file parsed once per sync
-
-Build a `DestPath → LockedItem` index once per sync run, replacing per-lookup O(n) scans. Parse the lock file exactly once with a version-aware deserializer.
-
----
-
-### D39: `compiler/config_entries/` extracted as preparatory refactor
-
-Pure code-motion refactor: extract `compile_config_entries()` into a dedicated module between Phase 3 and Phases 4a/5 to reduce merge risk.
-
----
-
-### D40: Mars integration tests split into focused top-level files
-
-Split `tests/integration/mod.rs` (2,100 lines) into separate top-level test files with shared helpers in `tests/common/mod.rs`. Enables parallel execution and faster incremental builds.
 
 ---
 
@@ -321,12 +278,6 @@ How Meridian enforces them: [tool permissions](tool-permissions.md).
 
 ---
 
-### D84: Cursor experimental, Pi future-first-class, Gemini out of scope
-
-**Decision:** Cursor is experimental (config surfaces evolving), Pi is future first-class (contract in development), Gemini is out of scope.
-
----
-
 ### D85: Static sync and launch-bundle are intentionally different consumers
 
 **Decision:** `mars sync` produces harness-native static artifacts; `mars build launch-bundle`
@@ -388,41 +339,9 @@ as a preview tool.
 
 ---
 
-### D90: Native hook passthrough replaces universal event vocabulary (mars-agents PR #133, 2026-07)
+### Native hook fragments {#d91-native-hook-fragments-replace-command-synthesis-2026-07}
 
-**Decision:** `hook.toml` declares harness-native event names in per-target `[targets."<target>"]` tables. Mars validates each event against a static per-target allowlist (`TargetAdapter::known_hook_events()`) and passes names through verbatim to target config files. The universal event vocabulary (`UniversalEvent`, `classify_for_target`, all five per-target translation tables, `LossinessKind`, `codex_hook_matcher`, legacy `codex_hooks.json` format support) is deleted.
-
-**Why native passthrough:** Audit found 6 of 12 universal event-name mappings were wrong (Claude `session.end` → nonexistent `SessionStop`; all 4 OpenCode mappings fabricated). All 3 real hooks were single-target with native payload handling. The write-once/lower-down vision was abandoned.
-
-**What mars keeps:** Hook discovery across dependency trees, deterministic ordering, script staging, atomic config merge/removal under per-target lock ownership, provenance tracking in `mars.lock`.
-
-**What mars stops doing:** Inventing event names. Lock keys change from `hook:<universal-event>:<name>` to `hook:<NativeEvent>:<name>`. Targets without declarative command hooks produce hard errors instead of silent drops. `unchecked = true` per target table opts out of allowlist validation.
-
-**Migration:** Old `hook.toml` schema is a hard error with migration hint. No compatibility shim. Deferred: residue sweeps (mars-agents#130); Cursor hook writing (mars-agents#131).
-
-**Alternatives rejected:** Hybrid universal+native (two authoring paths), expanded universal vocabulary (fake portability at standing maintenance cost), per-target hook directories (loses shared script/ordering), drop hooks entirely (config-writing machinery is real value).
-
----
-
-### D91: Native hook fragments replace command synthesis (2026-07)
-
-> **Supersedes D90's schema.** D90 established the principle (native passthrough, per-target allowlists, `unchecked` escape hatch). D91 replaces the residual command-synthesis machinery with full native fragments: the author writes the harness's own hook shape verbatim, and mars stops owning any hook entry schema at all.
-
-**Decision:** `hook.toml` shrinks to identity and routing (name, visibility, order, target-to-fragment map). Per-target fragment files (`claude.json`, `codex.json`, `cursor.json`, or `.ts` for file-mode targets) carry the harness's native config shape verbatim. Mars validates event keys, substitutes `${MARS_HOOK_DIR}` with absolute paths, merges entries into target config files (or places file-mode fragments whole), and records exact emitted JSON in `mars.lock` for structural removal.
-
-**What mars stops doing:** Synthesizing hook entries. Authors write complete command strings and every harness-specific field. Mars never parses or generates hook entry content.
-
-**Two fragment modes:** MergeJson (Claude, Codex, Cursor) merges entry arrays per event into target config. File (OpenCode, Pi) places fragments at `plugins/mars-<name>.ts` or `extensions/mars-<name>.ts`.
-
-**Ownership model:** `mars.lock` stores exact emitted JSON entries (post-substitution). Removal matches by structural JSON equality. User-edited entries are preserved. Mars manages two ownership surfaces: path ownership via `OutputRecord` for files; config-entry ownership via `ConfigEntryRecord` with `emitted_json` for merge-mode. See [architecture/mars-compiler.md](../architecture/mars-compiler.md#two-surface-ownership-model).
-
-**`${MARS_HOOK_DIR}` substitution:** Runtime probes proved relative paths and env-var paths break when launching from subdirectories. Sync-time absolute path substitution is the only form that works across harnesses.
-
-**Migration:** Old `events`/`matcher`/`[action]` in `hook.toml` triggers a hard error with fragment-migration hint.
-
-**Alternatives rejected:** Coexist old+new syntax (two authoring paths), TOML-inline fragments (kills copy-paste from harness docs), extend schema field-by-field (vocabulary treadmill), marker field in entries (depends on harness tolerance of unknown fields).
-
----
+Native hook fragments let authors express target-specific behavior without Mars inventing harness event mappings. Portable hooks now coexist with native overrides; see [portable hooks](mars-portable-hooks.md).
 
 ### D92: Shape-A recovery seam -- halt before compilation when hook surfaces are unreadable (2026-07)
 
@@ -602,56 +521,9 @@ physical claims and provenance for every unfinished path.
 
 ---
 
-### D96: Explicit force takes over a selected canonical self path (2026-09-22)
+### Explicit force and self ownership {#d96-explicit-force-takes-over-a-selected-canonical-self-path-2026-09-22}
 
-**Status:** Implemented and verified on feature branch `f7a18fd`; not merged or
-released. Mars 0.14.1 retains the earlier refusal.
-
-**Decision:** Explicit `mars sync --force` should authorize takeover of an
-unowned canonical destination selected for a current-package `_self` item. The
-same operation must overwrite the selected path and publish an installed
-ownership record. Default sync remains protective and refuses the path.
-
-This is a scoped ownership transition, not automatic adoption. Byte equality
-alone remains insufficient, and force does not authorize claiming unrelated
-canonical paths, merging user content, or bypassing selection. The policy is
-specific to `mars sync --force`; it must not be conflated with `mars version
---force` validation behavior or with linked-target collision handling.
-
-The takeover is limited to a regular file for an agent or a real directory for
-a skill. A symlink at the canonical root, an ancestor, or the destination is
-never eligible. Skill replacement removes the selected destination tree rather
-than following a nested link. The installed claim records the exact output
-checksum only after the normal apply pipeline succeeds. Dry-run reports the
-prospective adoption without publishing it, and frozen mode refuses until the
-adoption is already current.
-
-**Why:** Ownership provenance can disappear while old canonical output remains,
-as happened when package commit `930bb37` removed the `architect` `_self` lock
-record even though its parent checksum matched the surviving output. Manual
-inspection and relocation remain the safe default recovery. Once the user has
-explicitly selected force, requiring relocation as the only path adds ceremony
-without adding consent or protection; the resulting write must establish the
-ownership evidence needed for later updates and removals.
-
-**Recovery boundary:** Preexisting force-adopted paths do not enter the
-pending-canonical journal, which remains scoped to new absent outputs. If a
-later apply action fails, finalization publishes no ownership; an earlier
-written adoption remains unowned and retry requires `--force`. This preserves
-the existing source transitions and recovery design rather than extending the
-journal into a transaction.
-
-**Release divergence:** The implementation and its regression contract are on
-feature branch `f7a18fd` from baseline `347c472`. They are not merged or
-released, so Mars 0.14.1 runtime and user-facing documentation must still
-describe the earlier refusal.
-
-**Rejected alternatives:** Adopting on normal sync (weakens the safety default),
-adopting solely because bytes match (infers ownership from content), recording
-ownership without overwriting the selected output (separates authority from the
-user-authorized write), and broad force adoption across unselected paths.
-
----
+Explicit `mars sync --force` can adopt a selected unowned canonical self item; normal sync refuses. Matching bytes alone never establish ownership, and symlinked paths remain ineligible. A failed apply may leave an adopted write unowned, requiring force on retry; pending-canonical recovery covers new absent outputs, not force adoption.
 
 ## User Scope
 

@@ -19,17 +19,6 @@ carry. A native hook, a per-target file in the harness's own format
 (`claude.json`, `codex.json`, `cursor.json`, `opencode.ts`, `pi.ts`), still
 works beside it or alone; the target table names it with `native-hook`.
 
-```mermaid
-flowchart LR
-    T["hook.toml<br/>[hooks] + native hooks"] --> S["mars-schema<br/>read, one Target row<br/>per target, render"]
-    S --> M["merge targets<br/>.claude settings.local.json<br/>.codex hooks.json"]
-    S --> F["file targets<br/>.opencode/plugins/mars-name.hooks.ts<br/>.pi/extensions/mars-name.hooks.ts"]
-    B["mars binary<br/>placement, lock,<br/>kept hooks, diagnostics"] --> M
-    B --> F
-```
-
----
-
 ## D-hooks-join-the-pipeline: hooks import and render like agents and skills
 
 **Decision (owner).** Hooks get one model in Mars's form, a renderer for each
@@ -247,30 +236,6 @@ the release branch first so the hooks code built on the smaller removal
 paths. The owner: "I think u should also ship the mars stuff to remove as
 well". How the parts collected on `release/v0.25.0` is
 [D-integration-branch](release-process.md#d-integration-branch-every-minor-or-major-release-collects-on-releasevxy0).
-
-## Consumers
-
-The Meridian prompt packages moved to `[hooks]` once 0.26 shipped:
-
-- **meridian-base 0.14.0** moved `protect-tmux-server` to one
-  `[[hooks.PreToolUse]]` and `context-autosync` to `SubagentStop` +
-  `SessionEnd`, and deleted their native hooks. The guard now blocks with
-  exit 2 and the reason on stderr; the package requires `mars >= 0.25.0`.
-  `deny-interactive-prompts` stays a Codex-only native hook (`codex.json`):
-  its rules were written for Codex hanging on prompts, and making it portable
-  is a behaviour change the owner hasn't asked for.
-- **meridian-prompter 0.6.2** widened its meridian-base range to
-  `>=0.13.0, <0.15.0`; its old `<0.14.0` bound blocked dependency resolution
-  for meridian-dev-workflow.
-- **meridian-dev-workflow 0.16.5** requires meridian-base `>=0.14.0` and
-  regenerated its `plugin/` tree with Mars 0.26.1, so the OpenCode tree
-  carries `mars-protect-tmux-server.hooks.ts`. Its `requires-mars` stays at
-  `>=0.20.0`: only rebuilding the tree needs 0.26.1, and a higher floor would
-  block installs on older Mars in a patch release.
-- **meridian-cli** bundles Mars and pins it exactly: 0.19.0 pins Mars 0.26.0
-  (#847). The 0.26.1 pin for 0.19.1 is haowjy/meridian-cli#849, not merged.
-
----
 
 ## Harness facts behind the design
 

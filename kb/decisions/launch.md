@@ -69,8 +69,6 @@ the worker starting, which is short. The reverse (a 0.11.4 worker reading this
 build's request) is untested and could drop a `--from` context, because 0.11.4
 defaults the missing flag to "composed" (meridian-cli `docs/upgrading.md`).
 
-**Provenance:** `work:session-browse-redesign` `pr-body-session-browse.md` part 7;
-root cause `spawn:p14151`; streaming-harness probe `spawn:p14155`.
 
 ---
 
@@ -349,7 +347,6 @@ agreeing to the lead's proposal: "yeah, I think going on top of 0.20.0 makes sen
 Rejected: landing first in 0.19.0 (schema v1 would have to merge it through its rewrite).
 Meridian's side merged before its Mars pin moved; see the upgrade below.
 
-**Provenance:** `work:package-transferability`, `chat:c9186`, `chat:c9297`.
 
 #### Upgrading Meridian's Mars to 0.20 {#upgrading-meridians-mars-to-020}
 
@@ -385,7 +382,6 @@ The effort changes this upgrade brought are recorded in
 [D-model-policy-rule-beats-profile-default](model-resolution.md#d-model-policy-rule-beats-profile-default)
 and [D-effort-lowering-per-harness](model-resolution.md#d-effort-lowering-per-harness).
 
-**Provenance:** `work:package-transferability`, `chat:c9297`.
 
 ---
 

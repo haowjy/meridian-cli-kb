@@ -311,7 +311,3 @@ producer-coverage test fails if those disagree; see
 - **#691:** the context-autosync daemon may replace the `git-autosync` hook;
   the default events above are an interim choice until then.
 
-**Provenance:** `work:hook-event-names` `decisions.md` D1–D8; owner turns in
-`chat:c8174` (2026-10-18) and `chat:c8397` (2026-10-18), mined by
-`spawn:p8653` and `spawn:p8692`; reviews `spawn:p8641`, `spawn:p8646`,
-`spawn:p8648`, `spawn:p8650`, `spawn:p8664`; probe `spawn:p8643`.

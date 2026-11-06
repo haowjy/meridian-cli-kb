@@ -162,12 +162,6 @@ historical identity from becoming authority to control a current runtime.
 The mechanism is described in
 [Portable history](../architecture/state-system/portable-history.md).
 
-**Provenance:** `work:next-minor-planning/design/followup-495-497.md`;
-`work:next-minor-planning/DIVERGENCE/2026-09-14-preview-reclaim-model-followup.md`;
-`work:next-minor-planning/followup-implementation-progress.md`;
-`work:next-minor-planning/reviews/496-implementation-followup.md`;
-`work:next-minor-planning/reviews/495-final.md`; commits `a8592210`, `80c37741`,
-`c44a3e81`; `spawn:p6053`; `spawn:p6062`.
 
 ### D-history-index-initialization: initialization has its own bounded gate (2026-09-14) {#d-history-index-initialization}
 
@@ -381,9 +375,6 @@ replace (the lock-free read assumes there is none), or #418 B2 moves session
 authority to per-chat journals (index v12 makes each chat its own source, and this
 lock-free projection of `sessions.jsonl` goes away).
 
-**Provenance:** `work:v010-followups` `decisions.md` D11–D16; `lock-holders-588.md`
-(`spawn:p7970`); `session-fold-probe-588.md` (`spawn:p7975`); review `spawn:p7987`;
-coders `spawn:p7978`, `spawn:p7986`, `spawn:p7988`, `spawn:p7989`; `chat:c7736`.
 
 ### D-abandoned-generation-closure: a later start of the same chat closes earlier generations; capture defers to real owners (2026-10-15) {#d-abandoned-generation-closure}
 
@@ -455,11 +446,6 @@ Mechanism: [abandoned generations](../architecture/state-system/session-state.md
 **Revisit if:** a `SessionStartEvent` writer appears that doesn't hold the chat
 lock, or a native writer can outlive its launcher outside a fenced process scope.
 
-**Provenance:** `work:resume-after-crash` (`decisions.md` R3, R4, R6, R8, R11,
-R12, R15, R19, R20; `evidence/incident-b1.md`, `lane-b-capture-guard.md`, `lane-b-fix.md`,
-`review-lane-b.md`, `lane-b-shape-pass.md`, `lane-b-port-main.md`); investigation `spawn:p8139`;
-implementation `spawn:p8150`, `spawn:p8163`; review `spawn:p8156`; port
-verification `spawn:p8255`; `chat:c7524`.
 
 ### D-history-index-schema-namespace: each index schema owns its own files; never migrate in place (2026-09-26) {#d-history-index-schema-namespace}
 
@@ -525,10 +511,6 @@ this branch (before `a3fd1439`) converted in place.
 **Revisit if:** a projection ever holds a fact the authoritative files lack. Then a
 fresh build could lose data, and migration would need to come back.
 
-**Provenance:** `work:native-harness-session-identity`, `decision.md` entries of
-2026-09-26 "Round-3 probe of every command" (stuck old runner, p7222; fix lane
-p7224); `evidence/probe3-upgrade-rerun.md`; investigation `spawn:p7222`; fix and
-overlap test `spawn:p7225`, commit `a3fd1439`.
 
 ### D-history-portable-digest-stored-json: verify archive digests over the stored record JSON (2026-09-26) {#d-history-portable-digest-stored-json}
 
@@ -575,9 +557,6 @@ normally through their binding. The member stays in the ZIP for manual extractio
 **Revisit if:** the stored record format itself changes shape; then the digest needs
 an explicit version, not a model-dependent recipe.
 
-**Provenance:** `work:native-harness-session-identity`; diagnosis
-`evidence/investigate-067-archive-digest.md`; fix and real-archive checks
-`spawn:p7236` (commit `3e041a23`).
 
 ### D-native-transcript-snapshot: preserve stream evidence and publish a separate canonical snapshot (2026-09-14) {#d-native-transcript-snapshot}
 
@@ -654,13 +633,6 @@ envelope writer still require the qualified snapshot implementation.
 capture, per-surface parsers, fallback based on message count, and treating ZIP byte
 integrity as proof that the selected transcript was complete.
 
-**Provenance:** `work:next-minor-planning/investigation-499-500.md`;
-`work:next-minor-planning/design/history-repair-plan.md`;
-`work:next-minor-planning/design/index-initialization.md`;
-`work:next-minor-planning/design/native-transcript-capture.md`;
-`work:next-minor-planning/reviews/repair-design-review.md`;
-`work:next-minor-planning/DIVERGENCE/post-stop-capture-scope.md`;
-`work:next-minor-planning/reviews/post-stop-scope-review.md`; `spawn:p6109`; `spawn:p6110`.
 
 ## Related
 
