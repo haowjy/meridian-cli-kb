@@ -23,106 +23,11 @@ transitive spawn tree for persisted descendants.
 
 ## Extension Architecture
 
-Pi supports TypeScript extensions loaded via `-e <path>` flags. Meridian ships
-five managed extensions as package data under
-`src/meridian/pi_runtime/extensions/`. `session-boundary` records exit identity
-and is covered in [Pi native sessions](pi-native-sessions.md); `meridian-idle`
-translates primary-TUI events into the shared idle policy and is covered in
-[Idle Notifications](../decisions/idle-notifications.md); `meridian-permissions`
-(since v0.12.0) enforces scoped tool rules,
-allowlists and `ask` and loads only when the permission compile needs it
-([tool permissions](../decisions/tool-permissions.md)). This page covers the
-two lifecycle extensions; their cross-layer ownership and delivery contracts
-are in [Pi Runtime Coordination](pi-runtime/coordination.md).
-
-**Two extensions, two independent concerns.** Each extension can be loaded alone or together. The split is intentional: mechanism and policy are separated.
-
-### managed-bash (mechanism extension)
-
-Overrides Pi's `bash` builtin. Every shell command Pi runs goes through this extension.
-
-Registers tools:
-
-| Tool | Purpose |
-|---|---|
-| `bash` | Unified bash tool. `command: string` required. `timeout_min?: 1-59` (default 55) — foreground budget only; after this elapses, bg transition occurs and tool returns `{bash_id, status: "backgrounded"}` in tool_result content. `background?: boolean` (default false) — detach immediately. |
-| `bash_manage` | Single discriminated-action ops tool. Actions: `list`, `output`, `kill`, `wait`, `detach`. |
-
-Also owns: b-* Bash registry, live process ownership, and `_MERIDIAN_PI_BASH_ID` injection into child processes.
-
-Slash commands: `/ps` (bash record list; supports combined/stdout/stderr stream filters), `/ps:b` (alias `/ps:background` — fg→bg mid-flight), `/ps:kill`, `/ps:logs`, `/ps:clear` (hide finished rows for this session).
-
-Disk artifact: writes `pi-bash/<spawn-id>/bash-records.json` (aggregate per-spawn Bash records, atomic tmp+rename). Records are published through one serialized stage/write/adopt path; see [Pi Runtime Coordination](pi-runtime/coordination.md#published-state-live-execution-and-results). Python's `PiDiskWatcher` wakes the private-work ledger when task evidence changes.
-
-### meridian-spawn-watch (policy extension)
-
-Watches spawn records on disk and manages agent notification for completed spawns. This is the redesign successor to the earlier Pi lifecycle policy extension.
-
-No tool registration.
-
-Owns: canonical direct-child discovery, `/spawn*` UI, implicit-wait
-publication (idle follow-up and tool-boundary steer), exact native-admission receipts, and delivery fault reporting.
-Advisory Bash pings belong to `managed-bash`; a failed ping never fails the shell.
-
-Slash commands: `/spawn` (spawn record list, filtered to this session's spawns), `/spawn:wait`, `/spawn:cancel`, `/spawn:show`, `/spawn:log`, `/spawn:clear` (hide finished rows for this session). **Renamed from `/mspawn` — no compatibility alias.**
-
-**Implicit-wait notification:** when an eligible spawn or tracked Bash result
-terminates, `meridian-spawn-watch` batches it with other ready work and publishes
-only while Pi's native context is idle. `sendMessage()` queues a follow-up but
-does not prove it was admitted; see [Pi Runtime Coordination](pi-runtime/coordination.md)
-for the receipt and public-event evidence required by completion policy.
-
-### Extension composition
-
-| Extension | What it owns | When to load |
-|---|---|---|
-| `managed-bash` | bash/bash_manage tools, b-* registry, `/ps*` slash commands | When agent can background work |
-| `meridian-spawn-watch` | spawn watcher, `/spawn*` slash commands, implicit-wait | When agent spawns meridian subprocesses |
-| both | full surface | Interactive + most spawned contexts (default) |
-| neither | — | True leaf agents (explorer, simple Q&A) |
-
----
+Pi extensions keep shell task ownership separate from spawn-result delivery policy. Their state is durable because a parent cannot rely on seeing every runtime event in order. See the source checkout's `src/meridian/pi_runtime/.context/CONTEXT.md` and [coordination](pi-runtime/coordination.md).
 
 ## Primary vs Spawned Split
 
-| Aspect | Primary | Spawned |
-|---|---|---|
-| Launch mode | Native Pi TUI (no `--mode`) | Pi RPC (`--mode rpc`) |
-| Extensions loaded | Meridian's managed extensions via `-e` (managed-bash and spawn-watch when their `[harness.pi]` toggles are on, session-boundary always, meridian-idle for the primary); no `--no-extensions`, so the user's own Pi extensions still load; passthrough `-e`/`--no-extensions` refused | managed-bash and spawn-watch when enabled, plus session-boundary, after `--no-extensions` (ambient extensions retained when `load_all_pi_extensions` is on); meridian-idle is excluded |
-| `MERIDIAN_SESSION_ROLE` | `"primary"` | `"spawn"` |
-| Quiescence auto-stop | No — user stays in TUI | Yes — quiescence triggers `stop(reason="quiescent")` |
-| Prompt delivery | User types in TUI | Meridian writes prompt JSON to Pi's stdin |
-
-The role comes from `run_params.interactive`. Python owns the role split: the
-quiescence machinery (auto-stop, tracked-work checking) runs only for spawned
-sessions, which Meridian drives over RPC, and the Pi connection gets the role as
-`pi_session_role` on its config. Pi prelaunch reads the cross-harness
-`MERIDIAN_SESSION_ROLE` to choose the runtime compatibility probe and maps
-`spawn` to the internal `spawned` profile. The `meridian-idle` extension also
-depends on the public role: it passes `--interactive` on every `meridian idle`
-call, and core lets that flag stand in for the role only when the role is
-unset. Other Pi extensions do not need it
-([D-session-role](../decisions/idle-notifications.md#d-session-role--one-meridian_session_role-at-the-bind-seam)).
-
----
-
-## Tracked vs Detached Child Jobs
-
-**Tracked bash** (default):
-- Created by `bash({background: true})` or any fg→bg timeout transition.
-- Blocks pi quiescence until it terminates (see quiescence rule below).
-- Tracked in `pi-bash/<spawn-id>/bash-records.json`.
-- To opt out: `bash_manage({action: "detach", bash_id})` converts tracked → detached.
-
-**Detached bash** (explicit opt-out):
-- Created by `bash_manage({action: "detach", bash_id})` on a tracked record.
-- Does NOT block pi quiescence.
-- Process continues until natural exit or pi shutdown (signal cleanup kills it on pi exit).
-- Use for daemon/watcher commands the agent doesn't need results from.
-
-**Note on spawn rows:** `meridian spawn --background` spawns are separate from bash records. Spawn lifecycle is tracked via spawn records on disk, not via the bash registry.
-
----
+Primaries use the native TUI; spawned sessions use RPC and the quiescence policy below. Extension and role selection are documented in `src/meridian/pi_runtime/README.md`.
 
 ## Canonical Child Membership
 
@@ -321,19 +226,6 @@ phase from the timeout path.
 `meridian-spawn-watch` owns implicit-wait delivery. The Python drain loop records
 phase names for observation, but notification delivery itself is not a stdout event
 or separate event-file protocol.
-
----
-
-## Nested Stale Detection
-
-For `MERIDIAN_DEPTH > 0` (Pi running inside another Pi spawn), stale detection applies after reconciliation using grace windows:
-
-- Startup grace: ~15 seconds
-- Recent-activity grace: ~120 seconds
-
-The stale-read heuristic uses spawn-record / bash-record mtime activity. The grace windows remain unchanged.
-
-Never writes orphan state from the nested read path. Surfaces as a synthetic terminal event with `stale_nested_read` code.
 
 ---
 

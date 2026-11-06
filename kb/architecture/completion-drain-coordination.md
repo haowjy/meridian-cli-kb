@@ -207,15 +207,6 @@ reason, or cleanup-phase policy.
    `SpawnManager.inject()`.
 10. The plain path remains `coordinator=None`.
 
-## Provenance
-
-- `work:drain-convergence`
-- `work:drain-streaming-cleanup` (PR #375: reconciliation decisions extraction, rearm budget, timeout carrier unification)
-- `work:drain-streaming-cleanup` follow-up (probe-fix cycle: publication barrier, `resolve_terminal_outcome`, per-spawn cleanup keying)
-- `work:pi-descendant-refresh`
-- [PR #708](https://github.com/haowjy/meridian-cli/pull/708) is the final
-  shared child-completion policy and implementation, shipped in v0.11.3.
-
 ## Related pages
 
 - [spawn-finalization.md](spawn-finalization.md) — store authority and terminal publication.

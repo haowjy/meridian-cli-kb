@@ -33,4 +33,4 @@ Meridian keeps its own output away from a live TUI and appends its continuation 
 - A native black-box TUI that ignores TERM may retain the terminal after Meridian finalizes; the guardian has no KILL escalation on that path ([#657](https://github.com/haowjy/meridian-cli/issues/657)).
 - One long suspended OpenCode run stopped again immediately after `fg`; it did not reproduce in subsequent probes ([#611](https://github.com/haowjy/meridian-cli/issues/611)).
 - An immediately exiting native TUI on macOS can fail lifetime-link registration when its process is already a zombie ([#610](https://github.com/haowjy/meridian-cli/issues/610)).
-- A signal during extraction can precede the protected terminal write, and finish hooks can still be lost after it ([#831](https://github.com/haowjy/meridian-cli/issues/831)).
+- A signal during extraction can precede the protected terminal write ([#831](https://github.com/haowjy/meridian-cli/issues/831)).
