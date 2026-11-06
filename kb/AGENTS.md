@@ -98,25 +98,14 @@ When a concept is owned by another page, link to it. Duplicate explanations
 drift apart. Each page is responsible for one coherent concept — if it covers
 two unrelated topics, split it.
 
-## Provenance
+## Stating the reason
 
-Record where knowledge came from so future readers can verify claims and
-recover full reasoning. Concentrate provenance where it adds value — major
-decisions, architecture pages, research synthesis. Leaf pages like vocabulary
-entries and operations guides don't need it.
-
-| Reference type | Format | What it identifies |
-|---|---|---|
-| Work item | `work:kb-llm-wiki-overhaul` | The work item that drove the change |
-| Spawn | `spawn:p342` | The spawn that produced a finding |
-| Chat session | `chat:c1234` | Conversation containing relevant reasoning |
-| Decision entry | `D-001` | A numbered entry in `decisions.md` |
+A page states the behavior and its reason, and stands without saying who chose it: no names, quotes, session or spawn ids. Link issues, PRs and research a reader would check, and keep measurements beside what they measure. Project invariants live in the root `AGENTS.md` of meridian-cli and mars-agents; everything else here is a current choice, open to rewriting when evidence shows something better.
 
 ## Structure
 
 - `index.md` is the catalog. Update it when you create or significantly modify a page.
 - `decisions.md` is the decision index — what, when, link to rationale.
-- `log.md` is the KB change log for structural reorganizations and major additions.
 - Domain directories emerge organically. A topic earns a directory when it has
   multiple related pages. Don't create directories with a single page.
 
