@@ -130,9 +130,11 @@ can't auto-select the rule, which is the closest equivalent.
 Codex has no `user-invocable`), the lowering records a lossiness entry. `mars check`
 and `mars init` list these entries, and a sync on current `main` warns about each
 one. mars-agents #324, in review, would move skill entries behind
-`mars sync --verbose`, because a skill carries no tool or network restriction
+`mars sync --verbose`: losing `user-invocable` changes who can start a skill, and
+a skill carries no tool or network restriction, so no target gains any access
 ([D-quiet-needs-a-reason](../decisions/package-management.md#d-quiet-needs-a-reason-a-dropped-field-is-reported-unless-its-site-says-why-not-2026-11-06)).
-mars-agents `docs/config/skill-compilation.md` owns what prints where.
+[Skill compilation](https://github.com/haowjy/mars-agents/blob/main/docs/config/skill-compilation.md)
+in mars-agents owns what prints where.
 
 ```mermaid
 graph LR

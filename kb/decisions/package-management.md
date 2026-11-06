@@ -1475,9 +1475,9 @@ restriction filed in the quiet class. The failure was structural: going quiet
 took no decision, so a site nobody had thought about lost a restriction silently.
 With the default reversed, a misfiled site costs one extra line of output.
 
-**Rejected.** Adding the missed keys to the list of `native_overrides` it
-already checked: that was the fourth patch of the same kind, and the fifth site
-would have gone quiet the same way.
+**Rejected.** Adding the missed keys to the list `native_overrides` checks: a
+list needs a hand edit for each new site, so the next unlisted site would go
+quiet the same way.
 
 **Revisit** if the reported class grows noisy enough that people stop reading
 it again. That means reclassifying sites with a stated `why`, and the default
@@ -1496,9 +1496,9 @@ showed that design reads "the lock advanced" as "the user was told", and a lock
 change proves no such thing. `mars link .codex`, `repair`, `override`, `adopt`,
 `rename` and `remove` all advance the lock with warnings hidden. A consumer
 `[agents.<name>.tools]` overlay changes no bytes the gate compares. A fresh
-clone arrives with the lock already committed. Each of those lost the warning
-that `main` repeats on the next sync, so the gate regressed the one warning
-that describes a real loss. The cost of repeating is one line per affected
+clone arrives with the lock already committed. In each case the gate leaves the
+user never told, where a plain repeat tells them on the next sync, and this is
+the one warning that describes a real loss. The cost of repeating is one line per affected
 target, which is cheap beside an agent running without the limit its author set.
 
 **Rejected.**
@@ -1528,7 +1528,7 @@ binary meets a newer config, so a warning there would fire on correct files.
 `validate` is where someone asks whether the config is right.
 
 **Rejected.** Warning on every sync: it breaks the forward-compatibility rule
-for little gain and adds noise of the kind this work removes. Checking the user
+for little gain and adds a line to every sync. Checking the user
 config's `[settings]` too: `validate --strict` would then fail every project on
 one bad user file.
 
@@ -1547,12 +1547,14 @@ to.
 Meridian [always appends `--root`](#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)
 (`src/meridian/cli/mars_passthrough.py`). A user who types
 `meridian mars adopt ../../x` from a subdirectory means that path, and Mars
-cannot tell it was not typed with `--root`. The order chosen changes only paths
-that failed before.
+cannot tell it was not typed with `--root`. The working directory wins, so that
+command keeps working. The fallback reaches only a path missing from the working
+directory, which is what `mars adopt .claude/skills/x --root /proj` needs from
+another directory, and which would otherwise end in `path not found`.
 
-**Rejected.** The working directory only, the rule `mars check` uses: leaves the
-original bug, `adopt` not finding a path under `--root`. `--root` only: breaks
-the Meridian case above.
+**Rejected.** The working directory only, the rule `mars check` uses: that
+`adopt` from another directory still fails. `--root` only: breaks the Meridian
+case above.
 
 **Known cost.** A path that exists in the working directory shadows the same
 path under `--root`, with no message. `mars check PATH`, `build plugin --out`,
