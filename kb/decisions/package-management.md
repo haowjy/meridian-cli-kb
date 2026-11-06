@@ -1020,8 +1020,7 @@ answer only for a harness with no skill mechanism, and none exists today.
 
 ### D102: Renamed agents and skills answer to their installed name (2026-10-24)
 
-**Status:** Current choice, made by the tech lead at the plugin-build review
-review. Merged into mars-agents
+**Status:** Current choice. Merged into mars-agents
 `release/v0.19.0` through PR #193 and ships in 0.19.0 through PR #197; it
 changes `mars sync` output too.
 
@@ -1185,7 +1184,7 @@ reaches users in meridian-cli 0.17.0 (integration PR #798).
 
 Mechanism: mars-agents `docs/config/schema-v1.md` and
 `docs/config/migrating-to-schema-v1.md`; meridian-cli `docs/agent-profiles.md`
-and `docs/upgrading.md`. 
+and `docs/upgrading.md`.
 
 ### D106: OpenCode plugin agents keep OpenCode's default model when the model is ambiguous (2026-10-28)
 
@@ -1212,7 +1211,6 @@ model catalog, which a plugin loading inside OpenCode doesn't have.
 **Rejected.** Resolving the alias at build time to one provider's id, and
 treating the fallback as a gap to close. Revisit if OpenCode gives plugins a
 way to ask which providers the user has.
-
 
 
 ### D107: The user Mars layer is the existing `config.toml`, below the project (2026-10-28)
@@ -1256,7 +1254,6 @@ some defaults and a second file for the rest at another rank.
 one of them outside the project. A consumer that re-reads `mars.toml` to learn
 an effective setting gets it wrong; see
 [D108](#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28).
-
 
 
 ### D108: Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28)

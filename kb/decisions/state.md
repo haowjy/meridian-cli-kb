@@ -28,7 +28,7 @@ description of the current design properties.
 
 **Decision (original):** Spawn and session state is stored as append-only JSONL event logs, not a database or mutable JSON files.
 
-**Session state** still uses one global JSONL log, read through a keyed seam since #651 ([D-session-read-seam](#d-session-read-seam)). The per-chat split is the accepted design; its storage change (B2) waits on the owner's open questions: see [D-session-per-chat-journals](#d-session-per-chat-journals). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
+**Session state** still uses one global JSONL log, read through a keyed seam since #651 ([D-session-read-seam](#d-session-read-seam)). A per-chat split is accepted but not yet built: see [D-session-per-chat-journals](#d-session-per-chat-journals). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
 
 **Constraints that drove the original JSONL design:**
 1. **Crash tolerance** — Writers serialize appends and repair a torn tail before the next append. Readers treat the newline as the commit marker, so an incomplete final line is withheld.
@@ -130,7 +130,7 @@ The revision keeps all three premises and narrows the first: committed identity 
 | **VCS detection or auto-`init`** | Violates the no-VCS principle; a notice tells the human instead |
 | **A daily automatic ad-hoc sweep** | Declined by the user (2026-10-14); manual `doctor --global --prune` stays the rule |
 
-**Why absorption was rejected.** Moving a path's ad-hoc root into its committed root on the first write after a marker appeared ("absorption"). To do that safely it needed a `pending` state while live sessions held leases, `doctor --fix` to resume a pending absorption, `superseded` roots when another clone had already written under the committed id, an id-keyed lock `locks/project-id/<N>.lock`, and tests for each. It was about a third of the design's blast radius, and it broke continuations that pointed at the old root. All of it served to carry scratch history across `init`, which no prior art carries. The cost was not justified by carrying scratch history across `init`.
+**Why absorption was rejected.** Moving a path's ad-hoc root into its committed root on the first write after a marker appeared ("absorption") would need a `pending` state while live sessions held leases, `doctor --fix` to resume a pending absorption, `superseded` roots when another clone had already written under the committed id, an id-keyed lock `locks/project-id/<N>.lock`, and tests for each. It was about a third of the design's blast radius, and it broke continuations that pointed at the old root. All of it served to carry scratch history across `init`, which no prior art carries. The cost was not justified by carrying scratch history across `init`.
 
 **Revisit when:** users report losing pre-`init` history they needed; ad-hoc root counts grow without retention catching up; or a harness needs worktrees of an uninitialized repository to share state.
 
