@@ -255,7 +255,7 @@ Two call sites use this primitive:
 
 **Decision:** Raw writes to authoritative state are rejected by `src/meridian/dev/lints.py`, a source-tree AST lint with a documented single-entry allowlist. Stale allowlist entries are detected. The failure message names the offending call site and guides toward the correct primitive.
 
-**Why ruff TID251 was rejected:** TID251 matches import paths, not method calls on inferred types. It cannot flag `some_path.write_text()` because it does not know `some_path` is a `Path`. The AST-based test walks call nodes and matches method names against a banned set, which is the correct granularity.
+**Why ruff TID251 was rejected:** TID251 matches import paths, not method calls on inferred types. It cannot flag `some_path.write_text()` because it does not know `some_path` is a `Path`. The AST lint walks call nodes and matches method names against a banned set.
 
 ---
 
