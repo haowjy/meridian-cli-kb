@@ -59,14 +59,14 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### D-two-tier-identity: two-tier project identity and zero-config launch (2026-10) {#d-two-tier-identity}
 
-**Status:** released in v0.10.0 (PR #575). Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
+**Status:** released in v0.10.0 (PR #575). Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [User-scope packages live in an ordinary Mars root](package-management.md#user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
 **Decision.** The tier of a directory depends only on what its literal project root contains:
 
 - **Committed project:** the root holds `meridian.toml` or `mars.toml`. Identity and state behave as in Decision 3: `[project] id`, minted on the first write.
 - **Ad-hoc place:** the root holds neither, or is the user Mars root `~/.meridian/mars/` itself. Its id is `adhoc.<slug>.<hash12>`, derived from the canonical path, and its state lives in `~/.meridian/projects/<id>/` and `~/.meridian/context/<id>/`. Meridian never writes a file into the directory.
 
-Where no project Mars root exists, agents, skills, model aliases and launch targets come from **user scope**: `~/.meridian/config.toml` plus the user Mars root ([D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)). A project layers over user scope.
+Where no project Mars root exists, agents, skills, model aliases and launch targets come from **user scope**: `~/.meridian/config.toml` plus the user Mars root ([User-scope packages live in an ordinary Mars root](package-management.md#user-scope-packages-live-in-an-ordinary-mars-root-2026-10)). A project layers over user scope.
 
 **Requirement:** Launches in unconfigured directories need defaults and access to available harnesses. What blocked `meridian opencode -a reviewer` was package discovery: agents and skills were read only from the project's `.mars/`, and `~/.mars` was never searched. The litter the July rule left behind was a symptom of the same gap.
 

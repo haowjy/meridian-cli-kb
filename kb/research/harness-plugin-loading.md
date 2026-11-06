@@ -6,7 +6,7 @@ Claude catalog. Cursor has its own manifest, hook token and MCP file. OpenCode
 loads only a JavaScript module, which registers agents in code. Mars's
 `mars build plugin` therefore writes three trees (Claude, Cursor, OpenCode) for
 five harnesses; scope and rationale are in
-[D100](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24),
+[A package publishes one plugin holding its full resolved graph](../decisions/package-management.md#a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24),
 and the generated support and verification tables are in mars-agents
 `README.md` § Plugin Distribution (shipped in Mars 0.19.0; `mars version` rebuilds
 the committed trees at release, and `docs/plugin-authoring.md` covers `[plugin]`).
@@ -52,7 +52,7 @@ bare or qualified. Started as the session agent
 `skills:` bodies are injected. One agent file can serve both roles, so the
 skill list alone cannot guarantee loading. This is why Mars's skills lowering
 also writes a "load these skills" line into Claude agent bodies
-([D101](../decisions/package-management.md#d101-agent-skills-lower-by-harness-capability-2026-10-24)).
+([Agent skills lower by harness capability](../decisions/package-management.md#agent-skills-lower-by-harness-capability-2026-10-24)).
 
 **Root variable.** `${CLAUDE_PLUGIN_ROOT}` expands to the installed plugin
 directory in hook commands, stdio MCP servers and LSP servers. It does not
@@ -158,7 +158,7 @@ variable exists.
   `index.mjs` registers each agent as `<plugin>:<agent>` since Mars 0.23.0
   (mars-agents#249). An agent whose model has no provider-qualified id keeps
   OpenCode's default model: see
-  [D106](../decisions/package-management.md#d106-opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28).
+  [OpenCode plugin agents keep OpenCode's default model when the model is ambiguous](../decisions/package-management.md#opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28).
 
 - **Skills** registered from bundled files load with working `resources/`.
 - **MCP** registered as `<plugin>:<server>` in OpenCode's

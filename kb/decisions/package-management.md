@@ -18,7 +18,7 @@ For mechanism, see:
 
 ## Targeting: `.agents/` to `.mars/`
 
-### D50: `.agents/` eliminated; `.mars/` is Meridian's compiled read surface
+### `.agents/` eliminated; `.mars/` is Meridian's compiled read surface
 
 **Decision:** `.agents/` is removed as a mars target. Meridian reads agents and skills from `.mars/`. Skills are emitted to every enabled harness's native skill directory. Agent emission to native harness directories is conditional on `agent_emission` setting and `MERIDIAN_MANAGED` env var.
 
@@ -30,7 +30,7 @@ For mechanism, see:
 
 ## Compiler Pipeline
 
-### D35: Config-entry provenance stored in `mars.lock`, not a separate manifest
+### Config-entry provenance stored in `mars.lock`, not a separate manifest
 
 **Decision:** `mars.lock` is extended with an optional `config_entries` section to record which package installed each MCP server / hook entry into which target config file.
 
@@ -42,7 +42,7 @@ For mechanism, see:
 
 ---
 
-### D37: Windows hooks keep `bash` interpreter; adjust quoting per platform
+### Windows hooks keep `bash` interpreter; adjust quoting per platform
 
 Hook lowering keeps `bash` as the interpreter on Windows, adjusting only quoting. Git for Windows ships bash; extension-based dispatch is over-engineered for V0 when all hooks are `.sh` files. *(Low impact — POSIX-first policy makes this largely historical.)*
 
@@ -50,17 +50,16 @@ Hook lowering keeps `bash` as the interpreter on Windows, adjusting only quoting
 
 ## Skill Schema
 
-### D58: Universal skill frontmatter schema (name, description, model-invocable, user-invocable, allowed-tools, license, metadata)
+### Universal skill frontmatter schema (name, description, model-invocable, user-invocable, allowed-tools, license, metadata)
 
 **Decision:** The canonical SKILL.md frontmatter has seven fields: `name`, `description`, `model-invocable`, `user-invocable`, `allowed-tools`, `license`, and `metadata`. A `compatibility` field proposed in early drafts was removed.
 
 A `compatibility` field was rejected — would require Mars to understand harness semantics. `metadata` is pass-through for tooling use.
 
-> **Partially superseded by D71.** `invocation` enum replaced by `model-invocable` and `user-invocable` booleans.
 
 ---
 
-### D71: Skill invocability decomposed into two independent booleans: `model-invocable` and `user-invocable`
+### Skill invocability decomposed into two independent booleans: `model-invocable` and `user-invocable`
 
 **Decision:** Replace the single `invocation: explicit | implicit` enum in SKILL.md frontmatter with two independent booleans: `model-invocable` (default: `true`) and `user-invocable` (default: `true`). Remove all legacy alias fields (`invocation`, `disable-model-invocation`, `allow_implicit_invocation`) as hard errors with no deprecation period.
 
@@ -82,7 +81,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ---
 
-### D59: Native skill projections always refreshed on sync with divergence warnings
+### Native skill projections always refreshed on sync with divergence warnings
 
 **Decision:** `mars sync` re-emits every native harness projection (e.g., `.claude/skills/<skill>/SKILL.md`) unconditionally — no content-hash optimization to skip unchanged files. If a native projection has diverged from what sync would produce, Mars emits a divergence warning.
 
@@ -90,7 +89,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ---
 
-### D60: Skill variants are selected by harness only
+### Skill variants are selected by harness only {#skill-variants-are-selected-by-harness-only}
 
 **Decision (narrowed 2026-10):** A skill body is selected by harness alone. Mars uses `variants/<harness>/SKILL.md` if that file exists, and the base `SKILL.md` otherwise. Model-level variants are not supported: no part of the system picks a body by model token or canonical model ID.
 
@@ -112,7 +111,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ## Bootstrap Documentation
 
-### D61 (bootstrap): Two-tier bootstrap doc discovery (skill resources + package-level)
+### Two-tier bootstrap doc discovery (skill resources + package-level)
 
 **Decision:** Bootstrap docs live at two tiers: skill-level `resources/` (co-located with `SKILL.md`, visible to standalone harness users AND Meridian) and package-level `BOOTSTRAP.md` (Meridian-only via `meridian bootstrap`).
 
@@ -124,9 +123,9 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ---
 
-### D62 (bootstrap): `meridian bootstrap` uses normal agent resolution, not a dedicated bootstrap agent
+### `meridian bootstrap` uses normal agent resolution, not a dedicated bootstrap agent
 
-**Decision:** `meridian bootstrap` reads and surfaces markdown docs using normal agent resolution (profile loading, harness detection, model selection). The earlier BD-C1 design (dedicated bootstrap agent to format and present docs) was rejected.
+**Decision:** `meridian bootstrap` reads and surfaces markdown docs using normal agent resolution (profile loading, harness detection, model selection). A dedicated bootstrap agent to format and present docs was rejected.
 
 **Why:** A dedicated bootstrap agent added a bespoke code path for a doc-surfacing problem. The bootstrap command is a document reader — it collects markdown and presents it. Normal agent resolution handles the session context question (which agent/profile/harness/model launches the bootstrap session) without a custom agent. Simpler, more predictable output.
 
@@ -134,7 +133,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ## Sync Model
 
-### D77: `upgrades_available` counts direct dependencies only
+### `upgrades_available` counts direct dependencies only
 
 **Decision:** The "upgrades available" count shown in `mars sync` output is restricted to packages that appear in `effective.dependencies` (direct deps). Transitive-only packages with newer versions available are excluded from the count.
 
@@ -150,7 +149,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ## Init Command
 
-### D78: Filesystem scan for mars content discovery, not JSON model coupling
+### Filesystem scan for mars content discovery, not JSON model coupling
 
 **Decision:** After `mars add` completes, the Python `run_init_flow()` reads materialized content by scanning `.mars/` subdirectories dynamically (`_scan_mars_content()` in `init_ops.py`), not by deserializing a Pydantic model that mirrors the mars Rust `JsonReport` struct.
 
@@ -163,7 +162,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ---
 
-### D79: Honest field naming — `packages_requested` not `packages_resolved`
+### Honest field naming — `packages_requested` not `packages_resolved`
 
 **Decision:** The field holding the user-supplied package specifiers in `InitResult` is named `packages_requested`, not `packages_resolved`.
 
@@ -173,7 +172,7 @@ A `compatibility` field was rejected — would require Mars to understand harnes
 
 ---
 
-### D87: Convention-based source discovery and explicit hidden foreign import
+### Convention-based source discovery and explicit hidden foreign import
 
 **Decision:** Mars discovers package items with one bounded convention walk. The walk starts at the rooted package directory, descends only through non-hidden directories up to `MAX_DISCOVERY_WALK_DEPTH = 5`, and recognizes directories named `agents`, `skills`, and `bootstrap`. A package-root `SKILL.md` remains the flat-skill fallback. After scanning, Mars grounds the result to the shallowest discovered package layer across all item kinds. Any duplicate `(kind, name)` discovered inside one source raises `DiscoveryCollision`, whether the duplicate came from convention scanning, manifest declarations, or both.
 
@@ -197,7 +196,7 @@ For mechanism, see:
 
 ---
 
-### D80: Mars/Meridian launch-bundle ownership split
+### Mars/Meridian launch-bundle ownership split
 
 **Decision:** Mars builds the static scaffold (agent identity, routing, execution policy,
 prompt surface, scaffold slots, tool policy). Meridian injects per-spawn dynamic content
@@ -212,7 +211,7 @@ the harness process.
 
 **Decision (2026-10):** Mars is the only skill resolver. It reads the agent profile's `skills` field (a flat list or `{load, available}`), selects the harness variant, and returns the loaded and available skills in the launch bundle. Meridian does not parse profile `skills` and does not look up or load skills from `.mars/skills/` (`meridian doctor` only warns when no skills directory exists). It passes Mars only the skills a caller added with `--skills`, then composes what the bundle returns. Replaying a launch snapshot uses only the skill content embedded in that snapshot's `loaded_skills`. A snapshot without it replays with no loaded skills.
 
-**Why:** Meridian had kept a second, older resolver, and two independent implementations had come to read the same profile and skill tree differently. Meridian's profile parser read only the flat list, so a `{load, available}` profile (the form the prompt packages use) parsed as no skills, and Meridian forwarded whatever it parsed back to Mars as extra skills that Mars had already loaded. Its filesystem `SkillRegistry`, reached only by replaying old snapshots, selected variants by a model-level rule nothing else followed ([D60](#d60-skill-variants-are-selected-by-harness-only)). Neither copy changed what a current launch received: Mars read the profile itself and dropped the duplicate names, and current snapshots never reached the fallback. But a later skill change could land in either copy and leave the other inconsistent.
+**Why:** Meridian had kept a second, older resolver, and two independent implementations had come to read the same profile and skill tree differently. Meridian's profile parser read only the flat list, so a `{load, available}` profile (the form the prompt packages use) parsed as no skills, and Meridian forwarded whatever it parsed back to Mars as extra skills that Mars had already loaded. Its filesystem `SkillRegistry`, reached only by replaying old snapshots, selected variants by a model-level rule nothing else followed ([Skill variants are selected by harness only](#skill-variants-are-selected-by-harness-only)). Neither copy changed what a current launch received: Mars read the profile itself and dropped the duplicate names, and current snapshots never reached the fallback. But a later skill change could land in either copy and leave the other inconsistent.
 
 **Rejected:**
 - Teaching Meridian's parser the mapping form: it keeps two resolvers to drift again.
@@ -226,7 +225,7 @@ the harness process.
 
 ---
 
-### D81: Public verb is `build`, not `compile`
+### Public verb is `build`, not `compile`
 
 **Decision:** The CLI verb for producing the launch scaffold is `build`
 (`mars build launch-bundle`). Internal code and design may use "compile" or "lower",
@@ -239,7 +238,7 @@ the Mars agent profile parser/lowerer.
 
 ---
 
-### D82: `harness-overrides.<target>` — exact passthrough, not portable semantics
+### `harness-overrides.<target>` — exact passthrough, not portable semantics {#harness-overridestarget--exact-passthrough-not-portable-semantics}
 
 **Decision:** The entire `harness-overrides.<target>` block is raw target-native
 passthrough. Mars validates only the outer mapping shape and serializability. Mars does
@@ -252,7 +251,7 @@ on other harnesses ([D-native-config-codex-only](bundle-field-consumption.md#d-n
 
 ---
 
-### D83: Portable tool policy preserved through the full pipeline (mixed allow/deny)
+### Portable tool policy preserved through the full pipeline (mixed allow/deny)
 
 **Decision:** `tools` (map format with allow/deny entries) and `disallowed-tools` are
 portable Meridian semantics. Mars resolves them into `tools.rules[]`, one typed entry per
@@ -278,7 +277,7 @@ How Meridian enforces them: [tool permissions](tool-permissions.md).
 
 ---
 
-### D85: Static sync and launch-bundle are intentionally different consumers
+### Static sync and launch-bundle are intentionally different consumers
 
 **Decision:** `mars sync` produces harness-native static artifacts; `mars build launch-bundle`
 produces a runtime JSON scaffold for Meridian. These are different build products for
@@ -293,7 +292,7 @@ carries everything Meridian needs.
 
 ---
 
-### D86: Routing parity invariant — `mars models resolve` and `mars build launch-bundle` share `routing::evaluate_candidates()`
+### Routing parity invariant — `mars models resolve` and `mars build launch-bundle` share `routing::evaluate_candidates()`
 
 **Decision:** The `mars models resolve <model>` command and `mars build launch-bundle --model <model>`
 both call the same `routing::evaluate_candidates()` function. The harness they select and the
@@ -311,13 +310,13 @@ as a preview tool.
 
 ---
 
-### D88: Cross-source naming collisions auto-rename both colliders
+### Cross-source naming collisions auto-rename both colliders
 
 **Decision:** When two dependency sources install an agent or skill to the same destination path, both colliders are suffixed with `__{source_name}` instead of one winning or the sync failing. Explicit `rename` in mars.toml takes priority over auto-rename.
 
 **Why:** Multi-package installs commonly share item names (e.g. `meridian-dev-workflow` and `creative-writing-skills` both defining `agents/web-researcher.md`). Hard-erroring blocks legitimate use; first-wins creates an ordering dependency on mars.toml declaration order for collision outcomes. Rename-both is unambiguous — the user always knows which package an item came from — and needs no precedence rule for the collision itself.
 
-**Gating:** Auto-rename applies only to same-kind (Agent|Skill) groups where every collider has a distinct source. Same-source collisions, mixed-kind groups, and hook/MCP/bootstrap collisions remain hard errors. A project-local hook may shadow a dependency hook; two selected dependency hooks remain a hard error (D98).
+**Gating:** Auto-rename applies only to same-kind (Agent|Skill) groups where every collider has a distinct source. Same-source collisions, mixed-kind groups, and hook/MCP/bootstrap collisions remain hard errors. A project-local hook may shadow a dependency hook; two selected dependency hooks remain a hard error.
 
 **Frontmatter rewriting:** A unified `RenameIndex` + `apply_renames` pass rewrites `skills:` and `subagents:` frontmatter refs. Same-source copy wins; prune-before-rewrite ensures ref resolution sees post-prune state.
 
@@ -328,7 +327,7 @@ as a preview tool.
 
 ---
 
-### D89: Config-rename-dangle diagnostic for renamed-away config references
+### Config-rename-dangle diagnostic for renamed-away config references
 
 **Decision:** After any rename (explicit or collision auto-rename), sync checks config-side name references against installed names and warns when a referenced name was renamed away and no installed item still carries it. The warning code is `config-rename-dangle`.
 
@@ -343,7 +342,7 @@ as a preview tool.
 
 Native hook fragments let authors express target-specific behavior without Mars inventing harness event mappings. Portable hooks now coexist with native overrides; see [portable hooks](mars-portable-hooks.md).
 
-### D92: Shape-A recovery seam -- halt before compilation when hook surfaces are unreadable (2026-07)
+### Shape-A recovery seam -- halt before compilation when hook surfaces are unreadable (2026-07)
 
 **Decision:** Recovery commands (`upgrade`, `override`, `remove`, `repair`) persist their intent mutation (pins, overrides, dependency graph changes to `mars.toml` / `mars.local.toml`) and **halt with exit 2 before the compiler** when any resolved source has an unreadable hook surface (removed-schema package). Strict `sync` remains the sole materializer and only ever runs against a fully readable graph. The "frozen" hook category is deleted from the sync pipeline entirely.
 
@@ -361,7 +360,7 @@ Native hook fragments let authors express target-specific behavior without Mars 
 
 ## Engine Version Constraints
 
-### D93: Hard-constraint-with-fallback engine requirements (2026-07)
+### Hard-constraint-with-fallback engine requirements (2026-07)
 
 **Decision:** Packages declare minimum engine versions via optional `requires-mars` and `requires-meridian` fields in `[package]`. When the running engine does not satisfy a dependency's requirement, the resolver excludes that version and walks down to the newest compatible candidate. When no candidate is compatible, resolution fails before any mutation. Escape hatches: `--ignore-requires-mars` and `--ignore-requires-meridian`.
 
@@ -385,7 +384,7 @@ Native hook fragments let authors express target-specific behavior without Mars 
 
 ## Declared-Package Self-Sync
 
-### D94: `[package]` opts agents and skills into `_self` (2026-09-15)
+### `[package]` opts agents and skills into `_self` (2026-09-15)
 
 **Status:** Current; merged by `9dd16c7` (PR #164) and released in Mars 0.13.2.
 
@@ -402,7 +401,7 @@ Mars does not deduplicate raw dependency names or change reference rewriting.
 This preserves renamed dependency outputs while making the current package's
 unrenamed content available in its own checkout.
 
-**Discovery boundary:** Self selection reuses D87's shallowest occupied-layer
+**Discovery boundary:** Self selection reuses the shallowest occupied-layer
 rule. The declared-package contribution is filtered to agents and skills only,
 but other convention kinds still participate in grounding. A nested
 distribution becomes eligible if all shallower convention items disappear;
@@ -420,8 +419,7 @@ tracked separately in
 
 **Ownership decision:** Default sync cannot adopt an unowned canonical
 destination, even when bytes match; sync fails before canonical/native apply
-with relocation guidance. D96 supersedes only the earlier decision that force
-must also refuse: explicit `mars sync --force` is now intended to authorize a
+with relocation guidance. Explicit `mars sync --force` authorizes a
 selected canonical self takeover. For managed identical-byte source
 transitions, `Update` records the new owner only when disk is unmodified and
 carries native claims forward. Existing keep-local, source-wins, and native
@@ -442,7 +440,7 @@ new dependency rename/reference algorithm.
 
 ---
 
-### D95: Journal new canonical writes without checkpointing ownership (2026-09-15)
+### Journal new canonical writes without checkpointing ownership (2026-09-15)
 
 **Status:** Current; merged by `9dd16c7` (PR #164) and released in Mars 0.13.2.
 
@@ -526,7 +524,7 @@ Explicit `mars sync --force` can adopt a selected unowned canonical self item; n
 
 ## User Scope
 
-### D97: User-scope packages live in an ordinary Mars root (2026-10)
+### User-scope packages live in an ordinary Mars root (2026-10) {#user-scope-packages-live-in-an-ordinary-mars-root-2026-10}
 
 **Status:** shipped in mars-agents 0.16.0 (PR #173) and Meridian v0.10.0 (PR #575); see [project identity](state.md#d-two-tier-identity).
 
@@ -609,7 +607,7 @@ root is already `primary`). The first label was two-valued and keyed on the prob
 alone, so in a bare directory it said the fallback was supported when nothing
 would ever pass it.
 
-**Shipping order: Mars first, then the pin** (I20). Meridian installs `mars` from
+**Shipping order: Mars first, then the pin.** Meridian installs `mars` from
 PyPI through its `mars-agents` pin, and #575 had not changed the pin
 (`0.15.0`). With the genuine 0.15.0 the probe is false, so user agents inside a
 project with its own `mars.toml` would have failed with the hint. "Merge order
@@ -620,7 +618,7 @@ passed only because a dev build had been copied over `.venv/bin/mars`, which
 also rewrote uv's shared cache
 ([lesson](../lessons/dogfooding-pr-builds.md#writing-over-venvbin-rewrites-uvs-cache)).
 
-**User agents resolve their model against the project** (I16, confirmed with
+**User agents resolve their model against the project** (confirmed with
 mars 0.16.0). Because configuration comes from `primary` only, a user agent
 reached through the fallback takes its `model:` alias from the project. The gap
 is narrow: package aliases such as `luna` are defined in the package's own
@@ -658,12 +656,7 @@ Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
 
 ---
 
-### D98: The target build is the only hook-selection authority (2026-10-24)
-
-**Status:** released in mars
-0.19.0. Its temporary MCP exception is superseded by D99. Since mars 0.20.4, an
-unmanaged hook directory no longer fails the sync; see
-[D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27).
+### The target build is the only hook-selection authority (2026-10-24)
 
 **Decision:** The target build selects one parsed hook per target-scoped
 canonical destination after dependency filters, exported visibility and
@@ -674,8 +667,7 @@ second winner.
 
 Two selected dependencies providing the same hook remain a hard collision. A
 project-local hook overlays a dependency hook and emits the existing shadow
-warning. D99 later moved MCP discovery into the same target state while retaining
-D36's collision policy in the per-target lowerer.
+warning. MCP discovery also uses the target state.
 
 **Why:** Installation and config-entry discovery previously answered "which
 hooks does this project have?" independently. Dependency filters applied only
@@ -706,33 +698,23 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 ---
 
-### D99: MCP selection joins target state (2026-10-24)
-
-**Status:** released in mars
-0.19.0. Its MCP collision ranking is superseded by
-[D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
-(shortest depth first). Since mars 0.20.4, collisions resolve once per target
-during target construction, so a server's files, entry and lock name the same winner
-([D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27)).
+### MCP selection joins target state (2026-10-24)
 
 **Decision:** Target construction is the only package-discovery and visibility
-authority for effectful config entries. Alongside D98's hooks, it discovers each
+authority for effectful config entries. Alongside hooks, it discovers each
 source's MCP manifests once and carries every eligible parsed MCP item plus its
 managed-target scope in `TargetState`. Config-entry preflight and lowering consume
 that state instead of rediscovering MCP manifests.
 
-MCP collision handling does not move. Per-target lowering keeps D36's first-wins
-behavior and warning text: project `_self` precedes dependencies, and dependency
-precedence comes from `mars.toml` declaration order rather than alphabetical
-`graph.order`. Candidates with no managed target and discovery failures remain in
-target state so environment and discovery warnings occur in the same phases and
-order as before.
+MCP collisions resolve during target construction, so a server's files, entry
+and lock name the same winner. [Collision precedence](#collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
+uses shortest dependency depth.
 
 Hook and MCP manifest loaders parse visibility into one `Visibility` enum. An
 unknown value warns and becomes local, preserving its previous package-boundary
 effect. Downstream selection compares only with `Visibility::Exported`.
 
-**Why:** MCP had the same split-authority problem D98 removed for hooks: preflight
+**Why:** MCP had the same split-authority problem as hooks: preflight
 and compile each scanned the resolved packages and applied visibility separately.
 A plugin build needs the flattened MCP set before it has a project installation,
 and a second discovery path would let sync and build disagree. Carrying the parsed
@@ -747,8 +729,6 @@ user-visible policy decision, not part of this structural change.
 
 - Let preflight and compile continue to discover MCP independently — leaves two
   authorities for the plugin build to reproduce.
-- Resolve MCP collisions during target construction — unnecessary for a shared
-  selection seam and risks changing established first-wins warnings.
 - Interpret `exclude` as MCP names during the move — combines a behavior change
   with a selection refactor and silently changes existing consumers.
 
@@ -756,7 +736,7 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 ---
 
-### D100: A package publishes one plugin holding its full resolved graph (2026-10-24)
+### A package publishes one plugin holding its full resolved graph (2026-10-24) {#a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24}
 
 **Status:** shipped in Mars 0.19.0 (PR #197). The
 OpenCode agent clause below was revised by mars-agents#249 (Mars 0.23.0).
@@ -789,7 +769,7 @@ physical trees under `<dir>/` (default `plugin/`):
 The loader facts behind this split are in
 [harness-plugin-loading.md](../research/harness-plugin-loading.md). `[plugin] harnesses` defaults to all supported harnesses, including any added in a later release (mars-agents#211): Mars aims to make packages easy to distribute. Listing `harnesses` opts out. A release that adds a harness must say so in its release notes.
 
-- **OpenCode ships agents; Codex does not.** OpenCode 2.2.0 supports agent registration through `ctx.agent`, so since mars-agents#249 (Mars 0.23.0) the generated `index.mjs` registers them; their model rule is [OpenCode plugin agent models](#d106-opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28). Codex plugins cannot carry agents; upstream support is awaited (mars-agents#256).
+- **OpenCode ships agents; Codex does not.** OpenCode 2.2.0 supports agent registration through `ctx.agent`, so since mars-agents#249 (Mars 0.23.0) the generated `index.mjs` registers them; their model rule is [OpenCode plugin agent models](#opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28). Codex plugins cannot carry agents; upstream support is awaited (mars-agents#256).
 - **The OpenCode package is the repo itself**: one root `package.json`
   whose `main` and `files` point into `<dir>/opencode/`, installed with
   `opencode plugin add git+…`, not published to npm..
@@ -926,7 +906,7 @@ shared Claude tree.
 
 ---
 
-### D101: Agent skills lower by harness capability (2026-10-24)
+### Agent skills lower by harness capability (2026-10-24) {#agent-skills-lower-by-harness-capability-2026-10-24}
 
 **Status:** Merged into mars-agents `release/v0.19.0` through PR #194,
 ahead of the multi-harness plugin build; it ships in 0.19.0 through PR #197,
@@ -970,7 +950,7 @@ answer only for a harness with no skill mechanism, and none exists today.
 
 ---
 
-### D102: Renamed agents and skills answer to their installed name (2026-10-24)
+### Renamed agents and skills answer to their installed name (2026-10-24)
 
 **Status:** Current choice. Merged into mars-agents
 `release/v0.19.0` through PR #193 and ships in 0.19.0 through PR #197; it
@@ -994,12 +974,7 @@ note: mars-agents `docs/internals/conflicts.md`.
 
 ---
 
-### D103: Collision precedence and hook order use shortest dependency depth (2026-10-24)
-
-**Status:** Current choice, made by the tech lead at the plugin-build review
-gate. Merged into mars-agents `release/v0.19.0` through PR #193 and ships
-in 0.19.0 through PR #197. Supersedes D36's MCP precedence and D99's "MCP
-collision handling does not move".
+### Collision precedence and hook order use shortest dependency depth (2026-10-24) {#collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24}
 
 **Decision:** A package's depth is its shortest distance from the consumer:
 the project or building package itself (`_self`) first, then direct
@@ -1007,11 +982,11 @@ dependencies, then their dependencies. Among MCP servers with the same name
 for one target, the shallowest package wins; at equal depth, the earlier
 `[dependencies]` entry it was reached through wins; alphabetical source name
 breaks remaining ties. Hooks use the same depth for ordering. Dependency hook
-collisions stay errors (D98). The resolver derives depth once
+collisions stay errors. The resolver derives depth once
 (`ResolvedGraph::dependency_depths()`); sync, lowering and the plugin build
 read it rather than reconstructing it.
 
-**Why:** D36 ranked only `_self` above dependencies and every dependency by
+**Why:** The earlier rule ranked only `_self` above dependencies and every dependency by
 declaration order, so a dependency's MCP server could beat a server from a
 package that depends on it. Review found exactly that: a package lost its own
 server to its dependency's, in both the plugin build and sync. Depth fixes
@@ -1026,7 +1001,7 @@ moved hooks.
 
 ---
 
-### D104: Packaged MCP servers install through the hook directory path (2026-10-27)
+### Packaged MCP servers install through the hook directory path (2026-10-27) {#packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27}
 
 **Status:** Shipped in mars 0.20.4 (PR #233); the follow-ups to
 selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
@@ -1088,7 +1063,7 @@ selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
 
 ---
 
-### D105: Meridian hosts own full-name namespaces under `harness-overrides` (2026-10-27)
+### Meridian hosts own full-name namespaces under `harness-overrides` (2026-10-27) {#meridian-hosts-own-full-name-namespaces-under-harness-overrides-2026-10-27}
 
 **Status:** Shipped in
 Mars 0.22.0 (mars-agents#248). meridian-cli reads only the new namespace from
@@ -1100,7 +1075,7 @@ reaches users in meridian-cli 0.17.0 (integration PR #798).
   consumer namespaces: Mars reserves them, carries them through, never
   interprets them, and never routes to them, because neither host is a
   launch harness. They sit beside the harness blocks of
-  [D82](#d82-harness-overridestarget--exact-passthrough-not-portable-semantics)
+  [`harness-overrides.<target>` — exact passthrough, not portable semantics](#harness-overridestarget--exact-passthrough-not-portable-semantics)
   without becoming harness targets.
 - meridian-cli's Agent-level runtime knobs live only in its namespace:
   `harness-overrides.meridian-cli.resident-rearm-budget` and
@@ -1134,7 +1109,7 @@ Mechanism: mars-agents `docs/config/schema-v1.md` and
 `docs/config/migrating-to-schema-v1.md`; meridian-cli `docs/agent-profiles.md`
 and `docs/upgrading.md`.
 
-### D106: OpenCode plugin agents keep OpenCode's default model when the model is ambiguous (2026-10-28)
+### OpenCode plugin agents keep OpenCode's default model when the model is ambiguous (2026-10-28) {#opencode-plugin-agents-keep-opencodes-default-model-when-the-model-is-ambiguous-2026-10-28}
 
 **Status:** Shipped with mars-agents#249
 (Mars 0.23.0). Mechanism: mars-agents `src/build/AGENTS.md` (the
@@ -1158,7 +1133,7 @@ treating the fallback as a gap to close. Revisit if OpenCode gives plugins a
 way to ask which providers the user has.
 
 
-### D107: The user Mars layer is the existing `config.toml`, below the project (2026-10-28)
+### The user Mars layer is the existing `config.toml`, below the project (2026-10-28) {#the-user-mars-layer-is-the-existing-configtoml-below-the-project-2026-10-28}
 
 **Status:** Shipped in Mars 0.23.3
 (mars-agents#254, which replaced the closed #250); meridian-cli bundles a Mars
@@ -1190,10 +1165,10 @@ some defaults and a second file for the rest at another rank.
 **Consequence for consumers.** Mars's config is now spread over four layers,
 one of them outside the project. A consumer that re-reads `mars.toml` to learn
 an effective setting gets it wrong; see
-[D108](#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28).
+[Meridian learns Mars state from what Mars wrote, not from Mars config](#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28).
 
 
-### D108: Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28)
+### Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28) {#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28}
 
 **Status:** Applied in meridian-cli#805 (released in 0.17.0).
 
@@ -1211,7 +1186,7 @@ means no dependency aliases from that file.
 
 **Why.** Before #805, `lib/catalog/agent_copy.py` parsed `mars.toml` and
 `mars.local.toml` to decide whether Claude's native `Agent` tool should stay
-usable. When [D107](#d107-the-user-mars-layer-is-the-existing-configtoml-below-the-project-2026-10-28)
+usable. When [The user Mars layer is the existing `config.toml`, below the project](#the-user-mars-layer-is-the-existing-configtoml-below-the-project-2026-10-28)
 added the user `config.toml`, Mars honoured an `agent_copy` set there and
 Meridian didn't (#799): a second, partial copy of Mars's layer merge had
 drifted the moment Mars added a layer. Mars had no command that exported the
@@ -1331,7 +1306,7 @@ explicit `--root`, they resolve it against the project root that `--root` led
 to.
 
 **Why.** "Relative to `--root`" is the obvious rule, and it is wrong here because
-Meridian [always appends `--root`](#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)
+Meridian [always appends `--root`](#user-scope-packages-live-in-an-ordinary-mars-root-2026-10)
 (`src/meridian/cli/mars_passthrough.py`). A user who types
 `meridian mars adopt ../../x` from a subdirectory means that path, and Mars
 cannot tell it was not typed with `--root`. The working directory wins, so that
