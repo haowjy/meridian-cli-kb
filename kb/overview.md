@@ -29,12 +29,12 @@ A launch follows one policy path:
 
 1. Resolve the project, agent, model route, permissions, work attachment, and
    workspace projection.
-2. Prepare a harness-neutral launch surface, then bind it to one registered
-   `HarnessBundle`.
-3. Start the harness subprocess and publish output while the spawn is active.
-4. Persist the authoritative spawn row and artifacts under the project's
-   user-local runtime root. Read-time projection reports stale work without
-   mutating it; explicit repair paths reconcile durable state.
+2. Prepare the resolved launch configuration and bind it to a registered
+   `HarnessBundle`, which groups the selected harness’s adapters.
+3. Publish the authoritative spawn row, start the harness subprocess, and
+   persist its artifacts under the project’s user-local runtime root.
+4. Reads project the status of inactive spawns without mutating their rows;
+   explicit repair paths reconcile durable state.
 
 See [the launch architecture](architecture/launch-system.md) for the prepare /
 bind mechanism and [the harness concept](concepts/harness-abstraction.md) for

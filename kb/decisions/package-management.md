@@ -529,12 +529,7 @@ Explicit `mars sync --force` can adopt a selected unowned canonical self item; n
 
 ### D97: User-scope packages live in an ordinary Mars root (2026-10)
 
-**Status:** decided by the user on 2026-10-14 as part of
-[D-two-tier-identity](state.md#d-two-tier-identity) (D41, D43, D44 in
-`work:pyright-strict`; `work:two-tier-identity`). Shipped 2026-10-14: the Mars
-side, `--fallback-root`, in mars-agents 0.16.0 (PR #173); the Meridian side in
-meridian-cli PR #575 (merged to `main`, `release:minor`; released in v0.10.0
-after #579), which pinned `mars-agents==0.16.0`.
+**Status:** shipped in mars-agents 0.16.0 (PR #173) and Meridian v0.10.0 (PR #575); see [project identity](state.md#d-two-tier-identity).
 
 **Decision.** User scope for packages is an ordinary Mars project at
 `~/.meridian/mars/` (`get_user_home()/mars`, so a scratch `MERIDIAN_HOME`
@@ -570,7 +565,7 @@ isolates it). Meridian, not Mars, decides which root a command runs against:
   still mutates the repository's `mars.toml`. It runs before root injection, so
   Mars's auto-init on `add` / `link` never writes `mars.toml` into a bare
   directory. `version`, `repair`, `resolve` and `models alias` joined the
-  original nine after review (`spawn:p7868`): with `--root primary` always
+  other mutations: with `--root primary` always
   injected, they would otherwise have reached the user root from a bare
   directory, and `mars version` commits and tags.
 
@@ -609,12 +604,11 @@ project with its own `mars.toml` fails with
 directory never needs the flag, because there `primary` already is the user
 root.
 
-**`mars_fallback` reports activation, with three values** (`work:two-tier-identity`
-I19). `context` and `config show` print `active` (project scope, Mars supports the
+**`mars_fallback` reports activation, with three values.** `context` and `config show` print `active` (project scope, Mars supports the
 flag), `unsupported` (project scope, it does not) or `n/a` (user scope: the user
 root is already `primary`). The first label was two-valued and keyed on the probe
 alone, so in a bare directory it said the fallback was supported when nothing
-would ever pass it (G4 review).
+would ever pass it.
 
 **Shipping order: Mars first, then the pin** (I20). Meridian installs `mars` from
 PyPI through its `mars-agents` pin, and #575 had not changed the pin
@@ -667,7 +661,7 @@ Current mechanism: [Mars user scope](../architecture/mars-user-scope.md).
 
 ### D98: The target build is the only hook-selection authority (2026-10-24)
 
-**Status:** Owner-settled in `work:harness-plugin-export`; released in mars
+**Status:** released in mars
 0.19.0. Its temporary MCP exception is superseded by D99. Since mars 0.20.4, an
 unmanaged hook directory no longer fails the sync; see
 [D104](#d104-packaged-mcp-servers-install-through-the-hook-directory-path-2026-10-27).
@@ -715,7 +709,7 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 ### D99: MCP selection joins target state (2026-10-24)
 
-**Status:** Owner-settled in `work:harness-plugin-export`; released in mars
+**Status:** released in mars
 0.19.0. Its MCP collision ranking is superseded by
 [D103](#d103-collision-precedence-and-hook-order-use-shortest-dependency-depth-2026-10-24)
 (shortest depth first). Since mars 0.20.4, collisions resolve once per target
@@ -765,9 +759,7 @@ Current mechanism: [Mars compiler architecture](../architecture/mars-compiler.md
 
 ### D100: A package publishes one plugin holding its full resolved graph (2026-10-24)
 
-**Status:** The one-plugin, full-graph rule is owner-settled
-(`chat:c9019`); the harness set and release defaults are current choices
-(`chat:c9182`, see below). Shipped in Mars 0.19.0 (PR #197). The
+**Status:** shipped in Mars 0.19.0 (PR #197). The
 OpenCode agent clause below was revised by mars-agents#249 (Mars 0.23.0).
 
 **Decision:** A package with a plugin builds **one plugin** under its own
@@ -779,10 +771,7 @@ skill ships in meridian-dev-workflow's plugin as
 `meridian-dev-workflow:<skill>`. The plugin declares no plugin
 `dependencies`, and the catalogs list no dependency plugins. An author who
 wants to ship less narrows the graph with the filters a mars consumer already
-uses; there is no plugin-only selection rule. The owner put it as "we just
-literally flatten meridian-dev-workflow + meridian-base and ship it to the
-plugin (like what cw does right now...???)", meaning creative-writing-skills'
-hand-built plugin, which already ships dependency content inside one plugin.
+uses; there is no plugin-only selection rule.
 
 `mars version` rebuilds the plugin at the new version and commits it with
 the release; `--no-plugins` skips that, and `mars check` then reports the
@@ -983,18 +972,11 @@ Codex-only hook needs a Codex tree); Codex starts loading plugin agents; a
 live Cursor run contradicts its docs; or a harness changes how it loads a
 shared Claude tree.
 
-**Provenance:** `work:harness-plugin-export`; `chat:c9019` (one plugin of
-the graph), `chat:c9182` (harness scope and release defaults); live
-verification `spawn:p9533`, `spawn:p9535`; review rounds `spawn:p9511`
-through `spawn:p9542`.
-
 ---
 
 ### D101: Agent skills lower by harness capability (2026-10-24)
 
-**Status:** Current choice. The owner raised the idea and agreed to the
-lead's form of it ("yeah, I think load these skills is acceptable",
-`chat:c9019`). Merged into mars-agents `release/v0.19.0` through PR #194,
+**Status:** Merged into mars-agents `release/v0.19.0` through PR #194,
 ahead of the multi-harness plugin build; it ships in 0.19.0 through PR #197,
 so no published plugin carries the old merged lists.
 
@@ -1039,7 +1021,7 @@ answer only for a harness with no skill mechanism, and none exists today.
 ### D102: Renamed agents and skills answer to their installed name (2026-10-24)
 
 **Status:** Current choice, made by the tech lead at the plugin-build review
-gate (`work:harness-plugin-export`). Merged into mars-agents
+review. Merged into mars-agents
 `release/v0.19.0` through PR #193 and ships in 0.19.0 through PR #197; it
 changes `mars sync` output too.
 
@@ -1102,7 +1084,7 @@ structure reviews. Shipped in mars 0.20.4 (PR #233); the follow-ups to
 selection (#227, #228) shipped in 0.20.5 (PR #238). Mechanism: mars-agents
 `src/sync/AGENTS.md`, `src/compiler/AGENTS.md`, `src/build/AGENTS.md`,
 `docs/config/mcp-and-hooks.md` and `docs/internals/sync-pipeline.md`.
-`work:post-0-19-followups`.
+
 
 **Decision.**
 - `${MARS_MCP_DIR}` is a literal placeholder a package writes in a server's
@@ -1203,7 +1185,7 @@ reaches users in meridian-cli 0.17.0 (integration PR #798).
 
 Mechanism: mars-agents `docs/config/schema-v1.md` and
 `docs/config/migrating-to-schema-v1.md`; meridian-cli `docs/agent-profiles.md`
-and `docs/upgrading.md`. `work:agent-definition-design`.
+and `docs/upgrading.md`. 
 
 ### D106: OpenCode plugin agents keep OpenCode's default model when the model is ambiguous (2026-10-28)
 
@@ -1231,7 +1213,7 @@ model catalog, which a plugin loading inside OpenCode doesn't have.
 treating the fallback as a gap to close. Revisit if OpenCode gives plugins a
 way to ask which providers the user has.
 
-`work:post-0-19-followups`, `chat:c9589`.
+
 
 ### D107: The user Mars layer is the existing `config.toml`, below the project (2026-10-28)
 
@@ -1275,7 +1257,7 @@ one of them outside the project. A consumer that re-reads `mars.toml` to learn
 an effective setting gets it wrong; see
 [D108](#d108-meridian-learns-mars-state-from-what-mars-wrote-not-from-mars-config-2026-10-28).
 
-`work:post-0-19-followups`, `chat:c9589`.
+
 
 ### D108: Meridian learns Mars state from what Mars wrote, not from Mars config (2026-10-28)
 
@@ -1310,7 +1292,7 @@ is the same rule applied to skills.
 **When Mars has neither a command nor a file for a fact,** add one to Mars
 rather than parse its config in Meridian.
 
-`work:post-0-19-followups`, `chat:c9589`; meridian-cli#799, #805.
+See meridian-cli#799 and #805.
 
 ---
 

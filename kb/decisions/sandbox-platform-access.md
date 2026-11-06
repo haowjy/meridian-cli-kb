@@ -16,11 +16,8 @@ On Linux, a nested spawn compares PID namespaces and refuses before creating sta
 
 ## D-delegation-floor: escaped child launches get a CLI guardrail {#d-delegation-floor}
 
-> [!FLAG] **Needs human review.** Provisional: not owner-approved. Whether a sandboxed
-> spawner may launch a less-confined child is the owner's call. This is the conservative
-> option, the easiest to loosen; the rejected alternatives below remain open. The network
-> comparison, and the choice to leave user harness config out of it
-> ([below](#guardrail-network-inputs)), are equally unapproved.
+> [!FLAG] **Needs human review.** The guardrail and its network inputs are provisional;
+> whether sandboxed spawners may launch less-confined children remains open.
 
 **Current choice:** a caller Meridian launched under `read-only` or `workspace-write` carries
 a guardrail in its caller record: sandbox, spawn capability, and the caller's projected
@@ -97,8 +94,7 @@ verdict.
   caller's floor under-approximated. One user `allowedDomains` entry turned an offline
   caller's floor fully open, which let it launch an online child.
 
-The option taken is the "warn only" one the lead offered the owner as recommended; the owner
-has not answered.
+Warnings leave the projected policy unchanged.
 
 ## D-codex-child-spawn: Codex uses one user-wide spawn rule {#d-codex-child-spawn}
 
@@ -128,7 +124,7 @@ session-miner) does not have the rule written for it and still skips that turn
 interactive Codex sessions and every Codex agent using that home. The dry-run report and
 user-facing docs state that scope.
 
-**Evidence:** with the matching line removed from the owner's own `default.rules`, a
+**Evidence:** with the matching line removed from `default.rules`, a
 workspace-write parent launched a child that finished, and a read-only agent ran
 `meridian spawn done` with exit 0 and received the confirmation turn.
 
@@ -213,8 +209,7 @@ Harnesses differ: Codex host policies may still allow local services, and OpenCo
 
 ## Profile follow-up (not done)
 
-The owner approved changing only profiles first ("ok, phase 0 now that just alters the
-profiles"). Released in meridian-base v0.11.14 and meridian-dev-workflow v0.15.7:
+Released in meridian-base v0.11.14 and meridian-dev-workflow v0.15.7:
 architect and web-researcher run on `danger-full-access` as a stopgap for network and child
 spawns, and session-miner's allowlist gained the read commands it lacked. Once both
 meridian-cli branches ship, the plan is to put architect and web-researcher back on
@@ -224,7 +219,7 @@ Because a sandboxed profile is now offline unless it says otherwise, the same fo
 `network: allow` to the sandboxed roles that need the shell network: dev-workflow architect and
 web-researcher (after the stopgap revert), creative-writing web-researcher, kb-maintainer,
 imagegen and autoresearch-lead. web-prompt-researcher is `read-only`, which Codex cannot put
-online. Whether the microct profiles need it is an open question for the owner. Whether other
+online. Whether the microct profiles need it is an open question. Whether other
 roles that use `danger-full-access` only for network or spawning should move to
 `workspace-write` is a separate, later decision.
 

@@ -9,7 +9,7 @@ separate claim subsystem for result delivery.
 
 Status: the Claude route shipped in v0.11.9 (PR #724), Claude's header-only
 delivery in v0.12.8 (PR #743), and owed results in no-arg wait merged in PR
-#751 (`54ca93606`). Consumption for cancel and CLI surfaces that print terminal
+#751. Consumption for cancel and CLI surfaces that print terminal
 reports shipped in v0.14.2 (PR #762). Rationale and
 rejected designs:
 [decisions/child-result-delivery.md](../decisions/child-result-delivery.md).
@@ -49,8 +49,7 @@ blocks for results it needs before it can go on
 ([spawn wait barrier](spawn-wait-barrier.md)). The watchers cover the lead that
 launched background work and ended its turn without waiting. That lead
 otherwise stalls, since nothing starts its next turn when the child finishes.
-Prompting alone did not prevent it: the spawn guidance already says to wait,
-and a Sonnet lead still answered "I'll report when it finishes" and went idle.
+Instructions to wait cannot wake a lead that has already ended its turn.
 
 ## What a lead is owed
 
@@ -69,7 +68,7 @@ continued after its first result was consumed is owed again when its next
 launch finishes. A background launch that a continue moved past before the lead
 consumed it stays owed through the row's `owed_launches`
 ([spawn launches](../architecture/state-system/spawn-launches.md#waits-owed-results-and-delivery)).
-None of this reaches the lead: every surface names the child by its bare id.
+Surfaces name the child by its bare id; an older launch’s report may be delivered inline.
 
 Only direct children count. A child does not finish until its own descendants
 have, so a grandchild's result reaches the lead through its parent's report.
@@ -126,8 +125,7 @@ writer of a file in `spawns/<id>/` takes. That lock refuses a spawn whose
 repository), so a write never recreates a directory that pruning or archiving
 deleted. When it refuses, nothing is recorded:
 `spawn ack` exits with an error, and `spawn wait` still waits and returns its
-results without a lease or observation. No reader looks for children of such a
-primary, so nothing is delivered twice.
+results without a lease or observation. Without an observation, later delivery may repeat a result if the caller becomes discoverable again.
 
 Python's observation owner is `lib/state/spawn_observations.py`; the shared Pi
 consumption reader lives in `lib/harness/pi_private_state.py`. Pi's TypeScript
@@ -219,8 +217,7 @@ Field-level contract: meridian-cli `src/meridian/lib/ops/spawn/.context/CONTEXT.
 
 ## Accepted duplicates and losses
 
-Delivery is at-least-once, and one duplicate header is the accepted price
-wherever closing a window would need new coordination state. The known windows:
+Delivery is best effort: results can be duplicated or lost. The known windows:
 
 | Window | Result |
 |---|---|
@@ -316,18 +313,14 @@ Delivery Contract").
 Pi's extension runs inside the Pi process, watches `spawns/` for direct children
 of its own spawn, and delivers results at idle (`sendMessage` with a new turn)
 and at tool-bearing turn boundaries (native steer). It records exact native
-admission in `delivery-receipts.json` rather than trusting the send's return.
+admission in `launch-receipts.json` rather than trusting the send's return.
 Mechanism: [Pi runtime coordination](../architecture/pi-runtime/coordination.md).
 
 Pi still renders its own deliveries in TypeScript with bounded report excerpts
 (meridian-cli `src/meridian/pi_runtime/.context/delivery-contract.md`), while
 Claude delivery and owed wait rows are header-only.
 
-> [!FLAG] **Needs human review**
-> Open question: should Pi deliveries also become header-only? Undecided; until
-> the owner decides, Pi keeps its excerpts. Deciding means choosing between a Pi
-> lead getting the report in the fallback delivery and a short ping it must
-> follow with `spawn show`.
+Whether Pi should switch to header-only deliveries remains open.
 
 ## Known gaps
 
@@ -347,5 +340,3 @@ Claude delivery and owed wait rows are header-only.
   harness reports running work
 - [Claude Code mods and the inbox](../research/claude-code-mods-and-inbox.md):
   host behaviour the mod depends on
-- Provenance: `work:claude-spawn-watch` (design reviews `spawn:p8815`,
-  `spawn:p8822`; runtime probe `spawn:p8840` on Claude Code 2.1.307).

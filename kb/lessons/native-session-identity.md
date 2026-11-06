@@ -10,9 +10,9 @@ A child may write exit evidence during teardown after the turn becomes terminal.
 
 A completion marker for migration must distinguish a successful negative lookup from an unreadable source, or a temporary failure becomes permanent. SQLite read-only connections to WAL databases can still write shared-memory read marks; a snapshot is needed when zero writes are required. Repair must also clear any latched failure caused by the state it repairs. See [history storage](../decisions/history-storage.md).
 
-A projection must share the authority's rule instead of reimplementing it. Real records agreeing do not prove equivalence: include deliberately divergent shapes. A diagnostic flag that changes an outcome needs every setter audited; a malformed event must not discard an independent authoritative total.
+A projection must share the authority's rule instead of reimplementing it. Real records agreeing do not prove equivalence: include deliberately divergent shapes.
 
-## A Test Helper That Reads Runner Bytes Trips the Blind Trap
+## Test Helpers Must Respect Runner Read Restrictions
 
 A test helper is subject to the same read restrictions as the code it tests. A test mode also needs a positive assertion that it reached subprocesses: otherwise a silently disabled mode can produce deceptively better results. At `sitecustomize` time, `sys.argv[0]` is `-m` for `python -m`; gating instrumentation on the eventual entry-point name misses those children.
 
@@ -22,4 +22,4 @@ A rebuildable index can still be live input to an older running build. Versioned
 
 An integrity digest covers persisted bytes or stored JSON, not a reserialization through an evolving model. See [portable digest decision](../decisions/history-storage.md#d-history-portable-digest-stored-json).
 
-Recovery inference must measure wrong bindings as well as yield: a wrong immutable binding is permanent. When a heuristic offers an action, constrain what it can emit under uncertainty before improving the guess; a placeholder is safer than a runnable command with an unknown endpoint.
+Recovery inference must measure wrong bindings as well as yield: a wrong immutable binding is permanent.

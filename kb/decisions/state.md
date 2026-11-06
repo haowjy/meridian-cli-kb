@@ -17,7 +17,7 @@ and typed state contracts. Spawn identity and launch containment decisions live 
 
 **Alternatives rejected:**
 - Graceful shutdown with SIGTERM handler — works unless SIGKILL is used; SIGKILL is common (OOM killer, user force-quit, container restart)
-- Separate crash-recovery daemon — unnecessary; the reaper running on every read path achieves the same result without an additional process
+- Separate crash-recovery daemon — unnecessary; reads project status and explicit repair reconciles durable state without an additional process
 
 See [the system overview](../overview.md#design-properties) for the concise
 description of the current design properties.
@@ -31,7 +31,7 @@ description of the current design properties.
 **Session state** still uses one global JSONL log, read through a keyed seam since #651 ([D-session-read-seam](#d-session-read-seam)). The per-chat split is the accepted design; its storage change (B2) waits on the owner's open questions: see [D-session-per-chat-journals](#d-session-per-chat-journals). **Spawn state** was subsequently migrated to per-spawn `state.json` files for performance reasons — see the spawn-state-v2 decision below. The original JSONL rationale remains active for session state.
 
 **Constraints that drove the original JSONL design:**
-1. **Crash tolerance** — JSONL appends are atomic at the OS level: a partial write corrupts only the partial line, not any previous lines.
+1. **Crash tolerance** — Writers serialize appends and repair a torn tail before the next append. Readers treat the newline as the commit marker, so an incomplete final line is withheld.
 2. **Inspectability** — `cat sessions.jsonl | jq` works with no tooling.
 3. **Simplicity** — no service dependency, no connection management, no schema versioning in the hot path.
 
@@ -59,7 +59,7 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 ### D-two-tier-identity: two-tier project identity and zero-config launch (2026-10) {#d-two-tier-identity}
 
-**Status:** decided by the user on 2026-10-14 (`work:two-tier-identity`, design revision 2; D32, D38, D40, D44 in `work:pyright-strict`). Merged to `main` in PR #575 on 2026-10-14 (`d160a07d9`, `release:minor`); released in v0.10.0 (`b8da247f9`, 2026-10-14) after #579 fixed the app-lane socket path that failed the first release-on-main preflight. Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
+**Status:** released in v0.10.0 (PR #575). Layering user agents into a project that has its own `mars.toml` uses `--fallback-root` from mars-agents 0.16.0 (PR #173), which meridian-cli pins; see [D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10).
 
 **Decision.** The tier of a directory depends only on what its literal project root contains:
 
@@ -68,7 +68,7 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 Where no project Mars root exists, agents, skills, model aliases and launch targets come from **user scope**: `~/.meridian/config.toml` plus the user Mars root ([D97](package-management.md#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)). A project layers over user scope.
 
-**The requirement, in the user's words:** "I just want to be able to do `meridian opencode` and run something … if we don't have meridian.toml, use default values + have all harnesses possible available." A probe (`spawn:p7814`) showed bare launches already started. What blocked `meridian opencode -a reviewer` was package discovery: agents and skills were read only from the project's `.mars/`, and `~/.mars` was never searched. The litter the July rule left behind was a symptom of the same gap.
+**Requirement:** Launches in unconfigured directories need defaults and access to available harnesses. What blocked `meridian opencode -a reviewer` was package discovery: agents and skills were read only from the project's `.mars/`, and `~/.mars` was never searched. The litter the July rule left behind was a symptom of the same gap.
 
 **Invariants**, each owned by one place in the code:
 
@@ -106,10 +106,10 @@ The revision keeps all three premises and narrows the first: committed identity 
 **Retention, and why these numbers.**
 
 - **No automatic pruning** (user, 2026-10-14). `meridian doctor --global --prune` is the only reclaimer, for both tiers. An opportunistic daily sweep (ad-hoc roots only, run from a root primary launch under the existing locks) was offered and declined: "i think its fine to not automatically prune". `doctor --global` keeps surfacing what is prunable instead.
-- **`doctor --global` lists every ad-hoc root**, not only prunable ones: id, origin path, reason (`adhoc-idle` / `adhoc-path-gone` / `adhoc-shadowed`), last activity, size and `prunable: yes|no`; `--prune` acts only on the prunable ones. Pre-`init` state is findable the moment it is shadowed, which is what the `init` note promises. The first implementation listed only roots past retention, which contradicted the design smoke (G3 probe).
-- **30 days idle** matches committed-root retention and was the user's choice. Last activity is the newest of every signal: `origin.json`'s mtime, the runtime-root and `context/<id>/` tree mtimes, and the spawn and session start and end timestamps. A primary that ran for 40 days and ended yesterday is kept, and so is a root whose `origin.json` is old but whose spawn ran minutes ago. The hourly `origin.json` touch alone left a near-zero protection window at the hour boundary (G3 blocker, `spawn:p7873`).
-- **`min(N, 7)` for gone or shadowed roots.** Nothing can reach a root whose path now holds a marker (`adhoc-shadowed`: pre-`init` state), and a recreated path would inherit a gone one (`adhoc-path-gone`). Those roots should age *faster* than idle ones, never slower. A flat 7 would have kept them longer than idle roots when N < 7, which the G2 probe caught.
-- **One-hour floor.** `work start` and `spawn done` hold no lease after `ensure`, and `ensure` touches `origin.json` at most hourly. Without a floor, `adhoc_retention_days = 0` let a prune delete a work item a second after it was created (G2 blocker, `spawn:p7868`). Retention 0 therefore means "as soon as quiescent, after one hour".
+- **`doctor --global` lists every ad-hoc root**, not only prunable ones: id, origin path, reason (`adhoc-idle` / `adhoc-path-gone` / `adhoc-shadowed`), last activity, size and `prunable: yes|no`; `--prune` acts only on the prunable ones. Pre-`init` state is findable the moment it is shadowed, which is what the `init` note promises. The first implementation listed only roots past retention, which contradicted the design smoke.
+- **30 days idle** matches committed-root retention and was the user's choice. Last activity is the newest of every signal: `origin.json`'s mtime, the runtime-root and `context/<id>/` tree mtimes, and the spawn and session start and end timestamps. A primary that ran for 40 days and ended yesterday is kept, and so is a root whose `origin.json` is old but whose spawn ran minutes ago. The hourly `origin.json` touch alone left a near-zero protection window at the hour boundary.
+- **`min(N, 7)` for gone or shadowed roots.** Nothing can reach a root whose path now holds a marker (`adhoc-shadowed`: pre-`init` state), and a recreated path would inherit a gone one (`adhoc-path-gone`). Those roots should age *faster* than idle ones, never slower. A flat 7 would have kept them longer than idle roots when N < 7, which would delay reclamation.
+- **One-hour floor.** `work start` and `spawn done` hold no lease after `ensure`, and `ensure` touches `origin.json` at most hourly. Without a floor, `adhoc_retention_days = 0` let a prune delete a work item a second after it was created. Retention 0 therefore means "as soon as quiescent, after one hour".
 - **User config only.** The key is never read from the cwd project, so running `doctor` from inside some project cannot change how every ad-hoc root ages.
 - **Prune deletes `projects/<id>/` and `context/<id>/` together.** Nothing pruned `context/` before. A recreated path would otherwise inherit an old work tree.
 
@@ -120,17 +120,17 @@ The revision keeps all three premises and narrows the first: committed identity 
 | Alternative | Why rejected |
 |---|---|
 | **Keep create-on-first-write** | Leaves a marker in every directory that receives a write and makes the root unattributable |
-| **Explicit `init` only** | Breaks "runs anywhere" and revives the dead establishment gate across CLI, agent mode and MCP (`spawn:p7782`) |
+| **Explicit `init` only** | Breaks "runs anywhere" and revives the dead establishment gate across CLI, agent mode and MCP |
 | **Writes fail in a bare directory** | Same breakage as explicit `init` only, for launches |
 | **Ancestor walk for identity** | #335: silently joins the wrong project |
 | **Path-keyed identity for everything** | Breaks moves and splits clones and worktrees (`0b6f7e6f3`). The path key is used only where nothing is shared |
 | **A path→id registry** | A second store to keep consistent; the path hash plus `origin.json` gives attribution without one |
-| **Absorption on promotion** (design revision 1) | See below |
+| **Absorption on promotion** | See below |
 | **Adopting the ad-hoc id on `init`** | Commits a path-derived, reserved-prefix id into a shared file |
 | **VCS detection or auto-`init`** | Violates the no-VCS principle; a notice tells the human instead |
 | **A daily automatic ad-hoc sweep** | Declined by the user (2026-10-14); manual `doctor --global --prune` stays the rule |
 
-**What revision 2 deleted from revision 1, and why.** Revision 1 moved a path's ad-hoc root into its committed root on the first write after a marker appeared ("absorption"). To do that safely it needed a `pending` state while live sessions held leases, `doctor --fix` to resume a pending absorption, `superseded` roots when another clone had already written under the committed id, an id-keyed lock `locks/project-id/<N>.lock`, and tests for each. It was about a third of the design's blast radius, and it broke continuations that pointed at the old root. All of it served to carry scratch history across `init`, which no prior art carries. The user gave up carry-over and called the simplified shape the long-term shape, not a stepping stone.
+**Why absorption was rejected.** Moving a path's ad-hoc root into its committed root on the first write after a marker appeared ("absorption"). To do that safely it needed a `pending` state while live sessions held leases, `doctor --fix` to resume a pending absorption, `superseded` roots when another clone had already written under the committed id, an id-keyed lock `locks/project-id/<N>.lock`, and tests for each. It was about a third of the design's blast radius, and it broke continuations that pointed at the old root. All of it served to carry scratch history across `init`, which no prior art carries. The cost was not justified by carrying scratch history across `init`.
 
 **Revisit when:** users report losing pre-`init` history they needed; ad-hoc root counts grow without retention catching up; or a harness needs worktrees of an uninitialized repository to share state.
 
@@ -247,8 +247,7 @@ Keyed session reads avoid materializing an entire global journal for each operat
 
 ### D-lineage-conversation-identity: fork and `--from` ancestry belong to the chat, not a generation (2026-10-21) {#d-lineage-conversation-identity}
 
-**Status:** settled (`work:session-browse-redesign`, plan revision after review
-`spawn:p14100`); shipped in meridian-cli PR #714 (merge `471dfbc59`, 2026-10-21).
+**Status:** shipped in meridian-cli PR #714.
 
 **Decision.** A chat's parents are part of its identity, the way its native session
 binding is:
@@ -284,8 +283,6 @@ would make a disposable projection the only copy of a fact.
 Spawn `--from` is deliberately not an edge: lineage covers primary sessions only
 ([D-browse-lineage-view](session-browse.md#d-browse-lineage-view)).
 
-**Provenance:** `work:session-browse-redesign` `plan.md` "Revision"; implementation
-`spawn:p14101`; re-entry probes `spawn:p14131`, `spawn:p14150`.
 
 ---
 
@@ -488,7 +485,7 @@ The resulting lock order keeps the per-spawn lifetime lock outside specialized
 artifact locks: spawn lock before launch-boundary append lock (that journal was
 deleted in identity-v2 PR 3), and spawn lock before process-scope projection lock.
 
-Provenance: `work:launch-boundary-resurrection`, issue #437.
+See issue #437.
 
 ---
 
@@ -586,7 +583,7 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 **Decision:** The monolithic `work_store.py` was split into three modules with distinct roles: `work_state.py` (models, metadata codec, slug normalization, shared directory-location primitives), `work_store.py` (pure read projections), and `work_repository.py` (all mutations serialized behind `work-store.flock`). Nine mutation pass-through wrappers and 13 private cross-imports were deleted.
 
-**Why:** The thermo-nuclear audit (p26 H2) identified a circular facade: `work_store.py` and `work_repository.py` had 13 private cross-imports and 9 lazy wrappers, with 4 "unused" helpers that were actually misplaced. The split eliminates the cycle by making the dependency one-way: `work_store` and `work_repository` both import from the neutral `work_state`, but never from each other.
+**Why:** Review identified a circular facade: `work_store.py` and `work_repository.py` had 13 private cross-imports and 9 lazy wrappers, with 4 "unused" helpers that were actually misplaced. The split eliminates the cycle by making the dependency one-way: `work_store` and `work_repository` both import from the neutral `work_state`, but never from each other.
 
 **Rejected:** `WorkLocation` discriminated model (the "judo" suggested by the reviewer). The boundary between work store and repository could be made honest without changing the location callback contract. Retaining the two-optionals shape minimizes behavioral risk in crash-sensitive transitions that move directories between active and archive roots.
 
@@ -594,7 +591,7 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### One-shot versioned legacy upgrade codec over quarantining history (PR #423, 2026-07)
 
-**Decision:** Spawn `state.json` is stamped `v: 3` by the writer. Legacy v2 (and versionless) rows upgrade in memory at the parse boundary through `state/spawn/legacy.py` BEFORE the strict `extra="forbid"` model validates. Reads never rewrite legacy files; a row's next locked mutation persists v3 naturally. The module is documented as deletable once pre-v3 rows are gone.
+**Decision:** Spawn `state.json` writes use v4 for rows with launch data and v3 for rows without it. Legacy v2 (and versionless) rows upgrade in memory at the parse boundary through `state/spawn/legacy.py` before the strict `extra="forbid"` model validates. Reads never rewrite legacy files; a row’s next locked mutation persists the appropriate format. The module is documented as deletable once pre-v3 rows are gone.
 
 The never-guess posture holds, with two curated, evidence-based exceptions derived from a real-disk inventory (7,096 rows across all projects on a dev machine):
 
