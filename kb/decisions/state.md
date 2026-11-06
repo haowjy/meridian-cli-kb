@@ -7,20 +7,11 @@ and typed state contracts. Spawn identity and launch containment decisions live 
 
 ## State Layer
 
-### Crash-only design: no graceful shutdown path
+### Crash recovery
 
-**Decision:** Meridian has no graceful shutdown protocol. The design assumption is that any process can be killed at any time, and the system must reach consistent state on the next startup.
-
-**Constraints:** Graceful shutdown adds complexity (shutdown hooks, drain timeouts, cleanup responsibilities) and is unreliable in practice — SIGKILL bypasses all shutdown hooks. The alternative is "crash-only" design: instead of "we always clean up before exiting," the guarantee becomes "the next startup always reconciles correctly."
-
-**Why this works:** The reconciliation path is exercised on every startup regardless of whether a crash occurred. This keeps the recovery path warm and tested, not a rarely-exercised special case.
-
-**Alternatives rejected:**
-- Graceful shutdown with SIGTERM handler — works unless SIGKILL is used; SIGKILL is common (OOM killer, user force-quit, container restart)
-- Separate crash-recovery daemon — unnecessary; reads project status and explicit repair reconciles durable state without an additional process
-
-See [the system overview](../overview.md#design-properties) for the concise
-description of the current design properties.
+Durable state must survive a process being killed at any time; recovery does not
+depend on shutdown handlers running. Normal termination can still perform cleanup,
+but SIGKILL bypasses it. See [the system overview](../overview.md#design-properties).
 
 ---
 
@@ -45,7 +36,7 @@ description of the current design properties.
 
 ---
 
-### Project identity in `meridian.toml`; no repo-local state (Decision 3, 2026-07)
+### Project identity in `meridian.toml`; no repo-local state
 
 **Decision:** The committed, machine-managed `[project] id` in `meridian.toml` is the precedence-exempt project identity. A directory is a project when it has `meridian.toml` or `mars.toml`; zero-TOML directories remain runnable. Read-only commands create nothing.
 
@@ -63,7 +54,7 @@ The ID keys `~/.meridian/projects/<id>/` for runtime and `~/.meridian/context/<i
 
 **Decision.** The tier of a directory depends only on what its literal project root contains:
 
-- **Committed project:** the root holds `meridian.toml` or `mars.toml`. Identity and state behave as in Decision 3: `[project] id`, minted on the first write.
+- **Committed project:** the root holds `meridian.toml` or `mars.toml`. The `[project] id` is minted on the first write.
 - **Ad-hoc place:** the root holds neither, or is the user Mars root `~/.meridian/mars/` itself. Its id is `adhoc.<slug>.<hash12>`, derived from the canonical path, and its state lives in `~/.meridian/projects/<id>/` and `~/.meridian/context/<id>/`. Meridian never writes a file into the directory.
 
 Where no project Mars root exists, agents, skills, model aliases and launch targets come from **user scope**: `~/.meridian/config.toml` plus the user Mars root ([User-scope packages live in an ordinary Mars root](package-management.md#user-scope-packages-live-in-an-ordinary-mars-root-2026-10)). A project layers over user scope.
@@ -455,13 +446,6 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### Single status authority with non-duplicating terminal facts
 
-> **Updated (PR #423, 2026-07).** The decision uses the non-duplicating
-> design that the earlier enforced-equivalence approach approximated: terminal
-> status lives ONLY in the top-level `status` field. `TerminalFacts` carries
-> exit code, timestamps, metrics, error, and origin — but not status.
-> `_RevalidatedFrozenModel` and 17 backward-compatible property accessors were
-> deleted. `StoredSpawnState` uses `extra="forbid"`, so persisted rows with a
-> nested `terminal.status` are quarantined rather than silently accepted.
 
 **Decision (updated):** Runner-exit evidence and finalized-outcome evidence are frozen sub-models (`RunnerExitFacts`, `TerminalFacts`) nested under `runner_exit` and `terminal`. (Since v0.18.0 nothing writes `runner_exit`; it is a read-only legacy field.) Top-level `status` is the sole status authority. `TerminalFacts` carries no status field. When status is terminal, `terminal` must not be `None`; when status is active or `unknown`, `terminal` must be `None`. `extra="forbid"` on the persisted model quarantines rows with extra fields, including any legacy `terminal.status`.
 
@@ -473,11 +457,6 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### Applied/Declined/Missing discriminated mutation result
 
-> **Updated (PR #423, 2026-07).** `MutationOutcome(wrote, snapshot,
-> reason)` was replaced by a discriminated union: `Applied(before, after) |
-> Declined(snapshot, reason) | Missing`. Each variant carries exactly the
-> evidence its callers need. Duplicate cancel requests return
-> `Declined(reason="cancel intent already recorded")`.
 
 **Decision (updated):** Locked mutators return `SpawnRecord | Decline(reason)`. `write_state_locked()` returns `LockedMutationResult`, which is exactly one of `Applied(before, after)`, `Declined(snapshot, reason)`, or `Missing`. Callers pattern-match on the variant. The lifecycle layer derives `transitioned` from comparing `Applied.before.status` and `Applied.after.status`.
 
@@ -487,15 +466,6 @@ Six decisions made invalid states unparseable or unconstructible, eliminating bu
 
 ### Normalize-once EventSemantics descriptor per raw event
 
-> **Updated (PR #423, 2026-07).** The `SemanticEvent` union
-> (`ActivitySemanticEvent | TerminalSemanticEvent | SignalClearedSemanticEvent`)
-> and the `SemanticClass` flag-bag were deleted. They were an unused
-> intermediate representation: three legacy scalar queries (`terminal_outcome`,
-> `activity_transition`, `clears_signal`) re-dispatched per event, the drain
-> interpreted twice, and connections re-interpreted. This was replaced by them with
-> one typed `EventSemantics` descriptor (fields: `activity`, `clears_signal`,
-> `terminal`) attached to `NormalizedHarnessEvent`. Each raw event is
-> normalized exactly once; downstream consumers read the descriptor.
 
 **Decision (updated):** Raw harness events stay open (unknown event types pass through). Each adapter's `HarnessBundle` registers a `HarnessSemantics` port with an event-name to `EventSemantics` descriptor table and optional payload resolver. `normalize_event()` dispatches by `HarnessId` before `event_type` and returns `NormalizedHarnessEvent` carrying the raw event and its single semantic descriptor. Shared `semantics.py` contains no harness event names. Connections own primary scope; scope construction was moved from shared semantics into each connection.
 

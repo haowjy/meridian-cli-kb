@@ -2,7 +2,7 @@
 
 A chat's conversation comes from the harness transcript selected by its recorded native binding. A runner stream can mix two native conversations after an in-TUI switch and must not act as a fallback authority. On one measured installation the duplicate runner histories occupied 27.1 GB across 4,392 files. See [native transcript reads](../architecture/native-transcript-reads.md) and [native session identity](native-session-identity.md).
 
-## Old runner history: option C, drop
+## Old runner history
 
 Old runner history is not read, even when it is the only remaining conversation. A measured 155 chats, about 850 MB, had only that copy. Keeping a decoder or fallback would preserve a second, unverifiable read path. Provable old bindings can be recovered by [legacy native import](legacy-native-import.md).
 
