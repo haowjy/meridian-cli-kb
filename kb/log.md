@@ -3,6 +3,14 @@
 Tracks structural changes to this knowledge base — new pages, reorganizations, and content migrations.
 
 ---
+## 2026-11-06 — Mars warning fixes (mars-agents #323, #324, in review)
+
+[Package management](decisions/package-management.md#warnings) gains a Warnings
+section with four tech-lead decisions pending owner review. The lossiness
+paragraph in [skill schema](concepts/skill-schema.md) no longer claims
+`mars validate --verbose` exists or that only `Approximate` entries surface.
+
+---
 ## 2026-11-05 — session relocate (PR #868, unmerged)
 
 [Native session identity](decisions/native-session-identity.md) gains "Paths move

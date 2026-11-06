@@ -114,7 +114,7 @@ to each harness's expected format.
 
 | Source field | Claude | Codex | OpenCode | Pi | Cursor |
 |---|---|---|---|---|---|
-| `model-invocable: false` | `disable-model-invocation: true` | sibling `openai.yaml`: `policy.allow_implicit_invocation: false`† | dropped silently | `disable-model-invocation: true` | `alwaysApply: false`, description stripped (Manual rule)‡ |
+| `model-invocable: false` | `disable-model-invocation: true` | sibling `openai.yaml`: `policy.allow_implicit_invocation: false`† | dropped (lossiness) | `disable-model-invocation: true` | `alwaysApply: false`, description stripped (Manual rule)‡ |
 | `model-invocable: true` | (omit) | (omit) | (omit) | (omit) | `alwaysApply: false`, description kept |
 | `user-invocable: false` | `user-invocable: false` | dropped (lossiness) | dropped (lossiness) | dropped (lossiness) | dropped (lossiness) |
 | `user-invocable: true` | (omit) | (omit) | (omit) | (omit) | (omit) |
@@ -127,9 +127,12 @@ to allowing implicit invocation.
 can't auto-select the rule, which is the closest equivalent.
 
 **Lossiness model:** When a harness has no native equivalent for a field (e.g.,
-Codex has no `user-invocable`), the lowering records a `Dropped` lossiness entry.
-These are internal metadata for tooling (`mars validate --verbose`), not
-user-visible warnings. Only `Approximate` lossiness entries surface to users.
+Codex has no `user-invocable`), the lowering records a lossiness entry. `mars check`
+and `mars init` list these entries, and a sync on current `main` warns about each
+one. mars-agents #324, in review, would move skill entries behind
+`mars sync --verbose`, because a skill carries no tool or network restriction
+([D-quiet-needs-a-reason](../decisions/package-management.md#d-quiet-needs-a-reason-a-dropped-field-is-reported-unless-its-site-says-why-not-2026-11-06)).
+mars-agents `docs/config/skill-compilation.md` owns what prints where.
 
 ```mermaid
 graph LR

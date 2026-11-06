@@ -1442,6 +1442,124 @@ rather than parse its config in Meridian.
 
 ---
 
+## Warnings
+
+> **Status:** Pending owner review. The tech lead made all four decisions below
+> on 2026-11-06, and the owner has not seen them. The code is in mars-agents
+> PRs [#323](https://github.com/haowjy/mars-agents/pull/323) and
+> [#324](https://github.com/haowjy/mars-agents/pull/324), open and in review, so
+> no released Mars behaves this way yet. Each PR's branch carries the mechanism:
+> `docs/config/agent-compilation.md` ("Lossiness Model"), `src/sync/AGENTS.md`
+> ("Lossiness Gating"), `docs/config/mars-toml.md` and `docs/cli/commands.md`.
+
+An audit of every warning Mars prints in normal use found two kinds of failure.
+Some warnings repeated until people stopped reading stderr, and some real events
+printed nothing. A tool deny written for Claude does not exist on Codex, so that
+agent runs unrestricted there. Mars said so once per field per agent on every
+sync, among lines nobody could act on, and said nothing on `add`, when the user
+could still react.
+
+`work:mars-warning-audit`, `work:mars-warning-fixes`; mars-agents#317, #318, #319.
+
+### D-quiet-needs-a-reason: a dropped field is reported unless its site says why not (2026-11-06)
+
+**Decision.** `Lossiness::Dropped` is the default class, and a default `add`,
+`sync` or `upgrade` reports it. A lowering site goes quiet only by choosing
+another class: `Lossiness::Harmless { why }`, `Approximate` or `MeridianOnly`.
+`--verbose` shows the quiet ones, with the `why`.
+
+**Why.** Separating real losses from noise means classifying every lowering
+site, and that classification kept being wrong. Quiet was the default at first,
+and three review rounds in a row (`spawn:p10518`, `spawn:p10520`) each found a
+restriction filed in the quiet class. The failure was structural: going quiet
+took no decision, so a site nobody had thought about lost a restriction silently.
+With the default reversed, a misfiled site costs one extra line of output.
+
+**Rejected.** Adding the missed keys to the list of `native_overrides` it
+already checked: that was the fourth patch of the same kind, and the fifth site
+would have gone quiet the same way.
+
+**Revisit** if the reported class grows noisy enough that people stop reading
+it again. That means reclassifying sites with a stated `why`, and the default
+stays.
+
+### D-lost-restriction-repeats: a lost restriction prints on every sync, one line per target (2026-11-06)
+
+**Decision.** Each target with an agent that loses a restriction gets one line
+naming those agents, on every `add`, `sync` and `upgrade` while the loss exists.
+`--verbose` gives the per-field detail. The code is
+`agent-restriction-dropped`. No state records what has been reported.
+
+**Why.** mars-agents#318 asked to report this once, and the first design did:
+warn only when a native output was new or changed against the lock. Review
+showed that design reads "the lock advanced" as "the user was told", and a lock
+change proves no such thing. `mars link .codex`, `repair`, `override`, `adopt`,
+`rename` and `remove` all advance the lock with warnings hidden. A consumer
+`[agents.<name>.tools]` overlay changes no bytes the gate compares. A fresh
+clone arrives with the lock already committed. Each of those lost the warning
+that `main` repeats on the next sync, so the gate regressed the one warning
+that describes a real loss. The cost of repeating is one line per affected
+target, which is cheap beside an agent running without the limit its author set.
+
+**Rejected.**
+
+| Option | Why not |
+|---|---|
+| A digest of reported fields in `mars.lock` | Changes on-disk state in a patch, and a clone still sees nothing because the lock is committed |
+| Surfacing warnings on the six commands that hide them | Leaves overlays and clones silent |
+| Per-field detail on change, plus a summary line | Keeps the gate's code for little gain |
+
+**Reach.** `meridian mars` sets `MERIDIAN_MANAGED=1`, so native agents are not
+emitted and this line never prints there. An agent launched through Meridian
+has its gaps reported by
+[D-permission-report-only-gaps](tool-permissions.md#d-permission-report-only-gaps)
+instead.
+
+### D-unknown-settings-validate-only: unknown `[settings]` keys warn in `mars validate` and nowhere else (2026-11-06)
+
+**Decision.** `mars validate` warns about each unknown key in `[settings]` of
+`mars.toml` and `mars.local.toml` (`unknown-settings-key`). `sync` and every
+other command stay silent, and a save keeps the key.
+
+**Why.** Two needs conflict. A mistyped setting does nothing and validate called
+it clean, yet an older Mars must accept a config written for a newer one. Each
+command answers a different question, which settles it. `sync` is where an old
+binary meets a newer config, so a warning there would fire on correct files.
+`validate` is where someone asks whether the config is right.
+
+**Rejected.** Warning on every sync: it breaks the forward-compatibility rule
+for little gain and adds noise of the kind this work removes. Checking the user
+config's `[settings]` too: `validate --strict` would then fail every project on
+one bad user file.
+
+**Known cost.** `validate --strict` escalates these warnings like any other, so
+a project that sets a key only a newer Mars reads fails `validate --strict` on
+an older one.
+
+### D-cli-path-cwd-then-root: a relative CLI path resolves against the working directory first, an explicit `--root` second (2026-11-06)
+
+**Decision.** `mars adopt PATH` and `mars build plugin PATH` resolve a relative
+`PATH` against the working directory when it exists there. Otherwise, with an
+explicit `--root`, they resolve it against the project root that `--root` led
+to.
+
+**Why.** "Relative to `--root`" is the obvious rule, and it is wrong here because
+Meridian [always appends `--root`](#d97-user-scope-packages-live-in-an-ordinary-mars-root-2026-10)
+(`src/meridian/cli/mars_passthrough.py`). A user who types
+`meridian mars adopt ../../x` from a subdirectory means that path, and Mars
+cannot tell it was not typed with `--root`. The order chosen changes only paths
+that failed before.
+
+**Rejected.** The working directory only, the rule `mars check` uses: leaves the
+original bug, `adopt` not finding a path under `--root`. `--root` only: breaks
+the Meridian case above.
+
+**Known cost.** A path that exists in the working directory shadows the same
+path under `--root`, with no message. `mars check PATH`, `build plugin --out`,
+`override PATH` and `add ./path` keep their own existing rules.
+
+---
+
 ## Related
 
 - [mars-portable-hooks.md](mars-portable-hooks.md) — Mars 0.25 portable `[hooks]`: Claude's hook syntax rendered per target, rules in `mars-schema`, validation by origin
