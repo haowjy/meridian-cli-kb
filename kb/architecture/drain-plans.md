@@ -39,60 +39,64 @@ incomplete cleanup after a crash.
 
 ## Resident completion
 
-Claude, Codex, and OpenCode resident children share one candidate-scoped
-confirmation contract. A **candidate** is a successful or idle terminal turn
-retained by the coordinator; it is not yet the spawn's published outcome.
+Claude, Codex and OpenCode children share one hold. A **candidate** is a successful
+or idle turn the coordinator retains; it is not yet the spawn's published outcome.
+What happens to it depends on whether the harness reports its own work.
 
 ```mermaid
-flowchart LR
-    C["Retain successful candidate"] --> Q["One best-effort confirmation turn"]
-    Q -->|done and readable evidence| A["Accept retained candidate"]
-    Q -->|silent or unavailable; ready evidence| A
-    Q -->|rearm| R["Reject candidate; open fixed window"]
-    R -->|genuinely new candidate| C
-    Q -->|blocked or unknown| W["Hold within deadline"]
+flowchart TD
+    E["Turn ends: candidate retained"] --> N{"Harness reports its own work?"}
+    N -->|"yes: Claude"| R{"Anything running?"}
+    N -->|"no: Codex, OpenCode"| Q["Turn-end ask"]
+    R -->|no| P["Publish"]
+    R -->|yes| H["Hold, no message"]
+    H -->|work clears| P
+    Q -->|"done, or silence with ready evidence"| P
+    Q -->|rearm| L["Rearm lease"]
+    H -->|idle limit| I["One ask: 300 s to answer"]
+    L -->|lease ends| I
+    I -->|reply| C["Close: reply is the report, cancel what runs"]
+    I -->|rearm| L
+    I -->|no work| X["timed_out, then cleanup"]
 ```
 
-The diagram shows the completion choices; evidence validation and deadline
-arbitration still gate publication. Before installing a candidate, the hold
-profile consumes and discards candidate-less `done` and `rearm` under the
-published-artifact lock. A signal file is delivery, not completion authority:
-a stale signal cannot accept a future turn or spend its rearm budget.
+The diagram shows the common paths; evidence validation and the idle limit still
+gate publication. `hold_state.py` owns the whole lifecycle as one table, and
+`src/meridian/lib/streaming/.context/completion-and-entry-points.md` says why each
+row sits where it does. [Completion decisions](../decisions/completion-drain.md)
+hold the reasons for the rules themselves.
 
-- **`done` accepts the retained candidate.** It can override known blockers,
-  but never unreadable (`unknown`) evidence. During an active confirmation turn,
-  it waits for the closing report up to the completion deadline. It does not
-  cancel Meridian descendants; agents should wait for them before finishing.
-  Managed-scope teardown does stop leftover harness-native work.
-- **`rearm` rejects that candidate.** A granted rearm clears candidate-scoped
-  confirmation/done state and starts another fixed completion window. It waits
-  for a genuinely new successful/idle candidate, not another timer-generated
-  confirmation. It does not latch an indefinite requirement for a later `done`.
-- **Silence or unavailable confirmation can accept ready evidence.** Each
-  candidate gets one best-effort confirmation turn. A completed silent turn or
-  a failed/unavailable injection can accept when neither descendants nor native
-  tasks block completion. Live work still holds; `unknown` never authorizes
-  success. There are no recurring advisory polls or timeout-soon nudges.
+- **`done` closes.** It can override known blockers, but never `unknown` evidence.
+  It waits out a running turn, and it cancels descendants and stops local background
+  tasks through `cleanup`.
+- **`rearm` stays until an ask ends it.** It sets a lease: quiet while visible
+  blockers are unchanged, 270 s after the last turn end with nothing visible, or the
+  idle limit with `--long`. A rearm drops the candidate but keeps the report.
+- **Signals need no candidate.** A signal written during a turn waits for that turn's
+  end. Of two in one read, the later stands
+  ([why this is safe](../decisions/completion-drain.md#d-signals-need-no-candidate)).
+- **A parent is woken for what it is owed.** With a ready tree, a parent holding an
+  unread finished child gets one message naming each report, before it closes. The
+  check reads owed launches, not a blocker clearing, because a child that finished
+  during the parent's turn never shows as a blocker. An idle-limit ask names the same
+  children, because a reply to it closes over blockers.
 
-**The retained candidate carries the report.** The drain captures the text of
-the turn that formed the candidate, and finalization prefers it over later
-assistant text. A reply the child writes after `done` is therefore not its
-report; a granted `rearm` drops the captured text with the candidate. The
-confirmation message tells the child exactly this
-([report contract](../decisions/completion-drain.md#d-completion-report-contract)).
-
-**A hold without a completion-signal channel skips confirmation.** `done` and
+**A hold without a completion-signal channel skips the ask.** `done` and
 `rearm` write Meridian state under its lock. When the connection reports that
 the child cannot write there (Codex under an explicit `read-only` sandbox), the hold keeps the same evidence, blocker and
-deadline policy but sends no confirmation, reads no signals, and accepts a ready
+deadline policy but sends no ask, reads no signals, and accepts a ready
 candidate directly ([D-completion-channel](../decisions/completion-drain.md#d-completion-channel)).
 This and the empty accepted-signal set below shipped in v0.12.4 (PR #737).
 
-A fresh descendant assessment must cover every proposed success. Transport
+A fresh descendant assessment must cover every proposed success, and a success
+never publishes over a running turn. The one exception to the assessment is the
+child's own close: `done` and a reply go through `cleanup`, which publishes the
+candidate directly, because cancelling covers what validation checked. Transport
 closure does not erase a retained success: ready evidence can accept it;
 persisted descendants or temporarily unknown evidence can keep the drain alive
-without further event reads. Native-only blockers on a dead backend and
-non-transport failures retain their failure diagnostics.
+without further event reads. A close during a running turn fails with the close's
+outcome and cancels descendants. A dead backend ends the wait at once and cancels
+descendants too; before, a Claude child died unnoticed until the deadline.
 
 ### One hold profile, composed evidence
 
@@ -103,8 +107,8 @@ observe persisted descendants; Claude adds native background-task evidence.
 OpenCode 2.x is resident-capable and uses this hold too. Cursor and connections
 with neither capability remain plain plans. Pi retains its own quiescence policy.
 
-The profile owns confirmation, signal precedence and the completion window.
-Evidence sources report facts; they do not decide whether a child may finish.
+`_HoldProfile` is the shell around `hold_state.py`: it reads files and the clock,
+sends, and applies what the table returns. Evidence sources report facts; they do not decide whether a child may finish.
 The shared mechanism and freshness gate are described in
 [completion drain coordination](completion-drain-coordination.md).
 
@@ -116,37 +120,50 @@ snapshot and reports `native_task` blockers; `HoldEvidence` combines them with
 persisted descendants. The source has no timers or signal policy.
 
 A non-empty snapshot blocks completion. When it empties, the closing parent
-`result` is still owed. A malformed snapshot holds within the deadline.
-Subagent assistant frames are not parent-turn activity. Even a Claude child
-without background tasks receives the same best-effort confirmation as other
-resident children.
+`result` is still owed. A malformed snapshot holds within the idle limit.
+Subagent assistant frames are not parent-turn activity.
 
-Confirmation reaches every harness through serialized `SpawnManager.deliver()`. Neither
-delivery success nor a native snapshot alone authorizes terminal publication.
+Claude's `system/init` marks the turn running a model call before its first
+`assistant` frame, as a `turn_active` event that carries no work and renews nothing.
+`init` can still land after an evaluation, so a turn end that released a hold settles
+for 1 s before it publishes. Before this, a queued task notification raced the close
+and a child could be stopped mid-turn with its report lost. A child with no background
+work pays no settle.
 
-### Completion windows and rearm budget
+Every ask reaches its harness through serialized `SpawnManager.deliver()`. Neither
+delivery success nor a native snapshot alone authorizes terminal publication. An unknown
+delivery result counts as sent and is not retried: Claude's normal success is a write
+with no receipt, so a resend could ask twice.
 
-Unless `timeouts.resident_deadline_seconds` is explicit, the completion window
-inherits the **calling harness's** configured `wait_yield_seconds`, not the
-launched child's harness setting. Claude and Codex default to 3000 seconds.
-This is an operational idle/compaction bound, not a prompt-cache guarantee.
-The caller's [wait checkpoint](../concepts/spawn-wait-barrier.md) is independent:
-its expiry yields control, whereas a child's completion deadline can end the spawn.
+### The idle limit and rearm budget
 
-The deadline is absolute per arm. Only a granted candidate-scoped rearm renews
-it; ordinary events and descendant activity cannot slide it. Rearm grants are
-unlimited by default. `--resident-rearm-budget`,
-`MERIDIAN_RESIDENT_REARM_BUDGET`, profile
+Unless `timeouts.resident_deadline_seconds` is explicit, the idle limit inherits
+the **calling harness's** configured `wait_yield_seconds`, not the launched child's
+harness setting. Claude and Codex default to 3000 seconds. This is an operational
+bound, not a prompt-cache guarantee. The caller's
+[wait checkpoint](../concepts/spawn-wait-barrier.md) is independent: its expiry
+yields control, whereas a child's idle limit can end the spawn.
+
+The clock renews on the child's own work inside a turn and on a granted rearm. Work is
+a harness event marked `EventSemantics.work`: the child's output, tools and reasoning.
+Heartbeats, usage and rate-limit updates are not work, and neither are Meridian's own
+nudges or their echoes. Work counts only while a turn runs, so a chatty background
+process cannot hold an idle child open, and descendant activity renews nothing. One
+foreground command silent for a whole window is still idle and gets the ask.
+
+Rearm grants are unlimited by default, and the budget caps rearms only.
+`--resident-rearm-budget`, `MERIDIAN_RESIDENT_REARM_BUDGET`, profile
 `harness-overrides.meridian-cli.resident-rearm-budget`, or
 `timeouts.resident_rearm_budget` opts into a maximum. Granted extensions are
-persisted as the spawn's `resident_rearm_count`. The CLI refuses an exhausted
-budget; runner-side exhaustion retains `resident_rearm_budget_exhausted`.
+persisted as the spawn's `resident_rearm_count`; each reason goes to `rearms.jsonl`
+when the rearm is charged, so the file holds only rearms that took effect. The CLI
+refuses an exhausted budget; runner-side exhaustion retains
+`resident_rearm_budget_exhausted`.
 
-With no accepted completion, deadline expiry publishes `timed_out` with
-`resident_deadline_expired`, then asynchronously attempts descendant cleanup.
-An explicit `done` cannot bypass unreadable evidence; if that override is still
-blocked on unreadability at expiry, it fails with `resident_evidence_unreadable`.
-The outer attempt timeout remains independent.
+With no answer to the ask, the hold publishes `timed_out` with
+`resident_deadline_expired`, then attempts descendant cleanup. A `done`
+still blocked on `unknown` evidence at expiry fails with
+`resident_evidence_unreadable`. The outer attempt timeout remains independent.
 
 ### Signal capability belongs to the selected plan
 
@@ -162,8 +179,8 @@ terminal, unsupported and exhausted-budget targets fail clearly.
 An absent file preserves legacy delivery with an explicit **unconfirmed**
 result. The capability stays off the strict spawn row: older readers reject
 unknown row fields but ignore this side file. A successful command confirms
-possible delivery, not acceptance of a candidate; candidate scope remains the
-coordinator's responsibility.
+possible delivery, not that the hold took it; a rearm read as the hold ends is dropped
+and costs no budget.
 
 ## Timeout carrier
 
@@ -178,6 +195,6 @@ resident rearms nor Pi child waves can reset it.
 ## Related pages
 
 - [completion-drain-coordination.md](completion-drain-coordination.md) — shared completion mechanism, profile policy, and evidence authority.
-- [Completion decisions](../decisions/completion-drain.md) — why confirmation is candidate-scoped and shared across resident children.
+- [Completion decisions](../decisions/completion-drain.md) — when a child closes, what it reports, and what was rejected.
 - [spawn-finalization.md](spawn-finalization.md) — terminal write authority and store-level finalization.
 - [concepts/harness-abstraction.md](../concepts/harness-abstraction.md) — resident backend capability seam.

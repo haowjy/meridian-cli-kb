@@ -1,7 +1,7 @@
 # Completion drain is shared mechanism with profile-owned policy
 
-The resident path keeps Claude/Codex/OpenCode children alive through completion
-confirmation; the Pi path waits for its own work and delivery obligations to
+The resident path holds Claude/Codex/OpenCode children open while work runs and
+asks at the idle limit; the Pi path waits for its own work and delivery obligations to
 settle. Both use one `CompletionCoordinator`, composed with
 `CompletionEvidence`, `CompletionProfile`, and `CompletionCleanup`
 collaborators. The coordinator owns candidate, wait, deadline, and stabilization
@@ -28,7 +28,8 @@ it; it is not yet a published spawn outcome. The coordinator retains that
 candidate, evaluates immutable
 work assessments, schedules one completion deadline, and manages stabilization and
 validation. When policy proposes success, it requests a qualifying descendant refresh
-and does not publish until that request is covered. After the stabilization window
+and does not publish until that request is covered. A child's own close is the exception:
+a `cleanup` decision publishes its candidate directly. After the stabilization window
 elapses, the coordinator disarms that timer and enters a distinct `validating` phase;
 the already-requested fresh read wakes validation. Activity interrupts either phase
 and invalidates pending validation. Clearing the retained candidate is a separate
@@ -46,21 +47,22 @@ The collaborators are cohesive boundaries:
 - **Completion evidence** observes persisted events and returns immutable
   assessments.
 - **Completion profile** owns directives, precedence, outcome mapping,
-  deadline/reset policy, close classification and stabilization. Resident
-  confirmation is once per candidate, and skipped for a child with no
-  completion-signal channel; Pi has its own advisory-nudge policy.
+  deadline/reset policy, close classification and stabilization. The hold's profile
+  is a shell around the pure table in `hold_state.py`; it asks only where the
+  harness doesn't report its own work, or at the idle limit, and never for a child
+  with no completion-signal channel. Pi has its own advisory-nudge policy.
 - **Completion cleanup** interprets cleanup handles after the profile authorizes
   cleanup.
 
-Candidate installation is an explicit profile transition. The shared hold
-consumes and discards candidate-less signals under the published-artifact lock
-before the coordinator installs a new candidate. Its profile owns the `done`
-latch and candidate-aware rearm admission; `RearmWindow` only owns window and
-budget arithmetic. Keeping signal admission beside completion state prevents
-a stale mailbox entry from accepting the next turn.
+The hold admits `done` and `rearm` with or without a candidate. With no candidate and
+no rearm, nothing reads the signal files until the turn end that creates the candidate,
+so a read finds only that turn's signals and a stale mailbox entry cannot accept a
+later turn ([why](../decisions/completion-drain.md#d-signals-need-no-candidate)). The
+table owns the `done` latch and spends the rearm budget at the row that takes the
+rearm; `RearmWindow` only owns window and budget arithmetic.
 
 The protocols declare these lifecycle boundaries: `CompletionProfile` exposes
-`candidate_transition` and `after_terminal_accepted`; `DrainCoordinator`
+`after_terminal_accepted`; `DrainCoordinator`
 exposes `pending_outcome` and `should_defer_close`. The drain loop uses those
 contracts rather than probing for optional methods.
 
@@ -110,7 +112,10 @@ bus participates in persisted-descendant authority.
 Every proposed success receives a request sequence and waits for a refresh begun after
 that request before policy is reevaluated. A cached ready result cannot authorize
 publication. A `done` directive may override known blockers, but it cannot turn
-`unknown` into success. Transient unreadability waits for recovery. A hold
+`unknown` into success: transient unreadability waits for recovery, and only then does
+the close skip validation, because it cancels whatever validation would have found. A
+reply to the idle-limit ask closes on any evidence, including `unknown`, because the
+ask told the child what closing stops. A hold
 cannot succeed merely because its deadline expires: the profile returns a
 non-success outcome. Resident `done` blocked on unreadable evidence expires
 with `resident_evidence_unreadable`; without that override, the ordinary
@@ -173,21 +178,23 @@ attempted IDs remain eligible for an owned fallback handle.
   hold profile over `HoldEvidence(descendants, native)`; all holds observe
   persisted descendants, and Claude adds native tasks;
 - Claude, Codex and resident OpenCode (including 2.x) use that same
-  [candidate-scoped confirmation contract](drain-plans.md);
+  [hold](drain-plans.md);
 - a spawned Pi RPC session gets the Pi profile and private-ledger wake source;
 - ordinary streaming gets `DrainPlan(coordinator=None)`.
 
 The plan owns `DrainSessionTeardown` from `drain_teardown.py`, including async
 connection stop and Pi cleanup-phase policy. `SpawnManager` supplies generic
-capabilities such as serialized injection and application-service cleanup; it
+capabilities such as serialized delivery and application-service cleanup; it
 contains no Pi imports or Pi child-wave, notification, process-group, stop
 reason, or cleanup-phase policy.
 
 ## Invariants
 
-1. A request-sequenced, post-proposal refresh precedes every success; stabilization and
-   fresh-evidence validation are distinct coordinator phases.
-2. `unknown` blocks success, including a `done`-directed success.
+1. A request-sequenced, post-proposal refresh precedes every success except a child's own
+   close through `cleanup`; stabilization and fresh-evidence validation are distinct
+   coordinator phases.
+2. `unknown` blocks success, including a `done`-directed success. A reply to the idle-limit
+   ask is the one close that doesn't wait for it.
 3. One completion cycle has at most one deadline expiry, one latched cleanup,
    and one published terminal outcome.
 4. Wakes trigger reevaluation or refresh; they are not evidence.
@@ -203,8 +210,7 @@ reason, or cleanup-phase policy.
    fan-out of the raw envelope carrying refined semantics, `note_event_delivered`
    on the raw frame, and terminal handling. There is no history write to gate
    delivery; see the [emit path](attempt-facts-and-delivery.md#the-emit-path).
-9. Pi nudges and Claude confirmation turns route through serialized
-   `SpawnManager.deliver()`.
+9. Every nudge and ask routes through serialized `SpawnManager.deliver()`.
 10. The plain path remains `coordinator=None`.
 
 ## Related pages

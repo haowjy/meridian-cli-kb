@@ -37,7 +37,7 @@ Knowledge base for the Meridian ecosystem. Covers the CLI, the mars package comp
 Durable decision rationale, clustered by domain. Start with [decisions.md](decisions.md) for the chronological index; follow anchors into domain pages for full reasoning.
 
 - [decisions/overview.md](decisions/overview.md) — Domain page map and naming guidance for the decisions layer
-- [decisions/completion-drain.md](decisions/completion-drain.md) — A finished harness turn is a completion candidate, not proof that background work is finished
+- [decisions/completion-drain.md](decisions/completion-drain.md) — When a child closes, what it reports and who decides how long it runs: open while work runs, the ask, one idle limit, no work limit, a close cancels what it started, the hold as one table
 - [decisions/child-result-delivery.md](decisions/child-result-delivery.md) — Owed results, bounded wait output, delivery races and consumption.
 - [decisions/primary-inject.md](decisions/primary-inject.md) — D-claude-primary-inbox (#665, merged in PR #668 and v0.10.22; flagged for owner review): a Claude primary is injected through Claude Code's own inbox socket, recorded by the session-boundary hook, not through a mod; children keep stdin; no token, no forged attestation, no `--settings` override; "posted", never "delivered". D-spawn-message-frame: every message names its sender and reply command. D-spawn-message-address: another project's session is addressed `meridian -C <root> spawn message <chat>` (v0.16.4, #801); the reply names the sender's current chat (v0.17.1, #811). D-delivery-kind: posted or acknowledged (PR #878). D-no-retry-after-write: refused, dead or unknown, resent only when refused (PRs #877, #907). D-unified-delivery: every live session serves one control socket, and a socket file means a route (PRs #907, #917, #918). D-primary-session-move: a Codex or OpenCode route refuses once the TUI leaves its session (awaiting the owner)
 - [decisions/chat-spawn-ownership.md](decisions/chat-spawn-ownership.md) — A chat reference names the run currently occupying that chat, otherwise its own latest linked session, never a child
@@ -79,7 +79,7 @@ Durable decision rationale, clustered by domain. Start with [decisions.md](decis
 - [decisions/session-browse.md](decisions/session-browse.md) — The picker shows recognizable session details and opens transcripts on request
 - [decisions/instruction-files.md](decisions/instruction-files.md) — AGENTS.md is the instruction file; no CLAUDE.md mirrors, `qi claude-md-fix` deleted
 - [decisions/opencode-prompt-delivery.md](decisions/opencode-prompt-delivery.md) — Meridian projects a reserved config agent at bind for the prompt, permissions and workspace grants
-- [decisions/tool-permissions.md](decisions/tool-permissions.md) — Profiles express tool, sandbox and approval policy; harnesses enforce only what their native mechanisms can express
+- [decisions/tool-permissions.md](decisions/tool-permissions.md) — Profiles express tool, sandbox and approval policy; native enforcement, the Codex shell hook as an accident guard, `approval: auto` as each harness's own auto
 - [decisions/sandbox-platform-access.md](decisions/sandbox-platform-access.md) — Meridian projects its control-plane needs separately from profile permissions
 - [decisions/bundle-field-consumption.md](decisions/bundle-field-consumption.md) — Every launch-bundle field is applied, reported as unsupported, or deliberately left unread with a reason
 
@@ -145,7 +145,7 @@ How the system realizes the concepts — subsystem boundaries, invariants, data 
 - [architecture/state-system/session-state.md](architecture/state-system/session-state.md) — A chat's native key identifies its harness, store and session
 - [architecture/per-operation-cost.md](architecture/per-operation-cost.md) — Launch, close, wait, show, cancel and continue concern one spawn and chat; their work should not grow with project history
 - [architecture/spawn-finalization.md](architecture/spawn-finalization.md) — The runner or a repairer that claims its free launch lock writes the terminal once
-- [architecture/drain-plans.md](architecture/drain-plans.md) — shared resident confirmation, native plus persisted evidence, candidate-scoped signals, absolute completion windows and publish-before-cleanup boundary
+- [architecture/drain-plans.md](architecture/drain-plans.md) — the resident hold, native plus persisted evidence, signals, the idle limit and rearm budget, and the publish-before-cleanup boundary
 - [architecture/completion-drain-coordination.md](architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism, cached indexed descendant refresh, Pi private-work boundary, and publish-before-cleanup invariant
 - [architecture/pi-lifecycle.md](architecture/pi-lifecycle.md) — current Pi spawned-session lifecycle, quiescence, extension integration, and cleanup behavior
 - [architecture/pi-runtime/coordination.md](architecture/pi-runtime/coordination.md) — Pi Bash owner recovery, canonical child membership, exact completion delivery, bounded RPC reception, usage accounting, and failure limits

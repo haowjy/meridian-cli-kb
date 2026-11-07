@@ -8,11 +8,25 @@ Mars supplies native permission spellings and the tools they concern. They can d
 
 ## Native enforcement {#d-permission-native-enforcement}
 
-Each harness uses its own enforcement mechanism; a universal Meridian interception hook would create a second policy layer that can disagree with the harness. A sandbox is not equivalent to tool denies. A harness without a sandbox reports that gap rather than claiming an approximation.
+Each harness uses its own enforcement mechanism; a universal Meridian interception hook would create a second policy layer that can disagree with the harness. A sandbox is not equivalent to tool denies. A harness without a sandbox reports that gap rather than claiming an approximation. Where a harness has no scoped rule of its own but offers a hook seam, Meridian compiles the profile's rules into that seam: Pi's extension and the [Codex shell hook](#d-codex-shell-hook).
+
+## Codex shell hook {#d-codex-shell-hook}
+
+Scoped `bash` rules bind Codex through a `PreToolUse` hook Meridian owns, because Codex has no scoped shell rule and the profiles use these rules heavily: 184 denies and 34 allows across 7 packaged profiles.
+
+The hook guards against accidents, and it is not a sandbox. The threat is a careless agent running something like `git reset --hard`, never an agent working to get past its own rule. So it is wildcard rules on each command segment, with the same ranking as Pi, so a rule means the same on both. `sudo git reset --hard`, `bash -c`, substitutions, scripts and `git -C` are caught only if a rule matches them. Those are known gaps. Don't close one with a parser: the first version grew a shell parser, wrapper tables, a digest bootstrap and its own deadline, reaching 1,138 lines while still unable to stop a REPL, `apply_patch` or `find -exec`, and wildcard rules cut it to 219 ([#922](https://github.com/haowjy/meridian-cli/pull/922)). The hook's contract and failure handling are in `src/meridian/lib/harness/projections/.context/CONTEXT.md`, its gaps in `docs/upgrading.md`.
+
+What stays strict is an allowlist, which refuses `$`, backticks and redirection, and the launch check. Codex skips an untrusted hook silently and fails open on any hook failure, so Meridian asks `hooks/list` before the first turn and refuses a launch whose hook isn't trusted and enabled. Without that check a Codex upgrade could turn the rules off with no sign.
+
+## Approval `auto` means the harness's own auto {#d-approval-auto}
+
+`approval: auto` compiles to each harness's own auto: Claude's `--permission-mode auto`, Codex's `on-request` with `approvals_reviewer="auto_review"`. The `acceptEdits` mapping was a stand-in, and leaving the Codex reviewer to `~/.codex/config.toml` made the result depend on the user's home. `--approve-for-me` was rejected because it refuses `--sandbox`, forces `workspace-write` and doesn't exist on the app server. A profile that gates a tool keeps a mode that refuses that tool, because Claude's classifier would otherwise approve the unmatched call and silently widen the profile.
+
+The classifier and reviewer are not security boundaries to rely on. In a live check the Codex reviewer allowed `git reset --hard` and a write to `/etc`, and it never runs under `danger-full-access`. Claude's classifier refused a token exfiltration but not `git reset --hard`. A confined Claude profile under `auto` also lets the classifier decide writes outside the working directories and web tools, including under `network: deny`. That stays documented in the report lines and `docs/upgrading.md`, with no new code.
 
 ## Report actual projection {#d-permission-report-only-gaps}
 
-An enforcement report is produced with the projection so it describes what reached the harness, rather than merely repeating what the profile requested. Unsupported and partial restrictions remain visible in dry run and the projection manifest.
+An enforcement report is produced with the projection so it describes what reached the harness, rather than merely repeating what the profile requested. Unsupported and partial restrictions remain visible in dry run and the projection manifest. The project invariant on lost restrictions in meridian-cli's root `AGENTS.md` governs what shows by default: a lost restriction that changes what an agent can do shows in Mars's default output and in `--dry-run`, not at launch, and every other lost field is available under `--verbose`.
 
 ## Primaries {#d-permission-primaries-bound}
 
@@ -62,5 +76,7 @@ An unset sandbox means the harness default. Inferring it from the tool list conf
 Claude's user, project and local settings stay in force; their allows may widen a profile's allowlist. Removing those sources would also discard their hooks. The report exposes this limitation.
 
 ## Open questions
+
+Mars still reports a Codex profile's scoped `bash` rules as lost. The hook now binds them on a Meridian launch, but a Codex agent run natively has no hook, so whether that line can go quiet is unsettled.
 
 A Codex profile with no sandbox can inherit Codex's read-only default without Meridian knowing it; completion confirmation may then lack a writable signal channel. Explicit read-only policy lets Meridian handle that case.

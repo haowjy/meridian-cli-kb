@@ -54,7 +54,7 @@ stateDiagram-v2
     running --> succeeded : finished cleanly, or died after a durable report
     running --> failed : error, or runner died (crashed)
     running --> cancelled : cancel request honoured
-    running --> timed_out : runtime deadline exceeded
+    running --> timed_out : --timeout hit, or idle-limit ask unanswered
     succeeded --> running : --continue (next launch)
     failed --> running : --continue (next launch)
     cancelled --> running : --continue (next launch)
@@ -82,8 +82,9 @@ for its launch, not for the spawn.
   `meridian spawn report show <id>`.
 - **`failed`** — check the `error` field and the launch's `stderr.log`.
   See [failure error codes](#failure-error-codes) below.
-- **`cancelled`** — a cancel request decided the outcome.
-- **`timed_out`** — exceeded its runtime deadline. A failure class kept
+- **`cancelled`** — a cancel request or a signal decided the outcome. The exit code
+  names the signal as `128+N`: SIGTERM and every `spawn cancel` 143, SIGHUP 129, SIGINT 130.
+- **`timed_out`** — exceeded its `--timeout`, or went unanswered at the idle limit. A failure class kept
   distinct from generic `failed` in list, status and stats.
 
 ---
@@ -154,19 +155,23 @@ stranded, and preparing first means a failure leaves nothing behind.
 
 ### Resident Turn Boundaries
 
-Claude, Codex and resident OpenCode children retain a successful/idle turn as a
-**completion candidate**, then request one best-effort confirmation turn.
-`done` accepts that candidate with readable evidence; `rearm` rejects it and
-opens another fixed window for a genuinely new candidate. Candidate-less
-signals are discarded. Silent or unavailable confirmation accepts only when
-native and persisted-descendant evidence is ready; `unknown` stays fail-closed.
+A spawn stays open while work runs. Claude, Codex and resident OpenCode children
+retain a successful or idle turn as a **completion candidate**, and what happens next
+depends on whether the harness reports its own work. On Claude, a turn end with nothing
+running closes the spawn with that turn's text, and running background work or spawns
+hold it with no message. On Codex and OpenCode, where a background shell is invisible,
+the child gets one best-effort confirmation turn.
 
-`done` is a residency control, not a status source. It cannot manufacture a
-successful candidate and does not cancel Meridian descendants. The coordinator
-still validates fresh evidence before publishing. Deadline expiry ends the
-hold and starts best-effort descendant cleanup; ordinary activity does not
-renew the deadline. See [drain plans](../architecture/drain-plans.md) for
-signal delivery, report ordering, capability selection and timeout precedence.
+`done` closes, and `rearm` stays. Both work at any point in a child's turn. Silence on
+a confirmation accepts only when native and persisted-descendant evidence is ready;
+`unknown` stays fail-closed.
+
+An idle child gets one ask at the idle limit, on every harness: a reply closes it and
+is its report, `rearm` keeps it open, and no work within 300 s ends it `timed_out`. Any
+close by the child cancels running descendants and stops local background tasks, so a
+job that must outlive its child has to run detached. See
+[drain plans](../architecture/drain-plans.md) for the mechanism and
+[completion decisions](../decisions/completion-drain.md) for the reasons.
 
 ### Startup Bound
 
@@ -237,7 +242,7 @@ and the repair pass and doctor never finalize them.
 
 Codex and OpenCode managed primaries have separate launcher, backend and TUI
 processes. The launcher is the runner and holds the lock. If it is SIGTERMed or
-SIGHUPed it finalizes `cancelled` (exit 130) itself. If it is SIGKILLed or
+SIGHUPed it finalizes `cancelled` itself, recording the signal as `128+N` (143 or 129). If it is SIGKILLed or
 OOM-killed, the row reads `failed`/`crashed` (or `succeeded`/`cancelled` by the
 rule above); the guardians stop the backend
 group and TUI, and the next continue or cancel of that spawn stops whatever is
@@ -293,7 +298,7 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 3. Status readers never write state or signal processes. A held `launch.lock` reads as running (normally the runner; for seconds, a brief holder such as the repair pass); a free lock on a stored-active row means the launch is dead.
 4. A launch's terminal is written once, by a holder of its `launch.lock`: its runner, or for a dead launch a continue, cancel, the repair pass or doctor, all through `finalize_dead_launch`. A writer without the lock never writes launch facts into `state.json`.
 5. A dead launch with a durable report is `succeeded`, with or without a cancel request.
-6. `meridian spawn done` controls residency (terminate-now vs stay-resident), not terminal status.
+6. `meridian spawn done` ends residency and takes running descendants with it; the terminal status still comes from the retained candidate.
 7. The published `state.json` row owns every spawn artifact. After retention
     deletes the row, late writers fail closed and cannot recreate the spawn
     directory.
@@ -310,7 +315,7 @@ This mirrors the descendant-scoping of `spawn wait` (see [spawn-wait-barrier.md]
 - [architecture/state-system/spawn-launches.md](../architecture/state-system/spawn-launches.md) — launches, the reopen, usage across launches, owed results
 - [architecture/spawn-finalization.md](../architecture/spawn-finalization.md) — finalization subsystem: the one writer, store-level write, arbitration, conclude accumulator
 - [architecture/completion-drain-coordination.md](../architecture/completion-drain-coordination.md) — shared Pi/resident completion mechanism and evidence boundary
-- [decisions/completion-drain.md](../decisions/completion-drain.md) — candidate-scoped confirmation and shared native/descendant completion policy
+- [decisions/completion-drain.md](../decisions/completion-drain.md) — when a child closes, what it reports, and what was rejected
 - [architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary process roles and cleanup boundary
 - [spawn-output-contract.md](spawn-output-contract.md) — what a caller sees after a spawn completes: report-first default, transcript pointer, progressive disclosure flags
 - [harness-abstraction.md](harness-abstraction.md) — terminal status semantics per harness (`succeeded` = turn-completion, not work-correctness)

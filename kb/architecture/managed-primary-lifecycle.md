@@ -13,6 +13,7 @@ Related pages:
 - [architecture/primary-terminal-ownership.md](primary-terminal-ownership.md) — native terminal for the TUI, shared job control, cancellation by order, exit-text rule
 - [codebase/harness-adapters.md](../codebase/harness-adapters.md) — Codex/OpenCode adapter notes and approval routing
 - [decisions/idle-notifications.md](../decisions/idle-notifications.md) — idle adapter hosting for Codex/OpenCode primaries
+- [decisions/primary-inject.md](../decisions/primary-inject.md) — how `spawn message` reaches a primary through the socket its launcher serves
 - [operations/troubleshooting.md](../operations/troubleshooting.md#crashed-spawn-crashed) — diagnosing a `crashed` spawn
 - [lessons/arch-refactor-pitfalls.md](../lessons/arch-refactor-pitfalls.md) — implementation pitfalls behind the PR #184 cleanup refinement
 
@@ -47,6 +48,9 @@ group, so its guardian runs in root-only mode, one SIGTERM
 ([parent-death linkage](process-scope.md#parent-death-linkage)). The per-launcher
 Python watchdog #614 proposed never shipped.
 
+A primary never takes `spawn done`, and it stays open until the human ends it, so the
+[completion hold](drain-plans.md#resident-completion) doesn't apply to any primary.
+
 Claude primaries are different: Claude is a single black-box harness process.
 There is no managed backend/TUI split, and no `primary_meta.json` with
 `managed_backend: true`. Generic runner PID liveness remains the right signal
@@ -71,9 +75,7 @@ call, but it is not another runtime and cannot initiate another attempt.
 
 This reuses the connection's existing lifecycle, stop lock, and durable process
 scope. A second task runtime or replacement-only lock was rejected: either would
-create another owner without closing the initial-publication race. Core
-implementation `078d907a` is approved by `p6069`; `p6060` exercised the native
-replacement and normal cleanup paths. The feature remains unreleased.
+create another owner without closing the initial-publication race.
 
 ---
 
@@ -97,8 +99,9 @@ backend group and send the TUI one SIGTERM, so a dead launcher means a dead
 runtime. The launcher is the runner and holds `launch.lock`, so the moment it
 dies every reader shows the row `failed`/`crashed`
 ([derived status](state-system/derived-status.md)). A launcher that receives
-SIGTERM or SIGHUP finalizes `cancelled` (exit 130) itself; only SIGKILL and OOM
-reach `crashed`. The row stays stored `running` on disk until
+SIGTERM or SIGHUP finalizes `cancelled` itself, exiting and storing `128+signal`
+(143 or 129), so a wrapper can tell a supervisor stop from a closing terminal or a
+Ctrl-C. Only SIGKILL and OOM reach `crashed`. The row stays stored `running` on disk until
 `meridian doctor --kill-orphans`, the next primary launch's background repair, or
 `spawn cancel` persists the outcome. The next `--continue` sweeps whatever
 processes are left ([continue sweep](process-scope.md#continue-sweep)).
@@ -163,6 +166,5 @@ risks a session the user is still in. The remaining risk is PID reuse.
 but the reaper's fallback targets still signal a PID whose birth time was never
 recorded ([cleanup claims](state-system/derived-status.md#the-reapers-cleanup-claims)).
 
-A crash used to finalize `cancelled`, exit 130,
-`session_ended_without_finalize`. It now reads `failed`/`crashed` like any other
-dead runner; the owner accepted the change when PR 3 merged.
+A crash reads `failed`/`crashed` like any other dead runner: the lock proves the
+launcher died, and nothing proves anyone asked it to.

@@ -75,7 +75,7 @@ SIGTERM/SIGHUP handler (#623). The default action killed it before its
 `finally` blocks wrote the runner exit and the session stop
 ([gap](../architecture/primary-terminal-ownership.md#known-gaps)). PR #658 (merged
 2026-10-17, `8055a1f77`) adds the receiver, so on builds with it a scope stop records
-`cancelled`/130 and a session stop, provided finalize completes before
+`cancelled` (143) and a session stop, provided finalize completes before
 systemd's SIGKILL. Codex/OpenCode managed primaries already register a receiver
 and finalize under the same condition.
 
@@ -121,7 +121,7 @@ haowjy/meridian-dev-workflow#8.
 
 **What happened:** The managed-primary launcher, which is the runner, was
 SIGKILLed, OOM-killed or crashed. (SIGTERM and SIGHUP make it finalize
-`cancelled`, exit 130, itself.) On POSIX the guardians stop the backend group and
+`cancelled` itself, with 143 or 129.) On POSIX the guardians stop the backend group and
 send the TUI one SIGTERM, so normally nothing is left running. Launcher death
 before the TUI exits is the defect to diagnose; the row only records it. Builds
 before identity-v2 PR 3 recorded this as `orphan_primary`, or as `cancelled`/130
@@ -131,7 +131,7 @@ before identity-v2 PR 3 recorded this as `orphan_primary`, or as `cancelled`/130
 ```bash
 meridian spawn show p42
 cat ~/.meridian/projects/<uuid>/spawns/p42/primary_meta.json
-cat ~/.meridian/projects/<uuid>/spawns/p42/stderr.log
+cat ~/.meridian/projects/<uuid>/spawns/p42/launches/<n>/stderr.log
 meridian session log p42 --last 50
 ```
 
@@ -143,6 +143,59 @@ terminates the recorded scopes, or the backend and TUI PIDs from
 the terminal row also runs best-effort managed-primary cleanup. Both check each
 PID's birth time first. See
 [managed-primary lifecycle](../architecture/managed-primary-lifecycle.md#repair-and-cleanup-boundary).
+
+---
+
+### Child Ended at the Idle Limit (`resident_deadline_expired`)
+
+**Symptom:** a child shows `status: timed_out`, `error: resident_deadline_expired`.
+
+**What happened:** The child did no work for the idle limit, 50 minutes by default,
+was asked once, and did no work within 300 s of the ask. Only the child's own output,
+tools and reasoning inside a turn renew the clock. One foreground command that stays
+silent for a whole window counts as idle, and so does waiting on a background job.
+With a rearm budget set, the same stop reads `resident_rearm_budget_exhausted`.
+
+**Diagnosis:** `meridian spawn show <id>` prints the rearm count and the last reason,
+and `control_actions.jsonl` in the launch directory holds each ask with
+`source: completion_nudge`.
+
+**Recovery:** `meridian spawn --continue <id> -p "..."`. For a long wait, start the job
+in the background and let the child run `spawn rearm --long --reason "..."` when asked.
+[Why there is one number](../decisions/completion-drain.md#d-one-waiting-number).
+
+---
+
+### Children Cancelled When Their Parent Closed
+
+**Symptom:** a child shows `cancelled` though nobody cancelled it, or a background job
+stopped when its spawn closed.
+
+**What happened:** The parent ran `spawn done` or replied to the idle-limit ask. Either
+one closes it, and a close cancels running descendants and stops local background
+tasks ([why](../decisions/completion-drain.md#d-close-cancels-descendants)). A dead
+parent backend cancels them too.
+
+**Fix:** A job that must outlive its spawn has to run detached. A parent that still
+needs a child should run `spawn rearm --reason "..."` when asked.
+
+---
+
+### Codex Launch Refused: "The shell-rule hook is not running"
+
+**Symptom:** a Codex spawn or primary fails at launch with that message, or with "this
+Codex does not answer hooks/list". The profile has a scoped `bash` rule.
+
+**What happened:** Meridian enforces those rules with a `PreToolUse` hook, and Codex
+fails open if the hook isn't loaded and trusted, so Meridian refuses the launch.
+Either Codex is older than 0.129.0, or something turned hooks off: `-c
+hooks.PreToolUse=[]`, `--disable hooks`, a `hooks.state` override, or a project
+`.codex/config.toml`.
+
+**Fix:** Upgrade Codex or remove what turned hooks off. Dropping the scoped rules from
+the profile also works. A command the hook lets through is not a bug by itself: it
+matches rules against each command segment as written and is
+[not a sandbox](../decisions/tool-permissions.md#d-codex-shell-hook).
 
 ---
 

@@ -6,9 +6,11 @@ Signal callbacks run on Python's main thread and can interrupt code holding a lo
 
 ## Cancellation is decided by order, not exit code
 
-A run counts as **cancelled (exit 130)** if the launcher received SIGHUP or
+A run counts as **cancelled** if the launcher received SIGHUP or
 SIGTERM **before it observed the TUI's exit**, whatever exit code the TUI
-reported. If the launcher saw the TUI exit first, the TUI's real result stands.
+reported. It records the signal as `128+N` (129 or 143) rather than the TUI's code.
+A SIGINT that reaches the launcher records 130 `cancelled`. A terminal Ctrl-C is a
+keystroke to the harness, so Meridian records the harness's result. If the launcher saw the TUI exit first, the TUI's real result stands.
 Shipped code needs no separate recorder. Managed attach reads its latch once, when
 the main task resumes from the TUI wait. The black-box receiver (PR #658) latches
 only while the wait thread has not yet marked the wait complete. A signal in the
@@ -19,8 +21,7 @@ The exit code can't decide this, because a pane close sends SIGHUP to the TUI
 as well as the launcher, and harnesses react differently. OpenCode treats SIGHUP
 as a normal quit and exits 0. An earlier rule ("cancelled if the TUI died by
 signal or the wait was cancelled") recorded a closed OpenCode pane as
-`succeeded 0`. `main` records it as cancelled 130, so that was a regression.
-Order of observation gives the same answer for every harness.
+`succeeded 0`. Order of observation gives the same answer for every harness.
 
 ---
 
@@ -34,3 +35,4 @@ Meridian keeps its own output away from a live TUI and appends its continuation 
 - One long suspended OpenCode run stopped again immediately after `fg`; it did not reproduce in subsequent probes ([#611](https://github.com/haowjy/meridian-cli/issues/611)).
 - An immediately exiting native TUI on macOS can fail lifetime-link registration when its process is already a zombie ([#610](https://github.com/haowjy/meridian-cli/issues/610)).
 - A signal during extraction can precede the protected terminal write ([#831](https://github.com/haowjy/meridian-cli/issues/831)).
+- A signal during `finalize_spawn` itself is not in the stored result, and a double Ctrl-C at least a second apart before the write can leave `crashed`, because that repeat is the escape from a stuck hook or lock ([#892](https://github.com/haowjy/meridian-cli/issues/892)).

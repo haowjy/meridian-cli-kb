@@ -163,17 +163,27 @@ Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/se
 
 ## Streaming & Completion
 
-### Resident Nudge Serialization and Test Seeding (#430)
+### One Hold Rule Beyond Claude
 
-**Where:** `src/meridian/lib/streaming/resident_drain.py:181-190`, `src/meridian/lib/streaming/drain_plan_factory.py:105-123`, `tests/integration/launch/test_spawn_manager_lifecycle.py:243,330`
+**Where:** `src/meridian/lib/streaming/hold_state.py`, `src/meridian/lib/harness/`, Pi's completion profile
 
-**The issue:** Two residuals from the #322 re-audit (PR #375):
+**The issue:** A close with no ask needs a harness that reports its own background work, and only Claude does.
 
-1. **Resident nudges bypass the serialized inject seam.** `resident_drain.py` calls `ResidentBackendControl.begin_followup_turn()` directly; the resident plan does not receive the `SerializedInject` callback from `drain_plan_factory.py`. Pi done nudges route through the factory's manager-owned callback, but resident nudges use a separate path. Unification belongs to the future completion-profile/factory redesign, not the seam extraction done in PR #375.
+- **OpenCode:** it marks `shell.created` and `shell.exited` as work, so the same events can feed a native task source. Then the ask goes there too.
+- **Codex:** what the app server reports about background terminals is unknown. Probe it first. Until then a background shell is invisible, and each rearm costs one nudge per 270 s.
+- **Pi:** its 270 s nudge asks more than once and overwrites the report each time. It should take the same ask at the idle limit, and it needs a `rearm` to stay.
 
-2. **Test `_sessions` seeding.** `test_spawn_manager_lifecycle.py` directly seeds `manager._sessions` to set up integration scenarios. This is a private-field dependency; the streaming test-suite reshaping deferred from #372 should replace it with the `PiDrainScenario` builder or a manager-owned setup path.
+**Why deferred:** Each one needs a harness probe, and all three work today with the ask.
 
-**Why deferred:** Both are known residuals deliberately left by PR #375. The nudge unification requires a completion-profile redesign; the test seeding belongs to a broader streaming test-suite reshaping.
+---
+
+### Test `_sessions` Seeding
+
+**Where:** `tests/integration/launch/test_spawn_manager_lifecycle.py`
+
+**The issue:** The test seeds `manager._sessions` directly to set up integration scenarios, a private-field dependency. The streaming test-suite reshaping should replace it with the `PiDrainScenario` builder or a manager-owned setup path.
+
+**Why deferred:** It belongs to that broader reshaping, not to any one fix.
 
 ---
 
