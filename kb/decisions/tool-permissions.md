@@ -34,10 +34,6 @@ A spawn has no human to answer a supported `ask`, so it is refused rather than r
 
 OpenCode lowers `ask` to native `deny` in spawns. The model receives OpenCode's refusal, and a tool removed from the catalog produces no attempt to journal. A custom reason would require a mediation hook or an upstream seam; see meridian-cli `src/meridian/lib/harness/.context/TODO`.
 
-## Scoped allowlists {#d-permission-allowlists}
-
-Scoped allows form an allowlist for that capability; approval policy does not turn unmatched calls into allows. Harness enforcement differs, so consult the projection report.
-
 ## List form {#d-permission-list-form-deprecated}
 
 A tools list grants named tools; it does not mean only those tools. Imported Claude agent lists retain their restrictive meaning. A map with `'*': deny` expresses a whole-profile allowlist.
