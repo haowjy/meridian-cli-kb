@@ -37,10 +37,6 @@ in [#916](https://github.com/haowjy/meridian-cli/issues/916):
 
 ## State & Spawn
 
-### Process-Scope Cleanup Gaps
-
-Process-scope deferred work moved to [process-scope.md](process-scope.md) so the detailed PROC-004 and PROC-007 notes live with their shared containment/reaper context.
-
 ### Restore metadata hash still depends on the reader's models (#537)
 
 **Status:** Open, [#537](https://github.com/haowjy/meridian-cli/issues/537).
@@ -177,16 +173,6 @@ Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/se
 
 ---
 
-### Test `_sessions` Seeding
-
-**Where:** `tests/integration/launch/test_spawn_manager_lifecycle.py`
-
-**The issue:** The test seeds `manager._sessions` directly to set up integration scenarios, a private-field dependency. The streaming test-suite reshaping should replace it with the `PiDrainScenario` builder or a manager-owned setup path.
-
-**Why deferred:** It belongs to that broader reshaping, not to any one fix.
-
----
-
 ### Store-Level Publication Ordering (#431)
 
 **Where:** `src/meridian/lib/streaming/spawn_manager.py`, `src/meridian/lib/launch/streaming_runner.py`
@@ -196,16 +182,6 @@ cycle measured 56s between death and store publication on real Pi (p5390: cleanu
 completed at 14:20:20.545Z, `published_at` at 14:20:21.810Z). The sub-second
 `published_at` timestamp (added in #435) makes this ordering observable. Moving
 durable publication ahead of cleanup is a separate store-pipeline concern.
-
-**Resolved in probe-fix cycle:**
-- Item 1 from the prior version of this entry (`prefer_drain_outcome` conflation)
-  was fixed: `prefer_drain_outcome` was replaced with an explicit
-  `resolve_terminal_outcome()` priority resolver and a manager-owned
-  `_publish_terminal` idempotent barrier.
-- Item 2 (publication timing lag) was partially addressed: `_publish_terminal`
-  runs before cleanup, so the completion future resolves immediately. Store-level
-  `published_at` still trails because the runner's `complete_execution()` runs
-  after `stop_spawn()`.
 
 **Remaining:**
 - `streaming_runner.py` remains large; timeout state spans arbitration, drain
@@ -317,10 +293,7 @@ These items were identified in the mars-capability-packaging final gate (alignme
 
 ## Pi Result Delivery Limits {#pi-result-delivery-limits}
 
-Known limits of the tool-boundary delivery change (PR #560, shipped in v0.9.4). Aggregate
-message size and report-read concurrency are bounded by the change itself (32 members,
-64 KiB, sequential reads) and are not deferred. None of the items below is a
-reproduced defect or a must-do:
+None of these limits is a reproduced defect or a must-do:
 
 - **Unadmitted queue claim.** A watcher message queued for native steer or
   follow-up that Pi never admits (for example a cleared queue) keeps its IDs
@@ -356,104 +329,7 @@ reproduced defect or a must-do:
   amplification, so only the unbounded-backlog case remains, with no
   constant-total-inference promise.
 
-Provenance: `work:pi-result-delivery`. Source details:
-`src/meridian/pi_runtime/.context/delivery-contract.md`.
-
-## Telemetry
-
-### Structural Refinements from v1 Final Gate
-
-**Where:** `src/meridian/lib/telemetry/`, `src/meridian/cli/telemetry_cmd.py`
-
-These structural findings were accepted as non-blocking after the v1 telemetry implementation shipped (tech-lead p3176). They improve long-term maintainability but don't affect v1 correctness or completeness.
-
-1. **Observer ownership cleanup.** `SpawnTelemetryObserver` in `lib/telemetry/observer.py` creates a dependency from `telemetry` back to core lifecycle types. Future cleanup: consolidate lifecycle observer types into a neutral module (e.g. `lib/observers/`) to resolve the `core↔telemetry` module tension.
-
-2. **Telemetry bootstrap deduplication.** Operation and background-spawn entry
-points still call `setup_telemetry()` after they know the logical owner and
-runtime root. A future change may converge these on one process seam, but the
-current [startup architecture](../architecture/startup-pipeline.md#telemetry-as-shipped)
-documents the distributed installation accurately; no `TelemetryBootstrap`
-class exists today.
-
-3. **Reader JSONL parsing deduplication.** `read_events` and `tail_events` in `reader.py` each carry their own line-parsing logic. Future cleanup: extract a shared truncation-tolerant line parser.
-
-> **Resolved:** CLI telemetry directory resolution is no longer deferred. D67
-> moved telemetry segments under `<project_runtime_root>/telemetry/`; D68 added
-> pre-root CLI buffering with in-place upgrade; D70 added point-in-time
-> `--global` discovery across project telemetry directories plus legacy
-> `~/.meridian/telemetry/` reads until old segments age out.
-
-**Why deferred:** The remaining items are structural improvements, not correctness issues. v1 smoke tests pass, alignment review shows 40/42 requirements covered, and the two remaining gaps (OBS-TL07 consumer-aware retention) are v2-scoped.
-
-**Decision context:** [architecture/telemetry/overview.md](../architecture/telemetry/overview.md)
-
----
-
-## Codebase
-
-### Source Simplification — Post-Phase-8.6 Remaining Targets
-
-These non-blocking simplification targets were identified by the refactor reviewer (p5497) during the Phase 8.6 pass (2026-05-08). The spawn-pipeline unification target is recorded in the existing [CLI Subprocess Path](#cli-subprocess-path-resolve-before-persist-unification) entry above; the remaining targets are recorded here so the rationale is not re-derived.
-
-1. **Session reference helper extraction.** Session reference lookups are repeated at call sites rather than extracted into a narrow helper. Extraction would improve locality and make the session lookup contract explicit.
-
-2. **`service_context` / bootstrap carrier collapse.** `service_context` and bootstrap carrier objects carry overlapping state. These can be collapsed once the spawn pipeline is unified.
-
-3. **`CodexConnection` decomposition.** `CodexConnection` accumulates multiple concerns (connection lifecycle, state tracking, output handling). Decomposing it into focused collaborators would improve testability and isolation.
-
-4. **`session_target.py` collapse — deferred pending explicit read/repair design.** `session_target.py` has legacy state-reading paths that need an explicit read/repair contract before collapse. Do not simplify blindly; design the read/repair seam first.
-
-**Why deferred:** These items were out of scope for Phase 8.6, which targeted `SpawnOperationServices`, workspace config loader ownership, and test-suite collapse. These targets compound future maintenance but have no known correctness impact.
-
----
-
-### Dead Code Cleanup: General Codebase Compatibility Residue (p2596)
-
-**Where:** `cli/main.py`, `cli/format_helpers.py`, `lib/launch/reference.py`, `lib/launch/prompt.py`, `lib/state/spawn_store.py`, `lib/harness/adapter.py`, `lib/launch/streaming_runner.py`, `server/__init__.py`
-
-**Reviewed:** 2026-04-30 (p2596). Read-only full-codebase audit focused on compatibility residue, unused wrappers/aliases, and shim modules. All non-blocking.
-
-**1. Dead CLI helpers in main.py (medium)**
-
-Three symbols in `cli/main.py` have no callers: `_is_spawn_background_request` (:271), `_resolve_session_target` (:545), `_should_startup_bootstrap` (:699). Look like supported seams; are inert.
-
-**Action:** Delete all three.
-
-**2. Dead shim module: cli/format_helpers.py (medium)**
-
-Compatibility shim re-exporting `kv_block` and `tabular`. No in-repo imports from `meridian.cli.format_helpers`. All live imports already go to `meridian.lib.core.formatting`.
-
-**Action:** Delete `cli/format_helpers.py`.
-
-**3. Dead ReferenceFile aliases (medium)**
-
-`ReferenceFile = ReferenceItem` compatibility alias appears in both `lib/launch/reference.py:99-100` and `lib/launch/prompt.py:64-65`. No callsites — only the alias lines and their `__all__` exports.
-
-**Action:** Remove both aliases and drop them from `__all__`.
-
-**4. Dead deprecated wrappers in reference.py (medium)**
-
-- `load_reference_files()` (`lib/launch/reference.py:464-482`) — deprecated wrapper with zero callers; live callsites use `load_reference_items()`.
-- `render_reference_paths_section()` (`lib/launch/reference.py:560-579`) — deprecated renderer with zero callers; live code uses `render_reference_blocks()`.
-
-**Action:** Delete both functions and remove their exports.
-
-**5. Assorted dead aliases (low)**
-
-- `_record_from_events = reduce_events` in `lib/state/spawn_store.py:283-284` — no callers.
-- `BaseSubprocessHarness = BaseHarnessAdapter` in `lib/harness/adapter.py:418-419` — no callers; misleads future readers.
-- `_terminal_event_outcome = terminal_event_outcome` in `lib/launch/streaming_runner.py:1218-1219` — no callers.
-
-**Action:** Delete all three aliases.
-
-**6. Dead server package re-exports (low)**
-
-`server/__init__.py:1-5` re-exports `mcp` and `run_server`, but no in-repo code imports from `meridian.server` at the package level — all imports go directly to `meridian.server.main`.
-
-**Action:** Delete the re-exports or collapse to a package marker only.
-
----
+See the [delivery contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/pi_runtime/.context/delivery-contract.md).
 
 ## Ecosystem: Jupyter Workbench
 
@@ -474,22 +350,6 @@ These items were accepted as non-blocking after tech-lead spawn p3005 shipped th
 5. **Replay does not reconstruct live visualization state.** This is by design: browser/trame state is live process state. Replay should leave visualization `absent`; agents re-execute scene setup cells after replay.
 
 **Decision context:** [ecosystem/jupyter-workbench/architecture.md](../ecosystem/jupyter-workbench/architecture.md) and [ecosystem/jupyter-workbench/runtime-model.md](../ecosystem/jupyter-workbench/runtime-model.md)
-
----
-
-## State Record
-
-### Regression Snapshot: 2026-04-30 (p2601)
-
-Full verification pass run after the chat backend refactor:
-
-| Check | Result |
-|---|---|
-| `ruff check .` | ✅ 0 errors |
-| `pyright` | ✅ 0 errors, 0 warnings |
-| `pytest-llm` | ✅ 1289 passed, 2 skipped, 1 xfailed |
-
-All five targeted smoke tests passed (lifecycle, acquisition, normalizer parity, TUI passthrough, full suite). Build is clean on main as of this date.
 
 ---
 

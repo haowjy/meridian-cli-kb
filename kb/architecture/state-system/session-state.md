@@ -29,7 +29,7 @@ above. They no longer decode or keep other chats' rows, so their memory and deco
 time stopped growing with the log. Their reads still pass over every byte, and some
 still hold `sessions.jsonl.flock` while they do; a primary close makes 10 filtered
 passes and 0 full folds. Measured costs are on
-[per-operation cost](../per-operation-cost.md#1-session-state-is-one-global-replay-log-418).
+[per-operation cost](../per-operation-cost.md#session-state-is-one-global-replay-log).
 The automatic archiver still folds once per candidate.
 
 A scoped `SessionBindings` (`scope` is a frozenset of chats) holds only those chats'

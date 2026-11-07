@@ -2,7 +2,7 @@
 
 Launch, close, wait, show, cancel and continue concern one spawn and chat; their work should not grow with project history. Global scans belong to explicit global commands or bounded maintenance. Measure physical reads and lock holds across corpus sizes, not just wall time on a shared machine: a filtered pass still reads the bytes. See [contention diagnosis](../lessons/contention-diagnosis.md).
 
-### 1. Session state is one global replay log (#418)
+### Session state is one global replay log
 
 Every chat appends to one `sessions.jsonl`, and most session reads replay all of
 it ([session state](state-system/session-state.md#sessionsjsonl-is-one-global-log)).
