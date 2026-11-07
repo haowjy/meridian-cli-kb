@@ -4,5 +4,5 @@ Per-spawn state gives individual reads cost independent of total history. On a d
 
 ### Published Spawn Artifact Lifetime
 
-A published row owns the lifetime of its artifacts. Late writers and deletion coordinate on the same lock so a writer cannot recreate an aggregate after deletion. See [state decisions](../../decisions/state.md#published-row-lifetime-owns-spawn-artifacts-issue-437-2026-07) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
+A published row owns the lifetime of its artifacts. Late writers and deletion coordinate on the same lock so a writer cannot recreate an aggregate after deletion. See [state decisions](../../decisions/state.md) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
 
