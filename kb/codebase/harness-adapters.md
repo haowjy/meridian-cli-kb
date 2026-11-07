@@ -107,9 +107,10 @@ session and never edits user or project native config.
 The native API uses different model shapes: session creation receives nested
 `{model: {id, providerID}}`, while prompt submission receives
 `{model: {modelID, providerID}}`. Rejection or ambiguous creation fails; there is
-no model-dropping `{}` retry. Later HTTP sends preserve the committed native
+no model-dropping `{}` retry. Later V1 HTTP sends preserve the committed native
 agent/model/variant, explicitly including `default`; missing session fields fall
-back to the last committed user message rather than launch settings.
+back to the last committed user message rather than launch settings. V2 posts text
+only, and the server uses the session's last model.
 
 Core implementation `078d907a` is approved by `p6069`; the matching adapter hash
 is pinned in the review and `p6060` native report. That matrix verified the
@@ -118,13 +119,9 @@ native switch, unavailable-model failure, and exercised cleanup. An unsent
 TUI-local choice still cannot be observed through HTTP, and GET followed by POST
 is not atomic against a concurrent TUI submission.
 
-Adapter-level injection correctness is not public-primary CLI coverage. `spawn
-message` has no route to a managed OpenCode primary, so the public command does not
-reach the HTTP projector while the TUI runs. The gap is on Meridian's side: OpenCode
-accepts a second client's prompt into a live TUI
-([research](../research/reaching-a-live-tui.md#opencode)). It is tracked in
-[#498 future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498)
-and is not part of native model commitment.
+`spawn message` reaches this projector through the launcher's observer connection while
+the TUI runs ([D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery)). On
+V1, an agent the human switched to in the TUI since the last committed turn is not followed.
 
 Later prelaunch source `f56d8131` rejects malformed or non-object inherited
 OpenCode configuration before native launch. Review `p6072`'s two subsequent
@@ -134,9 +131,7 @@ approved by `p6080`, and committed static-alias repair `7a2c9b81` was approved b
 uses the existing list/cache/fallback path with mode-isolated operation caches;
 it adds neither a resolver nor a live retry. Release-equivalent native/Pi closeout
 remains pinned to `f56d8131`, including packaged Pi extension loading without
-fallback assets. The distinct
-public-primary injection-control gap is tracked in
-[future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498).
+fallback assets.
 
 ## Connection Death Diagnostics
 

@@ -137,7 +137,12 @@ it.
 **No inbox yet, or at all.** Claude publishes the socket only once `SessionStart` runs.
 In a folder not yet trusted, the trust prompt blocks that, so a post fails as if the
 session had no inbox until a human accepts the prompt (2026-11-06). A
-`--bare` launch publishes none.
+`--bare` launch publishes none. Otherwise the socket was published at startup, before the
+first turn, about 2 s after launch.
+
+**Size.** The inbox breaks the connection on a large message, somewhere between 1 and 2 MB:
+a 2 MB post failed with a broken pipe and never reached the transcript, while a 100 KB post
+arrived. The sender can't tell, so it is told the message may have arrived.
 
 ### Inbound controls
 

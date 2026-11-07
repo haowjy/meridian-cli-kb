@@ -68,16 +68,14 @@ final-drains and joins the pump before `conclude_native_run`. Each fact is
 acknowledged only after its publication; a later publication failure retains the
 accepted prefix cursor.
 
-**A second consumer: primary inject.** `meridian spawn message` to a Claude primary
-reads the same journal directly, without the drainer: it takes the latest
-`messaging_socket` recorded for the spawn's `worker_pid`. It cannot filter by
-nonce, which lives only in the launcher process; the PID filter still excludes
-sockets from earlier launches of the same spawn. Before posting it requires that
-PID to be alive, not a zombie, and born no later than the record's `recorded_at`
-(+1 s), so a PID reused after Claude exited never receives the message. Socket
-checks run at lookup, so a bad socket field never drops a record's identity
-facts. Why the inbox and not a mod:
-[D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox).
+**A second consumer: the message route.** A Claude primary's launcher reads the same
+journal directly, without the drainer: it binds the control socket once a
+`messaging_socket` appears for its own child's PID, and re-reads the journal on each send.
+The PID filter excludes sockets from earlier launches of the same spawn, and because the
+launcher owns that child, the PID can't be reused while it serves. Socket checks run at
+lookup, so a bad socket field never drops a record's identity facts. Why the inbox and not
+a mod: [D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox).
+Why the launcher: [D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery).
 
 **Entry is immutable; the pointer is not.** Observations never rebind the entry.
 Only the first *eligible* establishing fact can complete it: `source` must agree with
@@ -173,7 +171,7 @@ are schema/reference checks, not native-content restoration. Native transcripts 
 never rewritten.
 
 **Code:** `harness/claude.py`, `harness/claude_boundary.py`,
-`harness/claude_inbox.py` (primary inject, PR #668), `harness/claude_sessions.py` (source seeding), `harness/claude_settings.py`
+`harness/claude_inbox.py` (the inbox route), `harness/claude_sessions.py` (source seeding), `harness/claude_settings.py`
 (settings-file allows read at bind; PR #736, v0.12.3, replaced `harness/claude_preflight.py`).
 `launch/native_run.py`, `state/session_store.py` (`get_or_create_observed_chat`),
 `state/session_identity.py` (`live_observer_for_chat`), and

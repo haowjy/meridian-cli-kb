@@ -121,9 +121,8 @@ Subagent assistant frames are not parent-turn activity. Even a Claude child
 without background tasks receives the same best-effort confirmation as other
 resident children.
 
-Confirmation reaches Claude through serialized `SpawnManager.inject()` and
-resident backends through `begin_followup_turn()`. Neither injection success nor
-a native snapshot alone authorizes terminal publication.
+Confirmation reaches every harness through serialized `SpawnManager.deliver()`. Neither
+delivery success nor a native snapshot alone authorizes terminal publication.
 
 ### Completion windows and rearm budget
 

@@ -204,7 +204,7 @@ reason, or cleanup-phase policy.
    on the raw frame, and terminal handling. There is no history write to gate
    delivery; see the [emit path](attempt-facts-and-delivery.md#the-emit-path).
 9. Pi nudges and Claude confirmation turns route through serialized
-   `SpawnManager.inject()`.
+   `SpawnManager.deliver()`.
 10. The plain path remains `coordinator=None`.
 
 ## Related pages

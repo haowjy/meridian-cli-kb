@@ -8,42 +8,27 @@ Items are organized by domain.
 
 ## Managed Primary
 
-### Live primary injection control endpoint (#498)
+### Primary message routes: session moves and remaining edges (#916)
 
-**Where:** managed primary launch/attach and `spawn message` control routing.
+**Where:** the Codex and OpenCode primary route, and the Pi `meridian-message` extension.
 
-**The issue:** a primary has no `SpawnManager`, so nothing serves the
-`control.sock` that `spawn message` uses for children. Claude primaries have a
-route through Claude Code's own inbox socket, behind the optional
-`HarnessBundle.primary_inbox` port
-([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
-PR #668). Codex, OpenCode and Pi primaries have none: `spawn message` fails at
-once with "<harness> primaries have no message route yet (see #498)", and a
-sender on one of them gets no reply command in its message frame. Codex and
-OpenCode primaries already run behind a Meridian-held backend connection
-(app-server WebSocket, HTTP/SSE), which a route could use.
+**State:** every primary harness has a route
+([D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery)). What remains is
+in [#916](https://github.com/haowjy/meridian-cli/issues/916):
 
-**Direction:** [D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery)
-replaces the per-harness port with one socket that every live launcher serves. It is
-not built, and the owner has not confirmed it for building. Each harness offers a
-building block: a second client's message reaches a live Codex or OpenCode TUI, and an
-extension inside the Pi process can inject one
-([what each accepts](../research/reaching-a-live-tui.md)). Meridian's endpoint is what
-is missing. For OpenCode, the connection adapter can
-project a later HTTP prompt using the committed native agent/model/variant; nothing in
-`spawn message` reaches that adapter while the TUI runs.
-
-**Boundary:** #498 owns primary inject for Codex, OpenCode and Pi. Do not hide
-that work inside #497 or claim public-primary injection coverage from
-adapter-level tests. Unsent TUI-local choices remain unobservable, and GET
-followed by POST remains non-atomic against simultaneous native submission.
-
-**Related:** [OpenCode managed-primary model commitment](../codebase/harness-adapters.md#opencode-managed-primary-model-commitment)
-documents the adapter-level boundary; [launch-system.md](../architecture/launch-system.md)
-documents primary launch composition.
-
-**Provenance:** `work:next-minor-planning/probes/followup-497-native/REPORT.md`;
-`spawn:p6060`; two-client probe `spawn:p9741`.
+- **Following the TUI.** A sender is refused after a session move where a Claude or Pi primary
+  would take the message. Codex could follow `/new` and `/fork`; `/resume` to a loaded
+  thread and OpenCode's switch give no signal, and `harness_session_id`, the idle sensor and
+  `--continue` would have to move too
+  ([D-primary-session-move](../decisions/primary-inject.md#d-primary-session-move), which the
+  owner has not yet answered).
+- **A false "delivered".** An OpenCode message sent after the new-session or switch-session
+  command, before the human types there, goes to the first session.
+- **A possible false refusal.** A Codex subagent reopened by `resume_agent` in a continued
+  session would read as a move. Not reproduced.
+- **Untested.** OpenCode V1 detection; no V1 server was available.
+- **Stale Pi listener.** An old Pi outliving its launcher during a `--continue` could unlink the
+  newer session's socket. The launch lock and PTY hangup rule this out in normal use.
 
 ---
 

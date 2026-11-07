@@ -1,23 +1,21 @@
 # Decisions: Primary Inject
 
-How `meridian spawn message` reaches a **primary**: a session a human started in a
-harness TUI, how every message names its sender
-([D-spawn-message-frame](#d-spawn-message-frame)), how one session addresses
-another, in this project or another
-([D-spawn-message-address](#d-spawn-message-address)), and how the sender learns what
-happened to its message ([D-delivery-kind](#d-delivery-kind),
-[D-no-retry-after-write](#d-no-retry-after-write)). The plan to give every primary a
-route is [D-unified-delivery](#d-unified-delivery). A spawned child is injected through its `control.sock`, which the
-child's `SpawnManager` serves over the harness connection. A primary runs the
-harness TUI directly and has no `SpawnManager`, so nothing serves that socket.
-The code contract for the route below is in meridian-cli
-`src/meridian/lib/harness/.context/CONTEXT.md` ("Primary inbox injection"). The
-Claude Code behaviour it depends on is in
+How `meridian spawn message` reaches a live session, whether a spawned child or a
+**primary** (a session a human started in a harness TUI). Every session takes messages
+on one control socket ([D-unified-delivery](#d-unified-delivery)). A Codex or OpenCode
+primary's route stops once its TUI leaves the first session
+([D-primary-session-move](#d-primary-session-move)). Every message names its sender
+([D-spawn-message-frame](#d-spawn-message-frame)), one address form reaches a session in
+this project or another ([D-spawn-message-address](#d-spawn-message-address)), and the
+sender learns how far its message got ([D-delivery-kind](#d-delivery-kind),
+[D-no-retry-after-write](#d-no-retry-after-write)).
+[D-claude-primary-inbox](#d-claude-primary-inbox) records why Claude's inbox is the way
+into a Claude primary. The code contract is in meridian-cli
+`src/meridian/lib/harness/.context/CONTEXT.md` ("Primary message route"); what each harness
+accepts from outside is in [Reaching a running TUI](../research/reaching-a-live-tui.md) and
 [Claude Code: mods and the inbox](../research/claude-code-mods-and-inbox.md).
-The command was called `spawn inject` until PR #777; that spelling remains a
-hidden alias that warns, for one release (removal tracked in meridian-cli
-`src/meridian/cli/.context/TODO`). "Inject" still names the mechanism: the Pi
-control action, `SpawnManager.inject`, and primary inject as a concept.
+The command was `spawn inject` until PR #777. "Inject" survives only as a word for a message
+sent into a running session.
 
 ---
 
@@ -27,6 +25,11 @@ control action, `SpawnManager.inject`, and primary inject as a concept.
 D2, D6–D9). Issue #665; merged in PR #668 (v0.10.22). Before it, the command
 against any primary polled 30 s for a control socket that never appeared, then
 failed with `spawn not running: pN has no control endpoint`.
+
+Decisions 1 to 4 stand. [D-unified-delivery](#d-unified-delivery) replaced decisions 5
+and 6: the launcher now posts to the inbox, the `primary_inbox` port and the CLI's branch
+are gone, a primary takes the same 30 s discovery wait as a child, and the PID-reuse guard
+went because a launcher serving the socket owns its child.
 
 > [!FLAG] **Needs human review.** The owner's direction was a Claude Code mod
 > that owns inject, so that Claude children could drop the stdin input stream
@@ -127,18 +130,15 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
 | Claude Code channels | Research preview, organisation-gated, and a custom server needs `--dangerously-load-development-channels` |
 | Remote Control | Routed through the cloud; needs a claude.ai login |
 | A `harness == "claude"` branch in the CLI | Harness specifics belong in `lib/harness/` |
-| Routing through `SpawnManager` / `ControlActionCoordinator` | A Claude primary has no in-process connection; faking `inbound_seq` would lie. Codex and OpenCode primaries do hold one, which [D-unified-delivery](#d-unified-delivery) builds on |
+| Routing through `SpawnManager` / `ControlActionCoordinator` | A Claude primary has no in-process connection, and faking a sequence number would lie. [D-unified-delivery](#d-unified-delivery) later reached the coordinator another way: it wraps a route, not a connection |
 | A `HarnessCapabilities` boolean | The CLI would still own Claude's wire format |
 | Persisting the launch gate's `birth_epoch` on the spawn record for the PID check | New spawn-record state for one consumer |
 | `is_process_alive(created_after=started_at)` | `started_at` is the spawn's start, not this Claude process's, and its 30 s guard is coarse |
 
 ### Consequences
 
-- Codex, OpenCode and Pi primaries still have no message route; they fail at once
-  with the #498 message
-  ([future work](../open-questions/future-work.md#live-primary-injection-control-endpoint-498)).
-  [D-unified-delivery](#d-unified-delivery) would replace this port rather than fill
-  it per harness.
+- This route covered Claude alone until [D-unified-delivery](#d-unified-delivery)
+  gave every primary harness one.
 - `spawn message` cannot tell a user whether a message was held or refused. Claude
   sends status receipts only to a reply socket a real sender names, in an
   undocumented format; the follow-up is in meridian-cli
@@ -149,9 +149,8 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
   session, not typed by its user. Claude's frame names no Meridian sender;
   [D-spawn-message-frame](#d-spawn-message-frame) adds one in the text.
 
-**Revisit when:** the owner rules on the flag above; Claude Code documents the
-inbox message schema or its receipts, or changes its inbound controls; or Codex,
-OpenCode or Pi gains a native input route for a running TUI.
+**Revisit when:** the owner rules on the flag above, or Claude Code documents the
+inbox message schema or its receipts, or changes its inbound controls.
 
 **Provenance:** `work:claude-mod-inject` `decisions.md` D1–D10,
 `probe-mod-inject.md` (`spawn:p8410`), `probe-tui-mod.md` (`spawn:p8415`),
@@ -189,26 +188,18 @@ session. use `meridian spawn message c9297 etc...'".
    sender's current chat (`continue_chat_id`), because a primary gets a new spawn
    ID on each `--continue` while its chat ID stays, and a `/clear` moves it to a
    new chat; `spawn message` refuses the chat it left. A sender in another project gets `-C <sender project root>` in the
-   command. Text is the one thing both
-   routes (child control socket, Claude primary inbox) carry unchanged and every
-   harness renders, so the frame is built once and reads the same everywhere.
-2. **Advertise a reply route only when it works.** The reply command appears
-   only when the sender's record is active and Meridian can post to it: a
-   spawned child, or a primary whose harness bundle implements the optional
-   `primary_inbox` port (the harness's route into a running TUI). A Codex or
-   OpenCode primary, a finished spawn, or an unknown id gets "it has no reply
-   route here" instead; a message with no sender identity says it has no reply
-   address. Without the check, a child
-   told to answer an OpenCode primary would run a command that exits 1.
-
-   On main the check falls short of that rule. It asks whether the harness registers an
-   inbox and whether the sender is a child, while the post also needs a published
-   inbox socket, a live process, or a child's control socket. So a `--bare` Claude
-   primary, or a child with no socket, is offered a reply that fails. In review
-   as PR #879 (`fix/reply-route`), not merged: the frame runs the post's
-   own resolution, and a child needs its socket. It does not connect, so a dead
-   socket on a live runner still gets the line, and a child still binding its
-   socket is framed as having no route.
+   command. Text is the one thing every route
+   carries unchanged and every harness renders, so the frame is built once and reads
+   the same everywhere.
+2. **Advertise a reply route only when it works.** The reply command appears only when
+   the sender's record is active and its control socket file exists, the same file
+   the post looks for. Anyone else, a finished spawn, a primary with no route, or an unknown
+   id gets "it has no reply route here"; a message with no sender identity says it has
+   no reply address. Without the check, a child told to answer a `--bare` Claude primary
+   would run a command that exits 1. The check does not connect, so a dead socket on a
+   live runner still gets the line, a Codex or OpenCode primary whose TUI moved still
+   gets it and then refuses, and a child still binding its socket is framed as having
+   no route.
 3. **The chat id comes from the sender's own record**, not `$MERIDIAN_CHAT_ID`,
    which names the conversation that launched the sender and would point a
    reply at the wrong session.
@@ -221,9 +212,7 @@ session. use `meridian spawn message c9297 etc...'".
 | Claude's envelope `from` alone | Claude-only; the frame must read the same in every harness |
 | Always printing the reply command | Points children at routes that fail |
 
-**Revisit when:** a harness carries a sender field through both routes, or
-Codex, OpenCode or Pi primaries gain a message route (their senders then get
-the reply command through the same port).
+**Revisit when:** a harness carries a sender field through its route.
 
 **Provenance:** decision record `spawn:p9612` `decisions-spawn-message.md`
 D1–D4; owner requests in chat `c9331`; PR #777.
@@ -259,8 +248,11 @@ arrived as "no sender identity; it has no reply address".
    `show` and `cancel` name that live run too
    ([D-locate-projections](ref-classification.md#d-locate-projections)).
 2. **Every session advertises its own address, and every message carries the
-   sender's.** A primary whose harness has a message route shows its address in
-   its capabilities block, as one command another session can paste. The frame
+   sender's.** Every primary shows its address in its capabilities block, as one
+   command another session can paste, whether or not that launch ends up with a route:
+   a `--bare` Claude primary states an address that leads to the no-route error, because
+   the launch can't know before Claude starts
+   ([a socket file means a route](#a-socket-file-means-a-route)). The frame
    ([D-spawn-message-frame](#d-spawn-message-frame)) carries the reply command,
    with `-C` only when the sender is in another project.
 3. **The `-C` identity drop (#794) stays.** `-C` into another project still drops
@@ -294,113 +286,144 @@ native sender address that survives `-C`.
 
 ---
 
-## D-delivery-kind: the sender is told how far a message got (2026-11, in review) {#d-delivery-kind}
+## D-delivery-kind: the sender is told how far a message got (2026-11) {#d-delivery-kind}
 
-**Status:** in review as PR #878 (`fix/message-receipt`), not merged. Tech-lead
-choice; the owner has not ruled on the wording. Until it merges, `spawn message`
-prints "Message delivered" for any successful response, including a Claude child's
-stdin write that nothing confirmed. The contract, per harness, is in meridian-cli
-`src/meridian/lib/harness/.context/CONTEXT.md` ("Inject Acknowledgment") on that
-branch; what follows is what that page does not say.
+**Status:** merged in PR #878 (v0.19.6). Tech-lead choice; the owner has not ruled on the
+wording. The contract per harness is in meridian-cli
+`src/meridian/lib/harness/.context/CONTEXT.md` ("Inject Acknowledgment").
 
-On that branch, `send_user_message` returns a kind, and the kind travels to the sender.
-`acknowledged` means the harness answered the request that carried the message, and
-the CLI prints "Message delivered". `posted` means the write finished and nothing
-confirmed it, and the CLI prints "Message posted … (no receipt)". Claude children are
-posted; Codex, OpenCode and Pi children are acknowledged. The connection states the
-kind because only it knows whether it waited for an answer. Neither word claims the
-model read the message.
+`send_user_message` returns a kind, and the kind travels to the sender. `acknowledged`
+means the harness answered the request that carried the message, and the CLI prints
+"Message delivered". `posted` means the write finished and nothing confirmed it, and the
+CLI prints "Message posted … (no receipt)". The connection states the kind because only it
+knows whether it waited for an answer. Neither word claims the model read the message.
 
-**Why a return value.** A static capability flag would be smaller today, but
-[D-unified-delivery](#d-unified-delivery) needs a delivery port that returns this same
-shape, so a flag would be replaced by that work and the return value extended by it.
-Inferring the kind from the harness id in `SpawnManager` was rejected because harness
+**Why a return value.** A static capability flag would have been smaller at the time, but
+[D-unified-delivery](#d-unified-delivery) needed a delivery port that returns this same
+shape, so a flag would have been replaced by that work and the return value was extended
+by it. Inferring the kind from the harness id in `SpawnManager` was rejected because harness
 specifics stay in `lib/harness/`.
 
-**A missing field reads as `posted`.** A launcher from an older build does not say
-how far the message got, so the CLI claims no more than it was told. This freezes the
-word: once the PR ships, renaming `acknowledged` on the wire would downgrade older
-launchers' replies to "posted".
+**A missing field reads as `posted`.** A launcher from an older build does not say how far
+the message got, so the CLI claims no more than it was told. The word is frozen: renaming
+`acknowledged` on the wire would downgrade older launchers' replies to "posted".
 
-**This does not change decision 4 of
-[D-claude-primary-inbox](#d-claude-primary-inbox).** The Claude inbox writes nothing
-back, so it stays posted. A Pi primary could only report posted too, because
-`sendUserMessage` returns nothing
-([research](../research/reaching-a-live-tui.md#pi)).
+**"Delivered" on a Codex steer stays.** A message sent during a turn is acknowledged when
+the app-server accepts `turn/steer`, before the text is in the rollout and before the model
+has used it. A softer sentence was proposed. The word stayed because in every run the
+acknowledged steer reached the rollout within about 2 s, survived a cancel, and was read at
+the model's next step ([what a steer does](../research/reaching-a-live-tui.md#codex)). A
+`session log` taken the moment the send returns can still lack the text.
 
-**What was run.** Against a build merging the patch branches, Claude children printed
-posted, and Codex, OpenCode 2.x and Pi children printed delivered (`spawn:p10517`).
-OpenCode V1 is marked `acknowledged` from reading its code only, and the `posted`
-journal status was added after those runs.
+**OpenCode V1** is marked `acknowledged` from reading its code only; no V1 server was run.
 
 ---
 
-## D-no-retry-after-write: a control action is retried only if nothing was written (2026-11, in review) {#d-no-retry-after-write}
+## D-no-retry-after-write: a message is resent only if nothing was written (2026-11) {#d-no-retry-after-write}
 
-**Status:** in review as PR #877 (`fix/no-retry-after-write`), not merged. Tech-lead
-choice. Until it merges, `ControlActionCoordinator` also retries `TimeoutError`,
-`ConnectionError` and `OSError`.
+**Status:** merged in PR #877 (v0.19.6), then reshaped by PR #907. Tech-lead choice. The
+rule for connection authors is in meridian-cli
+`src/meridian/lib/harness/connections/AGENTS.md`.
 
-On that branch, `ControlActionCoordinator.run_action` retries `ConnectionNotReady` and
-nothing else. That is the one error every connection raises before writing. Codex `turn/start`
-waits for its JSON-RPC response after the write, so a slow reply raises `TimeoutError`
-with the turn already started, and retrying that starts a second turn. A fake
-connection that writes and then times out reached the harness twice before this
-change and once after. No real Codex timeout was forced, so the duplicate turn itself
-is inferred.
+`ControlActionCoordinator.run_action` retries once on `DeliveryRefused` and nothing else.
+Codex `turn/start` waits for its JSON-RPC response after the write, so a slow reply raises
+`TimeoutError` with the turn already started, and retrying that starts a second turn. A
+fake connection that writes and then times out reached the harness twice before this
+change and once after. No real Codex timeout was forced, so the duplicate turn itself is
+inferred.
 
-The failure text on that branch says so: "timed out after the request was sent; it may have been
-delivered and was not resent". `spawn message` waits 35 s, longer than the 30 s Codex
-and Pi request timeouts, so that text usually reaches the sender.
+**Three outcomes, named where the failure happens.** `DeliveryRefused` means the receiver
+is alive and nothing was written. `TransportDead` means the receiver is gone and nothing
+was written. Anything else may have followed the write, is never resent, and tells the
+sender the message "may have arrived and was not resent". The first version had one error,
+`ConnectionNotReady`, which covered a dead process and a session still starting alike, so
+the coordinator had to guess. Only the code at the raise site knows, so the class is
+chosen there. The default is the safe direction: a raise nobody classified over-warns the
+sender and never claims delivery, so a misclassified raise is cleanup, not a redesign.
+
+Sends are bounded at 33 s (`SEND_TIMEOUT_SECONDS`), above the harnesses' own 30 s timeouts,
+whose text should win, and below the CLI's 35 s wait, so a hung send can't block a stop. The
+completion hold reads the same classes (meridian-cli
+`src/meridian/lib/streaming/.context/completion-and-entry-points.md`).
 
 **Rejected:** an idempotency key per message, because Codex and Claude have no way to
-deduplicate a turn; translating timeouts in each connection, because only the
-coordinator knows the failure followed a journalled send.
+deduplicate a turn; translating timeouts in each connection, because only the coordinator
+knows the failure followed a journalled send.
 
-**Cost:** the coordinator also carries interrupt and the permission and user-input
-replies, so a transient failure on one of those is now reported once. Nothing in
-Meridian's CLI sends the two reply verbs. A repeated interrupt after a failed one is a
-separate bug, #874.
+**Cost:** a transient failure on an interrupt is now reported once. A repeated interrupt
+after a failed one is a separate bug, #874.
 
 ---
 
-## D-unified-delivery: every live launcher serves one control socket (2026-10, not built) {#d-unified-delivery}
+## D-unified-delivery: every live session serves one control socket (2026-11) {#d-unified-delivery}
 
-**Status:** not built, awaiting the owner's confirmation. None of this exists in any
-branch. The owner's whole input was three clicks on the lead's
-recommended options (`chat:c9424`, 2026-10-26): "Unified socket (Recommended)", "No
-route until relaunch (Recommended)", "Refactor PR, then routes (Recommended)". The
-sentences in the work item's design notes are the lead's. On 2026-11-06 the lead told
-the owner this design "was never settled" and would be checked with them before
-building (`chat:c10170`). A confirmation request is in `work:native-primary-message-routes`
-`u-recommendation.md`; the owner has not answered.
+**Status:** built on `release/v0.20.0` through PRs #907, #917 and #918, for release as
+v0.20.0. The owner settled the shape and each call below on 2026-11-06, except the
+refusal after a TUI session switch, which has [its own record](#d-primary-session-move).
+Remaining edges: [#916](https://github.com/haowjy/meridian-cli/issues/916). How each harness
+behaves: meridian-cli `docs/commands.md` and `docs/harness-integration.md`.
 
 ### Problem
 
-`spawn message` has two transports chosen by `kind == "primary"`: the control socket
-for children, and a CLI-side post into Claude's inbox. Adding Codex, OpenCode and Pi
-on that structure gives each its own route and its own check of whether a reply can
-reach it, and each inherits the bugs in the reply check and the retry.
+`spawn message` had two transports chosen by `kind == "primary"`: the control socket for
+children, and a CLI-side post into Claude's inbox. Adding Codex, OpenCode and Pi on that
+structure would have given each its own route and its own check of whether a reply could
+reach it. The check and the post had already disagreed: a Claude primary with no published
+inbox was offered a reply command that failed.
 
 ### Choice
 
-1. `ControlSocketServer` takes a delivery port instead of a `SpawnManager`. Every live
-   launcher serves it: `SpawnManager` for children, the connection the launcher already
-   holds for Codex and OpenCode primaries, and a sink in the PTY launcher for Claude
-   (forwarding to the inbox) and Pi.
-2. The CLI keeps one path. `post_to_primary`, `primary_accepts_messages`, the
-   `primary_inbox` port, the `kind == "primary"` branch and the PID-reuse guard go,
-   because a live launcher owns its child and that PID cannot be reused while it serves.
-3. A primary launched by an older build serves no socket and has no route until it is
-   relaunched. No fallback code.
-4. A refactor PR comes first, then Codex and OpenCode, then Pi. The refactor adds the
-   port, moves Claude onto the launcher socket, and deletes the `interrupt`,
-   `permission_reply` and `user_input_reply` socket verbs, which no client sends.
+**One socket, one wire format, one CLI path.** `ControlSocketServer` takes a `MessageRoute`
+instead of a `SpawnManager`, and the sender neither knows nor asks what kind of session it
+reaches. What stands behind the socket differs:
 
-Probes removed the two worries that could have overturned this. The Codex observer
-survives TUI attach, so no reconnect is needed, and approvals reach the TUI, so an
-injected turn does not stall on a request only Meridian can see
-([research](../research/reaching-a-live-tui.md#codex)).
+| Session | Who serves the socket | Where a message goes |
+|---|---|---|
+| Spawned child | Its `SpawnManager` | The harness connection |
+| Claude primary | The PTY launcher, on a daemon thread | Claude's inbox |
+| Codex, OpenCode primary | `PrimaryAttachLauncher` | The observer connection it already holds |
+| Pi primary | The `meridian-message` extension, inside Pi | `pi.sendUserMessage` |
+
+Every server but Pi's journals through `ControlActionCoordinator`, so primaries gained
+`control_actions.jsonl`. Pi's extension runs in another language and process and does not.
+
+**The observer became load-bearing.** It was built to watch, and it was harmless for it to
+lag, die after 120 s of silence, or stay on its first session. As a route it has to stay
+connected through any idle silence and notice when the TUI leaves. Meridian never answers an
+approval an injected turn raises: approvals reach every Codex client, so an answer from
+Meridian would beat the human to it.
+
+**The Pi extension serves the socket itself**, at the same path and wire format, because
+Pi has no external channel and something inside its process must listen. It is a new
+extension because Meridian's Pi extensions each own one concern, and messaging is not idle
+tracking. The launcher computes the path and passes it by env var, so the hash stays in one
+language. The cost is a TypeScript copy of the request and response handling: a change to
+one side needs the other.
+
+**Unused socket verbs went.** `interrupt`, `permission_reply` and `user_input_reply` had no
+client.
+
+### A socket file means a route
+
+The launcher never predicts
+whether a session can take messages. It asks the harness every 0.25 s and binds only once
+the harness offers a route. Prediction was the alternative, and it would have to know
+`--bare`, `--safe-mode`, `--print`, Claude's version, a pending folder-trust prompt that
+delays the inbox, and whatever comes next. Waiting for the fact covers all of them, and it
+makes the file the one thing the frame's reply check and the post both consult, so they can
+no longer disagree. Two limits: it says a route exists, not that it will accept a
+message ([a moved TUI refuses](#d-primary-session-move)), and a Pi primary launched with a
+prompt has no file until its first `agent_start`. The CLI's 30 s poll covers that gap.
+
+### Calls settled on 2026-11-06
+
+| Question | Settled | Why, and what it costs |
+|---|---|---|
+| A primary from an older build | No route until relaunched, no fallback code | Old sessions are rarely resumed; the owner carries work forward with `--from` or session mining. The sender waits 30 s, then gets an error that says to relaunch |
+| OpenCode's idle sensor sees an injected turn as a human prompt | Accepted | It counts as activity, as a typed prompt does |
+| A message to a busy Codex primary | Steers into the current turn | It matches what `send_user_message` already does for children, and the message reaches the model at its next step |
+| Claude's peer-safety paragraph | Accepted | About 130 tokens on each inbox message ([measured](../research/claude-code-mods-and-inbox.md#the-inbox-socket)). No setting removes it, and only Claude primaries pay it |
+| Which release | `release/v0.20.0` | Ahead of the v0.21 first proposed |
 
 ### Rejected
 
@@ -408,27 +431,69 @@ injected turn does not stall on a request only Meridian can see
 |---|---|
 | Per-harness `primary_inbox` ports behind the CLI branch | Keeps the `kind` branch and a reachability rule per harness |
 | A library resolver returning `ControlSocket`, `NativeInbox` or `Unreachable`, with the CLI posting | Managed primaries need a launcher socket anyway: only the launcher holds the observer, and OpenCode's attach password is never on disk. A second transport would keep the branch forever |
-| A one-release fallback for older primaries | Primaries are short-lived |
-| One PR for everything | The refactor can land before the routes it enables |
+| Pi: the launcher serves and forwards to an extension socket | A second, Pi-only socket for no gain. The worry behind it was false: the extension can reach the path |
+| Pi: a file drop | Gives the sender no failure |
+| One PR for everything | The refactor could land before the routes it enables |
 
 ### Costs
 
-A socket-serving thread in the synchronous PTY launcher, which has no event loop.
-Primaries get the 30 s discovery poll instead of failing at once. A Claude process
-whose launcher died loses its route.
+A primary with no route takes the 30 s discovery wait instead of failing at once, which
+includes a `--bare` Claude primary that used to fail in about a second.
 
-### Open for the owner
+### What was run
 
-- **Pi:** the launcher serves the socket and forwards to an extension listener (two
-  hops, keeps "the launcher serves" true), or the extension serves it (one hop, needs a
-  new variable for the runtime root). The lead recommends the launcher.
-- **OpenCode:** an injected turn reads as a human prompt to the idle sensor, so it
-  counts as activity. The lead recommends accepting that.
-- **Codex mid-turn:** steer into the TUI's turn, as `send_user_message` does today. The
-  lead recommends this.
-- **The port:** `deliver(text) -> DeliveryKind` where any failure raises, which removes
-  `InjectResult`, `on_result` and `inbound_seq`. A review proposed it (`spawn:p10531`).
+At the merge of #918, real Claude, Codex, OpenCode and Pi primaries each took an idle
+message and rendered it, Pi took one mid-turn and OpenCode one mid-turn, a Pi child and a Pi
+primary exchanged messages both ways, and Codex and OpenCode refused after a move. An older
+build's primary and a `--bare` Claude primary both got the no-route error. Not yet run there: mid-turn on Claude and Codex primaries, a Codex primary after more than three idle
+minutes, full child round trips on Claude, Codex and OpenCode, and a message sent immediately
+after launch.
 
-**Provenance:** `work:native-primary-message-routes` `design-notes.md`,
-`u-recommendation.md`, `explore-unified-delivery.md`; structural review
-`spawn:p9722`; probes `spawn:p9741`, `spawn:p9736`; session mining `spawn:p10549`.
+---
+
+## D-primary-session-move: a Codex or OpenCode route refuses once the TUI leaves its session (2026-11) {#d-primary-session-move}
+
+**Status:** built in PR #917. The tech lead's call, reported to the owner and not yet
+answered. Following the TUI stays open as a follow-up in
+[#916](https://github.com/haowjy/meridian-cli/issues/916).
+
+### Problem
+
+A Claude or Pi route lives inside the TUI process, so it follows whatever session the human
+opens. A Codex or OpenCode route is a second client of a server, on the session the
+launcher started. After `/new` in the TUI, a message was reported delivered and its turn
+ran on the abandoned session: it wrote files and spent tokens, the human saw nothing, and an
+approval it raised stayed pending where no prompt could reach them.
+
+### Choice
+
+The route stays on the first session and refuses, with `DeliveryRefused` and a message
+saying why, once the launcher sees the TUI leave. The refusal is sticky for the launch,
+including after the human returns to the first session, and it changes nothing else: the
+socket stays bound and the sender can tell the human.
+
+A false "delivered" is the outcome this exists to end, and following can't end it. No server
+reports which session a TUI shows ([what the wire shows](../research/reaching-a-live-tui.md#which-session-is-the-tui-on)).
+A Codex `/resume` to a loaded thread and an OpenCode switch to an existing session give no
+usable signal, and a new Codex thread can't be resumed until its rollout exists. The rest of
+Meridian (`harness_session_id`, the idle sensor, `--continue`) stays on the first session
+as well, so following the route alone would split Meridian's view of the session.
+
+### Rejected
+
+| Alternative | Why rejected |
+|---|---|
+| Follow `/new` and `/fork` only, refuse the rest | More code for partial cover, and it splits Meridian's view of the session |
+| Keep delivering to the first session | The false "delivered" above |
+| Treat a loaded-thread list or `thread/closed` as focus | Neither means that: several threads stay loaded, and `thread/closed` means unloaded |
+
+### What it leaves
+
+An OpenCode message sent after the new-session or switch-session command, before the human
+types there, goes to the first session and reports delivered, because the server sends
+nothing until then. A misread helper thread would refuse for the rest of the session; that
+fails honestly, so detection leans toward refusing. The signals and the list of gaps are in
+meridian-cli `docs/harness-integration.md`.
+
+**Revisit when:** the owner answers; a harness reports its TUI's focus; or `--continue`,
+`harness_session_id` and the idle sensor are made to follow the TUI.

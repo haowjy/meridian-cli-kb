@@ -83,21 +83,19 @@ child activity. Child events may remain in history, but they do not complete or
 supply the report for the parent spawn.
 
 Cross-harness death and injection contracts are behavioral: a connection close
-must carry the best available exit/error evidence, and a successful injection
-result must mean the harness acknowledged or durably accepted the input. A Claude
-child breaks that rule today: its result means only that the stdin write finished,
-and [D-delivery-kind](../decisions/primary-inject.md#d-delivery-kind) (PR #878, in
-review) makes each result say which it was. Fakes must model these contracts rather
-than returning universal success.
+must carry the best available exit/error evidence, and a successful message result
+must say how far the message got: `acknowledged` when the harness answered,
+`posted` when the write finished and nothing confirmed it
+([D-delivery-kind](../decisions/primary-inject.md#d-delivery-kind)). Fakes must model
+these contracts rather than returning universal success.
 
-No primary has a `SpawnManager` serving a control socket, and a Claude or Pi
-primary has no Meridian connection at all, so injection into a primary goes
-through a separate optional bundle port, `primary_inbox`. Its contract
-is an explicit exception to the acknowledgement rule above: Claude's inbox socket returns no acknowledgement, so a
-successful post means only that the whole message was written, and its result
-text must say "posted", never "delivered"
-([D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox),
-PR #668).
+No primary has a `SpawnManager`, and a Claude or Pi primary has no Meridian connection
+at all, yet every session serves the same control socket: what stands behind it
+is a `MessageRoute`, and the optional bundle port `primary_message_route` supplies one for a
+launcher that needs it
+([D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery)). A Claude or Pi
+primary reports `posted`, because neither Claude's inbox nor Pi's `sendUserMessage`
+gives anything back.
 
 ## Adding a Harness
 
