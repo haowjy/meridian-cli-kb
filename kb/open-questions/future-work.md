@@ -21,8 +21,8 @@ in [#916](https://github.com/haowjy/meridian-cli/issues/916):
   thread gives no signal, OpenCode gives none until the human types in the new or other
   session, and `harness_session_id`, the idle sensor and
   `--continue` would have to move too
-  ([D-primary-session-move](../decisions/primary-inject.md#d-primary-session-move), which the
-  owner has not yet answered).
+  ([D-primary-session-move](../decisions/primary-inject.md#d-primary-session-move));
+  the owner accepted refusal and following the TUI is not planned.
 - **A false "delivered".** An OpenCode message sent after the new-session or switch-session
   command, before the human types there, goes to the first session.
 - **A possible false refusal.** A Codex subagent reopened by `resume_agent` in a continued
@@ -173,51 +173,10 @@ Phase 8.6 removed `SpawnOperationServices` and inlined cancel/cancel-all root/se
 
 ---
 
-### Store-Level Publication Ordering (#431)
+### Test `_sessions` seeding
 
-**Where:** `src/meridian/lib/streaming/spawn_manager.py`, `src/meridian/lib/launch/streaming_runner.py`
-
-**The issue:** Store-level `published_at` can trail drain cleanup rows. The probe-fix
-cycle measured 56s between death and store publication on real Pi (p5390: cleanup
-completed at 14:20:20.545Z, `published_at` at 14:20:21.810Z). The sub-second
-`published_at` timestamp (added in #435) makes this ordering observable. Moving
-durable publication ahead of cleanup is a separate store-pipeline concern.
-
-**Remaining:**
-- `streaming_runner.py` remains large; timeout state spans arbitration, drain
-  normalization, failure projection, and lifecycle finalization. Extraction
-  of turn-result normalization would prevent another ad-hoc boolean branch.
-
-**Why deferred:** The probe-fix cycle resolved the structural conflation.
-Store-level ordering is a pipeline concern tracked as #431 evidence.
-
----
-
-### Wait Fail-Fast Reporting (#458)
-
-**Where:** `src/meridian/lib/ops/spawn/api.py` — `spawn_wait_sync()`
-
-**The issue:** `spawn wait` blocks until all pending spawns reach a terminal
-state. When a denied or failed spawn finalizes quickly (e.g. after the
-headless-deny fix in PR #460), the healthy spawns in the wait set continue
-running. The caller sees the failure only after the entire wait set drains.
-A fail-fast mode would report the first terminal failure immediately without
-waiting for healthy spawns to complete.
-
-**What's needed:** An eager/fail-fast option on `spawn wait` (and
-`spawn_wait_sync`) that returns as soon as any spawn in the wait set reaches a
-terminal failure status. Checkpoint mode already returns partial state, but it is
-timer-driven, not event-driven. Fail-fast is conceptually distinct: it reacts to
-a specific failure, not to a timer expiry.
-
-**Why deferred:** Scoped out of PR #460 (#442 fix) as a separate concern.
-The deny-at-prepare fix eliminates the most common trigger (denied spawns no
-longer reach the wait set), reducing urgency. Filed as issue #458.
-
-**Decision context:** `decisions-bugfix-sprint.md` in the workstream-roadmap work
-directory.
-
----
+`tests/integration/launch/test_spawn_manager_lifecycle.py` seeds the manager's
+private `_sessions` field. A manager-owned setup path could remove that coupling.
 
 ### Typed Terminal Provenance (#438)
 
@@ -231,7 +190,7 @@ origin (`pi_subprocess_exit`, transport failure, provider failure, timeout)
 would make precedence explicit and delete string-prefix policy.
 
 **Why deferred:** String-prefix recognition is correct and scoped. A typed
-provenance taxonomy is a larger contract revision. Filed as #438.
+provenance taxonomy is a larger contract revision. Tracked in [#438](https://github.com/haowjy/meridian-cli/issues/438).
 
 ---
 
@@ -245,7 +204,7 @@ cause analysis showed this ambiguity prevents over-reading cleanup telemetry.
 A reason/category field on cleanup phases would make the distinction
 observable.
 
-**Why deferred:** Contract revision, not a correctness fix. Filed as #439.
+**Why deferred:** Contract revision, not a correctness fix. Tracked in [#439](https://github.com/haowjy/meridian-cli/issues/439).
 
 ---
 
@@ -330,6 +289,20 @@ None of these limits is a reproduced defect or a must-do:
   constant-total-inference promise.
 
 See the [delivery contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/pi_runtime/.context/delivery-contract.md).
+
+## Telemetry
+
+Potential structural improvements include separating lifecycle observer types
+from telemetry, converging telemetry bootstrap at one process seam, and sharing
+the truncation-tolerant JSONL parsing used by event reads and tails. See the
+[telemetry architecture](../architecture/telemetry/overview.md).
+
+## Codebase
+
+Possible simplifications include a shared session-reference helper, collapsing
+overlapping bootstrap carriers after spawn-pipeline unification, and splitting
+`CodexConnection` by concern. Design the state read/repair contract before
+collapsing `session_target.py`.
 
 ## Ecosystem: Jupyter Workbench
 

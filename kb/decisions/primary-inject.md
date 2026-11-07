@@ -39,7 +39,9 @@ guarantee.
 
 ## Message address {#d-spawn-message-address}
 
-Chat and spawn IDs are project-scoped, so cross-project addresses include the
+The owner asked for “an easier way to do cross/repo communication” and for
+`spawn message` to be more accessible. Chat and spawn IDs are project-scoped,
+so cross-project addresses include the
 project root. A project-qualified ID syntax would require a registry Meridian
 does not have. The caller identity is captured before `-C` drops project-scoped
 environment IDs; restoring those IDs in the target environment would let a child
