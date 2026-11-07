@@ -14,9 +14,9 @@ Claude's inbox was chosen over a TUI mod because it can deliver between tool
 calls, needs no additional listener and does not depend on a mod loading silently.
 A mod cannot replace the child stdin stream: plain `claude -p` exits after going
 idle even if a mod listener remains, and `$.prompt.submit` waits for the turn to
-end. The starting direction was to use a mod for both children and primaries; the
-owner has not confirmed the departure from that direction or the approval hold
-on bypass-mode primaries. See the [probes and inbound controls](../research/claude-code-mods-and-inbox.md).
+end. Whether to use a mod instead, and whether bypass-mode primaries should hold
+for approval, remain open decisions. See the
+[probes and inbound controls](../research/claude-code-mods-and-inbox.md).
 
 Meridian does not send Claude's messaging token, forge a bypass-mode envelope,
 or override `crossSessionInbound`: those would claim authority or override a
@@ -27,10 +27,10 @@ schema comes from the Claude binary and can change without notice.
 
 ## Message frame {#d-spawn-message-frame}
 
-The owner asked for a reply ID: “there is no id for the response... so we should
-probably add like 'this was sent from a meridian session. use `meridian spawn
-message c9297 etc...'”. The framing and route check are current implementation
-choices. Sender identity travels in text because every route carries it, unlike
+A reply needs an address. The owner proposed: “there is no id for the response...
+so we should probably add like 'this was sent from a meridian session. use
+`meridian spawn message c9297 etc...'”. Sender identity travels in text because
+every route carries it, unlike
 Claude's peer envelope. The reply uses the sender's current chat, rather than
 its spawn ID or the chat that launched it: continuation changes the spawn ID,
 and a session can move to another chat. A reply command is offered only when a
@@ -39,10 +39,8 @@ guarantee.
 
 ## Message address {#d-spawn-message-address}
 
-The owner asked for “an easier way to do cross/repo communication” and for
-`spawn message` to be more accessible. Chat and spawn IDs are project-scoped,
-so cross-project addresses include the
-project root. A project-qualified ID syntax would require a registry Meridian
+The owner asked for “an easier way to do cross/repo communication”. Chat and
+spawn IDs are project-scoped, so cross-project addresses include the project root. A project-qualified ID syntax would require a registry Meridian
 does not have. The caller identity is captured before `-C` drops project-scoped
 environment IDs; restoring those IDs in the target environment would let a child
 there claim the caller's identity. See [chat ownership](chat-spawn-ownership.md#d-chat-names-own-session).
@@ -73,8 +71,8 @@ Codex cannot deduplicate a turn. See the
 ## Unified delivery {#d-unified-delivery}
 
 The launcher serves a common socket instead of adding a CLI branch and separate
-reachability check for each primary harness. The older split had already allowed
-a reply command for a Claude primary without a usable inbox. The socket is bound
+reachability check for each primary harness. Advertising a reply route without a
+usable inbox offers a command that cannot deliver. The socket is bound
 when a route exists rather than predicting support from launch flags, version,
 or an outstanding trust prompt. It can still be stale or refuse a send.
 
@@ -85,18 +83,19 @@ extension because it has no external delivery channel. A launcher-to-extension
 socket would add a second transport; a file drop would not report failure.
 Maintaining Pi's wire handling in TypeScript is the tradeoff.
 
-The owner accepted that older primaries need relaunching, that OpenCode counts
-injected turns as activity, that a busy Codex primary is steered, and that
-Claude's inbox adds its peer-safety paragraph. A no-route primary can therefore
-wait through discovery before failing.
+Older primaries need relaunching to expose the route. OpenCode counts injected
+turns as activity, a busy Codex primary is steered, and Claude's inbox adds its
+peer-safety paragraph. A sender may wait for route discovery before failing when
+no route appears: the launcher waits for the harness to establish a route rather
+than predict availability from launch flags.
 
 ## Session moves {#d-primary-session-move}
 
 Codex and OpenCode routes stay on the first session and refuse after detecting a
 TUI move. Otherwise a message can run in an abandoned session, spend tokens or
-write files while the human sees nothing, and leave an approval stranded. The
-owner accepted refusal and does not expect Meridian to work well across `/new`
-or `/fork`; following the TUI is not planned. A partial follow was rejected:
+write files while the human sees nothing, and leave an approval stranded.
+Following the TUI across `/new` or `/fork` is not planned. A partial follow was
+rejected:
 servers do not reliably report TUI focus, and moving the route alone would split
 it from `--continue`, the idle sensor and the recorded session ID. Detection has
 gaps, including an OpenCode switch before the human types; see

@@ -4,8 +4,9 @@ Adapters translate Meridian's harness-neutral intent into harness-specific
 mechanisms. The [harness contract and extension guide](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/.context/CONTEXT.md)
 owns the current ports and integration steps; the [harness abstraction](../concepts/harness-abstraction.md)
 explains the policy boundary. Adding a harness currently touches more than one
-adapter and registration; the [cleanup program](cleanup-program.md) tracks that
-leakage.
+adapter and registration. [`HARNESS_EXTENSION_TOUCHPOINTS`](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/__init__.py)
+lists the additional bootstrap, projection, extraction, transport, and accounting
+touchpoints; the [cleanup program](cleanup-program.md) tracks the broader leakage.
 
 A parent event scope classifies events rather than filtering them: child events
 remain visible to subscribers but must not complete or fail the parent, clear
