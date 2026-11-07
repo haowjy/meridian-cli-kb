@@ -10,7 +10,7 @@ Decision pages own rationale, rejected alternatives and revisit conditions. Arch
 | History storage | Transcript authority, disposable indexes, retention, restore, and native capture | [decisions/history-storage.md](decisions/history-storage.md) |
 | Native session identity | Immutable chat→native key, exact-target entry evidence, one binding and drift rule, run-boundary outcomes, no discovery, paths move only through `relocate` | [decisions/native-session-identity.md](decisions/native-session-identity.md) |
 | Native-only history | Native transcripts as the only conversation source, old-data policy, search projection, run facts, retention | [decisions/native-only-history.md](decisions/native-only-history.md) |
-| Native source argument admission | Superseded; identity-overriding passthrough refusal is what remains | [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) |
+| Native source argument admission | Identity-overriding passthrough refusal | [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) |
 | Launch composition | Prepare/bind, policy replay, inventory, capability-to-command guidance, capability gates | [decisions/launch.md](decisions/launch.md) |
 | Managed processes | Managed primaries, process scope, cancellation and cleanup | [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) |
 | Idle notifications | Idle push and cache-expiry warning, Claude's stateless permission-prompt notice, running work and the push, session role, notifications as hook events (D-notify-hook-events), notify channels and secrets; Meridian idle compaction removed (D-idle-compaction-removed) | [decisions/idle-notifications.md](decisions/idle-notifications.md), [decisions/idle-notify-channels.md](decisions/idle-notify-channels.md); current mechanism: [architecture/idle-adapters.md](architecture/idle-adapters.md) |
@@ -21,7 +21,7 @@ Decision pages own rationale, rejected alternatives and revisit conditions. Arch
 | Session-browse picker | Columns, transcript on demand, staleness, search, lineage view | [decisions/session-browse.md](decisions/session-browse.md) |
 | Static typing | Pyright strictness, suppression syntax, boundary narrowing, private-name policy | [decisions/static-typing.md](decisions/static-typing.md) |
 | Codebase cleanup | Cleanup program scope, deferrals, and what phase 1 deleted or left open | [decisions/codebase-cleanup.md](decisions/codebase-cleanup.md) |
-| Harness compatibility | Harness-specific launch history and superseded platform work | [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) |
+| Harness compatibility | Harness-specific launch constraints | [decisions/launch-harness-compatibility.md](decisions/launch-harness-compatibility.md) |
 | Startup / health / sandbox | Startup descriptors, doctor, bootstrap and projection policy | [decisions/startup-health-sandbox.md](decisions/startup-health-sandbox.md) |
 | Package management | Mars compilation, targeting, ownership, hooks, recovery, engine constraints | [decisions/package-management.md](decisions/package-management.md) |
 | Model resolution | Alias routing, candidate policy, prompting ownership | [decisions/model-resolution.md](decisions/model-resolution.md) |

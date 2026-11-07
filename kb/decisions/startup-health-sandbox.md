@@ -8,10 +8,6 @@ Doctor defaults to a local scan; cross-project maintenance is explicit because i
 
 A lightweight command catalog and lazy imports keep trivial commands from paying for operation and harness dependencies. Read-only resolution must not create project state; `ensure` operations own mutation. See [startup architecture](../architecture/startup-pipeline.md).
 
-### Proposed single process-seam telemetry install — not shipped
-
-A single process seam for telemetry installation could prevent duplicated install sites from diverging. It is not implemented; [startup architecture](../architecture/startup-pipeline.md#telemetry-as-shipped) describes the current setup.
-
 ## Sandbox Projection Policy
 
 Projecting all of `~/.meridian` into a child would give it access to sibling projects' state and lock namespaces. Grant purpose-scoped paths instead; see [sandbox projection](../architecture/sandbox-projection.md).

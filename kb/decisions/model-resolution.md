@@ -32,18 +32,6 @@ hide a mismatched pin. The current implementation details (curation files and
 matching, cache/probe semantics, route evidence, and Meridian subprocess
 handling) belong in each source tree's colocated docs, not here.
 
-**Status:** Implemented on Mars commit `2230e6f` and Meridian consumer commit
-`cfb33b0`, but not release-converged at the time of capture: Meridian's branch
-still pins the previous Mars release. The consumer pin update follows the Mars
-release; this is a release gate, not a reason to weaken the API boundary.
-
-**Provenance:** `work:harness-model-catalog-layers`; design
-`design/model-catalog-layers.md`; consumer sequencing and evidence in
-`p4-meridian-consumer-evidence.md` and `verification/p5-regression.md`.
-
----
-
-
 ### Model is optional — harness alone is sufficient for launch execution {#model-optional-empty-model}
 
 An absent managed model lets the harness choose its default. A stronger harness override can also clear an incompatible model. Older snapshots represent absence as an empty string; a fake model token would instead be sent as an override.

@@ -11,8 +11,8 @@ SIGTERM **before it observed the TUI's exit**, whatever exit code the TUI
 reported. It records the signal as `128+N` (129 or 143) rather than the TUI's code.
 A SIGINT that reaches the launcher records 130 `cancelled`. A terminal Ctrl-C is a
 keystroke to the harness, so Meridian records the harness's result. If the launcher saw the TUI exit first, the TUI's real result stands.
-Shipped code needs no separate recorder. Managed attach reads its latch once, when
-the main task resumes from the TUI wait. The black-box receiver (PR #658) latches
+Managed attach reads its latch once, when
+the main task resumes from the TUI wait. The black-box receiver latches
 only while the wait thread has not yet marked the wait complete. A signal in the
 microseconds between the child's exit and that mark turns a clean exit into
 cancelled, which was accepted.

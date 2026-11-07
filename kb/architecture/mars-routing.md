@@ -1,6 +1,6 @@
 # Mars routing
 
-## Routing parity (PR #72)
+## Routing parity
 
 Model preview and launch-bundle routing share evidence and a candidate evaluator so they cannot silently disagree. The Possible inventory and Curated display are separate from runtime selection; curation cannot change a route. See [model resolution decisions](../decisions/model-resolution.md).
 
