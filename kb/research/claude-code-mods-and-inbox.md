@@ -1,6 +1,6 @@
 # Claude Code: Mods Under `-p`, and the Cross-Session Inbox
 
-Claude Code 2.1.302 was probed on Linux; later version-specific findings are marked below. See [mods API](https://code.claude.com/docs/en/plugins/mods/api), [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket), and [Meridian's inbox choice](../decisions/primary-inject.md#d-claude-primary-inbox).
+These probes compare a mod running inside Claude Code with its cross-session inbox as ways to reach a live session from another process. Claude Code 2.1.302 was probed on Linux; later version-specific findings are marked below. See [mods API](https://code.claude.com/docs/en/plugins/mods/api), [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket), and [Meridian's inbox choice](../decisions/primary-inject.md#d-claude-primary-inbox).
 
 ## Mods
 

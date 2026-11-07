@@ -10,6 +10,12 @@ Committed identity survives moves and is shared by clones; ad-hoc identity deriv
 
 The global session journal remains authoritative. A per-chat split would reduce global scans and writer contention, but must account for writes from older builds without losing or duplicating events. See [session state](../architecture/state-system/session-state.md) and [the tracked migration](https://github.com/haowjy/meridian-cli/issues/418). 
 
+The proposed split retains append-only journals because consumers read events; per-chat state files would add a derived schema and read-modify-write on every update. A global offset index would keep the shared writer lock. Absorbing old writes on every read would add locking and deadlock risk; ignoring them loses facts. Pruning and the archive's full scan remain outside the proposal.
+
+## JSONL recovery
+
+A newline commits a row. A valid final object without one stays invisible until a later append repairs it; showing it sooner would expose an uncommitted write. Repair preserves a complete object and discards a torn one. It replaces the inode rather than truncating in place: an unlocked buffered reader could otherwise combine old and new bytes into a fabricated event. See the [state context](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/state/.context/CONTEXT.md).
+
 ## Session reads {#d-session-read-seam}
 
 A prefilter may include extra rows but must not discard rows the decoded predicate selects. Multi-chat reads scan once: scanning once per chat makes bulk operations scale poorly.

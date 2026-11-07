@@ -1,6 +1,6 @@
 # How harnesses load plugins
 
-Claude Code 2.1.310, Codex CLI 0.164.0, Grok 1.0.40 and 1.0.70, and OpenCode 2.1.3–2.1.4 were examined in October 2026. Cursor CLI required an account, so its entries use published documentation and schemas. See the Mars `README.md` and `docs/plugin-authoring.md` for its generated plugin support.
+Harnesses do not share one plugin format: Claude Code, Codex and Grok accept a Claude-format tree, while Cursor and OpenCode need different forms. Claude Code 2.1.310, Codex CLI 0.164.0, Grok 1.0.40 and 1.0.70, and OpenCode 2.1.3–2.1.4 were examined in October 2026. Cursor CLI required an account, so its entries use published documentation and schemas. See the Mars `README.md` and `docs/plugin-authoring.md` for its generated plugin support.
 
 ## At a glance
 

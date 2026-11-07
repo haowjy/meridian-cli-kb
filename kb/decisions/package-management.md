@@ -1,6 +1,6 @@
 # Package management
 
-Mars resolves packages and produces the artifacts Meridian consumes. The source checkout's [src/AGENTS.md](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/src/AGENTS.md), [src/compiler/AGENTS.md](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/src/compiler/AGENTS.md) and [src/build/AGENTS.md](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/src/build/AGENTS.md) describe its contracts. See also [Mars targeting](../architecture/mars-targeting.md), [launch bundles](../architecture/mars-launch-bundle.md), and [user scope](../architecture/mars-user-scope.md).
+These decisions cover how Mars resolves packages and produces artifacts Meridian consumes. The source checkout's [src/AGENTS.md](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/src/AGENTS.md), [src/compiler/AGENTS.md](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/src/compiler/AGENTS.md) and [src/build/AGENTS.md](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/src/build/AGENTS.md) describe its contracts. See also [Mars targeting](../architecture/mars-targeting.md), [launch bundles](../architecture/mars-launch-bundle.md), and [user scope](../architecture/mars-user-scope.md).
 
 Meridian asks Mars or reads Mars-produced artifacts for effective settings instead of independently merging Mars configuration. A second resolver can drift when Mars adds a configuration layer; the same boundary applies to skills. When Mars does not expose a needed fact, add an interface there.
 
@@ -10,7 +10,19 @@ Mars's user configuration is below project configuration. A separate user-local 
 
 ## Plugin builds {#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24}
 
-A plugin contains the resolved package graph, rather than requiring consumers to install each graph node separately. See [harness plugin loading](../research/harness-plugin-loading.md) for harness constraints.
+A plugin contains the resolved package graph, rather than requiring consumers to install each graph node separately. Following references in prose would make a second, unreliable definition of the package. Plugin dependencies also cannot reliably provide the graph: Codex ignores them, and Claude cross-marketplace dependencies require prior marketplace registration and allowlisting. See [harness plugin loading](../research/harness-plugin-loading.md).
+
+## Source and output boundaries
+
+Hidden harness directories are not discovered as package source by default: scanning them would treat generated state as authored input and require harness-specific guesses. Foreign layouts can be imported explicitly. See [source selection](../concepts/package-management/self-source-selection.md).
+
+Matching bytes do not establish ownership of an unowned output. See [sync model](../concepts/package-management/sync-model.md) for the interrupted-write recovery boundary.
+
+## Skill variants
+
+Mars selects a skill body by harness, falling back to the base body. Model-specific selection was not built because no package or request needed it; adding it belongs in Mars, not a second Meridian resolver. See [skill loading](../concepts/skill-loading.md).
+
+> [!FLAG] **Needs human review**: Mars still indexes model-variant directories and warns about their layout, but does not select them. This can suggest support that does not exist. Flagged 2026-11-07.
 
 ## OpenCode model selection
 

@@ -13,3 +13,5 @@ A `/tui fullscreen` successor inferred from prompt history is diagnostic only. A
 ## Launch-owned SessionStart journal and current chat
 
 Claude's launch-owned observations distinguish the entry session from later TUI switches. A switch updates the current chat without rebinding the entry; a later continuation selects that current chat and checks its exact transcript. An observed session may not have a readable transcript yet. A disabled hook, full journal or killed launcher can leave a switch unobserved; the last accepted observation remains authoritative. See the source checkout's `src/meridian/lib/launch/native_run.py` and [native session binding](native-session-binding.md).
+
+The journal reader accepts only the launch nonce and child PID, preventing a nested Claude from publishing into its parent's run. It advances its cursor after each durable observation: advancing the entire batch first could lose a switch, while replaying already published observations could transiently rewind the current chat.

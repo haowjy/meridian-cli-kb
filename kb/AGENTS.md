@@ -1,9 +1,144 @@
-# Meridian knowledge base
+# KB Guide
 
-The KB records cross-cutting intent, rationale, rejected alternatives and external facts that cannot be recovered from the source tree. Directory-specific contracts belong beside the code; user guidance belongs in product docs. Link to those sources rather than copying them.
+This governs how agents and humans maintain the Meridian KB.
 
-Write current truth without attribution, work IDs, release status or a history of the page. Retain behavior and the reason for it, project invariants, and external evidence with its sources. Remove inventories and descriptions the code already supplies. Delete pages whose subjects no longer exist; preserve unsettled work in its issue or work directory.
+## What the KB Is
 
-Read the relevant source and existing links before editing. Use relative links within the KB and update inbound links when moving, deleting or changing an anchor. `index.md` catalogs the KB; `decisions.md` indexes decisions. Run `meridian kg check . --strict` after Markdown changes and `meridian mermaid check . --strict` after diagram changes.
+The KB is the authoritative description of this system — both the concrete
+reality (what exists, how it works, how pieces connect) and the reasoning
+behind it (why it's this way, what was rejected, what traps exist). It serves
+agents orienting on unfamiliar code, humans onboarding onto the project, and
+anyone tracing back why a decision was made.
 
-The KB checkout is autosynced. Edit it directly unless the work needs an isolated branch. Project-wide invariants live in the source repositories' root `AGENTS.md` files.
+A page can document a module's structure, walk through an architectural
+tradeoff, record a decision's rationale, or do all three. The question isn't
+"is this code documentation or knowledge" — it's "would this help someone
+understand this part of the system next time they touch it?"
+
+Raw research dumps and conversation transcripts don't belong here — synthesize
+them first. Active task plans live in work directories, not the KB. But
+documenting how the code works, what the APIs look like, how data flows through
+the system — that absolutely belongs here, alongside the reasoning and context
+that make those facts meaningful. Prefer linking: when the project's docs or a
+colocated `.context/` already describe it, link there instead of restating it,
+and write here only what they don't say.
+
+Project-wide engineering constraints live in the meridian-cli root `AGENTS.md`;
+subsystem constraints live in the colocated `AGENTS.md` and `.context/CONTEXT.md`
+files. The KB keeps the rationale, architecture, and hazards those files do
+not own rather than duplicating their rule catalogs.
+
+## Writing
+
+### Calibrate depth to importance
+
+Not every page needs the same treatment. A vocabulary page is reference — terse
+definitions, no narrative needed. An architecture page explaining why the
+harness abstraction exists needs to walk through the problem, the constraints,
+the alternatives considered, and how the current design addresses them. Match
+the depth to how much understanding the reader needs to work effectively in
+that area.
+
+Reference-style content (config formats, API surfaces, file locations, CLI
+flags) should be direct and scannable. Conceptual content (design reasoning,
+tradeoff analysis, failure modes, "how to think about this") should use
+narrative prose that builds understanding rather than listing facts.
+
+### Show during decisions, tell during facts
+
+When documenting a decision — why we chose X over Y, why a module is shaped
+the way it is, what constraint forced a tradeoff — show the reasoning. Walk
+through it. What was the problem, what options existed, what made one better.
+The reader should finish understanding not just what was decided but why, well
+enough to know when the decision should be revisited.
+
+When documenting factual structure — where files live, what a config key does,
+what calls what — state it directly. Don't narrativize reference material.
+
+### Write what you'd want to find
+
+Before writing, imagine you're an agent or engineer about to modify this part
+of the system. What would you need to know? What would bite you if nobody told
+you? What looks obvious from the code but actually has a non-obvious reason
+behind it? Write that.
+
+### LLM failure modes to resist
+
+LLM training pushes toward specific failure patterns when writing documentation.
+Recognize and resist them:
+
+- **Summarizing instead of explaining.** "This module handles spawn lifecycle
+  management" is a summary. How does it handle it? What are the states, the
+  transitions, the edge cases? Summaries are labels, not understanding.
+
+- **Homogenized structure.** Not every page needs the same Header → Bullets →
+  Table → Related Pages skeleton. A decision record looks different from an
+  architecture walkthrough looks different from an operations guide. Let the
+  content dictate the shape.
+
+- **Smoothing over uncertainty.** Some things in the system are ugly
+  compromises, open questions, or known-fragile. Say so. "This works but is
+  brittle because X" is more useful than presenting everything as clean and
+  settled. Flag genuine uncertainty rather than narrating past it.
+
+- **Labeled conclusions instead of shown reasoning.** "This is an important
+  architectural boundary" — why? Show the consequence of violating it. Show
+  what breaks. The reader should reach the conclusion themselves from the
+  evidence you present.
+
+- **Overcorrecting on direction changes.** When recording a change in approach,
+  capture the calibration — what we moved toward, what we kept from before, why
+  the balance shifted. "We moved from X toward Y" is different from "X is
+  forbidden." The goal is usually balance, not a pendulum swing. Don't encode
+  directional corrections as absolute prohibitions.
+
+### Cross-reference, don't re-explain
+
+When a concept is owned by another page, link to it. Duplicate explanations
+drift apart. Each page is responsible for one coherent concept — if it covers
+two unrelated topics, split it.
+
+## Stating the reason
+
+A page states the behavior and its reason, and stands without saying who chose it: no names, quotes, session or spawn ids. Link issues, PRs and research a reader would check, and keep measurements beside what they measure. Project invariants live in the root `AGENTS.md` of meridian-cli and mars-agents; everything else here is a current choice, open to rewriting when evidence shows something better.
+
+## Structure
+
+- `index.md` is the catalog. Update it when you create or significantly modify a page.
+- `decisions.md` is the decision index — what, when, link to rationale.
+- Domain directories emerge organically. A topic earns a directory when it has
+  multiple related pages. Don't create directories with a single page.
+
+## Landing KB changes
+
+By default, edit the KB in its autosynced checkout (`$MERIDIAN_CONTEXT_KB_DIR`);
+the `git-autosync` hook commits and pushes it. That includes pages describing
+code still on an unmerged branch: edit them directly and say in the status line
+that the code is unmerged. Use a branch (a worktree of the KB repo) only for a
+large doc update you don't want landed until it's finished, and for cloud
+sessions without autosync. Merge a KB branch without asking the owner once
+it's ready. After it
+merges, run one `@kb-lead` pass that checks every page it changed against the
+code as released, and fixes what the code contradicts.
+
+## Diagrams
+
+Default to Mermaid for anything spatial — flows, state machines, module
+relationships, dependency graphs. Every diagram must pass
+`meridian mermaid check`. Prefer simple constructs and clear labels. Don't rely
+on color alone as a differentiator.
+
+## Links
+
+- Run `meridian kg check .` before committing.
+- Use relative paths for internal links.
+- Update all inbound links when renaming or moving a page.
+
+## Validation
+
+Before committing:
+
+```bash
+meridian kg check .           # broken links
+meridian mermaid check .      # diagram validity
+```
