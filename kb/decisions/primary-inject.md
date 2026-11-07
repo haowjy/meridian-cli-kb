@@ -452,9 +452,9 @@ after launch.
 
 ## D-primary-session-move: a Codex or OpenCode route refuses once the TUI leaves its session (2026-11) {#d-primary-session-move}
 
-**Status:** built in PR #917. The tech lead's call, reported to the owner and not yet
-answered. Following the TUI stays open as a follow-up in
-[#916](https://github.com/haowjy/meridian-cli/issues/916).
+**Status:** built in PR #917. The tech lead's call, accepted by the owner, who doesn't
+expect Meridian to work well across `/new` or `/fork`. Following the TUI is not planned;
+the remaining edges are in [#916](https://github.com/haowjy/meridian-cli/issues/916).
 
 ### Problem
 
