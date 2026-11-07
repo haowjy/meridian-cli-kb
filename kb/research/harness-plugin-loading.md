@@ -1,22 +1,6 @@
 # How harnesses load plugins
 
-There is no shared plugin format, but one Claude-format tree goes a long way:
-Claude Code, Codex and Grok all install the same `.claude-plugin/` tree from a
-Claude catalog. Cursor has its own manifest, hook token and MCP file. OpenCode
-loads only a JavaScript module, which registers agents in code. Mars's
-`mars build plugin` therefore writes three trees (Claude, Cursor, OpenCode) for
-five harnesses; scope and rationale are in
-[A package publishes one plugin holding its full resolved graph](../decisions/package-management.md#d100-a-package-publishes-one-plugin-holding-its-full-resolved-graph-2026-10-24),
-and the generated support and verification tables are in mars-agents
-`README.md` § Plugin Distribution (shipped in Mars 0.19.0; `mars version` rebuilds
-the committed trees at release, and `docs/plugin-authoring.md` covers `[plugin]`).
-
-Versions probed, 2026-10-24 and 2026-10-25: Claude Code 2.1.310, Codex CLI
-0.164.0, Grok 1.0.40 and 1.0.70, OpenCode 2.1.3 (source) and 2.1.4 (live).
-Cursor CLI 2026.10.22 installed but refused every plugin command without an
-account, so every Cursor fact here comes from Cursor's docs and published JSON
-schemas. Each probe ran in an isolated home with only auth files copied.
-Recheck a fact before relying on it against a later harness version.
+Claude Code 2.1.310, Codex CLI 0.164.0, Grok 1.0.40 and 1.0.70, and OpenCode 2.1.3–2.1.4 were examined in October 2026. Cursor CLI required an account, so its entries use published documentation and schemas. See the Mars `README.md` and `docs/plugin-authoring.md` for its generated plugin support.
 
 ## At a glance
 

@@ -27,9 +27,7 @@ schema comes from the Claude binary and can change without notice.
 
 ## Message frame {#d-spawn-message-frame}
 
-A reply needs an address. The owner proposed: “there is no id for the response...
-so we should probably add like 'this was sent from a meridian session. use
-`meridian spawn message c9297 etc...'”. Sender identity travels in text because
+A reply needs an address. Sender identity travels in text because
 every route carries it, unlike
 Claude's peer envelope. The reply uses the sender's current chat, rather than
 its spawn ID or the chat that launched it: continuation changes the spawn ID,
@@ -39,7 +37,7 @@ guarantee.
 
 ## Message address {#d-spawn-message-address}
 
-The owner asked for “an easier way to do cross/repo communication”. Chat and
+Chat and
 spawn IDs are project-scoped, so cross-project addresses include the project root. A project-qualified ID syntax would require a registry Meridian
 does not have. The caller identity is captured before `-C` drops project-scoped
 environment IDs; restoring those IDs in the target environment would let a child
@@ -63,8 +61,7 @@ acknowledgement was assessed from code, without a running V1 server. See
 
 Only a refusal known to precede a write is retried. A timed-out Codex
 `turn/start` may already have started a turn, so retrying can start another.
-A fake connection reproduced the double send; the duplicate turn was inferred,
-not forced against Codex. An idempotency key was rejected because Claude and
+An idempotency key was rejected because Claude and
 Codex cannot deduplicate a turn. See the
 [connection contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/connections/AGENTS.md).
 

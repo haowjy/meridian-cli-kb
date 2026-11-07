@@ -1,35 +1,6 @@
 # Claude Code: Mods Under `-p`, and the Cross-Session Inbox
 
-How a process outside a running Claude Code session can give that session new
-input, and what each route does. Two routes were tested: a **mod** (a Claude Code
-plugin that runs JavaScript inside the session, with an API under `$`, such as
-`$.prompt.submit` to submit a prompt; [mods API](https://code.claude.com/docs/en/plugins/mods/api)),
-and Claude's own per-session **inbox socket**, a Unix socket other sessions post
-messages to ([cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket)).
-Both were tried in print mode (`claude -p`, one prompt, then exit) and in the
-interactive TUI. Checked 2026-10-17
-against Claude Code 2.1.302 with Haiku, on Linux, by live probes in a dedicated
-tmux server.
-Later-version findings in the table are explicitly versioned and cover only
-`$.ui.status` behavior probed for the rejected status-row design in
-[#706](https://github.com/haowjy/meridian-cli/pull/706). They describe the host
-API, not a Meridian feature. [Mod hooks for idle delivery](#mod-hooks-for-idle-delivery-21307)
-was checked on 2.1.307 for the Claude spawn watcher.
-The `crossSessionInbound` values, hold causes and settings precedence under
-[Inbound controls](#inbound-controls) were read from the 2.1.310 bundle and
-matched against messages held in a live auto-mode session (PR #777).
-The other observations remain scoped to 2.1.302.
-
-**The short version, for 2.1.302.** A mod cannot keep a print-mode (`-p`) process alive for
-input, and a mod's `$.prompt.submit` waits until the current turn ends. The inbox
-socket reaches a live interactive session with no mod at all and delivers between
-tool calls in the middle of a turn, but it answers nothing back, and its inbound
-security rules hold messages for a session that bypasses permission prompts.
-Meridian's choices built on these facts are in
-[D-claude-primary-inbox](../decisions/primary-inject.md#d-claude-primary-inbox)
-and [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold).
-
----
+Claude Code 2.1.302 was probed on Linux; later version-specific findings are marked below. See [mods API](https://code.claude.com/docs/en/plugins/mods/api), [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket), and [Meridian's inbox choice](../decisions/primary-inject.md#d-claude-primary-inbox).
 
 ## Mods
 
@@ -49,16 +20,10 @@ and [D-claude-native-hold](../decisions/completion-drain.md#d-claude-native-hold
 | `$.ui.status` | Creates a persistent plugin row beside a user's own status line; both stay visible, and the host supplies the plugin-name prefix. On Claude Code 2.1.303, `$.ui.status(undefined)` removed the row while `$.ui.status("")` left a named blank row; 2.1.306 confirmed removal with `undefined`. These checks were part of rejected PR #706, not current Meridian behavior. |
 | `$.session.send` from a second process to a TUI session | Delivered (`isDelivered:true`), and the TUI answered. |
 
----
 
 ## Mod hooks for idle delivery (2.1.307)
 
-Facts a mod that starts turns at idle depends on, from building and probing
-Meridian's `meridian-spawn-watch` mod on Claude Code 2.1.307 (live Haiku TUI
-sessions, the host's `claude-code.d.ts`, and `claude plugin test`). How
-Meridian uses them: [Child result delivery](../concepts/child-result-delivery.md).
-"Main loop" below means the session's own conversation, as opposed to a
-subagent's; its turn events carry no `agentId`.
+Live Haiku TUI probes, `claude-code.d.ts`, and `claude plugin test` on Claude Code 2.1.307. Main-loop events carry no `agentId`; see [child result delivery](../concepts/child-result-delivery.md).
 
 | Behaviour | Observed |
 |---|---|
@@ -75,7 +40,6 @@ subagent's; its turn events carry no `agentId`.
 | Test kit | `mock.clock` mocks `$.clock.now()`, not `Date.now()`. `clock.advance` does not settle while a `process.spawn` stream is pending. `prompt.edit`/`prompt.change` have no typed call on `$`, but calling them through a cast raises them at runtime. One `on('x')` per event. |
 | Module shape | Helpers that take `$` must be top-level function declarations, or the module validator rejects them. The hooks environment has `AbortController` but no `setTimeout`. |
 
----
 
 ## The inbox socket
 
@@ -183,7 +147,6 @@ peer message for review, `refuse` turns peer messages away.
 through a launch's `--settings` would override a value the user set in their own
 settings, including `refuse`.
 
----
 
 ## Not covered
 

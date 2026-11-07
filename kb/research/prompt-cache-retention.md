@@ -101,40 +101,9 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
 [`api/openai-completions.ts`](https://github.com/earendil-works/pi/blob/main/packages/ai/src/api/openai-completions.ts),
 [`api/openai-codex-responses.ts`](https://github.com/earendil-works/pi/blob/main/packages/ai/src/api/openai-codex-responses.ts).
 
-## What Meridian does with this
+## Meridian policy
 
-- **Idle notifications.** The existing implementation still uses Codex
-  `ttl_seconds = 1800` (estimated), the signed-in policy divergence tracked by #707. OpenCode 2.x maps the session's provider:
-  `openai` → 1800, estimated, everything else unknown (PR #573, released in
-  v0.9.9; 0.9.8 and earlier default OpenCode to 300, push only). Claude reads the TTL from
-  the transcript in the chat's recorded store. Pi maps provider and
-  `PI_CACHE_RETENTION` to a TTL: Anthropic 300 or 3600 (known); OpenAI long
-  retention 1800, estimated, because the `24h` label is not a lifetime;
-  `openai-codex` 1800, estimated, to match the Codex harness on the same
-  backend. `xai` and `deepseek` stay unknown, so they get push only. See
-  [D-idle-ttl-detection](../decisions/idle-ttl-detection.md#d-idle-ttl-detection--detection-reads-launch-records-never-a-cwd)
-  and [OpenCode provider TTL](../decisions/idle-ttl-detection.md#opencode-provider-ttl).
-- **Pi primaries get long retention.** Meridian sets `PI_CACHE_RETENTION=long`
-  for interactive Pi primaries unless the user set it; spawns keep Pi's
-  5-minute default. That buys a one-hour Anthropic cache at the higher write
-  price. See
-  [D-pi-cache-retention](../decisions/idle-notifications.md#d-pi-cache-retention--meridian-launches-pi-primaries-with-long-cache-retention).
-- **Claude spawns get short retention.** Meridian forces
-  `CLAUDE_CODE_PROMPT_CACHE_TTL=5m` on non-interactive Claude spawns; primaries
-  keep Claude's own setting. That avoids the one-hour write price for
-  short-lived agents, at the cost of a cold cache after a wait longer than five
-  minutes. See
-  [Harness adapters](../codebase/harness-adapters.md#claude-launch-env).
-- **Spawn-wait yield.** The 3000-second default is an operational caller
-  checkpoint, not a cache-lifetime model. Child completion inherits the calling
-  harness's setting by default but uses an independent deadline. See
-  [Spawn Wait Barrier](../concepts/spawn-wait-barrier.md).
-- **When idle compaction pays.** The write premiums above set the cold
-  re-read cost w in the compaction break-even, and whether the compaction
-  request itself reads the cache sets c (below). Meridian used this for its own
-  idle compaction until it was deleted
-  ([D-idle-compaction-removed](../decisions/idle-notifications.md#d-idle-compaction-removed--meridian-no-longer-compacts-idle-sessions));
-  the old break-even no longer governs Meridian idle behavior.
+See [idle TTL detection](../decisions/idle-ttl-detection.md) and [idle notifications](../decisions/idle-notifications.md) for Meridian's use of these facts.
 
 ## Does the compaction request read the cache?
 
@@ -149,10 +118,7 @@ That depends on how the harness builds the request, not on the provider.
 | OpenCode 1.x | compaction agent, empty system prompt, no tools, history flattened into one user message | cold: about 0% on every provider (109 rows, 2026-02 → 2026-10) |
 | Pi (1.2.0) | own `SUMMARIZATION_SYSTEM_PROMPT`, no tools, conversation in one user message, `cacheRetention: "none"`, fresh routing id | cold: c = 1 on `openai-codex` |
 
-OpenCode 1.x and 2.x store compactions in different tables (`message` versus
-`session_message`). Mixing them is how the 1.x cold sample was once read as
-2.x. Pi's fix is upstream: earendil-works/pi#10577 adds an opt-in in-context
-compaction for verified models (tracked in haowjy/meridian-cli#593)..
+OpenCode 1.x and 2.x store compactions in different tables (`message` versus `session_message`). Pi’s in-context compaction is tracked at [pi#10577](https://github.com/earendil-works/pi/pull/10577).
 
 ## Pi cache warming
 
@@ -173,7 +139,7 @@ Only a short-retention Anthropic Pi session with `cacheWarming: idle` could
 get warmed past Meridian's schedule, which would make its warning premature.
 If Pi starts declaring OpenAI lifetimes, or a user adds `modelOverrides.promptCache`,
 re-check this. The lightest fix would be for the Pi extension to pass the
-effective warming decision into `idle arm`..
+effective warming decision into `idle arm`.
 
 Recheck this page when Codex, OpenCode or Pi releases a new version, when a
 provider changes its cache-lifetime docs, or when signed-in product guarantees

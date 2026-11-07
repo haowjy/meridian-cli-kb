@@ -1,10 +1,6 @@
 # Reaching a Running TUI From Outside: Codex, OpenCode and Pi
 
-What each harness accepts from a second process while a human's TUI is attached to
-the session, and what a second process can learn about that TUI. Read this before changing
-a message route to a primary. Claude's route is on its own page,
-[Claude Code: mods and the inbox](claude-code-mods-and-inbox.md). Meridian's routes are
-[D-unified-delivery](../decisions/primary-inject.md#d-unified-delivery).
+Evidence for external input to a running TUI. See [Claude's inbox](claude-code-mods-and-inbox.md) and [Meridian's routes](../decisions/primary-inject.md#d-unified-delivery).
 
 | | Codex 0.164.0 | OpenCode 2.1.4 | Pi 1.4.0 |
 |---|---|---|---|
@@ -34,9 +30,7 @@ So a holder of the observer connection needs no reconnect to send.
 Approvals are a race. `item/commandExecution/requestApproval` reaches every
 subscribed client, the TUI shows its own prompt, and the first answer wins; the other
 client gets `serverRequest/resolved` and its prompt clears. Meridian must never
-auto-answer on a primary, or it would beat the human to it. The probe set
-`approvalsReviewer` to `"user"` to get real prompts, because this user's Codex config
-defaults to `auto_review`, so a default launch may behave differently.
+auto-answer on a primary, or it would beat the human to it. The probe set `approvalsReviewer` to `"user"`; a default launch may behave differently.
 
 `clientId` shows who sent a message: a TUI-typed `userMessage` carries one, and an
 injected message from another client has `clientId: null`.

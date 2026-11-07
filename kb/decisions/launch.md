@@ -54,75 +54,8 @@ Preparation precedes spawn reservation; setup errors need not create a row. A la
 
 Pi needs native skill and context discovery for available skills and project instructions. Ambient extensions remain separately controlled because they execute code and can conflict with managed extensions.
 
-### D-continuation-target-constrained-selection: explicit continuation requests remain target-constrained
+### Continuation model selection
 
-**Decision:** Exact primary and spawn continuation accept an explicit
-`--model` request, and every such request emits a warning. Mars revalidates the
-current target and exclusion constraints under the same harness; the literal
-canonical/provider pin is retained so an alias cannot drift during continuation.
-This is target-constrained selection, not a model-freeze or model-prohibition
-rule. Non-routing policy and the original launch snapshots remain unchanged.
+Exact continuation can request a model within the recorded harness's current target and exclusion constraints. A later plain continuation uses Meridian's accepted selection, rather than guessing the last model executed by the harness. Identity must bind to the actual native session, not a provisional seed. See [continuation model selection](../concepts/continuation-model-selection.md).
 
-After the explicit request is accepted, a later plain continuation uses the
-Meridian model selection recorded at `accepted-running`. It does **not** discover
-or infer the model from the last model executed by the native harness. A
-`SessionAttempt` binds that accepted selection to the same generation and
-attempt, while authoritative native-ID callbacks identify the session. A newly
-derived ID is only a provisional row hint until the authoritative callback
-arrives.
-
-If an append fails, continuation ends as a coordination error; it does not
-switch runtime models to recover. Legacy original-generation lookup is
-read-only against baseline `c3087ceb`; the original snapshot or partial
-historical model is carried through `SessionRequest` and seeded at session
-scope under the store lock. Failed continuation never becomes the initial
-value. New-protocol missing acceptance or absent tracked original history
-requires an explicit model—there is no guessing. Native raw IDs remain
-literal, and ambiguous tracked/untracked/mixed ownership requires explicit
-`--harness`; known p/c references retain their recorded harness and file
-detection does not silently replace it. Native reference is `833dc1f2`.
-
-The remaining work is the spawn native-fork/reference-form audit and
-coordinated final gates/PR/release.
-
-### D-primary-identity-delayed-binding: fresh and native-fork primary selection waits for identity
-
-**Decision (2026-09, target-constrained-fallback):** Primary fresh and
-native-fork launches do not bind a generated seed or source parent before the
-actual harness identity exists. Selection and persistence wait for the
-authoritative identity; a generated seed remains provisional and cannot bind
-the source parent early. Claude's existing transcript/trampoline identity
-detector remains the identity observation mechanism; this increment adds no
-model discovery.
-
-If identity binding fails, the failure propagates while adapter cleanup and
-session stop still run. This keeps the binding error visible without leaking a
-live adapter or masking the original error. The following remain open:
-streaming-serve recording, OpenCode streaming named-model transport, spawn
-native-fork/reference-form audit, and coordinated final gates/PRs.
-
-
-### D-streaming-opencode-target-constrained-fallback: accepted startup selection is attempt-bound
-
-**Decision (2026-09, target-constrained-fallback):** All three driving drivers record
-accepted startup selection through the shared `SessionAttempt`. Streaming-serve
-binds a pending selection using the identity callback when available, or the
-existing post-run artifact extraction path. Native-spawn fork child isolation
-does not record the parent as the child.
-
-OpenCode preserves the native HTTP model contract: session creation uses
-`{providerID, id}`, while every invocation's initial prompt—including an
-explicit prompt or a plain recorded continuation—uses `{providerID, modelID}`.
-Only subsequent resident/injected messages omit the model. Invalid or timed-out
-creation does not downgrade to `{}`. Bounded transport-local session readiness
-polling is separate from launch orchestration and must remain idempotent and
-pre-turn. Meridian does not replay the harness launch after a creation or prompt
-failure: one invocation has one create path.
-
-The primary OpenCode named-model resume remains unsupported and has no UI
-replacement. Tracked raw native IDs for `spawn --continue` are now accepted.
-An explicitly supplied older native ID is retained when it matches the resolved
-session; otherwise the matched session's recorded spawn ID is used, with exact
-chat/harness checks. Untracked or pruned provenance fails honestly, and
-`--harness` disambiguates ownership rather than history. Native primary/spawn/
-c-prefixed sequences preserve recorded models.
+OpenCode uses different model shapes for native session creation and prompt invocation. Readiness polling must be idempotent and precede the turn; retrying the turn can repeat side effects.
