@@ -8,10 +8,10 @@ a message route to a primary. Claude's route is on its own page,
 
 | | Codex 0.164.0 | OpenCode 2.1.4 | Pi 1.4.0 |
 |---|---|---|---|
-| Route in | A second app-server client sends `turn/start` or `turn/steer` | `POST /api/session/{id}/prompt` | An extension calls `pi.sendUserMessage`; nothing reaches the process from outside |
+| Route in | A second app-server client sends `turn/start` or `turn/steer` | `POST /api/session/{id}/prompt` | An extension calls `pi.sendUserMessage`. Pi has no external channel, so that extension has to host its own listener |
 | Shows in the TUI | Yes, within about 1 s | Yes, live; the HTTP call itself returned in about 5 ms | Yes, rendered like typed input |
 | Session is busy | `turn/steer` with `expectedTurnId` lands in the current turn | `delivery: "steer"` (the default) arrives at the next step boundary; `"queue"` runs as its own turn afterwards | Pass `deliverAs: "steer"` or `"followUp"`; without it the call throws while streaming. Passing it always is safe (see [Pi](#pi)) |
-| Model and agent | The thread's settings, including a TUI `/model` change, with no notification to other clients | The session's committed choice; a TUI `/models` or Tab choice counts only after the TUI submits a prompt | The live model, thinking level, tools and system prompt |
+| Model and agent | The thread's settings. A second client's turn uses a TUI `/model` change, though no notification tells that client | The session's committed choice; a TUI `/models` or Tab choice counts only after the TUI submits a prompt | The live model, thinking level, tools and system prompt |
 | Approvals | Both clients get the request; either may answer | The TUI shows the prompt; the TUI or `POST .../permission/{reqId}/reply` answers | The same `tool_call` handlers run, so `meridian-permissions` applies |
 | What the sender learns | A JSON-RPC result | An HTTP success | Nothing: the call returns `void` |
 
@@ -43,7 +43,7 @@ injected message from another client has `clientId: null`.
 
 **What a steer does** (0.166.0). The `turn/steer` result returns the current `turnId`, and
 that is all an acknowledgement means. The app-server wrote the user line to the rollout
-within about 2 s in every run, so a `session log` taken as the send returns can miss it. The model reads the text at its next step, on the same turn: a running command is not
+within about 2 s in all six child runs, so a `session log` taken as the send returns can miss it. The model reads the text at its next step, on the same turn: a running command is not
 killed, and streaming text is not cut short. A cancelled turn keeps the line, and the next
 turn sees it. A model may also ignore it. One child stalled for 171 s and never wrote the
 steered text; that did not reproduce, and steered and unsteered runs took about the same
@@ -141,7 +141,8 @@ API. Pi's own example of an external trigger is a file watcher,
   separates `session_start` from the launch prompt (0 iterations over three runs of 43 to 57 ms),
   so a listener can't race it. An extension loaded later that awaits I/O or a dialog in
   `session_start` opens the gap, and a message sent 2.5 s into a 3 s handler did drop the prompt.
-  A listener that must not race it binds at the first `agent_start` when a prompt is coming.
+  A listener that must not race it binds at the first `agent_start` when a prompt is coming,
+  and at `session_start` when none is, or nothing would reach it until the human types.
   `pi.on` inside `session_start` works and returns an unsubscribe function.
 - **Load order decides teardown.** CLI `-e` paths load before ambient extensions,
   and `session_shutdown` handlers are awaited in load order, with `managed-bash` waiting on its
@@ -150,7 +151,7 @@ API. Pi's own example of an external trigger is a file watcher,
 - **The factory runs again for every runtime.** Startup, `/new` and `/reload` each called it
   once before `session_start` on 1.5.0, so a listener binds at most once and needs no restart logic.
 - **A rejection disappears.** A failed `sendUserMessage` becomes an "Extension error"
-  line in the TUI and never returns to the caller. A manual `/compact` fails this way, and
+  line in the TUI. The extension gets no error, so an outside sender can't be told. A manual `/compact` fails this way, and
   `ctx.isIdle()` does not guard against it. Auto-compaction runs inside the active run, so a
   steer queues (read from source, not run).
 - **Always pass `deliverAs: "steer"`.** Choosing from `ctx.isIdle()` is check-then-act: `prompt()`

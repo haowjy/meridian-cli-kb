@@ -18,17 +18,20 @@ in [#916](https://github.com/haowjy/meridian-cli/issues/916):
 
 - **Following the TUI.** A sender is refused after a session move where a Claude or Pi primary
   would take the message. Codex could follow `/new` and `/fork`; `/resume` to a loaded
-  thread and OpenCode's switch give no signal, and `harness_session_id`, the idle sensor and
+  thread gives no signal, OpenCode gives none until the human types in the new or other
+  session, and `harness_session_id`, the idle sensor and
   `--continue` would have to move too
   ([D-primary-session-move](../decisions/primary-inject.md#d-primary-session-move), which the
   owner has not yet answered).
 - **A false "delivered".** An OpenCode message sent after the new-session or switch-session
   command, before the human types there, goes to the first session.
 - **A possible false refusal.** A Codex subagent reopened by `resume_agent` in a continued
-  session would read as a move. Not reproduced.
+  session would load without a `thread/started`, so its status event would read as a move.
+  Inferred from a guardian thread loaded that way; not reproduced.
 - **Untested.** OpenCode V1 detection; no V1 server was available.
 - **Stale Pi listener.** An old Pi outliving its launcher during a `--continue` could unlink the
-  newer session's socket. The launch lock and PTY hangup rule this out in normal use.
+  newer session's socket. It should not happen: a dead launcher closes the PTY and hangs up
+  Pi, and a second live TUI gets `Busy` from the launch lock.
 
 ---
 

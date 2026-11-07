@@ -103,14 +103,14 @@ Claude Code 2.1.302 settled what is possible; their facts are in the
    held and refused all look like a closed connection. The CLI reports the
    message as posted and says Claude may hold it. A timeout after the whole line
    was sent also counts as posted, so a retry cannot duplicate the message.
-5. **Primary inject is an optional harness port.** `HarnessBundle.primary_inbox`
+5. *(Superseded.)* **Primary inject is an optional harness port.** `HarnessBundle.primary_inbox`
    sits beside the other optional ports (`primary_idle_sensor`, `detect_ttl`).
    `post_to_primary` in `lib/harness` dispatches by the record's harness and
    raises "<harness> primaries have no message route yet (see #498)" when the port
    is absent. The CLI branches only on `kind == "primary"`; every other kind keeps
    the control-socket path unchanged. A primary gets no wait or retry: a missing
    socket fails at once.
-6. **A stale record fails closed.** Claude names its socket after its PID, and a
+6. *(Superseded.)* **A stale record fails closed.** Claude names its socket after its PID, and a
    spawn row can outlive its Claude process; the PID may then belong to an
    unrelated Claude session. The hook stamps each record with `recorded_at`, and
    the port posts only when the PID is alive, not a zombie, and born no later
@@ -410,10 +410,10 @@ whether a session can take messages. It asks the harness every 0.25 s and binds 
 the harness offers a route. Prediction was the alternative, and it would have to know
 `--bare`, `--safe-mode`, `--print`, Claude's version, a pending folder-trust prompt that
 delays the inbox, and whatever comes next. Waiting for the fact covers all of them, and it
-makes the file the one thing the frame's reply check and the post both consult, so they can
-no longer disagree. Two limits: it says a route exists, not that it will accept a
-message ([a moved TUI refuses](#d-primary-session-move)), and a Pi primary launched with a
-prompt has no file until its first `agent_start`. The CLI's 30 s poll covers that gap.
+makes the file the one thing the frame's reply check and the post both consult. It says a
+route exists, not that it will accept a message: a [moved TUI refuses](#d-primary-session-move)
+and a stale file on a dead runner fails. A Pi primary launched with a prompt has no file until
+its first `agent_start`, and the CLI's 30 s poll covers that gap.
 
 ### Calls settled on 2026-11-06
 
@@ -423,7 +423,6 @@ prompt has no file until its first `agent_start`. The CLI's 30 s poll covers tha
 | OpenCode's idle sensor sees an injected turn as a human prompt | Accepted | It counts as activity, as a typed prompt does |
 | A message to a busy Codex primary | Steers into the current turn | It matches what `send_user_message` already does for children, and the message reaches the model at its next step |
 | Claude's peer-safety paragraph | Accepted | About 130 tokens on each inbox message ([measured](../research/claude-code-mods-and-inbox.md#the-inbox-socket)). No setting removes it, and only Claude primaries pay it |
-| Which release | `release/v0.20.0` | Ahead of the v0.21 first proposed |
 
 ### Rejected
 
@@ -468,7 +467,9 @@ approval it raised stayed pending where no prompt could reach them.
 ### Choice
 
 The route stays on the first session and refuses, with `DeliveryRefused` and a message
-saying why, once the launcher sees the TUI leave. The refusal is sticky for the launch,
+saying why, once the connection sees the TUI leave: on Codex a `thread/started`, status or
+goal event for a thread that isn't a helper or a subagent, on OpenCode a new, forked or newly
+active session that isn't a child. The refusal is sticky for the launch,
 including after the human returns to the first session, and it changes nothing else: the
 socket stays bound and the sender can tell the human.
 
