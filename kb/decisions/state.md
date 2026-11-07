@@ -4,7 +4,7 @@ The source checkout's [src/meridian/lib/state/AGENTS.md](https://github.com/haow
 
 ## Project identity {#d-two-tier-identity}
 
-Committed identity survives moves and is shared by clones; ad-hoc identity derives from the canonical path without writing into a scratch directory. Searching ancestors for an identity risks silently joining the wrong project, while using paths for every project would split clones and break moves. Initializing a scratch directory starts a new identity; see [project identity](../architecture/state-system/project-identity.md).
+Committed identity survives moves and is shared by clones; ad-hoc identity derives from the canonical path without writing into a scratch directory. Searching ancestors for an identity risks silently joining the wrong project, while using paths for every project would split clones and break moves. Initializing a scratch directory starts a new identity; adopting its old state would require coordinating live sessions, pending operations and crash recovery. See [project identity](../architecture/state-system/project-identity.md).
 
 ## Session journals {#d-session-per-chat-journals}
 
@@ -27,3 +27,9 @@ Fork and context ancestry belong to the chat and survive continuation. A disposa
 ## Locking
 
 Unlinking a held lock can split exclusion across two inodes. The validated lock removal contract is in the source checkout's [src/meridian/lib/state/AGENTS.md](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/state/AGENTS.md). A project-lifetime gate outside the deletable root lets pruning exclude active sessions without enumerating their locks.
+
+Fixed lock stripes were rejected: collisions undermine reentrant exclusion, and sharing a stripe would make a session lock's availability cease to identify that session's liveness. Store mutations share lock, re-read, mutate and atomic-write semantics, but a generic store framework would have to parameterize their different paths, codecs and failure handling.
+
+## Reading old state
+
+Known legacy spawn rows upgrade at the read boundary; conflicting or unknown facts are quarantined rather than guessed. Treating an unreadable row as failed would invent an outcome, while discarding all legacy rows would hide existing history. See [spawn state](../architecture/state-system/spawn-state.md) and the source checkout's [legacy codec](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/state/spawn/legacy.py).

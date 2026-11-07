@@ -18,11 +18,17 @@ Hidden harness directories are not discovered as package source by default: scan
 
 Matching bytes do not establish ownership of an unowned output. See [sync model](../concepts/package-management/sync-model.md) for the interrupted-write recovery boundary.
 
+Cross-source agent and skill collisions rename both items: first-wins would make one package disappear according to declaration order, while an error blocks legitimate combinations. A renamed-away config reference warns rather than silently rewriting user configuration. See [collision handling](https://github.com/haowjy/mars-agents/blob/release/v0.28.0/docs/internals/conflicts.md).
+
+## Engine compatibility
+
+Package engine requirements filter incompatible versions and select the newest compatible candidate; sources with no alternate candidate fail. A hard filter avoids silently compiling a package with an engine too old to understand it. An advisory warning or soft preference would allow that incorrect result.
+
 ## Skill variants
 
 Mars selects a skill body by harness, falling back to the base body. Model-specific selection was not built because no package or request needed it; adding it belongs in Mars, not a second Meridian resolver. See [skill loading](../concepts/skill-loading.md).
 
-> [!FLAG] **Needs human review**: Mars still indexes model-variant directories and warns about their layout, but does not select them. This can suggest support that does not exist. Flagged 2026-11-07.
+> [!NOTE] **Known gap**: Mars still indexes model-variant directories and warns about their layout, but does not select them. This can suggest support that does not exist.
 
 ## OpenCode model selection
 

@@ -20,6 +20,8 @@ Claude's escape matches simple commands only. On Linux a nested spawn compares P
 
 A sandboxed caller carries its sandbox, spawn capability and projected network policy. Nested launches refuse missing spawn capability, a weaker child sandbox, a child network policy that widens the caller's, and native arguments that could replace resolved policy. Approval, workspace roots and environment values are not compared. The rule prevents widening through the Meridian CLI; it does not confine an adversarial agent. Escaped processes can consume agent-writable configuration and other inputs. [#747](https://github.com/haowjy/meridian-cli/issues/747) tracks confinement.
 
+Enforcing the caller's declared `subagents:` list alone would not prevent escalation: a permitted child can itself have a weaker sandbox. Membership enforcement remains a separate question in [#742](https://github.com/haowjy/meridian-cli/issues/742).
+
 ### Network inputs: projected policy only {#guardrail-network-inputs}
 
 The guardrail compares policy projected from Meridian-owned inputs. User harness configuration can widen actual enforcement, and known widening settings are warned about without changing the comparison. Exact modelling of user configuration was rejected because it depends on changing harness internals and a missed layer fails open. Treating every detected widening as allow-all was also rejected: it could turn an offline caller's floor into an online one.
