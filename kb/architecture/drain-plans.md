@@ -66,36 +66,37 @@ gate publication. `hold_state.py` owns the whole lifecycle as one table, and
 row sits where it does. [Completion decisions](../decisions/completion-drain.md)
 hold the reasons for the rules themselves.
 
-- **`done` closes.** It can override known blockers, but never `unknown` evidence.
-  It waits out a running turn, and it cancels descendants and stops local background
-  tasks through `cleanup`.
-- **`rearm` stays until an ask ends it.** It sets a lease: quiet while visible
-  blockers are unchanged, 270 s after the last turn end with nothing visible, or the
-  idle limit with `--long`. A rearm drops the candidate but keeps the report.
+- **`done` closes.** It can override known blockers, but it waits for `unknown`
+  evidence to become readable, and it waits out a running turn. Then it cancels
+  descendants and stops local background tasks through `cleanup`.
+- **`rearm` keeps the child open.** A lease sets when it is next asked: when the
+  visible blockers change, or with nothing visible, 270 s after the last turn end, or
+  at the idle limit with `--long`. That ask has the same outcomes as any other, so the
+  child can rearm again. A rearm drops the candidate but keeps the report.
 - **Signals need no candidate.** A signal written during a turn waits for that turn's
   end. Of two in one read, the later stands
   ([why this is safe](../decisions/completion-drain.md#d-signals-need-no-candidate)).
-- **A parent is woken for what it is owed.** With a ready tree, a parent holding an
-  unread finished child gets one message naming each report, before it closes. The
-  check reads owed launches, not a blocker clearing, because a child that finished
-  during the parent's turn never shows as a blocker. An idle-limit ask names the same
-  children, because a reply to it closes over blockers.
+- **A parent is woken for what it is owed.** When nothing runs, a parent that has not
+  read a finished child gets one message naming each report, before it closes. The
+  check reads which child launches it hasn't collected, not a blocker clearing, because
+  a child that finished during the parent's turn never shows as a blocker. An idle-limit
+  ask names the same children, because a reply to it closes over blockers.
 
 **A hold without a completion-signal channel skips the ask.** `done` and
 `rearm` write Meridian state under its lock. When the connection reports that
 the child cannot write there (Codex under an explicit `read-only` sandbox), the hold keeps the same evidence, blocker and
 deadline policy but sends no ask, reads no signals, and accepts a ready
 candidate directly ([D-completion-channel](../decisions/completion-drain.md#d-completion-channel)).
-This and the empty accepted-signal set below shipped in v0.12.4 (PR #737).
 
 A fresh descendant assessment must cover every proposed success, and a success
-never publishes over a running turn. The one exception to the assessment is the
-child's own close: `done` and a reply go through `cleanup`, which publishes the
-candidate directly, because cancelling covers what validation checked. Transport
+never publishes over a running turn. The one exception to the fresh assessment is the
+child's own close. Once `done` has readable evidence, or a reply to the ask arrives on
+any evidence, the close goes through `cleanup`, which publishes the candidate directly,
+because cancelling covers what validation checked. Transport
 closure does not erase a retained success: ready evidence can accept it;
 persisted descendants or temporarily unknown evidence can keep the drain alive
-without further event reads. A close during a running turn fails with the close's
-outcome and cancels descendants. A dead backend ends the wait at once and cancels
+without further event reads. A transport close during a running turn fails with the
+close's outcome and cancels descendants. A dead backend ends the wait at once and cancels
 descendants too; before, a Claude child died unnoticed until the deadline.
 
 ### One hold profile, composed evidence
@@ -119,8 +120,9 @@ harness-owned background work. `ClaudeNativeTaskSource` keeps the latest
 snapshot and reports `native_task` blockers; `HoldEvidence` combines them with
 persisted descendants. The source has no timers or signal policy.
 
-A non-empty snapshot blocks completion. When it empties, the closing parent
-`result` is still owed. A malformed snapshot holds within the idle limit.
+A non-empty snapshot blocks completion. When it empties, Claude still owes the
+`result` that ends the follow-up turn it starts for the finished task, so the hold keeps
+waiting for it. A malformed snapshot holds within the idle limit.
 Subagent assistant frames are not parent-turn activity.
 
 Claude's `system/init` marks the turn running a model call before its first

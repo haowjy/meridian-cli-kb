@@ -154,11 +154,11 @@ PID's birth time first. See
 was asked once, and did no work within 300 s of the ask. Only the child's own output,
 tools and reasoning inside a turn renew the clock. One foreground command that stays
 silent for a whole window counts as idle, and so does waiting on a background job.
-With a rearm budget set, the same stop reads `resident_rearm_budget_exhausted`.
+If the child had also used up a configured rearm budget, the same stop reads `resident_rearm_budget_exhausted`.
 
 **Diagnosis:** `meridian spawn show <id>` prints the rearm count and the last reason,
-and `control_actions.jsonl` in the launch directory holds each ask with
-`source: completion_nudge`.
+and `spawns/<id>/launches/<n>/control_actions.jsonl` holds each ask with
+`source: completion_nudge`. The highest `<n>` is the latest launch.
 
 **Recovery:** `meridian spawn --continue <id> -p "..."`. For a long wait, start the job
 in the background and let the child run `spawn rearm --long --reason "..."` when asked.
@@ -174,7 +174,9 @@ stopped when its spawn closed.
 **What happened:** The parent ran `spawn done` or replied to the idle-limit ask. Either
 one closes it, and a close cancels running descendants and stops local background
 tasks ([why](../decisions/completion-drain.md#d-close-cancels-descendants)). A dead
-parent backend cancels them too.
+parent backend cancels them too. `meridian spawn show <parent>` tells these apart: a
+parent that closed itself shows its usual result, and a dead one shows `failed` with
+`backend_dead_while_awaiting_done`.
 
 **Fix:** A job that must outlive its spawn has to run detached. A parent that still
 needs a child should run `spawn rearm --reason "..."` when asked.
@@ -192,7 +194,8 @@ Either Codex is older than 0.129.0, or something turned hooks off: `-c
 hooks.PreToolUse=[]`, `--disable hooks`, a `hooks.state` override, or a project
 `.codex/config.toml`.
 
-**Fix:** Upgrade Codex or remove what turned hooks off. Dropping the scoped rules from
+**Fix:** The message says what Codex listed, so read that first; "Codex listed 0" means
+no hook loaded. Upgrade Codex or remove what turned hooks off. Dropping the scoped rules from
 the profile also works. A command the hook lets through is not a bug by itself: it
 matches rules against each command segment as written and is
 [not a sandbox](../decisions/tool-permissions.md#d-codex-shell-hook).

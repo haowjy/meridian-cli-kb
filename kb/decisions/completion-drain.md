@@ -4,7 +4,7 @@ A finished harness turn is a completion candidate, not proof that the work is fi
 
 ## Open while work runs {#d-open-while-work-runs}
 
-A spawn stays open while work runs, including a background command while the model is idle. A turn end with something running holds the spawn with no command needed; with nothing running it closes. A primary stays open until the human ends it and has no `done`.
+A spawn stays open while work runs, including a background command while the model is idle. A turn end with something running holds the spawn with no command needed. With nothing running it closes: at once where the harness reports its own work, and after one confirmation elsewhere. A primary stays open until the human ends it and has no `done`.
 
 A child that has to wait starts the job in the background with a `timeout` that covers it and ends its turn. Claude stops a background command at its `timeout`, 30 minutes by default and 2 hours at most, so a longer job has to run detached with a watcher the child restarts. A subagent doesn't park for hours: it reports and closes, and its owner resumes it with `--continue` or spawns another.
 
@@ -14,15 +14,15 @@ A harness with a native task source gets no confirmation turn at a turn end. Tod
 
 On Claude the ask told Meridian nothing it couldn't already see. It cost 3.3% of Claude child usage over 15 days and 5 to 17 s per child. The trade is that a premature stop is no longer caught: 10 of 2,469 children rearmed with nothing visible running and 108 more did other work when asked, so the true rate sits between 0.4% and 4.8%. `--continue` recovers those.
 
-The ask had been hiding three defects, so removing it had to fix them together: a parent that answered with text could close without reading its child's report, `done` and `rearm` were dropped in a child's own turn, and the report stayed on an early "still waiting".
+The ask had also been covering for three things, so three guarantees replace it: a parent is woken for an unread child's report before it closes, `done` and `rearm` work during a turn, and the report follows the last turn instead of staying on an early "still waiting".
 
 ## Waiting has one number {#d-one-waiting-number}
 
 The idle limit is the only waiting window. It is the same for every model, with no per-model or per-provider table: model and provider limits change every few weeks, and no build decision rests on them or on tracking them. `timeouts.resident_deadline_seconds` overrides it through the usual precedence.
 
-At the limit the child gets one ask, naming what runs and what closing stops. A reply closes it and is its report. `rearm` stays. No work within 300 s is `timed_out`. A `rearm` is short by default, with the next check 270 s after the child goes idle; `--long` puts it at the idle limit, for a wait Meridian can't see such as remote CI. Visible blockers clearing ask at once in both forms. A reason is required so a parent can see why a child stayed, and a bare `rearm` warns for one release.
+At the limit the child gets one ask, naming what runs and what closing stops. A reply closes it and is its report. `rearm` stays. No work within 300 s is `timed_out`; work in that time closes the window and restarts the idle clock. A `rearm` is short by default, with the next check 270 s after the child goes idle; `--long` puts it at the idle limit, for a wait Meridian can't see such as remote CI. Visible blockers clearing ask at once in both forms. A reason is required so a parent can see why a child stayed, and a bare `rearm` warns for one release.
 
-A partial blocker clear stays silent. When a child holds tasks A and B and A finishes, Claude tells the child itself, and a Meridian message would interrupt a parent that is still waiting.
+A partial clear stays silent. When a spawn is waiting on two things and one finishes, the hold sends nothing: Claude already tells the spawn when its own background task ends, and a parent waiting on two children is still waiting, so a message would only interrupt it.
 
 ## No work limit {#d-no-work-limit}
 
@@ -30,7 +30,7 @@ Meridian doesn't cap how long a child works. The parent controls that and can ca
 
 ## No keep-warm pings {#d-no-keep-warm}
 
-A waiting child takes one cold wake, or reports and closes for its owner to resume. Pings would save at most about 30 cents a window, and they would add a frame filter, a blocker snapshot and TTL plumbing to the hold, plus a rule for everything a ping must not do.
+A waiting child takes one cold wake, a turn that has to rewrite the expired prompt cache, or reports and closes for its owner to resume. Pings would save at most about 30 cents a window, and they would add a frame filter, a blocker snapshot and TTL plumbing to the hold, plus a rule for everything a ping must not do.
 
 ## Parents wait by ending their turn {#d-parents-end-turn}
 
@@ -62,7 +62,7 @@ Three edge cases are settled the same way:
 
 - **No turn-end ask (Claude):** the report is the last real turn's text, and it moves with each later turn, including the reply to a `spawn message`. A wake turn saying "background finished" can replace a fuller earlier reply; that loss is accepted.
 - **Turn-end ask (Codex, OpenCode):** the ask says the previous reply is kept, so a short "Done" must not replace it ([#725](https://github.com/haowjy/meridian-cli/issues/725)), and a later turn doesn't move the report without a `rearm`. If the rearm budget is exhausted, later work cannot replace the retained report; `src/meridian/lib/streaming/.context/FUTURE` tracks that.
-- **Any harness:** a wake, or an idle-limit ask that lands between turns, asks for new work, and its answer becomes the report. The message says so.
+- **Any harness:** a wake (the message naming a parent's unread finished children), or an idle-limit ask that lands between turns, asks the child to write something new, so its answer becomes the report. The message says so.
 - **Pi** retains its confirmation reply.
 
 `rearm` no longer deletes the kept report, on any harness.
@@ -73,7 +73,7 @@ A child without a usable completion signal channel receives no confirmation turn
 
 ## Evidence and `done` {#d-evidence-and-done}
 
-A turn-end ask is best effort: known blockers prevent silent success, and `unknown` evidence cannot authorize it. `done` waits out a running turn, and a turn that sits idle for a whole window is asked once and ends `timed_out`, not `succeeded`. That reverses the earlier rule, because publishing over a running turn reports an outdated candidate. Success never publishes over a running turn, on any close.
+A turn-end ask is best effort: a silent child publishes only on `ready` evidence, and known blockers or `unknown` evidence hold it ([what those mean](../architecture/completion-drain-coordination.md#the-coordinator-accepts-evidence-it-does-not-discover-work)). `done` waits out a running turn, and a turn that sits idle for a whole window is asked once and, with no work in the next 300 s, ends `timed_out`, not `succeeded`. That reverses the earlier rule, because publishing over a running turn reports an outdated candidate. Success never publishes over a running turn, on any close.
 
 `done` can override known blockers but not `unknown`. A reply to the ask closes on any evidence, `unknown` included, because the ask told the child what closing stops and the child chose it.
 
@@ -85,12 +85,12 @@ The calling harness's wait setting supplies the default idle limit, separately f
 
 ## The hold is one table {#d-hold-one-table}
 
-Many bugs at one boundary, even ones that aren't regressions, are evidence that the architecture is wrong. The ask lifecycle had taken three review rounds on #886 and 37 fix commits in `streaming/` since September, across seven flags, four timers and two evaluators reimplementing one precedence, so it was rebuilt as one state value and one pure `decide(state, facts)` before anything else was added ([#914](https://github.com/haowjy/meridian-cli/pull/914)). An enum over the existing flags was rejected because it would keep both evaluators. A new hold behaviour is a row, a fact or a fold in `hold_state.py`. Pi stays separate.
+Many bugs at one boundary, even ones that aren't regressions, are evidence that the architecture is wrong. The ask lifecycle took three review rounds on #886, each adding a guard to about ten flags and timers and two evaluators that reimplemented one precedence, so it was rebuilt as one state value and one pure `decide(state, facts)` before anything else was added ([#914](https://github.com/haowjy/meridian-cli/pull/914)). An enum over the existing flags was rejected because it would keep both evaluators. A new hold behaviour is a row, a fact or a fold in `hold_state.py`. Pi stays separate.
 
 ## Claude native work {#d-claude-native-hold}
 
 Claude's own background-task stream informs the shared completion hold. A harness mod cannot replace that signal: the finish decision and timeout must survive a wedged child, and the mod API did not expose background shell tasks. See [drain plans](../architecture/drain-plans.md#claude-native-holds).
 
-## What the lifecycle work cost and saved
+## Lifecycle is a minor cost line
 
-Across all harnesses, usage at API prices rose from about $3,000 a week in late September to $9,800 in mid-October, before the confirmation turn existed. GPT volume drove that rise, and Claude's own peak came later from more children rather than costlier ones. All Claude nudge turns came to 0.9% of the period's usage, and a nudge loop was under half of that. So lifecycle was a real but minor line, and the case for this work is the reports it stopped losing as much as the money. These are API-price figures: most of that traffic runs on subscriptions and is not a bill.
+Across all harnesses, usage at API prices rose from about $3,000 a week in late September to $9,800 in mid-October, before the confirmation turn existed. GPT volume drove that rise, and Claude's own peak came later from more children rather than costlier ones. All Claude nudge turns came to 0.9% of the period's usage, and a nudge loop was under half of that. So look elsewhere first for a cost rise, and judge this work by the reports it stopped losing as much as by the money. These are API-price figures: most of that traffic runs on subscriptions and is not a bill.
