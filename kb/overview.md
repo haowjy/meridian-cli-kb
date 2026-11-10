@@ -22,8 +22,7 @@ graph LR
 ```
 
 The two active external surfaces are the CLI and MCP server. They share an
-extension registry and operations layer; the archived HTTP app server is
-[history, not a third current surface](concepts/extension-system.md).
+extension registry and operations layer ([extension system](concepts/extension-system.md)).
 
 A launch follows one policy path:
 
@@ -81,25 +80,7 @@ rules belong to [the state architecture](architecture/state-system/overview.md) 
 
 ## Design Properties
 
-The repo-wide constraints are stated in the meridian-cli root `AGENTS.md` and
-in the `AGENTS.md` / `.context/CONTEXT.md` files beside the code they govern.
-This KB keeps the architecture, decisions, and measured hazards that give
-those constraints context rather than maintaining a duplicate rule catalog.
-
-**Files are authority.** Process memory is a cache or projection, never the
-only copy of coordination state. Writes use atomic replacement, durable JSONL
-append, or atomic directory publication as appropriate.
-
-**Recovery is explicit and derivable.** Ordinary reads can project a reconciled
-view without terminating processes. Root-level repair paths make durable
-terminal writes and process-scope cleanup.
-
-**Harness policy is centralized.** Harness bundles project already-resolved
-launch intent. They do not independently re-resolve model, permission, work, or
-prompt policy.
-
-**POSIX-first.** Linux and macOS are supported. Existing native-Windows branches
-are legacy best effort and are not a design target.
+The repo-wide constraints (files as authority, crash-only writes, harness-agnostic adapters, POSIX-first) and the project invariants are in the meridian-cli root `AGENTS.md`, with directory rules in the `AGENTS.md` and `.context/` beside the code. The topic pages here hold the reasons behind them.
 
 ## Ecosystem Boundary
 
