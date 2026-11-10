@@ -1,6 +1,6 @@
 # Durability and locking
 
-Write order and lock order are in the source checkout's `src/meridian/lib/state/AGENTS.md` and `.context/CONTEXT.md`; this page holds the reasons.
+Write order and lock order are in the source checkout's `src/meridian/lib/state/AGENTS.md` and `.context/CONTEXT.md`, and JSONL tail repair in `src/meridian/lib/state/jsonl.py`; this page holds the reasons.
 
 ## A newline commits a JSONL row
 

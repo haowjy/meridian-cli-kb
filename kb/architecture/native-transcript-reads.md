@@ -22,4 +22,4 @@ The metadata index shares the authoritative session fold: a separate fold could 
 
 ## Early rows migrate once, not on read
 
-Early native-history rows migrate through doctor or background repair. Rewriting at read time could run under the non-reentrant spawn lock or overwrite a concurrent change ([health checks](../operations/health-checks.md)).
+Spawn rows from the early native-history build migrate through doctor or background repair. Rewriting at read time could run under the non-reentrant spawn lock or overwrite a concurrent change ([health checks](../operations/health-checks.md)).

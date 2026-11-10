@@ -1,6 +1,6 @@
 # Legacy native session import
 
-A once-only import binds chats written before native binding existed, and only when recorded facts and a matching native store give an unambiguous key. Mechanism: the source checkout's `src/meridian/lib/ops/.context/CONTEXT.md`.
+A once-only import binds chats written before native binding existed, and only when recorded facts and a matching native store give an unambiguous key. Contract: the source checkout's `src/meridian/lib/state/.context/CONTEXT.md` (one-time native identity import).
 
 ## Failures defer the import
 

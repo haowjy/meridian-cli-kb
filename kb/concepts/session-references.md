@@ -1,6 +1,6 @@
 # Spawn and chat references
 
-A reference's shape decides whether it names a spawn (`pN`), a chat (`cN`), a selector or a native session ID. The grammar and per-command behavior are in meridian-cli `src/meridian/lib/ops/.context/CONTEXT.md` and `docs/commands.md`.
+A reference's shape decides whether it names a spawn (`pN`), a chat (`cN`), a selector or a native session ID. The grammar and per-command behavior are in meridian-cli `docs/commands.md` and `src/meridian/cli/.context/CONTEXT.md`.
 
 ## A missing chat or spawn is an error
 

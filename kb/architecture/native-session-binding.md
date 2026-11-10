@@ -8,7 +8,7 @@ Before execution Meridian assigns or obtains an exact target, or verifies the re
 
 Identity comes only from the assigned target or qualified owned events. Picking the newest journal in the same directory, parsing model prose, or searching a payload for an ID-shaped value can bind another process's conversation. Discovery and primary metadata can't establish identity either: a detected file may belong to another session, and a spawn mirror can't supply an identity the chat never bound. `--from` may omit an unavailable best-effort pointer; continue and fork refuse.
 
-Tracked launches refuse passthrough flags that would override Meridian-managed native identity, operation, store or persistence.
+Tracked launches refuse passthrough flags that would override Meridian-managed native identity, operation, store or persistence: the harness would then open or persist a session other than the one the binding records.
 
 ## One source key, one binding rule
 

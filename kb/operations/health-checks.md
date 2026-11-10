@@ -4,4 +4,4 @@ Doctor scans the current project by default. Cross-project maintenance is explic
 
 Stored and derived spawn status differ: a dead runner reads as crashed before its outcome is written. Reconciliation writes the outcome and cleans up processes; pruning must protect active state ([derived status](../architecture/state-system/derived-status.md), [project identity](../architecture/state-system/project-identity.md)).
 
-Doctor also migrates rows written by the early native-history build, and a primary launch runs the same repair in the background ([native transcript reads](../architecture/native-transcript-reads.md#early-rows-migrate-once-not-on-read)).
+Doctor also migrates spawn rows that carry the early native-history build's boundary fields, and a primary launch runs the same repair in the background ([native transcript reads](../architecture/native-transcript-reads.md#early-rows-migrate-once-not-on-read)).

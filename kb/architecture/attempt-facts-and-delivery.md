@@ -2,7 +2,7 @@
 
 ## One consumer per event stream
 
-`SpawnManager` consumes the connection's event stream and fans events out to hooks and subscribers. Claude's stream permits one consumer, so any second reader would compete with the drain loop. Pi's raw `agent_end` stays observable while its decoded attempt outcome waits for `agent_settled`. Ordinary compaction and automatic runs have their own lifecycle evidence; `summarization_retry_*` and `queue_update` stay raw telemetry with no activity meaning.
+`SpawnManager` consumes the connection's event stream and fans events out to hooks and subscribers. Claude's stream permits one consumer, so any second reader would compete with the drain loop. Pi's raw `agent_end` stays observable, but its decoded attempt outcome waits for `agent_settled`, because a native retry or compaction can follow `agent_end` ([Pi runtime](pi-runtime.md#quiescence)).
 
 ## Attempt folds
 

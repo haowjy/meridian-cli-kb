@@ -13,8 +13,8 @@ A selected snapshot that is offline never silently falls back to older content u
 Capture selects the bound native source of the exact run generation, never runner output or a newer session ([native transcript reads](../native-transcript-reads.md)). It runs after stop and observes the bytes as they are then, so a continuation can get in first; it is not a reconstruction of the transcript at the instant the run ended. Codex forks can depend on ancestor rollouts, and an OpenCode transcript snapshot is not a backup of the whole OpenCode database. A transcript known to be incomplete can't authorize reclaiming the source.
 
 - **Capture defers to a live owner.** A live owner, observer, exact-generation lease or unreleased serving scope can still write the transcript, so capture defers, rechecks before publishing, and retries when the owner stops. An unstopped generation alone is not proof of a live writer, since a crash can leave it unstopped ([session state](session-state.md#a-later-start-closes-abandoned-generations)).
-- **Hash under shared ownership, retire briefly under exclusive.** Capture hashes while holding shared ownership, then rechecks and retires the source under a short exclusive hold. Repeating a full hash and recursive delete under the global gate would serialize unrelated writers. The recheck witnesses detect change; they don't replace checksums.
-- **Digests cover the stored record JSON.** The archive digest is computed over the stored record facts, excluding local-only fields, not over a reserialization through current models: new model defaults would otherwise change the digest of an unchanged old archive. Member hashes alone don't protect the record facts.
+- **Hash under shared ownership, retire briefly under exclusive.** Repeating a full hash and recursive delete under the global gate would serialize unrelated writers.
+- **Digests cover the stored record JSON**, excluding local-only fields, so new model defaults can't change the digest of an unchanged old archive. Member hashes alone don't protect the record facts.
 
 ## Indexes
 
