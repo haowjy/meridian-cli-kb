@@ -117,6 +117,5 @@ roles and composition boundaries rather than copying counts. See the
 | Understand current state persistence | [State model](architecture/state-system/overview.md) |
 | Trace a spawn | [Spawn lifecycle](concepts/spawn-lifecycle.md) |
 | Add or change a harness | [Harness abstraction](concepts/harness-abstraction.md) |
-| Understand why a choice was made | [Decision index](decisions.md) |
 | Diagnose runtime behavior | [Troubleshooting](operations/troubleshooting.md) |
 | Look up a term | [Vocabulary](vocabulary.md) |

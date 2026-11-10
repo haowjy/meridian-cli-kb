@@ -10,4 +10,4 @@ Even after preflight, external replacement of the source can make Pi open a diff
 
 ## Journal topology and readback
 
-Pi reopens the root-to-leaf ancestry ending at the last physical journal entry. Meridian uses that view for tracked sessions, omitting abandoned branches and marking incomplete graphs partial; an explicit file read may show physical order. See [native transcript reads](native-transcript-reads.md#search-projection).
+Pi reopens the root-to-leaf ancestry ending at the last physical journal entry. Meridian uses that view for tracked sessions, omitting abandoned branches and marking incomplete graphs partial; an explicit file read may show physical order. See [native transcript reads](native-transcript-reads.md#native-transcripts-are-the-only-source).

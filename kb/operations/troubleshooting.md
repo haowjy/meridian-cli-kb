@@ -142,7 +142,7 @@ terminates the recorded scopes, or the backend and TUI PIDs from
 `primary_meta.json` when no scopes were recorded. `meridian spawn cancel p42` on
 the terminal row also runs best-effort managed-primary cleanup. Both check each
 PID's birth time first. See
-[managed-primary lifecycle](../architecture/managed-primary-lifecycle.md#repair-and-cleanup-boundary).
+[managed-primary lifecycle](../architecture/managed-primary-lifecycle.md#repair-and-cleanup).
 
 ---
 
@@ -392,6 +392,6 @@ git log --oneline -10
 - [../architecture/managed-primary-lifecycle.md](../architecture/managed-primary-lifecycle.md) — managed-primary roles and passive/explicit cleanup boundary
 - [../architecture/primary-terminal-ownership.md#known-gaps](../architecture/primary-terminal-ownership.md#known-gaps) — launcher signal-handling gap and terminal-output ownership
 - [../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — abandoned-generation repair
-- [../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — capture deferral and retry
+- [../architecture/state-system/portable-history.md#archive-capture](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — capture deferral and retry
 - [A later start of the same chat closes earlier generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — the reasons
 - [configuration-guide.md](configuration-guide.md) — workspace and config setup

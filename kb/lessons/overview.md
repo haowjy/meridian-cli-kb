@@ -19,7 +19,6 @@ Lessons pages preserve hard-won context from failures, abandoned approaches, and
 - [pi-rpc-quiescence-impl.md](pi-rpc-quiescence-impl.md)
 - [thermo-nuclear-audit.md](thermo-nuclear-audit.md)
 - [residue-cleanup-discipline.md](residue-cleanup-discipline.md)
-- [release-sequencing.md](../codebase/releasing.md#releasing-mars-and-meridian-together)
 - [verification-and-review-discipline.md](verification-and-review-discipline.md)
 - [hook-event-contract.md](hook-event-contract.md)
 - [review-convergence-gate.md](review-convergence-gate.md)

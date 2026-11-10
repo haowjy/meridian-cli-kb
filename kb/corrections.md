@@ -131,4 +131,4 @@ Seen once. Each moves into the table on its second occurrence.
 Design corrections on specific features (harness resolution order, OpenCode
 2.x over 1.x, model catalog layers, raw-flag precedence, warn instead of
 block) are decisions, not agent-behavior classes; they belong in the
-[decision index](decisions.md).
+[topic pages](index.md).

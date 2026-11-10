@@ -4,6 +4,6 @@ Open-question pages track unresolved gaps, deferred work, and known future clean
 
 ## Pages
 
-- [future-work.md](future-work.md) — Deferred items organized by domain: chat backend, state/spawn, routing, telemetry, app server, codebase, and ecosystem.
-- [process-scope.md](../architecture/process-scope.md#known-gaps) — Process-scope cleanup follow-ups: dead-wrapper/live-child escapes, metadata-only lifecycle scope projection, and Windows Job handle threading.
+- [future-work.md](future-work.md) — deferred items by area: managed primaries, state and spawns, streaming and completion, routing, Pi delivery, telemetry, and ecosystem projects.
+- [rust-rewrite.md](rust-rewrite.md) — why meridian-cli is to be rewritten in Rust, and what the upgrade problem asks of the design.
 - [mars-feature-gaps.md](mars-feature-gaps.md) — Known Mars package-manager gaps around permissions, tools, MCP integration, and hooks.

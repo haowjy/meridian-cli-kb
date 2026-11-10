@@ -128,7 +128,7 @@ specific within the same level. See `docs/configuration.md` and
 An SMTP password file is preferred to the environment: environment values are inherited
 by spawns and can end up in transcripts, so the environment is a leaky fallback.
 `MERIDIAN_SECRET_*` can't be used for in-session notification, because launch strips it
-from harness children. See [child environment boundaries](launch-system.md#child-env-boundaries).
+from harness children. See [child environment boundaries](launch-system.md#child-environment).
 The Gmail transport is tested with a fake; real email delivery is unverified.
 
 ## No idle compaction
