@@ -162,7 +162,7 @@ and `spawns/<id>/launches/<n>/control_actions.jsonl` holds each ask with
 
 **Recovery:** `meridian spawn --continue <id> -p "..."`. For a long wait, start the job
 in the background and let the child run `spawn rearm --long --reason "..."` when asked.
-[Why there is one number](../decisions/completion-drain.md#waiting-has-one-number).
+[Why there is one number](../architecture/completion-drain.md).
 
 ---
 
@@ -173,7 +173,7 @@ stopped when its spawn closed.
 
 **What happened:** The parent ran `spawn done` or replied to the idle-limit ask. Either
 one closes it, and a close cancels running descendants and stops local background
-tasks ([why](../decisions/completion-drain.md#a-close-takes-what-it-started)). A dead
+tasks ([why](../architecture/completion-drain.md)). A dead
 parent backend cancels them too. `meridian spawn show <parent>` tells these apart: a
 parent that closed itself shows its usual result, and a dead one shows `failed` with
 `backend_dead_while_awaiting_done`.

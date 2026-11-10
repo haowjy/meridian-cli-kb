@@ -2,7 +2,7 @@
 
 ## Accepted Names Need a Producer
 
-A hook event can pass validation and never fire. Check the accepted event vocabulary against events emitted by the real producers; constructing an event directly for a dispatcher test cannot establish that a producer exists. See the [hook event decisions](../decisions/hook-event-contract.md).
+A hook event can pass validation and never fire. Check the accepted event vocabulary against events emitted by the real producers; constructing an event directly for a dispatcher test cannot establish that a producer exists. See the [hook event decisions](../concepts/hooks-and-plugins.md).
 
 ## Repeated Fixes Mean Parallel Owners
 

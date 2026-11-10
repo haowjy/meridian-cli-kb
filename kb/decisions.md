@@ -14,7 +14,7 @@ The reasons behind current choices, by topic. Each is a current choice, open to 
 | Launch composition | Prepare/bind, policy replay, inventory, capability-to-command guidance, capability gates | [decisions/launch.md](architecture/launch-system.md) |
 | Managed processes | Managed primaries, process scope, cancellation and cleanup | [decisions/launch-process-ownership.md](architecture/process-scope.md) |
 | Idle notifications | Push, cache warning, running work, delivery, TTL detection | [architecture/idle-notifications.md](architecture/idle-notifications.md) |
-| Completion | When a child closes, the report rule, one idle limit, no work limit, close cancels descendants, the hold as one table | [decisions/completion-drain.md](decisions/completion-drain.md) |
+| Completion | When a child closes, the report rule, one idle limit, no work limit, close cancels descendants, the hold as one table | [decisions/completion-drain.md](architecture/completion-drain.md) |
 | Waiting and sessions | Wait barriers, goals, output, continue/fork/from, session browse re-entry | [decisions/launch-session-initiation.md](concepts/session-initiation.md) |
 | Session-browse TUI | Picker-specific framework choice | [decisions/tui-framework.md](architecture/session-browse.md) |
 | Session-browse picker | Columns, transcript on demand, staleness, search, lineage view | [decisions/session-browse.md](architecture/session-browse.md) |
@@ -28,7 +28,7 @@ The reasons behind current choices, by topic. Each is a current choice, open to 
 | Tool permissions | How profile `tools`/`sandbox`/`approval` reach each harness: Mars-owned names, native enforcement, the Codex shell hook, `approval: auto`, reported gaps, allowlists, list form deprecated, headless `ask`, platform rules, permission sets that add across surfaces | [decisions/tool-permissions.md](architecture/tool-permissions.md) |
 | Bundle field consumption | Every launch-bundle field applied, reported or deliberately unread; `harness-overrides` on Codex, compaction projection, `tools.mcp` as permission names | [decisions/bundle-field-consumption.md](architecture/mars-launch-bundle.md) |
 | Sandbox platform access | What Meridian grants a sandboxed launch: exact project lifetime lock, Meridian commands, Claude and Codex child-spawn escapes, PID-namespace compound-launch refusal, the network field, and the sandbox/spawn/projected-network child guardrail | [decisions/sandbox-platform-access.md](architecture/sandbox-projection.md) |
-| Telemetry | Envelopes, sinks, segments, querying and retention | [decisions/telemetry.md](decisions/telemetry.md) |
+| Telemetry | Envelopes, sinks, segments, querying and retention | [decisions/telemetry.md](architecture/telemetry.md) |
 | Testing | Behavior-owned tiers and evidence gates | [decisions/testing.md](decisions/testing.md) |
-| Primary inject | How `spawn message` reaches every live session: one control socket, Claude's inbox, the sender frame and address, posted or delivered, no resend after a write | [decisions/primary-inject.md](decisions/primary-inject.md) |
+| Primary inject | How `spawn message` reaches every live session: one control socket, Claude's inbox, the sender frame and address, posted or delivered, no resend after a write | [decisions/primary-inject.md](architecture/primary-messaging.md) |
 | Harness connection seams | Surviving seams: connection ownership, HITL handler protocol, passthrough boundary, spawn depth cap | [decisions/connection-seams.md](concepts/harness-abstraction.md#seams) |

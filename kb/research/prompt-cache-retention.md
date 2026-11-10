@@ -71,7 +71,7 @@ A new third-party-client measurement needs distinct
 prefixes or serial runs so one request cannot refresh another gap's entry.
 See [this discussion of the OpenAI statement](https://www.reddit.com/r/codex/comments/1xb9prz/caching_upgraded_massively/). The signed-in product statement was
 not independently reverified during this capture; the API options above were. Meridian's operational choice is
-[the completion decision](../decisions/completion-drain.md).
+[the completion decision](../architecture/completion-drain.md).
 
 ## Anthropic retention, which OpenCode and Pi inherit
 

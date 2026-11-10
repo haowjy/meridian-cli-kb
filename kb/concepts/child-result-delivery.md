@@ -1,19 +1,32 @@
 # Child result delivery
 
-Background child results reach a lead through `spawn wait` or, for supported Claude and Pi sessions, automatic delivery. The fallback can wake a lead that has already ended its turn; instructions to wait cannot. See [wait](spawn-wait-barrier.md) and [delivery decisions](../decisions/child-result-delivery.md).
+A lead is owed the unconsumed launches of its direct background children; a continuation can owe another launch under the same spawn ID. A nested lead owns its own children, never its siblings or its parent's backlog, and a primary owns its chat's background children across generations. Results reach the lead through `spawn wait` or, for interactive Claude primaries and Pi sessions, automatic delivery; spawned Claude, Codex and OpenCode leads wait explicitly. Contracts: the source checkout's [`ops/spawn/.context/CONTEXT.md`](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/ops/spawn/.context/CONTEXT.md) and [`pi_runtime/.context/delivery-contract.md`](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/pi_runtime/.context/delivery-contract.md). Per-launch keys are explained in [spawn launches](../architecture/state-system/spawn-launches.md#results-are-owed-per-launch).
 
-A lead is owed its direct background children's unconsumed launches. Continuation can produce another owed launch under the same spawn ID. A nested lead owns its own children, not its siblings or its parent's backlog. The source checkout's [src/meridian/lib/ops/spawn/.context/CONTEXT.md](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/ops/spawn/.context/CONTEXT.md) and [src/meridian/pi_runtime/.context/delivery-contract.md](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/pi_runtime/.context/delivery-contract.md) own the contracts.
+## Core decides what is owed; a Claude mod only senses idle
 
-Interactive Claude primaries and Pi sessions can receive automatic delivery; spawned Claude, Codex and OpenCode leads must wait explicitly. Claude sends headers and acknowledges only after the delivered turn starts: submission alone proves the prompt was queued, not seen. Pi delivers bounded report excerpts; whether it should also use headers remains open in [delivery decisions](../decisions/child-result-delivery.md).
+On a Claude primary, a mod senses idle and submits; core decides what is owed and when it is consumed. A mod fits here because delivery is wanted at idle, unlike mid-turn messaging. Submission proves only that the prompt was queued, so acknowledgment waits for the delivered turn to start. A failed acknowledgment excludes those IDs until reload, to avoid repeated delivery; one duplicate after a restart is possible. Foreground results have already reached the caller, and grandchildren reach it through their parent's report.
 
-## Consumption sources
+Claude delivery carries lookup headers, not report bodies: that bounds repeated context and avoids report I/O. Pi delivers bounded report excerpts ([Pi runtime](../architecture/pi-runtime.md#delivery-evidence)).
 
-Delivery considers command observations, Pi receipts and dismissals, including legacy records. A wait lease prevents a watcher from competing with a live wait. Observation follows the surface that actually shows a result; internal reads do not imply delivery. Recording is best effort, so a failed observation can cause a duplicate.
+> [!FLAG] **Needs human review**: whether Pi delivery should also become header-only is undecided; Pi keeps its excerpts until then. Flagged 2026-11-07.
 
-## Legacy ledger files
+## What consumes a result
 
-Launch-keyed records use new file names so older builds cannot overwrite a format they do not understand. An older Python reader treats an unknown version as absent and rewrites it; an older Pi reader stops delivery. Older builds may instead redeliver a result consumed by a newer build. See [spawn launches](../architecture/state-system/spawn-launches.md).
+A CLI surface that prints a terminal report consumes it for the caller. Internal reads, summaries, logs and context references don't: reading a result for another purpose must not erase a delivery the lead hasn't seen. A cancel that reports `cancelled` consumes that outcome, since the caller just saw it; a cancel that finds success or failure leaves the unseen report owed. An unrelated caller's observation can't suppress the owner's delivery.
+
+Consumption is keyed by parent spawn and stored in the parent's spawn directory, where published-spawn locking stops a concurrent prune from recreating a deleted directory. Readers also count command observations, Pi receipts and dismissals, including legacy records still written by old processes.
+
+## No-argument wait includes owed results
+
+A no-argument `spawn wait` waits on a fixed barrier of active descendants in the caller's scope, which stays uncapped, and adds up to the 32 oldest finished owed children as headers. Without them a child that finished just before discovery would vanish from view. Owed rows don't affect counts, fail-fast or the exit code, so an old failure can't fail a new wait, and headers rather than full reports keep a backlog from flooding context. Capping the combined set would leave live descendants outside the barrier.
+
+Children launched after the wait starts are reported in a trailer and never join the barrier: otherwise a producer could extend the wait indefinitely. The trailer is advisory: it doesn't lease, consume or count those children, and discovery failure just omits it ([spawn wait](spawn-wait-barrier.md)).
 
 ## Accepted duplicates and losses
 
-Delivery is best effort. A wait records consumption before its output is printed, so a process killed between those steps can lose delivery. A collect racing a wait can deliver a duplicate. These windows avoid a separate claim protocol; details and alternatives are in [delivery decisions](../decisions/child-result-delivery.md).
+Delivery is best effort, and these windows were accepted instead of a renewable claim protocol, which was disproportionate to them:
+
+- A wait records consumption before printing, so a kill between the two loses the output.
+- Collect's last consumption check and a wait's lease are separate, so a race can deliver one duplicate header; a queued mod delivery can also duplicate.
+- Recording an observation happens after output; contention or a read-only runtime causes a duplicate rather than a lost report.
+- Older builds may redeliver a result a newer build consumed.

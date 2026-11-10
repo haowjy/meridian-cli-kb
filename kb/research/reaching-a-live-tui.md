@@ -1,6 +1,6 @@
 # Reaching a Running TUI From Outside: Codex, OpenCode and Pi
 
-Evidence for external input to a running TUI. See [Claude's inbox](claude-code-mods-and-inbox.md) and [Meridian's routes](../decisions/primary-inject.md#unified-delivery).
+Evidence for external input to a running TUI. See [Claude's inbox](claude-code-mods-and-inbox.md) and [Meridian's routes](../architecture/primary-messaging.md#one-socket-for-every-primary).
 
 | | Codex 0.164.0 | OpenCode 2.1.4 | Pi 1.4.0 |
 |---|---|---|---|

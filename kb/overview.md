@@ -77,7 +77,7 @@ rules belong to [the state architecture](architecture/state-system/overview.md) 
 | User-facing operations | Shared extension registry and ops layer | [Extension system](concepts/extension-system.md) |
 | Agent/model/package materialization | Mars compiler, ownership retention, and target adapters | [Package management](concepts/package-management/overview.md) |
 | Filesystem access beyond the task root | Workspace resolution and harness projection | [Workspace architecture](architecture/workspace.md) |
-| Durable diagnostic events | Telemetry sinks and readers | [Telemetry architecture](architecture/telemetry/overview.md) |
+| Durable diagnostic events | Telemetry sinks and readers | [Telemetry architecture](architecture/telemetry.md) |
 
 ## Design Properties
 

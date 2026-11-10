@@ -12,4 +12,4 @@ Walk validated model values to detect unknown keys instead of maintaining a seco
 
 ## Fsync once per batch, not per envelope
 
-A batch is the durability unit. Per-envelope fsync multiplies I/O without improving the torn-tail contract; see [telemetry persistence](../architecture/telemetry/local-persistence.md).
+A batch is the durability unit. Per-envelope fsync multiplies I/O without improving the torn-tail contract; see [telemetry persistence](../architecture/telemetry.md#local-segments).

@@ -48,7 +48,7 @@ the message into the session.
 and marking it on the send's return would lose results whenever the send
 didn't become a turn. Pi's extension records the admission event Pi raises in
 `delivery-receipts.json`, and Python confirms it from the session's public
-event stream ([Pi runtime decision](../decisions/pi-runtime.md)). Claude's
+event stream ([Pi runtime decision](../architecture/pi-runtime.md)). Claude's
 mod puts a nonce line in the submitted text and acks only on the main-loop
 `turn.start` whose text contains it
 ([child result delivery](../concepts/child-result-delivery.md)).
