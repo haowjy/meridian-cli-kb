@@ -12,7 +12,7 @@ Rows show what helps judge the cost of re-entry: idle time and a cache-expiry wa
 
 Highlighting a row doesn't read its transcript. The transcript opens full-screen on request: a permanently split preview clipped most transcripts at ordinary terminal heights, and a separate preview cache could go stale or show the wrong session. Rendering normalizes tool calls first so the display needs no harness-specific parsing, and cleans content before truncating so the preview limit applies to useful text. Readable versus raw, and truncated versus full, are independent choices.
 
-Search filters before the row limit, so a match beyond the first page doesn't look absent; one query defines matching for both the count and the rows. The lineage view shows primary-session `--fork` and `--from` ancestry, not subagent spawn lineage.
+Search filters before the row limit, so a match beyond the first page doesn't look absent; one query defines matching for both the count and the rows. The lineage view shows primary-session `--fork` and `--from` ancestry.
 
 ## Framework: prompt_toolkit, in Python
 

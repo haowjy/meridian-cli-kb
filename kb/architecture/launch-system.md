@@ -12,9 +12,7 @@ A terminal error, transport failure, timeout, guardrail or identity failure fina
 
 ## The system prompt depends only on what defines the conversation
 
-Per-run values (spawn IDs, the launching chat, `--from` output, reference files, a spawn's goal) go in the first user turn, so sibling runs share the system prefix and its prompt cache. Prior reports can also carry untrusted text, which must not gain the system prompt's authority. A primary's identity and goal stay in system guidance because a continue replays no user turn. A work item's goal is read with `meridian work show`, so editing it neither goes stale in the prompt nor invalidates the prefix. An exact continue recomposes from its snapshot rather than replaying stored bytes, which could misstate the surface or drop a new goal.
-
-`--from` is resolved once, at the request boundary, and the request prompt stays raw: a composed prompt persisted in a background request was composed again by the worker, duplicating references and prior context.
+Per-run values go in the first user turn so sibling runs share the system prefix and its prompt cache, and so prior reports, which can carry untrusted text, never gain the system prompt's authority. A primary's identity and goal stay in system guidance because a continue replays no user turn. Placement rules: `src/meridian/lib/launch/.context/CONTEXT.md`.
 
 ## Continue replays the recorded launch
 
@@ -22,7 +20,6 @@ An exact continue starts from the recorded launch contract instead of recomputin
 
 ## Skills and guidance
 
-- **Loaded skills are composed into the prompt on every harness.** A native skill inventory isn't equivalent to loading: it can omit a loaded skill that isn't model-invocable, and several conditional delivery paths once lost skills when one overwrote another.
 - **Delegation guidance follows capability.** Spawn guidance and the agent inventory are injected for profiles that can delegate. An opt-in skill alone was repeatedly not loaded; injecting it everywhere would waste leaf agents' context.
 - **Packages name capabilities; Meridian maps them to commands.** Prompt packages are also used by runtimes with app tools and no shell, so Meridian syntax inside them would make their guidance unportable. Meridian's own operations guidance ships with the CLI so commands and advice change together.
 - **Pi keeps native skill and context discovery** for available skills and project instructions. Ambient Pi extensions stay separately controlled, because they run code and can conflict with Meridian's managed extensions.

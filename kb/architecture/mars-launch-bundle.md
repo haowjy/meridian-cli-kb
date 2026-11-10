@@ -8,7 +8,7 @@ A silently dropped field makes a profile look like it works when it doesn't. So 
 
 ## `harness-overrides` passes native config through
 
-`harness-overrides.<harness>` carries target-native configuration beside portable policy, without claiming its keys mean anything on other harnesses. Codex applies it; other harnesses report it unsupported. Meridian reserves the settings it owns, such as model, sandbox and approval, so passthrough can't undo compiled policy. A Codex override can still change other settings, including providers and MCP commands, so a package carrying one is trusted like a hook. Native configuration never goes into model instructions.
+`harness-overrides.<harness>` carries target-native configuration beside portable policy, without claiming its keys mean anything on other harnesses. Codex applies it (`src/meridian/lib/harness/projections/native_config.py`); other harnesses report it unsupported. Meridian reserves the settings it owns, such as model, sandbox and approval, so passthrough can't undo compiled policy. A Codex override can still change other settings, including providers and MCP commands, so a package carrying one is trusted like a hook. Native configuration never goes into model instructions.
 
 ## Other fields
 

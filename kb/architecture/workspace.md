@@ -16,7 +16,7 @@ A missing root is excluded from projection; there is no `enabled` field, so a co
 
 ## Projection
 
-Projected roots are Meridian-owned policy, kept apart from user passthrough arguments so permissions never have to be recovered by reparsing a flat argument list. On OpenCode, grants merge with inherited config: suppressing projection when a parent already set config would silently lose the child's access. Malformed inherited config is rejected.
+Projected roots are Meridian-owned policy, kept apart from user passthrough arguments so permissions never have to be recovered by reparsing a flat argument list. On OpenCode, grants merge with inherited config: suppressing projection when a parent already set config would silently lose the child's access.
 
 Granting a root can expose instructions in it: Claude discovers skills in projected roots.
 

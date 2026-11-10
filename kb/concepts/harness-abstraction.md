@@ -7,7 +7,7 @@ A harness is an external AI runtime (Claude, Codex, Cursor, OpenCode, Pi) integr
 - **Connections own live communication; extractors recover session and report data.** `SpawnManager` is the only consumer of a connection's event stream and fans events out ([attempt facts](../architecture/attempt-facts-and-delivery.md)).
 - **Approval requests go through a handler.** It separates who decides an approval from how the transport sends it.
 - **A managed primary's TUI talks to its backend directly.** Routing the user's input through Meridian would add latency and complexity. Claude primaries use a PTY because Claude has no separate backend to attach to.
-- **Recursion is bounded by spawn depth (`MERIDIAN_MAX_DEPTH`).** A per-command launch guard was dropped because it also stopped delegated agents from testing launches.
+- **Recursion is bounded by one spawn-depth cap (`MERIDIAN_MAX_DEPTH`) across all commands,** so runaway delegation stops however it recurses. A per-command launch guard was dropped because it also stopped delegated agents from testing launches.
 
 ## Parent and child events
 
