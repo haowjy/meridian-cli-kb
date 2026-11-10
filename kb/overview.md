@@ -58,14 +58,14 @@ Meridian and Mars own different files:
 - **`.mars/`** is Mars's canonical compiled catalog consumed by Meridian.
 - **`~/.meridian/mars/`** is the user Mars root: packages installed with
   `meridian mars --user add`, used wherever no project `mars.toml` exists and
-  layered under a project's own packages ([Mars user scope](architecture/mars-user-scope.md)).
+  layered under a project's own packages ([Mars user scope](concepts/package-management.md#user-scope)).
 - **Harness-native directories** such as `.claude/`, `.codex/`, `.cursor/`,
   `.opencode/`, and `.pi/` are Mars target projections consumed by harnesses.
 
 Repo-local `.meridian/` holds no state and `.meridian/id` is not read.
 `.agents/` is not a Meridian catalog fallback. The exact layouts and migration
 rules belong to [the state architecture](architecture/state-system/overview.md) and
-[the Mars targeting architecture](architecture/mars-targeting.md).
+[the Mars targeting architecture](concepts/package-management.md#targets).
 
 ## Major Seams
 
@@ -75,7 +75,7 @@ rules belong to [the state architecture](architecture/state-system/overview.md) 
 | Harness-specific behavior | Registered `HarnessBundle` objects | [Harness abstraction](concepts/harness-abstraction.md) |
 | Spawn and session persistence | `lib/state/` and store-specific locked mutation seams | [State system](architecture/state-system/overview.md) |
 | User-facing operations | Shared extension registry and ops layer | [Extension system](concepts/extension-system.md) |
-| Agent/model/package materialization | Mars compiler, ownership retention, and target adapters | [Package management](concepts/package-management/overview.md) |
+| Agent/model/package materialization | Mars compiler, ownership retention, and target adapters | [Package management](concepts/package-management.md) |
 | Filesystem access beyond the task root | Workspace resolution and harness projection | [Workspace architecture](architecture/workspace.md) |
 | Durable diagnostic events | Telemetry sinks and readers | [Telemetry architecture](architecture/telemetry.md) |
 

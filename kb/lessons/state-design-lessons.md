@@ -4,7 +4,7 @@ Committed identity travels with the repository; high-churn runtime state stays u
 
 A runner-held lock provides evidence of runner liveness without PID or timestamp guesses. The harness must not inherit it: a descendant can keep it after the runner dies or drop it during re-exec. That lock does not prove all descendants have exited; containment is a separate question. See [spawn identity](../architecture/state-system/spawn-launches.md) and [process containment](process-containment.md).
 
-Selection for convergence or destruction uses stored status; a liveness query can use derived status. Otherwise a reader can make a dead but not yet finalized row invisible to the writer responsible for repairing it. See [derived status](../architecture/state-system/derived-status.md#selection-versus-liveness).
+Selection for convergence or destruction uses stored status; a liveness query can use derived status. Otherwise a reader can make a dead but not yet finalized row invisible to the writer responsible for repairing it. See [derived status](../architecture/state-system/derived-status.md#select-by-stored-status-report-by-derived-status).
 
 ## Repair the State Before Relaxing the Check
 

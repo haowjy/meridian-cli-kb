@@ -2,6 +2,10 @@
 
 A launch is prepared once and then bound: preparation resolves policy and composes content, binding supplies per-run values and can run for a preview. One composition path serves preview and execution, so the two can't drift. Contracts: the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`, which also cover exact continue, prompt placement, skill delivery, task directories and the child environment.
 
+## Composition by meaning
+
+Content is classified by meaning (system instructions, task context, the user's request) before any harness-specific projection, so each adapter picks its native channels without composition depending on harness identity.
+
 ## Authority root and task directory
 
 The authority root selects project configuration and context; the task directory selects the checkout and the anchor for relative references. Keeping them separate lets an agent work in a nested directory or worktree without changing which project's configuration governs it ([file references](../concepts/reference-resolution.md), [work items](state-system/work-items.md#checkout-pins)).

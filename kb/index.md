@@ -7,7 +7,7 @@ Find the right directory by question:
 - [Decisions](decisions.md) — the reasons behind current choices, by topic.
 - [Concepts](concepts/overview.md) — product and coordination concepts.
 - [Architecture](architecture/overview.md) — system boundaries and mechanisms.
-- [Codebase](codebase/overview.md) — source orientation.
+- [Codebase](codebase/guide.md) — source orientation.
 - [Operations](operations/overview.md) — configuration and recovery.
 - [Research](research/overview.md) — external evidence.
 - [Lessons](lessons/overview.md) — pitfalls and rejected approaches.

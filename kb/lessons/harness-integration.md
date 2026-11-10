@@ -1,6 +1,6 @@
 # Harness Integration Lessons
 
-Native file-injection channels can give the same content different meanings across harnesses. Classify content before projecting it to harness channels; see [composition](../concepts/composition-pipeline.md).
+Native file-injection channels can give the same content different meanings across harnesses. Classify content before projecting it to harness channels; see [composition](../architecture/launch-system.md#composition-by-meaning).
 
 Python signal handlers run on the main thread and may interrupt code that already holds a lock. A signal receiver must avoid blocking on a non-reentrant lock held by that thread; see `src/meridian/lib/launch/AGENTS.md`.
 

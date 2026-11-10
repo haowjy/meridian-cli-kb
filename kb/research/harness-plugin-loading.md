@@ -36,7 +36,7 @@ bare or qualified. Started as the session agent
 `skills:` bodies are injected. One agent file can serve both roles, so the
 skill list alone cannot guarantee loading. This is why Mars's skills lowering
 also writes a "load these skills" line into Claude agent bodies
-([Agent skills lower by harness capability](../concepts/skill-schema.md)).
+([Agent skills lower by harness capability](../concepts/skills.md)).
 
 **Root variable.** `${CLAUDE_PLUGIN_ROOT}` expands to the installed plugin
 directory in hook commands, stdio MCP servers and LSP servers. It does not
@@ -142,7 +142,7 @@ variable exists.
   `index.mjs` registers each agent as `<plugin>:<agent>` since Mars 0.23.0
   (mars-agents#249). An agent whose model has no provider-qualified id keeps
   OpenCode's default model: see
-  [OpenCode plugin agents keep OpenCode's default model when the model is ambiguous](../decisions/package-management.md#opencode-model-selection).
+  [OpenCode plugin agents keep OpenCode's default model when the model is ambiguous](../concepts/package-management.md).
 
 - **Skills** registered from bundled files load with working `resources/`.
 - **MCP** registered as `<plugin>:<server>` in OpenCode's

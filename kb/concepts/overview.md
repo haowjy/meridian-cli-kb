@@ -10,11 +10,11 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 - [state-model.md](../architecture/state-system/overview.md)
 - [../codebase/work-items.md](../architecture/state-system/work-items.md)
 - [harness-abstraction.md](harness-abstraction.md)
-- [composition-pipeline.md](composition-pipeline.md)
+- [composition-pipeline.md](../architecture/launch-system.md#composition-by-meaning)
 - [hooks-and-plugins.md](hooks-and-plugins.md)
 - [extension-system.md](extension-system.md)
-- [skill-schema.md](skill-schema.md)
-- [skill-loading.md](skill-loading.md)
+- [skill-schema.md](skills.md)
+- [skill-loading.md](skills.md)
 - [native-config.md](../architecture/mars-launch-bundle.md)
 - [bootstrap-docs.md](bootstrap-docs.md)
 - [config-precedence.md](config-precedence.md)
@@ -25,5 +25,5 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 
 ## Subtrees
 
-- [model-resolution/](model-resolution/)
-- [package-management/](package-management/)
+- [model-resolution/](model-resolution.md)
+- [package-management/](package-management.md)

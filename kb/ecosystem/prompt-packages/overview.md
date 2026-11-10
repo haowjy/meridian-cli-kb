@@ -1,6 +1,6 @@
 # Prompt Packages Overview
 
-Package manifests and READMEs own current dependencies and inventories. See [package management](../../concepts/package-management/overview.md) for resolution and targeting.
+Package manifests and READMEs own current dependencies and inventories. See [package management](../../concepts/package-management.md) for resolution and targeting.
 
 ## Prompter Is Local, Not a Foundation
 
