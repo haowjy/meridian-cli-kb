@@ -18,4 +18,4 @@ The Codex shell hook shows the cost. Its rules guard against accidents, but no t
 
 Ask reviewers for evidence, constraints, and tradeoffs without supplying the desired verdict. Otherwise a reviewer can echo the framing even when its evidence supports another result.
 
-A positive hint may narrow work but must not prove absence. Before adding cancellation and preemption around slow work, ask whether the work should run at all. See [Pi runtime decisions](../architecture/pi-runtime.md).
+A positive hint may narrow work but must not prove absence. Before adding cancellation and preemption around slow work, ask whether the work should run at all. See [Pi runtime](../architecture/pi-runtime.md).

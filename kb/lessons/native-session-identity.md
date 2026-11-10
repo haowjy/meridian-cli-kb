@@ -20,6 +20,6 @@ A test helper is subject to the same read restrictions as the code it tests. A t
 
 A rebuildable index can still be live input to an older running build. Versioned index files let both builds coexist; see [history storage](../architecture/state-system/portable-history.md#indexes) and [upgrade probing](dogfooding-pr-builds.md#probing-the-upgrade-path-needs-a-genuinely-old-build-and-old-state).
 
-An integrity digest covers persisted bytes or stored JSON, not a reserialization through an evolving model. See [portable digest decision](../architecture/state-system/portable-history.md#archive-capture).
+An integrity digest covers persisted bytes or stored JSON, not a reserialization through an evolving model. See [portable history](../architecture/state-system/portable-history.md#archive-capture).
 
 Recovery inference must measure wrong bindings as well as yield: a wrong immutable binding is permanent.

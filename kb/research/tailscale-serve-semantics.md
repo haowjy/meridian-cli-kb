@@ -101,7 +101,5 @@ random or incremented high port — don't claim 443 or other well-known ports.
 
 ## Provenance
 
-Live A/B verification on Tailscale 1.98, node `pop-os`, during the
-`artifact-serve-cmd` work item (2026-07): reversible tailscale experiments with
-state restored identical afterward. Full decision trail in the work item's
-`DECISIONS.md`.
+Live A/B verification on Tailscale 1.98 (2026-07): reversible experiments with
+state restored identical afterward.
