@@ -40,7 +40,7 @@ A harness turn executes once: replay after a terminal failure could duplicate mo
 
 ## Child Env Boundaries
 
-`MERIDIAN_SECRET_*` values are stripped from harness children, including primaries. A child cannot use them for in-session notifications; ordinary inherited environment values can leak into transcripts. See [notification credentials](../decisions/idle-notify-channels.md#smtp-password-from-a-file-env-as-leaky-fallback).
+`MERIDIAN_SECRET_*` values are stripped from harness children, including primaries. A child cannot use them for in-session notifications; ordinary inherited environment values can leak into transcripts. See [notification credentials](idle-notifications.md#smtp-password-from-a-file).
 
 ## _MERIDIAN_HARNESS Child Env Injection
 

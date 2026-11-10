@@ -11,7 +11,7 @@ touchpoints; the [cleanup program](cleanup-program.md) tracks the broader leakag
 A parent event scope classifies events rather than filtering them: child events
 remain visible to subscribers but must not complete or fail the parent, clear
 its signals, or become its report. OpenCode's global stream makes this boundary
-particularly important. See [idle adapters](../architecture/idle-adapters.md)
+particularly important. See [idle adapters](../architecture/idle-notifications.md)
 and the [process scope](../architecture/process-scope.md).
 
 OpenCode's managed-primary model selection cannot observe an unsent TUI-local

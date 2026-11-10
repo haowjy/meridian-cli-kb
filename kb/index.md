@@ -4,7 +4,7 @@ The Meridian KB covers the CLI, Mars and the surrounding ecosystem. Start with t
 
 Find the right directory by question:
 
-- [Decisions](decisions.md) — design choices and rationale.
+- [Decisions](decisions.md) — the reasons behind current choices, by topic.
 - [Concepts](concepts/overview.md) — product and coordination concepts.
 - [Architecture](architecture/overview.md) — system boundaries and mechanisms.
 - [Codebase](codebase/overview.md) — source orientation.

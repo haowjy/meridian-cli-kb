@@ -103,7 +103,7 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
 
 ## Meridian policy
 
-See [idle TTL detection](../decisions/idle-ttl-detection.md) and [idle notifications](../decisions/idle-notifications.md) for Meridian's use of these facts.
+See [idle TTL detection](../architecture/idle-notifications.md#cache-ttl) and [idle notifications](../architecture/idle-notifications.md) for Meridian's use of these facts.
 
 ## Does the compaction request read the cache?
 

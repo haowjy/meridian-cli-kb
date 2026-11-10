@@ -7,12 +7,14 @@ The KB holds what spans more than one directory and can't be read from the sourc
 - State the behaviour and its reason as current truth: no attribution, names, session or spawn ids, release status, or history of the page.
 - Keep it short. Don't describe what the code already shows, and don't keep inventories of files, functions or fields. Anything cut can be researched again or asked of the owner.
 - A rule whose reason nobody can state gets deleted, not kept. Rules without reasons get turned into code nobody can justify.
+- Only what the owner chose, or what shipped, belongs here. An option they floated or a question they asked stays in the work directory until they choose.
+- Write by topic: no decision ids, and no list of rejected options. Keep a rejected option only with the fact that ruled it out.
 - Project invariants live in the root `AGENTS.md` of meridian-cli and mars-agents. Everything here is a current choice, open to rewriting when evidence shows something better.
 - Delete a page whose subject no longer exists.
 
 ## Structure
 
-`index.md` is a short map of the directories and the pages to read first. `decisions.md` indexes decisions. A topic gets its own directory once it has several pages.
+`index.md` is a short map of the directories and the pages to read first. A topic page holds the mechanism and the reasons behind it together; `architecture/idle-notifications.md` is the model. Pages under `decisions/` still hold reasons apart from their topic: when you edit one, merge it into its topic page and point its links there. A topic gets its own directory once it has several pages.
 
 ## Landing changes
 

@@ -1,6 +1,6 @@
 # Decision Index
 
-Decision pages own rationale, rejected alternatives and revisit conditions. Architecture pages own current mechanism. [Decision Records](decisions/overview.md) lists every record by topic and says how to add one.
+The reasons behind current choices, by topic. Each is a current choice, open to change when its reason stops holding or the owner asks for something else.
 
 ## Domain Records
 
@@ -13,8 +13,7 @@ Decision pages own rationale, rejected alternatives and revisit conditions. Arch
 | Native source argument admission | Identity-overriding passthrough refusal | [decisions/native-source-argument-admission.md](decisions/native-source-argument-admission.md) |
 | Launch composition | Prepare/bind, policy replay, inventory, capability-to-command guidance, capability gates | [decisions/launch.md](decisions/launch.md) |
 | Managed processes | Managed primaries, process scope, cancellation and cleanup | [decisions/launch-process-ownership.md](decisions/launch-process-ownership.md) |
-| Idle notifications | Idle push and cache-expiry warning, Claude's stateless permission-prompt notice, running work and the push, session role, notifications as hook events ("Notifications are hook events delivered by routes"), notify channels and secrets; Meridian idle compaction removed ("Meridian no longer compacts idle sessions") | [decisions/idle-notifications.md](decisions/idle-notifications.md), [decisions/idle-notify-channels.md](decisions/idle-notify-channels.md); current mechanism: [architecture/idle-adapters.md](architecture/idle-adapters.md) |
-| Idle TTL detection | Launch-recorded native-store lookup and provider TTL mapping for idle scheduling | [decisions/idle-ttl-detection.md](decisions/idle-ttl-detection.md) |
+| Idle notifications | Push, cache warning, running work, delivery, TTL detection | [architecture/idle-notifications.md](architecture/idle-notifications.md) |
 | Completion | When a child closes, the report rule, one idle limit, no work limit, close cancels descendants, the hold as one table | [decisions/completion-drain.md](decisions/completion-drain.md) |
 | Waiting and sessions | Wait barriers, goals, output, continue/fork/from, session browse re-entry | [decisions/launch-session-initiation.md](decisions/launch-session-initiation.md) |
 | Session-browse TUI | Picker-specific framework choice | [decisions/tui-framework.md](decisions/tui-framework.md) |

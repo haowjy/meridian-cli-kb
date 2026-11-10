@@ -10,11 +10,11 @@ Codex fork snapshots must copy complete validated records from a bounded view of
 
 ## Bundled Mods Outlive the CLI They Call
 
-A running harness retains the mod loaded at session start even after the CLI on PATH is upgraded. Changing a CLI flag or reply shape consumed by that mod can silently break existing sessions until they restart. See [idle TTL decisions](../decisions/idle-ttl-detection.md).
+A running harness retains the mod loaded at session start even after the CLI on PATH is upgraded. Changing a CLI flag or reply shape consumed by that mod can silently break existing sessions until they restart. See [idle TTL decisions](../architecture/idle-notifications.md#cache-ttl).
 
 ## A Dialect Switch Must Move Every Consumer of the Stream
 
-When a harness changes event dialect, every consumer must follow the resolved transport, not just the main connection. Probe the version users actually run; a sensor that never fires needs positive evidence of activity, not merely absence of errors. See [OpenCode idle decisions](../decisions/idle-opencode-v2.md).
+When a harness changes event dialect, every consumer must follow the resolved transport, not just the main connection. Probe the version users actually run; a sensor that never fires needs positive evidence of activity, not merely absence of errors. See [OpenCode idle decisions](../architecture/idle-notifications.md#opencode-2x-sensor).
 
 A scratch harness config hides user hooks. If a mod observes inputs another hook can rewrite, probe with representative hooks as well as a clean config. Before removing a workaround for an upstream bug, reproduce the original failure on the current binary: a closed issue does not establish it was fixed.
 

@@ -393,5 +393,5 @@ git log --oneline -10
 - [../architecture/primary-terminal-ownership.md#known-gaps](../architecture/primary-terminal-ownership.md#known-gaps) — launcher signal-handling gap and terminal-output ownership
 - [../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — abandoned-generation repair
 - [../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — capture deferral and retry
-- [../decisions/history-storage.md#d-abandoned-generation-closure](../decisions/history-storage.md#a-later-start-of-the-same-chat-closes-earlier-generations-capture-defers-to-real-owners) — decision and rejected alternatives
+- [A later start of the same chat closes earlier generations](../decisions/history-storage.md#a-later-start-of-the-same-chat-closes-earlier-generations-capture-defers-to-real-owners) — the reasons
 - [configuration-guide.md](configuration-guide.md) — workspace and config setup
