@@ -16,7 +16,7 @@ The terminal write comes before asynchronous cleanup, so a stuck cleanup can't h
 
 A harness that reports its own background work gets no confirmation ask at turn end. Claude does; Codex and OpenCode keep the ask because their background shells can be invisible. Skipping the ask saves a turn, and accepts that a premature finish with no visible work may need a `--continue`. Claude's background-task stream feeds the hold, and a harness mod can't replace it: the finish decision and timeout must survive a wedged child, and the mod API didn't expose background shell tasks. An empty task snapshot isn't a finished follow-up turn, since Claude may still owe the result of the turn the task triggered; a malformed snapshot holds completion.
 
-A child with no writable completion-signal channel gets no confirmation ask. A read-only Codex child that can spawn uses the scoped escape rule ([sandbox projection](sandbox-projection.md#spawning-from-inside-a-sandbox)); if its sandbox is unset but Codex defaults to read-only, the signal can still fail, because Meridian doesn't infer that default.
+A child with no writable completion-signal channel gets no confirmation ask, since it couldn't answer one; its hold still checks evidence and deadlines. A read-only Codex child that can spawn uses the scoped escape rule ([sandbox projection](sandbox-projection.md#spawning-from-inside-a-sandbox)); if its sandbox is unset but Codex defaults to read-only, the signal can still fail, because Meridian doesn't infer that default.
 
 ## Waiting has one number
 

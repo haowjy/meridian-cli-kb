@@ -1,6 +1,6 @@
 # Messaging a live session
 
-`meridian spawn message` reaches every live session, primaries included, through the same control socket spawned sessions serve. Current behavior: the source checkout's [message route contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/.context/CONTEXT.md#primary-message-route), [framing contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/cli/.context/CONTEXT.md) and `docs/harness-integration.md`. Harness evidence: [reaching a live TUI](../research/reaching-a-live-tui.md). Remaining edges: [#916](https://github.com/haowjy/meridian-cli/issues/916).
+`meridian spawn message` reaches every live session, primaries included, through the same control socket spawned sessions serve. Current behavior: the source checkout's [message route contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/.context/CONTEXT.md#message-delivery), [framing contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/cli/.context/CONTEXT.md) and `docs/harness-integration.md`. Harness evidence: [reaching a live TUI](../research/reaching-a-live-tui.md). Remaining edges: [#916](https://github.com/haowjy/meridian-cli/issues/916).
 
 ## One socket for every primary
 

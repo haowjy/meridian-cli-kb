@@ -14,7 +14,7 @@ Claude delivery carries lookup headers, not report bodies: that bounds repeated 
 
 A CLI surface that prints a terminal report consumes it for the caller. Internal reads, summaries, logs and context references don't: reading a result for another purpose must not erase a delivery the lead hasn't seen. A cancel that reports `cancelled` consumes that outcome, since the caller just saw it; a cancel that finds success or failure leaves the unseen report owed. An unrelated caller's observation can't suppress the owner's delivery.
 
-Consumption is keyed by parent spawn and stored in the parent's spawn directory, where published-spawn locking stops a concurrent prune from recreating a deleted directory. Readers also count command observations, Pi receipts and dismissals, including legacy records still written by old processes.
+Consumption is keyed by parent spawn and stored in the parent's spawn directory, where published-spawn locking stops a concurrent prune from recreating a deleted directory. Readers also count command observations, Pi admission receipts and cleared launches, including the legacy files, because processes from older builds still write them until they restart.
 
 ## No-argument wait includes owed results
 
