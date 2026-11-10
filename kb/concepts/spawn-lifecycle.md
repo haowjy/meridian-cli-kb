@@ -1,11 +1,14 @@
 # Spawn lifecycle
 
-A spawn represents an execution and retains its identity across continuations; each continuation is a separate launch. A terminal status describes execution completion, not the correctness of the agent's work. See [spawn launches](../architecture/state-system/spawn-launches.md) and the source checkout's [src/meridian/lib/ops/spawn/AGENTS.md](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/ops/spawn/AGENTS.md).
+A spawn is one delegated execution. It keeps its ID across continuations, each of which is a new internal launch ([spawn identity and launches](../architecture/state-system/spawn-launches.md)). Its terminal status describes how execution ended, not whether the agent's work is correct. Contract: the source checkout's [`src/meridian/lib/ops/spawn/AGENTS.md`](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/ops/spawn/AGENTS.md).
 
-Preparation precedes reservation, so a setup error leaves no new launch. The launch lock is held from publication through runner adoption: if the launcher dies before handing it off, readers can derive a dead launch rather than leaving a stranded row.
+The stages and where their reasons live:
 
-Readers may derive an outcome for a dead launch without writing it. A runner or repairer holding the launch lock persists the outcome; a durable report takes precedence over cancellation. This keeps display reads free of side effects and prevents competing terminal writers. The source checkout's [src/meridian/lib/state/.context/CONTEXT.md](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/state/.context/CONTEXT.md) owns the recovery contract.
+1. **Prepare, then reserve.** A setup error leaves no row.
+2. **Run under the launch lock.** The lock is held from publication through runner adoption, so a launcher that dies before handing it off leaves a dead launch readers can derive, not a stranded row ([derived status](../architecture/state-system/derived-status.md)).
+3. **Hold.** A finished turn is a candidate; the [completion hold](../architecture/completion-drain.md) decides when it publishes, and a close cancels remaining work.
+4. **Finalize once.** One writer publishes the terminal outcome ([spawn finalization](../architecture/spawn-finalization.md)); the result is then owed to the parent ([child result delivery](child-result-delivery.md)).
 
-A completion candidate can wait for descendants; a close can instead cancel remaining work. See [completion drain](../architecture/completion-drain.md) for the closure boundary and [spawn finalization](../architecture/spawn-finalization.md) for outcome arbitration.
+Nested `cancel-all` cancels only the caller's descendants, so a child's cleanup can't cancel its siblings or the primary's other work; `--include-others` widens it to the chat.
 
-Nested `cancel-all` is scoped to the caller's descendants so cleanup cannot cancel siblings or the primary's other work. `--include-others` widens it to the chat.
+What a finished spawn prints: the report leads, because it is the result; a transcript pointer follows so a reader can check the source conversation when the report is incomplete. `--metadata` adds accounting without hiding the report, and `--verbose` adds diagnostics. JSON defaults are curated per command to keep routine coordination small, and scripts treat those fields as a contract ([compatibility](compatibility.md)). Formats: `docs/commands.md`.
