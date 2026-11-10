@@ -6,7 +6,7 @@ A chat is bound to one native key: harness, native store and native session ID. 
 
 Before execution Meridian assigns or obtains an exact target, or verifies the recorded source for resume and fork. The harness's guarantee that it opens that target is the entry evidence; a contradictory first owned signal fails the attempt. Requiring an observed entry instead would leave Pi's interactive TUI untrackable: it has no RPC gate before input, though Pi guarantees it opens the assigned target.
 
-Identity comes only from the assigned target or qualified owned events. Picking the newest journal in the same directory, parsing model prose, or searching a payload for an ID-shaped value can bind another process's conversation. Discovery and primary metadata can't establish identity either: a detected file may belong to another session, and a spawn mirror can't supply an identity the chat never bound. `--from` may omit an unavailable best-effort pointer; continue and fork refuse.
+Identity comes only from the assigned target or from owned events: signals correlated to this launch, such as Claude's launch-nonce and child-PID journal ([Claude sessions](claude-native-sessions.md#launch-owned-sessionstart-journal-and-current-chat)). Picking the newest journal in the same directory, parsing model prose, or searching a payload for an ID-shaped value can bind another process's conversation. Discovery and primary metadata can't establish identity either: a detected file may belong to another session, and a spawn mirror can't supply an identity the chat never bound. `--from` may omit an unavailable best-effort pointer; continue and fork refuse.
 
 Tracked launches refuse passthrough flags that would override Meridian-managed native identity, operation, store or persistence: the harness would then open or persist a session other than the one the binding records.
 
@@ -26,7 +26,7 @@ The child must exit and teardown must be joined before the run concludes, becaus
 
 ## Settings belong to the conversation
 
-Final binding persists policy on the captured entry generation before native execution. The primary's final snapshot doesn't exist yet when its session scope opens, so recording preview policy there, or waiting until after the run, would give live observations the wrong settings. Observed aliases inherit the selected conversation's policy and work. Older generations without a snapshot read only their recorded spawn link; there is no newest-owner fallback.
+Final binding persists policy on the captured entry generation before native execution. The primary's final snapshot doesn't exist yet when its session scope opens, so recording preview policy there, or waiting until after the run, would give live observations the wrong settings. A chat observed after an in-TUI switch inherits the selected conversation's policy and work. Older generations without a snapshot read only their recorded spawn link; there is no newest-owner fallback.
 
 A `pN` continuation or fork resolves the selected chat's current generation exactly as `cN` does, settings, work and source history included; it never pairs that chat's native identity with the original run's policy.
 

@@ -8,7 +8,7 @@ The launcher serves a common socket instead of a CLI branch and reachability che
 
 - **Codex and OpenCode:** the observer that watches the backend is also the message route, so it must survive idle silence. A busy Codex primary is steered; OpenCode counts injected turns as activity. Meridian doesn't answer approvals raised by injected turns; they reach the human's TUI.
 - **Pi:** an extension serves the socket, because Pi has no external delivery channel. A launcher-to-extension socket would add a second transport, and a file drop couldn't report failure; the cost is maintaining the wire handling in TypeScript.
-- **Claude:** Claude's cross-session inbox, below.
+- **Claude:** the launcher's socket writes into Claude's cross-session inbox, below.
 
 ## Claude primaries use the inbox
 
@@ -20,7 +20,7 @@ Meridian doesn't send Claude's messaging token, forge a bypass-mode envelope, or
 
 ## The frame carries a reply address
 
-Sender identity travels in the message text, because every route carries text, unlike Claude's peer envelope. The reply goes to the sender's current chat, not its spawn ID or launching chat: continuation changes the spawn ID and a session can move to another chat. A reply command is offered only when a socket file exists, which shows reachability, not that a send will succeed.
+Sender identity travels in the message text, because every route carries text, unlike Claude's peer envelope. The reply goes to the sender's current chat, not its spawn ID or launching chat: a session can move to another chat (`/clear`, native `/resume`), so its spawn ID or launching chat may no longer reach the conversation the sender is in. A reply command is offered only when a socket file exists, which shows reachability, not that a send will succeed.
 
 Chat and spawn IDs are project-scoped, so a cross-project address includes the project root; a project-qualified ID syntax would need a registry Meridian doesn't have. The caller's identity is captured before `-C` drops project-scoped environment IDs: restoring those IDs in the target environment would let a child there claim the caller's identity.
 

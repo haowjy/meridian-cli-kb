@@ -25,4 +25,4 @@ Capture selects the bound native source of the exact run generation, never runne
 ## Open
 
 - A single quarantined row can still fail the index closed ([#530](https://github.com/haowjy/meridian-cli/issues/530)).
-- Repeat restore across digest changes ([#537](https://github.com/haowjy/meridian-cli/issues/537)).
+- Restore metadata hashes still depend on the reader's models, so restoring the same archive twice across a model change can disagree ([#537](https://github.com/haowjy/meridian-cli/issues/537)).

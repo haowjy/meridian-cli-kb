@@ -20,7 +20,7 @@ A blind append interprets no prior rows, so checking every existing row adds no 
 
 ## Rebuildable indexes
 
-An index's file name carries every input format it depends on, forcing a rebuild when any interpretation changes. Unsupported rows are skipped and recorded, so later sessions stay reachable instead of the index freezing at the first unknown row. See [portable history](../architecture/state-system/portable-history.md#indexes).
+An index's file name carries every input format it depends on, forcing a rebuild when any interpretation changes. Rows in an unsupported format version are skipped and recorded, so later sessions stay reachable instead of the index freezing at the first unknown row. A row that fails validation is different: it is quarantined, and can still fail the index closed until doctor migrates it ([portable history](../architecture/state-system/portable-history.md#open)). See [portable history](../architecture/state-system/portable-history.md#indexes).
 
 ## Idle state treats an unknown file as absent
 

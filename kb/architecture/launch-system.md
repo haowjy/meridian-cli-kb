@@ -1,6 +1,6 @@
 # Launch system
 
-A launch is prepared once and then bound: preparation resolves policy and composes content, binding supplies per-run values and can run for a preview. One composition path serves preview and execution, so the two can't drift. Contracts: the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`, which also cover exact continue, prompt placement, skill delivery, task directories and the child environment.
+A launch is prepared once and then bound: preparation resolves policy and composes content, and binding (unrelated to [native session binding](native-session-binding.md)) supplies per-run values and can run for a preview. One composition path serves preview and execution, so the two can't drift. Contracts: the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`, which also cover exact continue, prompt placement, skill delivery, task directories and the child environment.
 
 ## Composition by meaning
 
@@ -20,7 +20,7 @@ Per-run values go in the first user turn so sibling runs share the system prefix
 
 ## Continue replays the recorded launch
 
-An exact continue starts from the recorded launch contract instead of recomputing it from ambient configuration, and accepts only the overrides its entry point allows. It requires a new prompt: replaying the original task would resend completed work instead of saying what to do next. Model choice on continue is in [continuation model selection](../concepts/continuation-model-selection.md).
+An exact continue starts from the recorded launch contract (task directory, work attachment, session identity and policy snapshot) instead of recomputing it from ambient configuration, and accepts only the overrides its entry point allows. It requires a new prompt: replaying the original task would resend completed work instead of saying what to do next. Model choice on continue is in [continuation model selection](../concepts/continuation-model-selection.md).
 
 ## Skills and guidance
 

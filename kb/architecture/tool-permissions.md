@@ -38,4 +38,4 @@ Tool grants and denies, and network host sets, add across configuration surfaces
 
 ## Platform grants
 
-Meridian adds the control-plane grants it needs to operate; a child needs a completion command to signal completion, so that grant can't be restricted. The sandbox side is in [sandbox projection](sandbox-projection.md).
+Meridian adds the control-plane grants it needs to operate. A child needs `meridian spawn done` and `spawn rearm` to signal completion, so profile rules can't deny those two; read and launch grants yield to an equal or narrower profile restriction. The sandbox side is in [sandbox projection](sandbox-projection.md).
