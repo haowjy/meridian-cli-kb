@@ -1,6 +1,6 @@
 # Claude native sessions
 
-Claude sessions share a store for a config root. Selecting the newest file or a similar directory slug can select another concurrent conversation; Meridian uses the recorded store and exact ID. See [native session identity](../decisions/native-session-identity.md).
+Claude sessions share a store for a config root. Selecting the newest file or a similar directory slug can select another concurrent conversation; Meridian uses the recorded store and exact ID. See [native session identity](native-session-binding.md).
 
 ## Reading transcripts
 

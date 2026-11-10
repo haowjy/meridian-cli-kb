@@ -1,11 +1,13 @@
 # State system
 
-Files are authoritative; SQLite indexes are disposable projections. Read paths may derive a view without changing state, while repair paths make durable changes. See [state model](../../concepts/state-model.md), [state decisions](../../decisions/state.md), and the source checkout's `src/meridian/lib/state/AGENTS.md` and `.context/CONTEXT.md`.
+Files are authoritative; SQLite indexes are disposable projections that can always be rebuilt. Reads may derive a view but never change state; repair paths make the durable changes. Contracts: the source checkout's `src/meridian/lib/state/AGENTS.md` and `.context/CONTEXT.md`.
 
-- [Spawn state](spawn-state.md) and [spawn launches](spawn-launches.md)
+The project root comes from `-C`, then `MERIDIAN_PROJECT_DIR`, then the literal cwd. Package discovery can walk to an ancestor independently of project identity. Runtime roots under `~/.meridian/projects/` derive from identity; work items live in the separately configured context root because they are shared task artifacts.
+
+- [Project identity](project-identity.md): committed vs ad-hoc identity, control sockets
+- [Spawn identity and launches](spawn-launches.md), [spawn state](spawn-state.md), [derived status](derived-status.md)
 - [Session state](session-state.md) and [native session binding](../native-session-binding.md)
-- [Portable history](portable-history.md)
+- [Portable history](portable-history.md) and [native transcript reads](../native-transcript-reads.md)
 - [Durability and locking](durability-and-locking.md)
-- [Derived status](derived-status.md)
-- [Project identity](project-identity.md) and [work items](roots-and-work-items.md)
-
+- [Work items and checkout links](work-items.md)
+- [Compatibility between builds](../../concepts/compatibility.md)

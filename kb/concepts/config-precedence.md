@@ -12,4 +12,4 @@ Only fields carrying catalog metadata receive environment overrides and generic 
 
 ## The `-C` / `--directory` Flag
 
-`-C` selects the project root ahead of inherited `MERIDIAN_PROJECT_DIR` and cwd. Project identity and package discovery are separate; see [state model](state-model.md#root-resolution).
+`-C` selects the project root ahead of inherited `MERIDIAN_PROJECT_DIR` and cwd. Project identity and package discovery are separate; see [state model](../architecture/state-system/overview.md).

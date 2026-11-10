@@ -1,6 +1,6 @@
 # Pi native sessions
 
-Pi can create a new identity when a requested session file is missing or empty, so Meridian validates the exact recorded source before resume or fork. Pi also discovers existing IDs by scanning headers rather than filenames; collision checks must use the same evidence. Create persistence can be lazy, so an assigned but unwritten session is not yet resumable. See [native session identity](../decisions/native-session-identity.md) and the source checkout's `src/meridian/lib/harness/pi_identity.py`.
+Pi can create a new identity when a requested session file is missing or empty, so Meridian validates the exact recorded source before resume or fork. Pi also discovers existing IDs by scanning headers rather than filenames; collision checks must use the same evidence. Create persistence can be lazy, so an assigned but unwritten session is not yet resumable. See [native session identity](native-session-binding.md) and the source checkout's `src/meridian/lib/harness/pi_identity.py`.
 
 ## Exit observation
 

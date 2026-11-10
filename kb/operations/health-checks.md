@@ -6,4 +6,4 @@ Stored and derived spawn status differ: a dead runner can appear crashed before 
 
 ## Dogfood-row migration
 
-Doctor migrates rows written by the early native-history build; a primary launch also runs the repair in the background. See [native-only history](../decisions/native-only-history.md#dogfood-rows-migrate-once-not-on-read).
+Doctor migrates rows written by the early native-history build; a primary launch also runs the repair in the background. See [native-only history](../architecture/native-transcript-reads.md).

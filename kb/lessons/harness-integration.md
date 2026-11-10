@@ -6,7 +6,7 @@ Python signal handlers run on the main thread and may interrupt code that alread
 
 When a correctness-bearing internal parameter is added, an optional do-nothing default can hide missed callers. Make callers explicitly supply the value or explicitly choose absence. Function-local imports can hide dependency cycles from import-time checks; enforce boundaries through all import sites.
 
-Codex fork snapshots must copy complete validated records from a bounded view of a live rollout. File publication and database registration cannot be one transaction: if registration's outcome is unknown, preserve the file rather than deleting a possibly committed fork. See [native session decisions](../decisions/native-session-identity.md).
+Codex fork snapshots must copy complete validated records from a bounded view of a live rollout. File publication and database registration cannot be one transaction: if registration's outcome is unknown, preserve the file rather than deleting a possibly committed fork. See [native session decisions](../architecture/native-session-binding.md).
 
 ## Bundled Mods Outlive the CLI They Call
 

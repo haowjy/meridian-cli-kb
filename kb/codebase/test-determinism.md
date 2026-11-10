@@ -8,6 +8,6 @@ A race test is evidence only if it fails against plausible broken interleavings.
 
 ## Cold index builds inside a test deadline: a flake class
 
-Cold index construction once consumed a descendant query's two-second deadline, producing unknown instead of blocked. Build before starting the query deadline; some tests also warm the index to keep setup out of their own wall-clock bounds. See [portable history](../architecture/state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock).
+Cold index construction once consumed a descendant query's two-second deadline, producing unknown instead of blocked. Build before starting the query deadline; some tests also warm the index to keep setup out of their own wall-clock bounds. See [portable history](../architecture/state-system/portable-history.md#indexes).
 
 Fake time does not eliminate a real deadline in a polling helper; scheduler starvation can still fail the test. Synchronize on the event and investigate product behavior before attributing a timeout to the test.

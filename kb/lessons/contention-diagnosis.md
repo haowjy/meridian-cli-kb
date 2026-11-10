@@ -14,4 +14,4 @@ Count physical reads, scans, and lock acquisitions per complete command to find 
 
 Count filtered and unfiltered passes together. A replacement can eliminate one kind of scan while multiplying another. For fan-out operations compare wall time and lock hold as well as counts.
 
-Warm a copied index before measuring warm behavior; report cold build separately. Compare old and new on the same corpus under comparable load, alternating runs, and report correctness alongside timing. See [per-operation cost](../architecture/per-operation-cost.md) and [history storage](../decisions/history-storage.md).
+Warm a copied index before measuring warm behavior; report cold build separately. Compare old and new on the same corpus under comparable load, alternating runs, and report correctness alongside timing. See [per-operation cost](../architecture/per-operation-cost.md) and [history storage](../architecture/state-system/portable-history.md).

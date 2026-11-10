@@ -2,7 +2,7 @@
 
 ## One writer, first terminal wins
 
-The runner or a repairer that claims its free launch lock writes the terminal once. A write pinned to an earlier launch cannot finalize a later continue. This replaces a ranking of competing terminal writers: a free lock establishes the previous runner is gone. See [spawn identity](../decisions/spawn-identity.md) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
+The runner or a repairer that claims its free launch lock writes the terminal once. A write pinned to an earlier launch cannot finalize a later continue. This replaces a ranking of competing terminal writers: a free lock establishes the previous runner is gone. See [spawn identity](state-system/spawn-launches.md) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
 
 ## Durable completion evidence classification
 

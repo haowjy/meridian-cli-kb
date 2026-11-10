@@ -76,7 +76,7 @@ rules belong to [the state architecture](architecture/state-system/overview.md) 
 | Spawn and session persistence | `lib/state/` and store-specific locked mutation seams | [State system](architecture/state-system/overview.md) |
 | User-facing operations | Shared extension registry and ops layer | [Extension system](concepts/extension-system.md) |
 | Agent/model/package materialization | Mars compiler, ownership retention, and target adapters | [Package management](concepts/package-management/overview.md) |
-| Filesystem access beyond the task root | Workspace resolution and harness projection | [Workspace architecture](architecture/workspace/overview.md) |
+| Filesystem access beyond the task root | Workspace resolution and harness projection | [Workspace architecture](architecture/workspace.md) |
 | Durable diagnostic events | Telemetry sinks and readers | [Telemetry architecture](architecture/telemetry/overview.md) |
 
 ## Design Properties
@@ -114,7 +114,7 @@ roles and composition boundaries rather than copying counts. See the
 | Goal | Page |
 |---|---|
 | Orient in the source | [Codebase guide](codebase/guide.md) |
-| Understand current state persistence | [State model](concepts/state-model.md) |
+| Understand current state persistence | [State model](architecture/state-system/overview.md) |
 | Trace a spawn | [Spawn lifecycle](concepts/spawn-lifecycle.md) |
 | Add or change a harness | [Harness abstraction](concepts/harness-abstraction.md) |
 | Understand why a choice was made | [Decision index](decisions.md) |

@@ -20,7 +20,7 @@ Filtering before the row limit prevents a matching session beyond the first page
 
 ## Lineage
 
-The lineage view shows primary-session `--fork` and `--from` ancestry, not subagent spawn lineage. See [conversation identity](state.md#conversation-lineage).
+The lineage view shows primary-session `--fork` and `--from` ancestry, not subagent spawn lineage. See [conversation identity](../architecture/state-system/session-state.md#lineage-belongs-to-the-chat).
 
 ## Start from a row
 

@@ -1,8 +1,11 @@
 # Spawn state
 
-Per-spawn state gives individual reads cost independent of total history. On a dataset of about 189 MB and 35,000 events, primary launch fell from 12–13 seconds to 0.67 seconds after the change; these historical figures are not current guarantees. Remaining scan costs are tracked in [per-operation cost](../per-operation-cost.md).
+Each spawn has its own state, so reading one spawn costs the same however much history the project has. Remaining scan costs are in [per-operation cost](../per-operation-cost.md). Contract: the source checkout's `src/meridian/lib/state/AGENTS.md`.
 
-### Published Spawn Artifact Lifetime
+## A published row owns its artifacts
 
-A published row owns the lifetime of its artifacts. Late writers and deletion coordinate on the same lock so a writer cannot recreate an aggregate after deletion. See [state decisions](../../decisions/state.md) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
+Late writers and deletion coordinate on the same lock, so a writer can't recreate an artifact after its spawn was deleted.
 
+## Old rows upgrade at the read boundary
+
+Known legacy rows upgrade when read; conflicting or unknown facts are quarantined rather than guessed. Treating an unreadable row as failed would invent an outcome, and discarding legacy rows would hide existing history. See the [legacy codec](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/state/spawn/legacy.py).

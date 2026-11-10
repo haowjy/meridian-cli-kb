@@ -5,7 +5,7 @@ Launch, close, wait, show, cancel and continue concern one spawn and chat; their
 ### Session state is one global replay log
 
 Every chat appends to one `sessions.jsonl`, and most session reads replay all of
-it ([session state](state-system/session-state.md#sessionsjsonl-is-one-global-log)).
+it ([session state](state-system/session-state.md#sessionsjsonl-is-one-global-journal)).
 A real foreground no-op launch with a fake harness took **3.59 / 6.02 / 9.12 s**
 at tiny / mellow / orange, with **9 full-log reads** per launch (12 at tiny). At
 orange that was 3.87 s of scanning and 3.13 s holding `sessions.jsonl.flock`. The
@@ -15,11 +15,11 @@ re-read (0.46 s). Explicit-ID wait, show and cancel also replay the log, 1–11 
 per command depending on the operation and corpus.
 
 The accepted fix is per-chat journals,
-[Session journals](../decisions/state.md#session-journals).
+[Session journals](state-system/session-state.md#per-chat-journals-chosen-not-built).
 #591 was closed as a duplicate of #418.
 
 **After #634 and #651 (v0.10.16).** Every per-operation session read now goes
-through one keyed seam ([contract](../decisions/state.md#session-reads)).
+through one keyed seam ([contract](state-system/session-state.md#sessionsjsonl-is-one-global-journal)).
 A read selects its chats with a byte prefilter and decodes only their rows, and a
 multi-chat read is one pass. Unfiltered folds per primary close went 7 → 0 and per
 runner 1 → 0. **The slope in bytes is still there**: every filtered pass reads the
@@ -38,7 +38,7 @@ Measurements on historical copies are not current guarantees:
 - No-argument wait discovery fell from 672 to 95 ms warm at 3,951 indexed rows (#599).
 - A no-op foreground launch took 3.59, 6.02 and 9.12 seconds on 1.05, 18.9 and 46.6 MB session logs; scans and lock time grew with history (#418).
 - On a 4,226-spawn, 54.5 MB runtime, full object materialization reached 444 MB for a spawn scan and 525 MB for a session replay. Python retained arenas after the scan, so one full materialization could set the process's lifetime RSS peak (#627). Streaming startup repair reduced measured RSS from 226 to 101 MB (#634).
-- Warm indexed list operations took about 2 seconds at 12,000 spawns (#600); a cold index build took 2.4–5.7 seconds (#592). A caller with a deadline builds before starting its query clock, so a slow cold build does not turn valid evidence into a timeout ([history](state-system/portable-history.md#a-caller-with-a-deadline-builds-the-index-before-starting-its-clock)).
+- Warm indexed list operations took about 2 seconds at 12,000 spawns (#600); a cold index build took 2.4–5.7 seconds (#592). A caller with a deadline builds before starting its query clock, so a slow cold build does not turn valid evidence into a timeout ([history](state-system/portable-history.md#indexes)).
 - A small-runtime no-op foreground launch took about 3.6 seconds; interpreter and subprocess startup are a separate fixed floor (#595, #527).
 
 Session teardown's all-spawn scan (#612), index catch-up and query costs (#594, #600, #592), and explicit doctor scans (#601) remain tracked. A per-chat candidate index must be followed by authoritative reads; a stale or incomplete index cannot authorize a lifecycle decision. See [cost and safety](../lessons/cost-cuts-and-safety-checks.md).

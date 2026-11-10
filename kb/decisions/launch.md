@@ -48,7 +48,7 @@ Prompt packages name portable capabilities; Meridian launch guidance maps them t
 
 ### Prepare before reserving a spawn
 
-Preparation precedes spawn reservation; setup errors need not create a row. A launch lock protects a published row from being stranded. See [spawn identity](spawn-identity.md#continue-reopens-the-spawn).
+Preparation precedes spawn reservation; setup errors need not create a row. A launch lock protects a published row from being stranded. See [spawn identity](../architecture/state-system/spawn-launches.md#the-launch-lock-fences-each-launch).
 
 ### Pi spawns keep native skill and context discovery
 

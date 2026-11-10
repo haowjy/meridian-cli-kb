@@ -32,7 +32,7 @@ coordinated final gates/PR/release.
 
 ## control_root / task_cwd Split
 
-The authority root selects project configuration and context; the task directory selects the checkout and relative reference anchor. This lets work happen in a worktree without changing which project controls the launch. See [worktree anchoring](../decisions/spawn-cwd-worktree-anchor.md) and [reference resolution](../concepts/reference-resolution.md).
+The authority root selects project configuration and context; the task directory selects the checkout and relative reference anchor. This lets work happen in a worktree without changing which project controls the launch. See [worktree anchoring](../concepts/reference-resolution.md) and [reference resolution](../concepts/reference-resolution.md).
 
 ## One Launch-Level Attempt
 

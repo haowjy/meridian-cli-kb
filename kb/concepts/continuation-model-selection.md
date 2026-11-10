@@ -72,5 +72,5 @@ work remain open.
 ## Related
 
 - [Model resolution](model-resolution/overview.md) — alias/profile resolution and harness model projection
-- [Native session identity](../decisions/native-session-identity.md) — immutable native key and exact continuation target
+- [Native session identity](../architecture/native-session-binding.md) — immutable native key and exact continuation target
 - [Native session binding](../architecture/native-session-binding.md) — cross-harness binding and observation seams

@@ -20,7 +20,7 @@ The native TUI and launcher share the shell's foreground job. A separate process
 
 ## Process containment
 
-A parent-death signal reaches only a direct child and misses descendants behind wrappers. The [start gate and guardian](spawn-identity.md#start-gate-and-guardian) replaced the proposed launcher watchdog and protect the pre-exec window as well.
+A parent-death signal reaches only a direct child and misses descendants behind wrappers. The [start gate and guardian](../architecture/process-scope.md) replaced the proposed launcher watchdog and protect the pre-exec window as well.
 
 ## Cancellation order
 

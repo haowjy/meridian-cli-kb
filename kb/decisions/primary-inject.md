@@ -41,7 +41,7 @@ Chat and
 spawn IDs are project-scoped, so cross-project addresses include the project root. A project-qualified ID syntax would require a registry Meridian
 does not have. The caller identity is captured before `-C` drops project-scoped
 environment IDs; restoring those IDs in the target environment would let a child
-there claim the caller's identity. See [chat ownership](chat-spawn-ownership.md#a-chat-names-its-own-session).
+there claim the caller's identity. See [chat ownership](../concepts/session-references.md#a-spawn-names-itself-a-chat-names-its-occupant).
 
 ## Delivery acknowledgement
 

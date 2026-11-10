@@ -8,4 +8,4 @@ Moving a blocking wait to a thread also moves its cleanup out of the main thread
 
 ## Continue must lock the chat's current owner, not the named spawn
 
-The unit that must not run twice is the native session. Resolving an old spawn to a chat requires checking the chat's current owner, and ownership must be published before the lock-holder allows another continue to proceed. See [spawn identity](../decisions/spawn-identity.md) for the current contract.
+The unit that must not run twice is the native session. Resolving an old spawn to a chat requires checking the chat's current owner, and ownership must be published before the lock-holder allows another continue to proceed. See [spawn identity](../architecture/state-system/spawn-launches.md) for the current contract.

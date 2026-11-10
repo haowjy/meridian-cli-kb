@@ -1,75 +1,35 @@
-# Spawn launches
+# Spawn identity and launches
 
-A continue reopens the same spawn as a new launch so its identity and child relationships remain stable. Each launch has its own files and the runner holds the launch lock throughout, preventing an old report or signal from being attributed to a later run. See [spawn identity](../../decisions/spawn-identity.md) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
+A spawn has one public ID across continuations; fork and `--from` create a new spawn. Each continue reopens the same spawn as a new internal launch with its own files. Cost and duration aggregate across launches. Contract: the source checkout's `src/meridian/lib/state/AGENTS.md`.
 
-## The reopen
+## One public identity, launches stay internal
 
-The lock holder settles the previous launch and its owned scopes before committing the next. A continue can reparent the spawn and its subtree; cycle detection must walk the full stored ancestor chain because that chain can exceed the spawn depth limit.
+A separate public launch identity would spread a second name through references, output and ownership, and the launch lock already supplies the fence it would provide. The launch number stays internal, to keep artifacts, delivery and cancellation apart.
 
-## The fence
+## The launch lock fences each launch
 
-Operations that do not hold the launch lock pin the launch they observed. Otherwise a cancel, wait or late artifact writer could act on a newly reopened launch. A descendant that escapes cleanup while retaining the spawn ID may still issue spawn-level commands, so the fence is not full containment.
+The runner holds `launch.lock` for its whole life, and only a holder publishes the terminal outcome. Without that fence a late writer from an older launch could change the new one.
+
+- **Reopen.** The lock holder settles the previous launch and sweeps its recorded process scopes before committing the next; the sweep is the containment backstop if the guardian died or couldn't kill a process ([process scope](../process-scope.md)). A continue can reparent the spawn and its subtree, and cycle detection walks the full stored ancestor chain, which can be longer than the spawn depth limit.
+- **Pinning.** Operations that don't hold the lock (cancel, wait, late artifact writers) pin the launch they observed, so they can't act on a launch reopened since. A descendant that escaped cleanup but still holds the spawn ID can issue spawn-level commands, so the fence is not full containment.
+- **Prepare before reserving.** Preparation runs before the spawn row is reserved, so setup errors create no row.
+
+How a dead launch's outcome is derived and repaired is in [derived status](derived-status.md).
 
 ## Usage across launches
 
-User-facing usage aggregates launches. Claude and Codex report session-cumulative totals, so the next launch subtracts the prior recorded cumulative value rather than double-counting it. A v3 row lacks that seed on its first reopen; its first launch can be counted twice. Forks also need the matching source session's recorded seed. See the source checkout's `src/meridian/lib/state/AGENTS.md`.
+Claude and Codex report session-cumulative usage, so a launch subtracts the prior recorded cumulative value instead of counting it twice. A fork needs its source session's recorded seed for the same reason. A row from before launches existed lacks the seed, so its first launch after a reopen can be counted twice.
 
-## Waits, owed results and delivery
+## Results are owed per launch
 
-Every consumption record used to be keyed by child ID, so once launch 1 of a
-child was consumed, launch 2 would never be delivered. Every key is now
-`(spawn_id, n)`, written as `pN:n` inside the files. The CLI never shows that
-key.
+Delivery and consumption records are keyed by `(spawn_id, launch)`: keyed by spawn alone, consuming launch 1 would hide launch 2 forever. The keys live inside the files; the CLI never shows them. The protocol is in `src/meridian/pi_runtime/.context/delivery-contract.md`; the reader-facing behavior is in [child result delivery](../../concepts/child-result-delivery.md).
 
-**Pinned waits.** `spawn wait pN` pins the launch it resolved. Once `launch.n`
-moves past the pin, it reads `launches/<n>/launch.json` once and returns that
-launch's result. Waits re-run as new processes (`--yield-after-secs`, Pi
-checkpoints), so the pin is stored in the caller's ledger as
-`wait_pins: {pC: {n, expires_at}}`. It dies when launch n is consumed by any
-path, when the caller continues pC, or when it expires: each poll refreshes it to
-one effective yield interval ahead. A wait that lost its pin pins the current
-launch, and the earlier result is still owed, so nothing is lost.
-
-**Owed launches.** Owed discovery selects children by their current parent and
-launch mode, so after a reopen the row shows only n+1, and an unconsumed
-background launch n would vanish. Whenever launch n was a background launch,
-`reopen_spawn` appends `{n, parent_id}` to `owed_launches`; the history index
-(v13) projects the list into a side table, and owed discovery unions current
-children with those entries.
-
-**Ledger files.** New files, because bumping the version in place fails both
-ways: an older Python build reads an unknown version as absent and rewrites the
-whole document, and an older Pi extension throws on it and stops delivering.
-
-| Read, never written | Read and written |
-|---|---|
-| `spawns/<p>/observed-spawns.json` | `spawns/<p>/observed-launches.json` (observed, waiting, leases, `wait_pins`, `delivered`) |
-| `pi-bash/<p>/delivery-receipts.json` | `pi-bash/<p>/launch-receipts.json` |
-| `pi-bash/<p>/cleared-spawns.json` | `pi-bash/<p>/cleared-launches.json` |
-| `pi-bash/<p>/observed-spawns.json` (mirror) | retired |
-
-A bare legacy entry `pC` reads as `(pC, 1)`, which is exact: older builds can't
-read a v4 row, so they only ever consumed launch 1. Retiring the legacy reads
-and collapsing `owned_parent_ids` to the caller waits on a deprecation window
-(#836).
-
-**`spawn collect` and `spawn ack` keep bare IDs.** Launch keys on the wire break
-Claude delivery, because the mod's ID pattern rejects `:`, and they let a bare
-`ack` consume a running launch. `collect`
-returns bare, de-duplicated IDs and records what it handed out in the caller's
-`delivered` map; `ack pN` consumes exactly those launches, or with no record the
-spawn's finished, owed, unconsumed launches, never a running one. A delivered
-launch that is no longer current carries its report inline (64 KiB shared
-budget), because `spawn report show pN` now shows the next launch. Contract:
-`src/meridian/pi_runtime/.context/delivery-contract.md`; Claude's side is
-[child-result delivery](../../concepts/child-result-delivery.md).
-
-**Hooks and telemetry.** `spawn.created` fires on creation only; every launch
-emits `spawn.started` and `spawn.finished`. Lifecycle event IDs hash
-`(spawn_id, event_type, n − 1)`, so launch 1 keeps the ID older builds gave it
-(hook dedupe still holds) and launch 2 doesn't dedupe against it. Payloads carry
-`spawn_id` and no launch number.
+- **A wait pins its launch.** `spawn wait pN` re-runs as new processes, so the pin is stored in the caller's ledger and expires one yield interval ahead of each poll. A wait that lost its pin pins the current launch; the earlier result is still owed, so nothing is lost.
+- **Reopen keeps an unconsumed launch owed.** Owed discovery selects children by current parent and launch mode, so after a reopen an unconsumed background launch would vanish; reopen records it as owed.
+- **New ledger files, not a version bump.** An older Python build reads an unknown version as absent and rewrites the whole document; an older Pi extension throws on it and stops delivering. A bare legacy entry reads as launch 1, which is exact because older builds can't read a reopened row.
+- **`spawn collect` and `spawn ack` keep bare IDs.** A `:` in the ID breaks the Claude mod's pattern, and a bare `ack` must not consume a running launch. `ack` consumes exactly what `collect` handed out. A delivered launch that is no longer current carries its report inline, because `spawn report show` now shows the next launch.
+- **Lifecycle events.** `spawn.created` fires once; every launch emits `spawn.started` and `spawn.finished`. Event IDs hash the launch so launch 1 keeps the ID older builds gave it (hook dedupe still holds) and launch 2 doesn't dedupe against it.
 
 ## Older builds on the same runtime
 
-Older readers can reject newer rows or repeat delivery after an upgrade. An older Pi extension still loaded after a continue can mark launch 1 consumed without showing it; restart Pi sessions on upgrade. See the source checkout's `docs/upgrading.md` for the compatibility procedure.
+Older readers can reject newer rows or repeat a delivery after an upgrade. An older Pi extension still loaded after a continue can mark launch 1 consumed without showing it, so restart Pi sessions after upgrading. Procedure: the source checkout's `docs/upgrading.md`.

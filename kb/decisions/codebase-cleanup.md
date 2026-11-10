@@ -4,7 +4,7 @@ Remaining cleanup work is tracked in [#569](https://github.com/haowjy/meridian-c
 
 ## Spawn wait contention
 
-Wait discovery must not answer from a stale index that could omit a new spawn. The contention fix shortens the session writer's lock hold; see [history index readers](history-storage.md#shorten-the-holder-dont-widen-the-wait).
+Wait discovery must not answer from a stale index that could omit a new spawn. The contention fix shortens the session writer's lock hold; see [history index readers](../architecture/state-system/session-state.md#sessionsjsonl-is-one-global-journal).
 
 ## Pydantic does the traversal for unknown-key warnings
 

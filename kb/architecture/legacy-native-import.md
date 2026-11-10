@@ -1,18 +1,15 @@
 # Legacy native session import
 
-## Legacy import
+A once-only import binds chats written before native binding existed, and only when recorded facts and a matching native store give an unambiguous key. Mechanism: the source checkout's `src/meridian/lib/ops/.context/CONTEXT.md`.
 
-A once-only import binds legacy chats only when recorded facts identify an exact native source. Transient I/O failures defer the import instead of marking candidates absent: a once-only marker would otherwise make the error permanent. One swallowed SQLite error made 201 of 251 sessions look absent. See [legacy import decisions](../decisions/legacy-native-import.md) and the source checkout's `src/meridian/lib/ops/.context/CONTEXT.md`.
+## Failures defer the import
 
-## Late binding after the marker
+A transient I/O failure or damaged source defers the import instead of marking candidates absent: the once-only marker would make the error permanent. One swallowed SQLite error once made 201 of 251 sessions look absent. Older builds may record an ID after the import ran, so doctor and primary background repair revisit the marker's eligible misses with the same exact validation.
 
-Older builds may record an ID after the import; doctor and primary background repair revisit the marker's eligible misses with exact validation.
+## Old Pi chats need content proof
 
-## Legacy Pi recovery
+Old Pi spawns sometimes recorded no native ID. Automatic recovery needs a unique candidate in the spawn's own directory and matching retained prompt or report content. Uniqueness alone is not proof: a unique candidate with matching cwd and time once selected the wrong session, and bindings are immutable. A project-local spawn ID can't prove ownership of a user-global Pi directory, and primaries used a shared directory, so they are never bound automatically.
 
-Uniqueness is not proof of identity. Automatic recovery requires matching retained content as well as a unique candidate; shared-root primary sessions require manual repair. See [the recovery decision](../decisions/legacy-native-import.md#old-pi-chats-that-067-never-bound-content-proven-recovery-manual-repair).
+## Manual repair
 
-## Session repair
-
-Manual repair validates the chosen native source, then rechecks identity and ownership under the session lock. A force option permits a cwd or time mismatch but cannot override an existing binding or ownership conflict.
-
+`session repair` is the user-verified path for ambiguous cases. It validates the chosen native source, then rechecks identity and ownership under the session lock. Its force option tolerates a cwd or time mismatch but can't override an existing binding or an ownership conflict.

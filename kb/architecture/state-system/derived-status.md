@@ -1,34 +1,30 @@
 # Derived spawn status
 
-## Stored and derived status
+Readers derive whether a launch is live from its lock and never write or signal; only the holder of a claimed lock writes a dead launch's outcome. Contract: the source checkout's `src/meridian/lib/state/AGENTS.md`.
 
-For a lock-backed launch, the runner holds `launch.lock` until exit. A free lock allows readers to derive the dead launch's outcome without mutating it; a stored terminal remains authoritative. The report-first dead-launch rule makes every repair or cancel path converge on the same result. Control frames and synthetic failures do not count as completion reports. See [spawn finalization](../spawn-finalization.md#durable-completion-evidence-classification) and the source checkout's `src/meridian/lib/state/AGENTS.md`.
+## The launch lock is the liveness evidence
 
-A status read holds the shared launch lock across the row read. Probing and releasing the lock first would allow a new runner to publish an active row before the read and be mistaken for dead. See [race-test evidence](../../codebase/test-determinism.md#race-tests-must-go-red-against-the-split-implementation).
+For a lock-backed launch, the runner holds `launch.lock` until it exits. A free lock lets a reader derive the dead launch's outcome without writing it; a stored terminal stays authoritative. Activity mtimes and heartbeats were removed because they can't establish liveness: a quiet live runner looks dead, and a killed runner looks alive until a grace period expires.
 
-## Selection versus liveness
+A status read holds the shared launch lock across the row read. Probing and releasing first would let a new runner publish an active row in between and be mistaken for dead ([race-test evidence](../../codebase/test-determinism.md#race-tests-must-go-red-against-the-split-implementation)).
 
-Derived status answers whether work appears live. Destructive selection and repair use stored status: an active row whose runner died still needs finalization, and archiving it as terminal would prevent that write. See [state decisions](../../decisions/state.md).
+## One rule for a dead launch's outcome
 
-## Who persists a dead launch's outcome
+A dead launch with a durable report derives success even when cancellation was requested; otherwise cancellation wins over crash. Control frames and synthetic failures don't count as reports ([spawn finalization](../spawn-finalization.md#durable-completion-evidence)). Every reader, repair and cancel path applies this rule, so they converge on the same outcome.
 
-Only a successful exclusive claim authorizes the repair writer. The claim rechecks the observed launch number so a cancel or repair for an earlier launch cannot finalize a reopened one. Readers never persist or terminate processes. See the source checkout's `src/meridian/lib/state/AGENTS.md`.
+## Select by stored status, report by derived status
 
-### The reaper's cleanup claims
+Destructive selection and repair use stored status: an active row whose runner died still needs finalization, and archiving it as terminal would prevent that write. Liveness queries use derived status.
 
-The reaper records cleanup targets before finalization and retains failed claims for retry. Finalization and process cleanup are separate: a crash after writing the outcome must not erase evidence of remaining work. Unknown identity and access errors do not authorize primary-scope termination. See [process scope](../process-scope.md).
+## Only a claim authorizes the repair write
 
-## Cancel on the lock
+The repairer must claim the free lock, and the claim rechecks the observed launch number, so a cancel or repair aimed at an earlier launch can't finalize a reopened one. Cancel likewise pins the observed launch and uses the claim or a birth-checked runner signal ([cancel contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/core/.context/cancel.md)).
 
-Cancel pins the observed launch and uses the claim or a birth-checked runner signal, so a concurrent continue cannot redirect the action to the next launch. See the source checkout's `src/meridian/lib/core/.context/cancel.md`.
-
-## Deleted mechanisms: do not bring back
-
-Activity mtimes and heartbeats cannot establish liveness: a quiet live runner may appear dead and a killed runner can appear alive until a grace expires. The launch lock supplies the evidence directly. See [spawn identity](../../decisions/spawn-identity.md).
+The reaper records cleanup targets before finalizing and keeps failed claims for retry: finalization and process cleanup are separate, and a crash after writing the outcome must not erase evidence of remaining work. Unknown process identity and access errors never authorize terminating a primary's scope ([process scope](../process-scope.md)).
 
 ## Known gaps
 
 - Parent finish or cancel does not always converge descendants ([#671](https://github.com/haowjy/meridian-cli/issues/671)).
-- Derived finish time for a crashed streaming child can be close to start when no activity files changed ([#841](https://github.com/haowjy/meridian-cli/issues/841)).
-- Streaming serve teardown can exceed its intended stop budget ([#842](https://github.com/haowjy/meridian-cli/issues/842)).
-- Dead-launch teardown remains spread across callers ([#838](https://github.com/haowjy/meridian-cli/issues/838)).
+- The derived finish time for a crashed streaming child can sit close to its start when no activity files changed ([#841](https://github.com/haowjy/meridian-cli/issues/841)).
+- Streaming serve teardown can exceed its stop budget ([#842](https://github.com/haowjy/meridian-cli/issues/842)).
+- Dead-launch teardown is spread across callers ([#838](https://github.com/haowjy/meridian-cli/issues/838)).
