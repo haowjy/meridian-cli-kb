@@ -1,6 +1,6 @@
 # State Design Lessons
 
-Committed identity travels with the repository; high-churn runtime state stays user-local. Ad-hoc identity is path-derived and does not survive a move. See [state decisions](../architecture/state-system/overview.md).
+Committed identity travels with the repository; high-churn runtime state stays user-local. Ad-hoc identity is path-derived and does not survive a move. See [state system](../architecture/state-system/overview.md).
 
 A runner-held lock provides evidence of runner liveness without PID or timestamp guesses. The harness must not inherit it: a descendant can keep it after the runner dies or drop it during re-exec. That lock does not prove all descendants have exited; containment is a separate question. See [spawn identity](../architecture/state-system/spawn-launches.md) and [process containment](process-containment.md).
 

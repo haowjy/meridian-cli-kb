@@ -18,6 +18,10 @@ Record the command, cwd, exit status and revision or artifact. Pipelines can mas
 
 Record method, dataset, environment, date and artifact. Compare before and after on the same corpus under comparable load, distinguish cold and warm runs, and report correctness with timing. See [contention diagnosis](contention-diagnosis.md).
 
+## Verification Hazards
+
+An ownership check based only on content can follow a symlink to matching external bytes and wrongly claim the link as managed output; verify filesystem structure as well as content. A capability token proves an operation was checked only if the consumer binds its identity to the checked target. A regression test can pass at an earlier gate without reaching the failure it claims to exercise; verify the intended path was reached.
+
 ## From Repeated Finding to Redesign
 
-Repeated findings of the same class signal a boundary to reconsider. See [review convergence](review-convergence-gate.md) and [verification hazards](verification-campaign-history.md).
+Repeated findings of the same class signal a boundary to reconsider ([review convergence](review-convergence-gate.md)). When repeated fixes expose different versions of the same fact, inspect its owners and consolidate them. Then review the whole system: a projection joining facts from two stores can also diverge even when each store has one owner ([state design](state-design-lessons.md#a-link-that-spans-two-stores)).

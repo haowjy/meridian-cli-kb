@@ -8,7 +8,7 @@ A failure is logged and the lifecycle and later hooks continue. No supported eve
 
 ## Events name what just happened
 
-Events are past-tense moments named for what happened; notification events use the `notify.` prefix. Permanent aliases would give one moment two names: `work.resume` doesn't describe activating a new item, and `work.switch` doesn't describe `work start`. An event is added only when something consumes it, not because an internal transition exists: every event is a public name to keep stable. Check accepted event names against what real producers emit: an event can pass validation and never fire ([lessons](../lessons/hook-event-contract.md)). Old names load for one minor release ([compatibility](compatibility.md)).
+Events are past-tense moments named for what happened; notification events use the `notify.` prefix. Permanent aliases would give one moment two names: `work.resume` doesn't describe activating a new item, and `work.switch` doesn't describe `work start`. An event is added only when something consumes it, not because an internal transition exists: every event is a public name to keep stable. Check accepted event names against what real producers emit: an event can pass validation and never fire, and a test that constructs the event directly can't show a producer exists. Old names load for one minor release ([compatibility](compatibility.md)).
 
 Each fact about an event has one owner: separate publishers and separate definitions of "session exists" made attachment and work-directory events disagree. Work activation is defined in [work items](../architecture/state-system/work-items.md#activation-means-someone-chose-the-item).
 
