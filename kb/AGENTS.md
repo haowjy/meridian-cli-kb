@@ -14,7 +14,7 @@ The KB holds what spans more than one directory and can't be read from the sourc
 
 ## Structure
 
-`index.md` is a short map of the directories and the pages to read first. A topic page holds the mechanism and the reasons behind it together; `architecture/idle-notifications.md` is the model. Pages under `decisions/` still hold reasons apart from their topic: when you edit one, merge it into its topic page and point its links there. A topic gets its own directory once it has several pages.
+`index.md` is a short map of the directories and the pages to read first. A topic page holds the mechanism and the reasons behind it together; `architecture/idle-notifications.md` is the model. Pages under `decisions/` hold reasons apart from their topic; when you edit one, merge it into its topic page and point its links there. A topic gets its own directory once it has several pages.
 
 ## Landing changes
 
