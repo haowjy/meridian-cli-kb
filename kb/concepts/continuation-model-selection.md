@@ -1,76 +1,11 @@
-# Continuation Model Selection and Startup Binding
+# Continuation model selection
 
-This page covers how continuation selects a model and how startup choices are
-recorded and transported. The four initiation modes and their re-entry behavior
-are in [session initiation](session-initiation.md).
+A continue is constrained by its target, not frozen to its old model. An explicit `--model` is accepted with a warning about cache and cost; Mars revalidates it against the recorded harness's current targets and exclusions, and a literal canonical or provider pin keeps an alias from drifting. Non-routing policy and the original launch snapshot are unchanged. The override rules are in the source checkout's `src/meridian/lib/launch/.context/CONTEXT.md`.
 
-## Continuation model selection and identity
+A plain continue (no fork, no `--model`) runs the model the session last executed, read through the single model-observation writer, and falls back to the selection Meridian accepted at startup. A tracked session with neither must be continued with an explicit `--model`: guessing could silently change models mid-conversation. A recording failure is a coordination error and never switches the runtime model or replays the turn.
 
-Continuation is target-constrained rather than model-freeze or model-prohibition.
-Exact primary and spawn continuation accept explicit `--model` requests and warn
-for each explicit request. Mars revalidates current targets and exclusions under
-the same harness, and a literal canonical/provider pin prevents alias drift.
-Non-routing policy and the original launch snapshots are unchanged.
+Startup records the accepted selection against the same generation and attempt as the native session, and binds to the real native ID, not a provisional one.
 
-A later plain continuation (not a fork, no explicit `--model`) uses the model the
-session last ran: it reads the native history's last executed model, falling back to
-the stored model observation, and maps that raw token to a launch model on the
-replay harness. An unroutable or missing observation falls back to the Meridian
-selection recorded at `accepted-running`. Model observations have one writer,
-`harness/model_observation.observe_session_model`, which stores the raw native
-token; continue, a primary's stop and the browse detail view all record through it
-(the last two since meridian-cli PR #714, which also stopped continue from storing
-the mapped id). `SessionAttempt` binds that selection to the same generation
-and attempt. A plan-assigned native ID is bound before exec; native-ID callbacks
-confirm it or, when no ID was assigned, bind the first observation. Append failure terminates continuation with a
-coordination error rather than switching the runtime model.
+## OpenCode
 
-Legacy original-generation lookup is read-only against baseline `c3087ceb`.
-The original snapshot or partial historical model travels through
-`SessionRequest` and is seeded at session scope under the store lock; failed
-continuation cannot become the initial value. Under the new protocol, missing
-acceptance or absent tracked original history requires an explicit model.
-
-Native raw IDs stay literal rather than becoming the latest chat ID. Ambiguous
-tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
-references keep their recorded harness, and file detection never silently
-replaces it. A tracked reference with no recorded harness refuses. These increments are validated against native reference
-`833dc1f2`. For spawn continuation, tracked raw native IDs are accepted;
-explicit older native IDs remain authoritative when they match the session,
-otherwise the matched session's recorded spawn ID is used with exact
-chat/harness checks. Untracked or pruned provenance fails honestly, and
-`--harness` disambiguates ownership rather than history. Primary, spawn, and
-c-prefixed native sequences preserve recorded models. Remaining C7 work is
-primary provisional/trampoline identity and fork checks, streaming-serve
-recording, OpenCode streaming model transport, and coordinated final gates/PR.
-
-## Accepted startup selection and native transport
-
-Startup selection is recorded by the shared `SessionAttempt` for all three
-driving paths. Streaming-serve binds the pending selection through the identity
-callback or existing post-run artifact extraction. A native-spawn fork isolates
-the child without recording its parent as the child.
-
-For OpenCode, session creation uses `{providerID, id}`. Every invocation's
-initial prompt, whether explicit or a plain recorded continuation, uses
-`{providerID, modelID}`; only later resident/injected messages omit the model.
-Invalid or timed-out creation does not fall back to `{}`. Bounded transport-local
-session readiness polling is separate from launch orchestration and must be
-idempotent and pre-turn. A creation or prompt failure finalizes the one launch
-attempt. Primary named-model resume remains unsupported and has no UI replacement.
-
-A runtime C7 probe still shows raw native IDs passed to `spawn --continue`
-erroring. The uniform reference contract is therefore still an audit item, not
-settled behavior. Coordinated audit, suites, readiness, review, and release
-work remain open.
-
-> [!FLAG] **Needs human review**: This page says raw native IDs passed to
-> `spawn --continue` still error, while [launch-system](../architecture/launch-system.md)
-> says tracked raw native IDs now resolve against session provenance. Both claims
-> are retained pending reconciliation. Flagged 2026-09-24.
-
-## Related
-
-- [Model resolution](model-resolution/overview.md) — alias/profile resolution and harness model projection
-- [Native session identity](../architecture/native-session-binding.md) — immutable native key and exact continuation target
-- [Native session binding](../architecture/native-session-binding.md) — cross-harness binding and observation seams
+OpenCode takes different model shapes for session creation and for prompts, and named-model resume is unsupported: it fails before startup rather than silently using the harness default. A failed creation or prompt finalizes the single launch attempt ([launch system](../architecture/launch-system.md#a-harness-turn-runs-once)).

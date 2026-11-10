@@ -1,9 +1,13 @@
-# Session Initiation Modes
+# Session initiation modes
 
-`--continue` resumes the same transcript, while `--fork` branches it with identity locked and `--fork-fresh` allows identity changes. `--from` starts a fresh session and supplies prior output as reference material. See `docs/commands.md` and [launch decisions](../decisions/launch.md).
+`--continue` resumes the same transcript; `--fork` branches it with identity-shaping inputs locked, so the branch keeps the source's prompt-cache prefix; `--fork-fresh` allows identity changes; `--from` starts a fresh session with prior output as reference material in the user turn. The flag contract is in meridian-cli `docs/commands.md`; why per-run material sits in the user turn is in [launch system](../architecture/launch-system.md#the-system-prompt-depends-only-on-what-defines-the-conversation).
 
-Continuation replays the recorded work, task and launch context rather than silently recomputing it from the caller. Primary and child continuation have different override rules; the user-facing flag contract is in `docs/commands.md` and the implementation guidance in `src/meridian/lib/launch/.context/CONTEXT.md`.
+## A spawn's goal is spawn state
 
-Prior reports and file references belong in the user turn: treating them as system instructions would grant untrusted content authority and changing them would disturb the shared prompt-cache prefix. A spawn's goal is also per-launch and belongs in that turn, while a primary's goal remains system guidance. See [launch decisions](../decisions/launch.md#the-system-prompt-depends-only-on-what-defines-the-conversation-2026-10).
+A goal belongs to the spawn, not to the work item and not only to the prompt text: spawns in one work item can have different goals, and consumers shouldn't have to parse a prompt to find one. A goal doesn't select model, harness or permissions. Its text is trimmed without template substitution, so persisted and delivered text agree.
 
-The browse picker rechecks a session's binding and liveness at activation. It forks a live session instead of attaching twice, and blocks when no recorded native binding can authorize re-entry. The lifetime lock remains the guard against concurrent attachment. See [session browse decisions](../decisions/session-browse.md) and [native session identity](../architecture/native-session-binding.md).
+## Headless deny is checked before the row exists
+
+A spawn's headless deny policy is checked during preparation, before a background spawn creates a row and worker: checking only in the worker delays an actionable refusal and leaves a transient row for callers to wait on. Bind checks persisted worker requests too, since those may not have passed through preparation.
+
+Re-entry from the session picker is in [session browse](../architecture/session-browse.md).

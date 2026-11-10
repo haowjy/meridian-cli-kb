@@ -1,77 +1,36 @@
 # Launch system
 
-The launch pipeline separates preparation from binding so expensive resolution can be reused for preview and execution without separate composition paths drifting. See the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`.
+A launch is prepared once and then bound: preparation resolves policy and composes content, binding supplies per-run values and can run for a preview. One composition path serves preview and execution, so the two can't drift. Contracts: the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`, which also cover exact continue, prompt placement, skill delivery, task directories and the child environment.
 
-## Continuation selection and attempt identity
+## Authority root and task directory
 
-Primary and spawn continuation share target-constrained selection. An explicit
-`--model` is accepted and warned on every request; Mars revalidates current
-targets and exclusions under the same harness, while a literal
-canonical/provider pin prevents alias drift. The rule is not a model freeze or
-prohibition, and it does not change non-routing policy or original launch
-snapshots.
+The authority root selects project configuration and context; the task directory selects the checkout and the anchor for relative references. Keeping them separate lets an agent work in a nested directory or worktree without changing which project's configuration governs it ([file references](../concepts/reference-resolution.md), [work items](state-system/work-items.md#checkout-pins)).
 
-Plain continuation uses the Meridian selection recorded at `accepted-running`,
-not a model observed from the native harness's last execution. `SessionAttempt`
-binds that selection to the same generation and attempt. Native-ID callbacks are
-authoritative; a derived fresh ID remains only a provisional row hint. Append
-failure is a coordination error and never triggers runtime model switching.
+## A harness turn runs once
 
-The legacy increment (baseline `c3087ceb`) performs original-generation lookup
-read-only. An original snapshot or partial historical model is carried through
-`SessionRequest` and seeded once at session scope under the store lock; failed
-continuation is never used as the initial value. New-protocol continuation with
-missing acceptance or absent tracked original history requires an explicit model
-instead of guessing. Native raw IDs remain literal, and ambiguous
-tracked/untracked/mixed ownership requires explicit `--harness`; known p/c
-references retain their recorded harness rather than being silently replaced
-by file detection. Native reference `833dc1f2` covers these rules.
+A terminal error, transport failure, timeout, guardrail or identity failure finalizes the launch; nothing replays the turn. In an audit, 21 of 22 retrying lineages failed and 63 of 64 retried attempts failed; retries also hid the real cause (often a quota error) and could repeat tool calls or native session creation. Readiness polling before the turn is separate and allowed, because it is idempotent.
 
-The spawn native-ID reference form is now resolved for tracked provenance:
-coordinated final gates/PR/release.
+## The system prompt depends only on what defines the conversation
 
-## control_root / task_cwd Split
+Per-run values (spawn IDs, the launching chat, `--from` output, reference files, a spawn's goal) go in the first user turn, so sibling runs share the system prefix and its prompt cache. Prior reports can also carry untrusted text, which must not gain the system prompt's authority. A primary's identity and goal stay in system guidance because a continue replays no user turn. A work item's goal is read with `meridian work show`, so editing it neither goes stale in the prompt nor invalidates the prefix. An exact continue recomposes from its snapshot rather than replaying stored bytes, which could misstate the surface or drop a new goal.
 
-The authority root selects project configuration and context; the task directory selects the checkout and relative reference anchor. This lets work happen in a worktree without changing which project controls the launch. See [worktree anchoring](../concepts/reference-resolution.md) and [reference resolution](../concepts/reference-resolution.md).
+`--from` is resolved once, at the request boundary, and the request prompt stays raw: a composed prompt persisted in a background request was composed again by the worker, duplicating references and prior context.
 
-## One Launch-Level Attempt
+## Continue replays the recorded launch
 
-A harness turn executes once: replay after a terminal failure could duplicate model work or side effects. Bounded idempotent readiness polling before submission is separate. See [launch decisions](../decisions/launch.md#harness-turn-failures-finalize-without-replay).
+An exact continue starts from the recorded launch contract instead of recomputing it from ambient configuration, and accepts only the overrides its entry point allows. It requires a new prompt: replaying the original task would resend completed work instead of saying what to do next. Model choice on continue is in [continuation model selection](../concepts/continuation-model-selection.md).
 
-## Child Env Boundaries
+## Skills and guidance
 
-`MERIDIAN_SECRET_*` values are stripped from harness children, including primaries. A child cannot use them for in-session notifications; ordinary inherited environment values can leak into transcripts. See [notification credentials](idle-notifications.md#smtp-password-from-a-file).
+- **Loaded skills are composed into the prompt on every harness.** A native skill inventory isn't equivalent to loading: it can omit a loaded skill that isn't model-invocable, and several conditional delivery paths once lost skills when one overwrote another.
+- **Delegation guidance follows capability.** Spawn guidance and the agent inventory are injected for profiles that can delegate. An opt-in skill alone was repeatedly not loaded; injecting it everywhere would waste leaf agents' context.
+- **Packages name capabilities; Meridian maps them to commands.** Prompt packages are also used by runtimes with app tools and no shell, so Meridian syntax inside them would make their guidance unportable. Meridian's own operations guidance ships with the CLI so commands and advice change together.
+- **Pi keeps native skill and context discovery** for available skills and project instructions. Ambient Pi extensions stay separately controlled, because they run code and can conflict with Meridian's managed extensions.
 
-## _MERIDIAN_HARNESS Child Env Injection
+## Approval requests
 
-Each launch sets its own harness identity rather than inheriting an ancestor's. Wait uses the calling harness's yield interval, not its child's. See [spawn wait](../concepts/spawn-wait-barrier.md).
+A managed Codex primary owns the app server's approval requests, which the attached TUI can't answer directly, so Meridian routes them to the user. Headless spawns reject them, since no human is there to answer.
 
-## Accepted startup selection and OpenCode transport (2026-09)
+## Child environment
 
-Continuation model selection and its current audit boundaries are summarized in
-[the continuation model-selection concept](../concepts/continuation-model-selection.md).
-
-All three driving paths record **model/policy** acceptance at startup through the shared
-`SessionAttempt`. This is model/policy acceptance, separate from the chat's native
-key ([native session binding](native-session-binding.md)). Streaming-serve binds its pending selection through the
-identity callback when available, otherwise through existing post-run artifact
-extraction. Native-spawn fork child isolation prevents the parent from being
-recorded as the child.
-
-OpenCode creation sends `{providerID, id}`. Every invocation's initial prompt—an
-explicit prompt or a plain recorded continuation—sends `{providerID, modelID}`;
-only subsequent resident/injected messages omit the model. Invalid or timed-out
-creation does not downgrade to `{}`. Bounded transport-local session readiness
-polling is separate from launch orchestration and must remain idempotent and
-pre-turn. A creation or prompt failure finalizes the one launch attempt. Named-model
-resume remains unsupported, with no UI replacement.
-
-Tracked raw native IDs passed to `spawn --continue` now resolve against their
-recorded session provenance. An explicitly supplied older native ID is retained
-when it identifies the matched session; otherwise continuation uses that
-session's recorded spawn ID, with exact chat/harness checks. Untracked or pruned
-provenance fails honestly. `--harness` disambiguates ownership only; it does not
-invent history or override recorded identity. Primary, spawn, and c-prefixed
-native sequences preserve their recorded models. Coordinated T1–T19 audit, full
-suites, readiness, final reviews, and PR/release gates remain outstanding. No
-model-observation or index work is implied by this increment.
+`MERIDIAN_SECRET_*` values are stripped from every harness child, primaries included, so in-session notification can't use them; ordinary inherited values can leak into transcripts ([idle notifications](idle-notifications.md#smtp-password-from-a-file)). Each launch sets its own `_MERIDIAN_HARNESS` instead of inheriting an ancestor's, so `spawn wait` uses the caller's yield interval, not its child's.
