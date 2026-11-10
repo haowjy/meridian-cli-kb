@@ -198,7 +198,7 @@ hooks.PreToolUse=[]`, `--disable hooks`, a `hooks.state` override, or a project
 no hook loaded. Upgrade Codex or remove what turned hooks off. Dropping the scoped rules from
 the profile also works. A command the hook lets through is not a bug by itself: it
 matches rules against each command segment as written and is
-[not a sandbox](../decisions/tool-permissions.md#codex-shell-hook).
+[not a sandbox](../architecture/tool-permissions.md#codex-shell-rules-are-an-accident-guard).
 
 ---
 
@@ -278,7 +278,7 @@ without a manual rebuild. A row it cannot migrate is reported as
 `dogfood_spawn_rows_failed` with the failing field. A quarantined row that is *not*
 dogfood-shaped (no doctor hint, only its path) is not repairable by doctor and still
 fails the index closed (#530).
-See [health checks](health-checks.md#dogfood-row-migration).
+See [health checks](health-checks.md).
 
 ---
 

@@ -36,7 +36,7 @@ An explicitly written `report.md` wins. Without one, Claude's report follows the
 
 ## Completion channel
 
-A child without a usable completion signal channel receives no confirmation turn. A read-only Codex child with spawn capability can use the scoped execpolicy escape. If sandbox policy is unset but Codex defaults to read-only, the signal may still fail because Meridian does not infer that policy. See [Codex child spawn](sandbox-platform-access.md#codex-child-spawn).
+A child without a usable completion signal channel receives no confirmation turn. A read-only Codex child with spawn capability can use the scoped execpolicy escape. If sandbox policy is unset but Codex defaults to read-only, the signal may still fail because Meridian does not infer that policy. See [Codex child spawn](../architecture/sandbox-projection.md#spawning-from-inside-a-sandbox).
 
 ## Evidence and `done`
 

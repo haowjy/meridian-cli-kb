@@ -6,7 +6,7 @@ Package manifests and READMEs own current dependencies and inventories. See [pac
 
 meridian-base and meridian-dev-workflow declare meridian-prompter as a local dependency: authors can use it in those checkouts, but consumers do not receive it unless they declare it. Prompter depends on base for selected skills.
 
-Dependency pins can exclude a new minor release, so a base minor requires checking and updating dependent packages. A package that drops content now supplied by Meridian must require the Meridian version that supplies the replacement; otherwise its consumers lose that capability. See [bundled skills](../../decisions/launch.md#meridian-owned-operations-guidance-versions-with-the-cli).
+Dependency pins can exclude a new minor release, so a base minor requires checking and updating dependent packages. A package that drops content now supplied by Meridian must require the Meridian version that supplies the replacement; otherwise its consumers lose that capability. See [bundled skills](../../architecture/launch-system.md#skills-and-guidance).
 
 - [meridian-base](meridian-base.md)
 - [meridian-dev-workflow](meridian-dev-workflow.md)

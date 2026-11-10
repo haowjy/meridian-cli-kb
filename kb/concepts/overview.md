@@ -15,7 +15,7 @@ Concept pages define Meridian's durable mental models. Read these before impleme
 - [extension-system.md](extension-system.md)
 - [skill-schema.md](skill-schema.md)
 - [skill-loading.md](skill-loading.md)
-- [native-config.md](native-config.md)
+- [native-config.md](../architecture/mars-launch-bundle.md)
 - [bootstrap-docs.md](bootstrap-docs.md)
 - [config-precedence.md](config-precedence.md)
 - [context-resolution.md](../architecture/state-system/work-items.md)
