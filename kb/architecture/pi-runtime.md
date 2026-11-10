@@ -8,16 +8,10 @@ A turn end alone can't establish that a Pi spawn is done: a native retry, a comp
 
 An idle Pi spawn with known running execution can get an advisory done nudge. A done directive can override known running execution, but never a result whose publication, admission or observation is still owed, and it waits for an active parent turn and for unknown evidence to resolve.
 
-## Bash ownership
-
-**Tracked Bash** can block quiescence; **detached Bash** no longer blocks it but stays owned by the live runtime until it exits or the runtime shuts down. A managed-Bash owner keeps process handles across extension reload. After a cold restart a recorded PID can't prove ownership, since it may have been reused, so recovery records the ownership as lost and never signals it. A failed advisory ping releases its claim without killing the shell; a failed execution or durable publication is a task failure.
-
 ## Delivery evidence
 
 A terminal result stays owed until explicitly consumed or admitted to Pi's native queue. Queueing, native admission and Python's observation of the public event are separate facts in separate stores, and a crash can fall between them, so exactly-once delivery isn't guaranteed. A receipt without its matching observation is unknown: it blocks completion with a diagnostic, and a cold restart can retry work without a receipt but never invents the missing observation. Admission doesn't prove the model acted on the message.
 
-Only canonical direct-child rows establish membership. A **Bash origin link** ties a spawn to the Bash task that launched it and can transfer that task's result obligation to its children, but it never creates a child relationship.
-
-Automatic notices are bounded in aggregate as well as per item: a large backlog could otherwise exhaust file descriptors, or one large report starve the rest. Each included item keeps its identity, outcome and a way to read the full result; anything not included stays owed. A successful tool boundary can deliver completed work while the parent is active; idle delivery covers work that finishes later. An explicit wait can consume a result first. Pi delivers bounded report excerpts where Claude delivers headers ([child result delivery](../concepts/child-result-delivery.md)).
+Spawn rows are the only authority for which results a session owes; the extension mirrors core's rule rather than keeping its own. Membership, origin links, notice bounds and Bash ownership: the source checkout's `src/meridian/pi_runtime/.context/`. Pi delivers bounded report excerpts where Claude delivers headers ([child result delivery](../concepts/child-result-delivery.md)).
 
 A queued message Pi never admits may keep IDs reserved and pause unrelated publication until a native lifecycle callback, reload or restart. This is a known limit, not a reproduced defect.

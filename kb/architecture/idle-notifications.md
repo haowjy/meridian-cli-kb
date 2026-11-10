@@ -125,10 +125,10 @@ specific within the same level. See `docs/configuration.md` and
 
 ### SMTP password from a file
 
-An SMTP password file is preferred to the environment: environment values are inherited
-by spawns and can end up in transcripts, so the environment is a leaky fallback.
-`MERIDIAN_SECRET_*` can't be used for in-session notification, because launch strips it
-from harness children. See [child environment boundaries](launch-system.md#child-environment).
+Why a password file beats the environment: the source checkout's
+`src/meridian/lib/notify/AGENTS.md`; why `MERIDIAN_SECRET_*` can't carry it:
+`src/meridian/lib/launch/.context/CONTEXT.md` ("Environment and lifetime").
+
 The Gmail transport is tested with a fake; real email delivery is unverified.
 
 ## No idle compaction

@@ -8,10 +8,6 @@ The native TUI and the launcher share the shell's foreground job; a separate pro
 
 A run is **cancelled** if the launcher received SIGHUP or SIGTERM before it observed the TUI exit, whatever code the TUI returned; it records `128+N`. If the launcher saw the TUI exit first, the TUI's result stands. A terminal Ctrl-C is a keystroke to the harness, so the harness's result is recorded. The exit code can't decide this: closing a pane sends SIGHUP to both the TUI and the launcher, harnesses react differently (OpenCode quits normally with 0), and the old exit-code rule recorded a closed OpenCode pane as succeeded. A signal in the microseconds between the child's exit and the wait being marked complete turns a clean exit into cancelled; that window was accepted.
 
-## Signal handlers only latch
-
-Signal callbacks run on Python's main thread and can interrupt code that holds a lock. The handler only latches cancellation, without taking locks or setting an Event; normal execution then terminates and finalizes. Taking a non-reentrant lock from the handler can deadlock against the interrupted thread.
-
 ## Terminal output
 
 Launcher output must not draw over a live TUI. Redirecting only Python logging misses C-level writes and inherited children, so the launcher redirects file descriptors; direct `/dev/tty` writers can still draw, and a write racing the swap can split across it. Meridian appends its continuation hint below the harness's exit text rather than rewriting it, which could hide the harness's own resume instructions. A relay leaves the alternate screen only if the child hasn't already: repeating the escape can restore an old cursor position and overwrite the harness's output.

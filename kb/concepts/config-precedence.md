@@ -1,6 +1,7 @@
 # Config precedence
 
-Project-wide operational settings load from configuration files; per-launch policy resolves separately for each launch. The ladder is in the meridian-cli root `AGENTS.md`; source guidance in `src/meridian/lib/config/AGENTS.md`; settings in `docs/configuration/`.
+Project-wide operational settings load from configuration files; per-launch policy resolves separately for each launch. The ladder and source guidance are in meridian-cli `src/meridian/lib/config/AGENTS.md`; settings in `docs/configuration/`.
+
 
 ## Routing vs policy fields
 

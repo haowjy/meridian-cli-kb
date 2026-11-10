@@ -10,7 +10,8 @@ Why meridian-cli, Mars and the surrounding packages are the way they are. Direct
 - **Harnesses** — [harness abstraction](concepts/harness-abstraction.md), [Claude](architecture/claude-native-sessions.md), [Pi sessions](architecture/pi-native-sessions.md), [Pi runtime](architecture/pi-runtime.md), [OpenCode](architecture/opencode-harness.md), [Cursor](architecture/cursor-harness.md).
 - **Permissions and access** — [tool permissions](architecture/tool-permissions.md), [sandbox projection](architecture/sandbox-projection.md), [workspace](architecture/workspace.md).
 - **Mars** — [package management](concepts/package-management.md), [model resolution](concepts/model-resolution.md), [skills](concepts/skills.md), [portable hooks](concepts/package-hooks.md), [launch bundle](architecture/mars-launch-bundle.md), [config precedence](concepts/config-precedence.md).
-- **Other mechanisms** — [hooks](concepts/hooks-and-plugins.md), [telemetry](architecture/telemetry.md), [CLI startup](architecture/startup-pipeline.md), [extension system](concepts/extension-system.md), [per-operation cost](architecture/per-operation-cost.md).
+- **Other mechanisms** — [hooks](concepts/hooks-and-plugins.md), [telemetry](architecture/telemetry.md), [CLI startup](architecture/startup-pipeline.md), 
+[per-operation cost](architecture/per-operation-cost.md).
 - **Working on the code** — [codebase guide](codebase/guide.md), [releasing](codebase/releasing.md), [test determinism](codebase/test-determinism.md), [lessons](lessons/overview.md).
 - **Operations** — [operations](operations/overview.md), including [troubleshooting](operations/troubleshooting.md).
 - **Outside evidence** — [research](research/overview.md); **open work** — [open questions](open-questions/overview.md); **related projects** — [ecosystem](ecosystem/overview.md).

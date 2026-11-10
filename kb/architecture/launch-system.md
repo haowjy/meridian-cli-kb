@@ -1,6 +1,6 @@
 # Launch system
 
-A launch is prepared once and then bound: preparation resolves policy and composes content, and binding (unrelated to [native session binding](native-session-binding.md)) supplies per-run values and can run for a preview. One composition path serves preview and execution, so the two can't drift. Contracts: the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`, which also cover exact continue, prompt placement, skill delivery, task directories and the child environment.
+A launch is prepared once and then bound: preparation resolves policy and composes content, and binding (unrelated to [native session binding](native-session-binding.md)) supplies per-run values and can run for a preview. One composition path serves preview and execution, so the two can't drift. Contracts: the source checkout's `src/meridian/lib/launch/AGENTS.md` and `.context/CONTEXT.md`, which also cover exact continue, prompt placement, skill delivery, task directories and the child environment. Managed Codex approval requests: `src/meridian/lib/harness/.context/CONTEXT.md`.
 
 ## Composition by meaning
 
@@ -28,10 +28,3 @@ An exact continue starts from the recorded launch contract (task directory, work
 - **Packages name capabilities; Meridian maps them to commands.** Prompt packages are also used by runtimes with app tools and no shell, so Meridian syntax inside them would make their guidance unportable. Meridian's own operations guidance ships with the CLI so commands and advice change together.
 - **Pi keeps native skill and context discovery** for available skills and project instructions. Ambient Pi extensions stay separately controlled, because they run code and can conflict with Meridian's managed extensions.
 
-## Approval requests
-
-A managed Codex primary owns the app server's approval requests, which the attached TUI can't answer directly, so Meridian routes them to the user. Headless spawns reject them, since no human is there to answer.
-
-## Child environment
-
-`MERIDIAN_SECRET_*` values are stripped from every harness child, primaries included, so in-session notification can't use them; ordinary inherited values can leak into transcripts ([idle notifications](idle-notifications.md#smtp-password-from-a-file)). Each launch sets its own `_MERIDIAN_HARNESS` instead of inheriting an ancestor's, so `spawn wait` uses the caller's yield interval, not its child's.

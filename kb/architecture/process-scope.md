@@ -17,5 +17,5 @@ Before a continue starts the next launch, the holder of the prior launch lock sw
 ## Known gaps
 
 - A descendant that creates its own session or process group escapes group cleanup after its parent dies, and a process-table scan after reparenting can't reconstruct the original tree.
-- Some fallback paths still treat an inaccessible root birth time as a dead root and signal the group; group reachability (signal 0) counts zombies and reused groups, so it is diagnostic only. Tracked in the process-scope `FUTURE`.
+- Fallback paths that signal a group whose root birth time is unreadable, and the three competing termination implementations: the source checkout's `src/meridian/lib/platform/process_scope/.context/FUTURE`.
 - Background-worker or metadata-only paths may own long-lived processes without recording a scope; PID fallback gives weaker containment there.

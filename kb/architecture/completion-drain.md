@@ -30,8 +30,9 @@ The idle limit is the only waiting window, independent of provider cache limits,
 
 `done` and a reply to the expiry ask close through cleanup: running descendants are cancelled and local background tasks stopped. A dead backend cancels descendants too, because a dead child can't read their reports. A failed reply stays failed rather than publishing an older successful candidate. Work that must outlive the child must run detached.
 
-`done` overrides known blockers but not unknown evidence, and waits out a running turn so it can't publish an outdated candidate. A reply to the expiry ask closes whatever the evidence, because the ask named what closing stops. `done` and `rearm` are read at the turn end that creates a candidate, so neither can pre-accept a later turn.
+A reply to the expiry ask closes whatever the evidence, because the ask named what closing stops. What `done` can override and when signals are read: the decision table in `completion-and-entry-points.md`.
 
 ## The report
 
-An explicitly written `report.md` wins. Otherwise Claude's report follows its last real turn; Codex and OpenCode keep the earlier answer when the confirmation reply only says it's done; Pi keeps its confirmation reply. A wake or expiry ask asks for a new answer, which becomes the report. `rearm` keeps the retained report.
+An explicitly written `report.md` wins, and a "Done." confirmation never replaces a fuller answer. Which text each hold keeps otherwise, and how a wake, an expiry ask or `rearm` changes it: the source checkout's `src/meridian/lib/streaming/.context/CONTEXT.md` ("Report and publication").
+

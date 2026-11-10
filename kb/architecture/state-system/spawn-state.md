@@ -1,6 +1,7 @@
 # Spawn state
 
-Each spawn has its own state, so reading one spawn costs the same however much history the project has. Remaining scan costs are in [per-operation cost](../per-operation-cost.md). Contract: the source checkout's `src/meridian/lib/state/AGENTS.md`.
+Each spawn has its own state, so reading one spawn by ID costs the same however much history the project has. Listing and selection still materialize every indexed row; those scan costs
+ are in [per-operation cost](../per-operation-cost.md). Contract: the source checkout's `src/meridian/lib/state/AGENTS.md`.
 
 ## A published row owns its artifacts
 

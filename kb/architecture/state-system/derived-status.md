@@ -10,7 +10,7 @@ A status read holds the shared launch lock across the row read. Probing and rele
 
 ## One rule for a dead launch's outcome
 
-A dead launch with a durable report derives success even when cancellation was requested; otherwise cancellation wins over crash. Control frames and synthetic failures don't count as reports ([spawn finalization](../spawn-finalization.md#durable-completion-evidence)). Every reader, repair and cancel path applies this rule, so they converge on the same outcome.
+Every reader, repair and cancel path applies one rule to a dead launch, so they converge on the same outcome. The rule is in the source checkout's `src/meridian/lib/core/.context/CONTEXT.md`; what counts as a durable report: [spawn finalization](../spawn-finalization.md#durable-completion-evidence).
 
 ## Select by stored status, report by derived status
 
