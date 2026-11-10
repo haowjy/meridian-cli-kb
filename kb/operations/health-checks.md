@@ -1,9 +1,7 @@
 # Doctor and pruning
 
-Doctor defaults to the current project; cross-project scans are explicit because they can be expensive and affect other projects. See the [command reference](https://github.com/haowjy/meridian-cli/blob/main/docs/commands.md) and [startup and health decisions](../decisions/startup-health-sandbox.md#doctor-and-health-checks).
+Doctor scans the current project by default. Cross-project maintenance is explicit because it can be expensive and can touch paths a nested sandbox can't reach. Prune advice appears only when stale artifacts exist, not when the remaining sessions are live. Commands: meridian-cli `docs/commands.md`.
 
-Stored and derived spawn status differ: a dead runner can appear crashed before its outcome is persisted. Reconciliation writes the outcome and cleans up processes; pruning must protect active state. See [derived status](../architecture/state-system/derived-status.md) and [project retention](../architecture/state-system/project-identity.md#retention).
+Stored and derived spawn status differ: a dead runner reads as crashed before its outcome is written. Reconciliation writes the outcome and cleans up processes; pruning must protect active state ([derived status](../architecture/state-system/derived-status.md), [project identity](../architecture/state-system/project-identity.md)).
 
-## Dogfood-row migration
-
-Doctor migrates rows written by the early native-history build; a primary launch also runs the repair in the background. See [native-only history](../architecture/native-transcript-reads.md).
+Doctor also migrates rows written by the early native-history build, and a primary launch runs the same repair in the background ([native transcript reads](../architecture/native-transcript-reads.md#early-rows-migrate-once-not-on-read)).
