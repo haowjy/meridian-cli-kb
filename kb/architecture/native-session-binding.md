@@ -39,4 +39,4 @@ A `pN` continuation or fork resolves the selected chat's current generation exac
 - A verified file can be replaced between preflight and harness open; detection fails the attempt, possibly after input already reached the model.
 - UUID collision checks are not atomic reservations against external writers.
 - An unsaved Pi session may have no transcript and can't be continued yet.
-- The missing-file search is Claude-only ([#863](https://github.com/haowjy/meridian-cli/issues/863)); path-derived project identity doesn't survive a project move ([#864](https://github.com/haowjy/meridian-cli/issues/864)); a killed relocation can orphan its OpenCode server ([#867](https://github.com/haowjy/meridian-cli/issues/867)).
+- The missing-file search is Claude-only ([#863](https://github.com/haowjy/meridian-cli/issues/863)); path-derived project identity doesn't survive a project move, and that is not planned to change ([#864](https://github.com/haowjy/meridian-cli/issues/864)); a killed relocation can orphan its OpenCode server ([#867](https://github.com/haowjy/meridian-cli/issues/867)).

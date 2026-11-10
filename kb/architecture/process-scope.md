@@ -1,13 +1,21 @@
 # Process-scope ownership
 
-Harnesses can leave descendants after their root exits, including processes reparented to PID 1. Durable scope metadata lets recovery identify owned work, while session-owned scopes can survive a disposable launcher. A process-tree snapshot alone can miss descendants when an intermediate exits. See [process ownership decisions](../decisions/launch-process-ownership.md) and the source checkout's `src/meridian/lib/platform/process_scope/.context/CONTEXT.md`.
+Harnesses leave descendants behind after their root exits, some reparented to PID 1. Meridian records a durable process scope for each launch, so normal teardown and crash recovery use the same containment boundary, and session-owned scopes can outlive a disposable launcher. Contract: the source checkout's `src/meridian/lib/platform/process_scope/.context/CONTEXT.md`; untangling work is in its `FUTURE`.
 
-## Parent-death linkage
+## Why durable scopes
 
-The start gate prevents a harness from executing before its scope is recorded. A guardian receives runner-death evidence through a pipe and stops the owned group; a TUI sharing the shell's group receives root-only termination to avoid signalling the shell. Descendants that create another session or group can escape group cleanup. See [spawn identity](process-scope.md).
+A process-tree snapshot alone misses descendants reparented after an intermediate exits. Harness-specific cleanup would duplicate policy and miss generic tool children. A PID read from metadata needs a birth check before it is signalled, because PIDs are reused; unknown identity is never proof that signalling is safe.
 
-## Continue sweep
+## Start gate and guardian
 
-Continue claims the prior launch lock and sweeps its remaining scopes before starting another launch. It refuses a live owner and rechecks process identity before signalling. See [spawn launches](state-system/spawn-launches.md#the-launch-lock-fences-each-launch).
+A harness can't execute until its scope and verified birth are durable. A small POSIX guardian watches for runner death through a pipe and stops the owned process group; a parent-death signal alone reaches only a direct child and misses binaries behind wrappers. A TUI that shares the shell's process group gets root-only termination so the shell isn't signalled, and on that path the guardian sends one TERM, never a delayed KILL that could hit a reused PID. The start gate also covers the window before exec, which is why it replaced a launcher watchdog.
 
-PID and process-group reuse make cleanup hazardous. Some fallback paths can still signal when root birth is unknown or inaccessible; a reachability probe can also see zombies or a reused group. Reachability is diagnostic, not proof that a scope is safe to kill. See [process-scope follow-ups](../open-questions/process-scope.md) and [managed primary lifecycle](managed-primary-lifecycle.md).
+## The continue sweep is the backstop
+
+Before a continue starts the next launch, the holder of the prior launch lock sweeps that launch's remaining scopes, refusing a live owner and rechecking process identity before each signal ([spawn launches](state-system/spawn-launches.md#the-launch-lock-fences-each-launch)). Managed primaries share the same model ([managed primary lifecycle](managed-primary-lifecycle.md)).
+
+## Known gaps
+
+- A descendant that creates its own session or process group escapes group cleanup after its parent dies, and a process-table scan after reparenting can't reconstruct the original tree.
+- Some fallback paths still treat an inaccessible root birth time as a dead root and signal the group; group reachability (signal 0) counts zombies and reused groups, so it is diagnostic only. Tracked in the process-scope `FUTURE`.
+- Background-worker or metadata-only paths may own long-lived processes without recording a scope; PID fallback gives weaker containment there.

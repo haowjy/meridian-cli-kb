@@ -25,6 +25,4 @@ The reaper records cleanup targets before finalizing and keeps failed claims for
 ## Known gaps
 
 - Parent finish or cancel does not always converge descendants ([#671](https://github.com/haowjy/meridian-cli/issues/671)).
-- The derived finish time for a crashed streaming child can sit close to its start when no activity files changed ([#841](https://github.com/haowjy/meridian-cli/issues/841)).
-- Streaming serve teardown can exceed its stop budget ([#842](https://github.com/haowjy/meridian-cli/issues/842)).
 - Dead-launch teardown is spread across callers ([#838](https://github.com/haowjy/meridian-cli/issues/838)).
