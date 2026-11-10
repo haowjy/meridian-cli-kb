@@ -8,7 +8,7 @@ Selection for convergence or destruction uses stored status; a liveness query ca
 
 ## Repair the State Before Relaxing the Check
 
-When a safety check refuses because persisted state is wrong, repair the state before changing the check. A relaxed check may hide the problem while other readers still depend on the false state. See [abandoned-generation closure](../decisions/history-storage.md#d-abandoned-generation-closure).
+When a safety check refuses because persisted state is wrong, repair the state before changing the check. A relaxed check may hide the problem while other readers still depend on the false state. See [abandoned-generation closure](../decisions/history-storage.md#a-later-start-of-the-same-chat-closes-earlier-generations-capture-defers-to-real-owners).
 
 ## Cross-Language Consumers of Persisted Schema
 
@@ -18,4 +18,4 @@ A migration must be checked against real historical state, not just the previous
 
 ## A Link That Spans Two Stores
 
-A projection joining two stores makes each store's writers responsible for the other's state, inviting deadlocks, partial updates and expensive rewrites. Give each store its own projection and join them without holding both locks. A derived link or environment value must not be read back as authoritative input. See [session work links](../decisions/session-work-links.md#d-one-projection-per-owner).
+A projection joining two stores makes each store's writers responsible for the other's state, inviting deadlocks, partial updates and expensive rewrites. Give each store its own projection and join them without holding both locks. A derived link or environment value must not be read back as authoritative input. See [session work links](../decisions/session-work-links.md#one-projection-per-owner).

@@ -36,11 +36,11 @@ The authority root selects project configuration and context; the task directory
 
 ## One Launch-Level Attempt
 
-A harness turn executes once: replay after a terminal failure could duplicate model work or side effects. Bounded idempotent readiness polling before submission is separate. See [launch decisions](../decisions/launch.md#d-one-launch-attempt-harness-turn-failures-finalize-without-replay).
+A harness turn executes once: replay after a terminal failure could duplicate model work or side effects. Bounded idempotent readiness polling before submission is separate. See [launch decisions](../decisions/launch.md#harness-turn-failures-finalize-without-replay).
 
 ## Child Env Boundaries
 
-`MERIDIAN_SECRET_*` values are stripped from harness children, including primaries. A child cannot use them for in-session notifications; ordinary inherited environment values can leak into transcripts. See [notification credentials](../decisions/idle-notify-channels.md#d-notify-smtp-password-file--smtp-password-from-a-file-env-as-leaky-fallback).
+`MERIDIAN_SECRET_*` values are stripped from harness children, including primaries. A child cannot use them for in-session notifications; ordinary inherited environment values can leak into transcripts. See [notification credentials](../decisions/idle-notify-channels.md#smtp-password-from-a-file-env-as-leaky-fallback).
 
 ## _MERIDIAN_HARNESS Child Env Injection
 

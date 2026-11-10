@@ -1,6 +1,6 @@
 # Idle TTL Detection
 
-## D-idle-ttl-detection — Detection reads launch records, never a cwd
+## Detection reads launch records, never a cwd
 
 The idle service passes the chat's launch-recorded native store to the harness
 TTL detector. Claude resolves the live session ID inside that store and reads

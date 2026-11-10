@@ -2,7 +2,7 @@
 
 The rewrite is motivated by memory use and crashes when a running Python installation is updated underneath itself. It has no settled design yet.
 
-## Upgrade crashes await the rewrite {#d-update-crash-waits-for-rust}
+## Upgrade crashes await the rewrite
 
 `uv tool install --force` can overwrite modules in a live process's virtualenv; a later lazy import can mix incompatible versions. Until the rewrite addresses [#628](https://github.com/haowjy/meridian-cli/issues/628), avoid upgrading while long-lived Meridian processes run.
 

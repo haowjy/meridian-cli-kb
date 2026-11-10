@@ -4,12 +4,12 @@ Remaining cleanup work is tracked in [#569](https://github.com/haowjy/meridian-c
 
 ## Spawn wait contention
 
-Wait discovery must not answer from a stale index that could omit a new spawn. The contention fix shortens the session writer's lock hold; see [history index readers](history-storage.md#d-history-index-readers-never-wait-on-session-writers).
+Wait discovery must not answer from a stale index that could omit a new spawn. The contention fix shortens the session writer's lock hold; see [history index readers](history-storage.md#shorten-the-holder-dont-widen-the-wait).
 
-## D-unknown-keys-from-pydantic: Pydantic does the traversal for unknown-key warnings
+## Pydantic does the traversal for unknown-key warnings
 
 Walk validated model values to detect unknown keys instead of maintaining a second traversal of type annotations. A parallel traversal drifted on dict-root models and produced false warnings. The warning pass uses a temporary allow-extra validation; making extras permanent would expose them as effective config. Its caller must follow with authoritative validation because a hard error suppresses warnings.
 
-## D-telemetry-batch-durability: fsync once per batch, not per envelope
+## Fsync once per batch, not per envelope
 
 A batch is the durability unit. Per-envelope fsync multiplies I/O without improving the torn-tail contract; see [telemetry persistence](../architecture/telemetry/local-persistence.md).

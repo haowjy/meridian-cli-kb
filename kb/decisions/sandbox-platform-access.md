@@ -2,19 +2,19 @@
 
 Meridian projects its control-plane needs separately from profile permissions. Current harness projections and gaps are in `docs/agent-profiles.md` and `src/meridian/lib/harness/projections/.context/CONTEXT.md` in meridian-cli.
 
-## Project lock {#d-sandbox-state-roots}
+## Project lock
 
 Materialize the exact project lifetime lock before starting a sandboxed child. Granting the shared lock directory would let the child create lock names for other projects.
 
-## Claude spawn escape {#d-sandbox-spawn-escape}
+## Claude spawn escape
 
 A standalone `meridian spawn` can leave a Meridian-projected Claude sandbox when the profile can spawn: the sandbox otherwise kills the detached worker at shell exit. The escaped process is unsandboxed, including for network. The child guardrail is not adversarial confinement.
 
-## Compound launch refusal {#d-sandbox-compound-refusal}
+## Compound launch refusal
 
 Claude's escape matches simple commands only. On Linux a nested spawn compares PID namespaces and refuses before creating state if a compound command remains sandboxed. The check cannot detect this without procfs or the caller record, including on macOS.
 
-## Delegation guardrail {#d-delegation-floor}
+## Delegation guardrail
 
 > [!FLAG] **Needs human review.** The guardrail and its network inputs are provisional; whether sandboxed spawners may launch less-confined children remains open.
 
@@ -26,17 +26,17 @@ Enforcing the caller's declared `subagents:` list alone would not prevent escala
 
 The guardrail compares policy projected from Meridian-owned inputs. User harness configuration can widen actual enforcement, and known widening settings are warned about without changing the comparison. Exact modelling of user configuration was rejected because it depends on changing harness internals and a missed layer fails open. Treating every detected widening as allow-all was also rejected: it could turn an offline caller's floor into an online one.
 
-## Codex child spawn {#d-codex-child-spawn}
+## Codex child spawn
 
 Meridian installs a user-wide Codex rule for spawn-capable, sandboxed launches because Codex has no per-launch rules layer. It lets standalone `meridian spawn` escape the shell sandbox so detached workers survive and read-only children can signal completion. The rule also applies to other Codex sessions using that home. Project rules were rejected because they depend on project trust and Mars regenerates the directory; Codex offers no per-invocation rules option.
 
-## Escaped process inputs {#d-escape-loads}
+## Escaped process inputs
 
 An escaped command must not load an agent-writable replacement executable. The launching build's optional `meridian` shim lives under the user home rather than a projected writable root. Hooks and extensions invoke `meridian` by name, so a variable alone would miss callers. Re-execution uses Python's `-P` to exclude the implicit working-directory import path; `PYTHONPATH` and project configuration remain separate inputs, and this is not adversarial confinement. See `src/meridian/lib/launch/.context/CONTEXT.md` and [#876](https://github.com/haowjy/meridian-cli/issues/876).
 
-## Network policy {#d-network-field}
+## Network policy
 
-Shell network access is separate from built-in web tools. With no explicit mode, projected read-only and workspace-write sandboxes default offline; full access defaults online, and an unset or native-default sandbox leaves the harness in charge. Host allow and deny sets merge as [permission sets](tool-permissions.md#d-permission-set-merge).
+Shell network access is separate from built-in web tools. With no explicit mode, projected read-only and workspace-write sandboxes default offline; full access defaults online, and an unset or native-default sandbox leaves the harness in charge. Host allow and deny sets merge as [permission sets](tool-permissions.md#permission-set-merging).
 
 ### Bundle {#network-bundle-object}
 

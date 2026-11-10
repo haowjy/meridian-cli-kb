@@ -8,4 +8,4 @@ All chats in a runtime share the authoritative session journal. Scoped reads avo
 
 ## A later start closes abandoned generations
 
-A later accepted start closes earlier unstopped generations in the replay fold. A new start requires the chat lock, so the previous launcher must have released it. This repairs abandoned generations without treating an unstopped row as a live writer. See [history storage](../../decisions/history-storage.md#d-abandoned-generation-closure).
+A later accepted start closes earlier unstopped generations in the replay fold. A new start requires the chat lock, so the previous launcher must have released it. This repairs abandoned generations without treating an unstopped row as a live writer. See [history storage](../../decisions/history-storage.md#a-later-start-of-the-same-chat-closes-earlier-generations-capture-defers-to-real-owners).

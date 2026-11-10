@@ -4,7 +4,7 @@ Harnesses can leave descendants after their root exits, including processes repa
 
 ## Parent-death linkage
 
-The start gate prevents a harness from executing before its scope is recorded. A guardian receives runner-death evidence through a pipe and stops the owned group; a TUI sharing the shell's group receives root-only termination to avoid signalling the shell. Descendants that create another session or group can escape group cleanup. See [spawn identity](../decisions/spawn-identity.md#d-start-gate-guardian).
+The start gate prevents a harness from executing before its scope is recorded. A guardian receives runner-death evidence through a pipe and stops the owned group; a TUI sharing the shell's group receives root-only termination to avoid signalling the shell. Descendants that create another session or group can escape group cleanup. See [spawn identity](../decisions/spawn-identity.md#start-gate-and-guardian).
 
 ## Continue sweep
 

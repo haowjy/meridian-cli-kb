@@ -30,4 +30,4 @@ there is no polling or timeout
 
 ### One-attempt causality
 
-A failure finalizes the same harness turn; a replay could repeat model work or side effects. See [launch decisions](../decisions/launch.md#d-one-launch-attempt-harness-turn-failures-finalize-without-replay).
+A failure finalizes the same harness turn; a replay could repeat model work or side effects. See [launch decisions](../decisions/launch.md#harness-turn-failures-finalize-without-replay).

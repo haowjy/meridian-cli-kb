@@ -6,5 +6,5 @@ Named work survives sessions; ambient work belongs to an execution. Stable per-e
 
 Probe runtimes belong under `/tmp`, not in an autosynced work directory: large scratch runtimes can stall synchronization. See [probe runtime placement](../lessons/probe-runtime-placement.md).
 
-Work activation means someone chose an item, not that a maintenance operation repointed an attachment. See [hook event contract](../decisions/hook-event-contract.md#d-work-activation--activation-means-someone-chose-the-item).
+Work activation means someone chose an item, not that a maintenance operation repointed an attachment. See [hook event contract](../decisions/hook-event-contract.md#activation-means-someone-chose-the-item).
 

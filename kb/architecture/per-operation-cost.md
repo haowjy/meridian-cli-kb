@@ -15,11 +15,11 @@ re-read (0.46 s). Explicit-ID wait, show and cancel also replay the log, 1–11 
 per command depending on the operation and corpus.
 
 The accepted fix is per-chat journals,
-[D-session-per-chat-journals](../decisions/state.md#d-session-per-chat-journals).
+[Session journals](../decisions/state.md#session-journals).
 #591 was closed as a duplicate of #418.
 
 **After #634 and #651 (v0.10.16).** Every per-operation session read now goes
-through one keyed seam ([contract](../decisions/state.md#d-session-read-seam)).
+through one keyed seam ([contract](../decisions/state.md#session-reads)).
 A read selects its chats with a byte prefilter and decodes only their rows, and a
 multi-chat read is one pass. Unfiltered folds per primary close went 7 → 0 and per
 runner 1 → 0. **The slope in bytes is still there**: every filtered pass reads the

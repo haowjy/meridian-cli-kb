@@ -42,6 +42,6 @@ Protect live spawn segments through finalization; harness exit alone does not me
 
 Cross-project queries take a point-in-time directory snapshot. They are a debugging path, so a registry and its stale-registration failure mode are unnecessary.
 
-## Byte offsets {#d-tel-binary-mode}
+## Byte offsets
 
 Tail cursors use byte offsets, avoiding text-mode translation and multibyte seek ambiguity.

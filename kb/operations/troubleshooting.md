@@ -162,7 +162,7 @@ and `spawns/<id>/launches/<n>/control_actions.jsonl` holds each ask with
 
 **Recovery:** `meridian spawn --continue <id> -p "..."`. For a long wait, start the job
 in the background and let the child run `spawn rearm --long --reason "..."` when asked.
-[Why there is one number](../decisions/completion-drain.md#d-one-waiting-number).
+[Why there is one number](../decisions/completion-drain.md#waiting-has-one-number).
 
 ---
 
@@ -173,7 +173,7 @@ stopped when its spawn closed.
 
 **What happened:** The parent ran `spawn done` or replied to the idle-limit ask. Either
 one closes it, and a close cancels running descendants and stops local background
-tasks ([why](../decisions/completion-drain.md#d-close-cancels-descendants)). A dead
+tasks ([why](../decisions/completion-drain.md#a-close-takes-what-it-started)). A dead
 parent backend cancels them too. `meridian spawn show <parent>` tells these apart: a
 parent that closed itself shows its usual result, and a dead one shows `failed` with
 `backend_dead_while_awaiting_done`.
@@ -198,7 +198,7 @@ hooks.PreToolUse=[]`, `--disable hooks`, a `hooks.state` override, or a project
 no hook loaded. Upgrade Codex or remove what turned hooks off. Dropping the scoped rules from
 the profile also works. A command the hook lets through is not a bug by itself: it
 matches rules against each command segment as written and is
-[not a sandbox](../decisions/tool-permissions.md#d-codex-shell-hook).
+[not a sandbox](../decisions/tool-permissions.md#codex-shell-hook).
 
 ---
 
@@ -393,5 +393,5 @@ git log --oneline -10
 - [../architecture/primary-terminal-ownership.md#known-gaps](../architecture/primary-terminal-ownership.md#known-gaps) — launcher signal-handling gap and terminal-output ownership
 - [../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations](../architecture/state-system/session-state.md#a-later-start-closes-abandoned-generations) — abandoned-generation repair
 - [../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops](../architecture/state-system/portable-history.md#capture-defers-to-a-live-owner-and-retries-when-it-stops) — capture deferral and retry
-- [../decisions/history-storage.md#d-abandoned-generation-closure](../decisions/history-storage.md#d-abandoned-generation-closure) — decision and rejected alternatives
+- [../decisions/history-storage.md#d-abandoned-generation-closure](../decisions/history-storage.md#a-later-start-of-the-same-chat-closes-earlier-generations-capture-defers-to-real-owners) — decision and rejected alternatives
 - [configuration-guide.md](configuration-guide.md) — workspace and config setup

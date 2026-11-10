@@ -8,7 +8,7 @@ describe current behavior. The [TUI research](../research/reaching-a-live-tui.md
 records the harness evidence; [#916](https://github.com/haowjy/meridian-cli/issues/916)
 tracks remaining edges.
 
-## Claude primary inbox {#d-claude-primary-inbox}
+## Claude primary inbox
 
 Claude's inbox was chosen over a TUI mod because it can deliver between tool
 calls, needs no additional listener and does not depend on a mod loading silently.
@@ -25,7 +25,7 @@ separates held, refused and delivered messages. A user can choose
 `crossSessionInbound: "accept"`; Meridian does not choose it for them. The inbox
 schema comes from the Claude binary and can change without notice.
 
-## Message frame {#d-spawn-message-frame}
+## Message frame
 
 A reply needs an address. Sender identity travels in text because
 every route carries it, unlike
@@ -35,15 +35,15 @@ and a session can move to another chat. A reply command is offered only when a
 socket file exists; that is a reachability indication, not a successful-send
 guarantee.
 
-## Message address {#d-spawn-message-address}
+## Message address
 
 Chat and
 spawn IDs are project-scoped, so cross-project addresses include the project root. A project-qualified ID syntax would require a registry Meridian
 does not have. The caller identity is captured before `-C` drops project-scoped
 environment IDs; restoring those IDs in the target environment would let a child
-there claim the caller's identity. See [chat ownership](chat-spawn-ownership.md#d-chat-names-own-session).
+there claim the caller's identity. See [chat ownership](chat-spawn-ownership.md#a-chat-names-its-own-session).
 
-## Delivery acknowledgement {#d-delivery-kind}
+## Delivery acknowledgement
 
 The route reports whether a harness acknowledged the request or the message was
 merely posted. Neither means the model read it. A missing field from an older
@@ -57,7 +57,7 @@ after cancellation, but an immediate session log can miss it. OpenCode V1's
 acknowledgement was assessed from code, without a running V1 server. See
 [delivery research](../research/reaching-a-live-tui.md#codex).
 
-## No retry after a possible write {#d-no-retry-after-write}
+## No retry after a possible write
 
 Only a refusal known to precede a write is retried. A timed-out Codex
 `turn/start` may already have started a turn, so retrying can start another.
@@ -65,7 +65,7 @@ An idempotency key was rejected because Claude and
 Codex cannot deduplicate a turn. See the
 [connection contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/connections/AGENTS.md).
 
-## Unified delivery {#d-unified-delivery}
+## Unified delivery
 
 The launcher serves a common socket instead of adding a CLI branch and separate
 reachability check for each primary harness. Advertising a reply route without a
@@ -86,7 +86,7 @@ peer-safety paragraph. A sender may wait for route discovery before failing when
 no route appears: the launcher waits for the harness to establish a route rather
 than predict availability from launch flags.
 
-## Session moves {#d-primary-session-move}
+## Session moves
 
 Codex and OpenCode routes stay on the first session and refuse after detecting a
 TUI move. Otherwise a message can run in an abandoned session, spend tokens or

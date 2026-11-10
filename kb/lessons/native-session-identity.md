@@ -18,8 +18,8 @@ A test helper is subject to the same read restrictions as the code it tests. A t
 
 ## An In-Place Projection Upgrade Breaks the Build Still Running
 
-A rebuildable index can still be live input to an older running build. Versioned index files let both builds coexist; see [history storage](../decisions/history-storage.md#d-history-index-schema-namespace) and [upgrade probing](dogfooding-pr-builds.md#probing-the-upgrade-path-needs-a-genuinely-old-build-and-old-state).
+A rebuildable index can still be live input to an older running build. Versioned index files let both builds coexist; see [history storage](../decisions/history-storage.md#each-index-schema-owns-its-own-files-never-migrate-in-place) and [upgrade probing](dogfooding-pr-builds.md#probing-the-upgrade-path-needs-a-genuinely-old-build-and-old-state).
 
-An integrity digest covers persisted bytes or stored JSON, not a reserialization through an evolving model. See [portable digest decision](../decisions/history-storage.md#d-history-portable-digest-stored-json).
+An integrity digest covers persisted bytes or stored JSON, not a reserialization through an evolving model. See [portable digest decision](../decisions/history-storage.md#verify-archive-digests-over-the-stored-record-json).
 
 Recovery inference must measure wrong bindings as well as yield: a wrong immutable binding is permanent.

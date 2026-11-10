@@ -18,7 +18,7 @@ OpenCode's managed-primary model selection cannot observe an unsent TUI-local
 choice through HTTP, and its GET followed by POST is not atomic against a
 concurrent TUI submission. On V1, a `spawn message` follows the last committed
 agent rather than a TUI agent switch that has not yet produced a turn. The
-[delivery decision](../decisions/primary-inject.md#d-unified-delivery) explains
+[delivery decision](../decisions/primary-inject.md#unified-delivery) explains
 why the observer carries messages.
 
 ## Claude launch env

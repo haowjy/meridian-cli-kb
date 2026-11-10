@@ -33,7 +33,7 @@ A live check showed Claude 2.1.319 keeps it. Check a harness behaviour in a live
 session, not from a file the harness once wrote.
 
 The fix under review is in
-[D-escape-loads](../decisions/sandbox-platform-access.md#d-escape-loads).
+[Escaped process inputs](../decisions/sandbox-platform-access.md#escaped-process-inputs).
 
 ## A Host Accepting a Message Is Not the Model Receiving It
 

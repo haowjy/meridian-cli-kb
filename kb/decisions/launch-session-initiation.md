@@ -8,7 +8,7 @@ A spawn's goal is structured spawn-level state, not work-level state or only pro
 
 ### `completion_contract` placed after `context_prompt` in `SYSTEM_INSTRUCTION_BLOCK_ORDER`
 
-A spawn's per-launch goal contract now goes in the first user turn; a primary's goal is system guidance. See [stable system prompt](launch.md#d-stable-system-prompt).
+A spawn's per-launch goal contract now goes in the first user turn; a primary's goal is system guidance. See [stable system prompt](launch.md#the-system-prompt-depends-only-on-what-defines-the-conversation-2026-10).
 
 `--fork` preserves identity-shaping inputs for cache locality; `--fork-fresh` permits identity changes. Prior context from `--from` goes in the user turn: prior reports can contain untrusted content, and placing them in the system prompt would give them authority and disturb the shared cache prefix.
 

@@ -4,7 +4,7 @@ Entries without issue links are untracked and need verification before work star
 
 ## Managed primary
 
-[Primary message routes](../decisions/primary-inject.md#d-primary-session-move) cannot reliably follow TUI session moves. OpenCode can send to the old session before the human types in the new one; a Codex subagent resumed without `thread/started` may be mistaken for a move (inferred, not reproduced). OpenCode V1 move detection is untested. An old Pi listener could unlink a newer listener's socket if the old process outlives its launcher. See [#916](https://github.com/haowjy/meridian-cli/issues/916).
+[Primary message routes](../decisions/primary-inject.md#session-moves) cannot reliably follow TUI session moves. OpenCode can send to the old session before the human types in the new one; a Codex subagent resumed without `thread/started` may be mistaken for a move (inferred, not reproduced). OpenCode V1 move detection is untested. An old Pi listener could unlink a newer listener's socket if the old process outlives its launcher. See [#916](https://github.com/haowjy/meridian-cli/issues/916).
 
 ## State & spawn
 

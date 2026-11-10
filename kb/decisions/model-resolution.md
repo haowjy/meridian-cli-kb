@@ -52,10 +52,10 @@ A canonical model can need different native IDs, such as a provider-qualified ID
 
 Prompting guidance resolves an agent through the same policy as launch before looking up its model guidance. A shallow duplicate resolver can give guidance for a model that routing later replaces. Agent names are tried before aliases because callers normally ask about the agent they plan to spawn. Guidance is on demand rather than added to every launch prompt.
 
-### D-model-policy-rule-beats-profile-default {#d-model-policy-rule-beats-profile-default}
+### A matching model-policy rule beats the profile default
 
 A matching profile model-policy rule beats the profile's top-level value; otherwise a top-level effort would disable the profile's own per-model rules. Overlay scalars have higher precedence. See [config precedence](../concepts/config-precedence.md#routing-vs-policy-fields).
 
-### D-effort-lowering-per-harness {#d-effort-lowering-per-harness}
+### Each harness lowers effort to what it supports
 
 Each harness lowers resolved effort to its own capability and reports unsupported effects. Current adaptive-thinking Claude models did not turn reasoning off in the tested configurations, so projecting switches as if they did would mislead users. See `docs/agent-profiles.md` and `src/meridian/lib/harness/projections/.context/CONTEXT.md`.

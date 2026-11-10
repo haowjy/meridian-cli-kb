@@ -2,7 +2,7 @@
 
 The test tiers and no-flaky-tests rule live in meridian-cli `tests/AGENTS.md`.
 
-## D-no-flaky-tests: fix it or delete it
+## Fix it or delete it
 
 Before deleting a flaky test, break the behavior it protects and run the rest of the suite. If nothing else fails, make its coverage deterministic instead. A flake can expose a product bug, so investigate the product as well as the test. See [test determinism](../codebase/test-determinism.md).
 
