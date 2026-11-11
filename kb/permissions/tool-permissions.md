@@ -1,6 +1,6 @@
 # Profile tool permissions
 
-A profile states tool, sandbox and approval policy; each harness enforces what its native mechanisms can express, and Meridian reports the rest. Current per-harness behavior and gaps: meridian-cli `docs/agent-profiles.md`, `src/meridian/lib/safety/.context/CONTEXT.md` and `src/meridian/lib/harness/projections/.context/CONTEXT.md`.
+A profile states tool, sandbox and approval policy; each harness enforces what its native mechanisms can express, and Meridian reports the rest. Which rule wins when several match, and project-wide denies: [tool rule precedence](tool-rule-precedence.md). Current per-harness behavior and gaps: meridian-cli `docs/agent-profiles.md`, `src/meridian/lib/safety/.context/CONTEXT.md` and `src/meridian/lib/harness/projections/.context/CONTEXT.md`.
 
 ## Enforcement is native
 
@@ -34,7 +34,7 @@ A tools list grants the named tools; it doesn't mean "only these". A map with `'
 
 ## Permission sets add across layers
 
-Tool grants and denies, and network host sets, add across configuration surfaces. A package profile can't replace a consumer's deny set: a dependency must never erase the consumer's restriction.
+Network host sets and the `allowed` and `disallowed` lists of `[agents.<name>.tools]` add across configuration surfaces. Tool rule tables (`[settings.tools]` and the map entries of `[agents.<name>.tools]`) merge by key instead, so the user's most specific file wins; how they combine with a profile's rules is in [tool rule precedence](tool-rule-precedence.md). A package can't replace a consumer's deny: it can't ship `[settings]`, and a profile's rules never replace a project-wide one. A dependency must never erase the consumer's restriction.
 
 ## Platform grants
 

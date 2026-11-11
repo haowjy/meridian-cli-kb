@@ -34,7 +34,7 @@ The CLI and the MCP server share one extension registry and operations layer (so
 - **Launching** — [launch system](launch/launch-system.md), [continue and fork](launch/continue-and-fork.md), [spawn and chat references](launch/session-references.md), [primaries](launch/primaries.md), [process scope](launch/process-scope.md), [session browse](launch/session-browse.md).
 - **Spawns and sessions** — [spawn lifecycle](spawns/lifecycle.md), [completion hold](spawns/completion-hold.md), [results and waiting](spawns/results-and-waiting.md), [messaging a live session](spawns/messaging.md), [idle notifications](spawns/idle-notifications.md).
 - **[Harnesses](harnesses/overview.md)** — [Claude](harnesses/claude.md), [Pi](harnesses/pi.md), [OpenCode](harnesses/opencode.md), [Cursor](harnesses/cursor.md).
-- **Permissions** — [tool permissions](permissions/tool-permissions.md), [sandbox projection](permissions/sandbox-projection.md), [workspace](permissions/workspace.md).
+- **Permissions** — [tool permissions](permissions/tool-permissions.md), [tool rule precedence](permissions/tool-rule-precedence.md), [sandbox projection](permissions/sandbox-projection.md), [workspace](permissions/workspace.md).
 - **Mars** — [package management](mars/package-management.md), [model resolution](mars/model-resolution.md), [skills](mars/skills.md), [portable hooks](mars/package-hooks.md), [launch bundle](mars/launch-bundle.md).
 - **Other mechanisms** — [hooks](hooks.md), [telemetry](telemetry.md).
 - **Working on the code** — [codebase guide](codebase/guide.md), [testing](codebase/testing.md), [verifying changes](codebase/verifying-changes.md), [releasing](codebase/releasing.md), [the Rust rewrite](codebase/rust-rewrite.md).
