@@ -20,7 +20,8 @@ launch.
 
 Each push and warning fires at most once between user prompts. Finished turns move
 pending deadlines but do not re-enable sent stages. Durable state lets adapter reloads
-rebuild timers without sending duplicates.
+rebuild timers without sending duplicates. The Claude mod's keepwarm pings
+(below) follow the one warning and leave this rule as it is.
 
 Reopening a primary through Meridian closes the previous idle stretch before the harness
 starts: the user has returned, so the old push and warning are stale. Reloads do not run
@@ -86,6 +87,52 @@ Interactive Pi primaries default to `PI_CACHE_RETENTION=long`, unless the user s
 so more sessions can get a cache warning. Long Anthropic cache writes cost more;
 `short` opts out. Pi's `openai-codex` adapter did not apply the setting in the version
 observed.
+
+## Keepwarm pings (Claude)
+
+> Not on `main` yet (2026-11-11): built and reviewed, waiting to merge. Delete this
+> note once it merges, or the section if it doesn't.
+
+On an interactive Claude primary, the user can turn on keepwarm: after the cache
+warning, the `meridian-idle` mod sends the model a short prompt so the cache stays
+warm while the user is away. How it times, submits and stops pings is in the mod's
+`README.md` (source checkout `src/meridian/claude_runtime/meridian-idle/`).
+
+- **The warning places ping 1.** `idle.warn_minutes` defaults to 10 for every
+  harness, so on a one-hour Claude cache the warning and the first ping land 50
+  minutes after the turn. The default cannot differ by harness (per-harness idle
+  config has only `enabled` and `ttl_seconds`), so Pi, Codex and OpenCode get the
+  same 10-minute lead. Where their TTL is an estimate, that is less margin; a user
+  who needs more sets `idle.warn_minutes`.
+- **The mod times pings 2 and 3, and they send no notice.** Core still fires the
+  warning once per stretch on every harness. Why core does not re-claim the warning
+  for each ping: `src/meridian/lib/idle/.context/CONTEXT.md`.
+- **Never on a cold cache.** A ping on an expired cache pays for the rebuild it was
+  meant to avoid. So a ping is dropped when it cannot go out a minute before expiry,
+  and a 5-minute cache gets no warning, so no pings.
+- **At most three per absence.** A cache read costs about 0.1× the input and
+  rebuilding a one-hour cache about 2×, so three pings keep the cache warm for about
+  3½ hours for less than one rebuild.
+- **Only the user turns it on.** Keepwarm is off by default and the model cannot turn
+  it on. It resets on restart and `/clear`, because `/clear` starts a new
+  conversation. A reply of `stop-waiting` ends pings for this absence but leaves the
+  mode on: the model can neither turn the mode on nor off.
+- **Warming, not working.** The user allowed keeping the cache warm, not resuming
+  work, so during a ping's turn main-loop tool calls that are not read-only are
+  denied. The ping is sent as the plugin, not as the user, so the model does not read
+  it as the user being back, and the mod does not count it as a return.
+- **The your-turn push keeps the real reply.** A ping's turn re-arms idle like any
+  turn, so it can still place a push that was owed. The push quotes the last answer
+  from a non-ping turn, not the model's reply to the ping.
+- **It is an experiment.** Each ping's outcome (stopped, continued or failed, any
+  denied tools, a reply excerpt) is kept in the plugin's `$.store`, and
+  `/meridian-idle` prints the tally. The ping says how to stop but not when, so the
+  tally mostly measures whether the model waits.
+
+Keepwarm runs only in the Claude mod. A Claude mod can submit a prompt into the
+live TUI and deny tool calls during that turn. A Meridian hook outside Claude
+could only use `spawn message`, which starts a visible turn through the inbound
+gate. Spawned children get no pings ([completion hold](completion-hold.md#waiting-has-one-number)).
 
 ## OpenCode 2.x sensor
 

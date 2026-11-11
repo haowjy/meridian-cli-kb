@@ -23,7 +23,7 @@ A child with no writable completion-signal channel gets no confirmation ask, sin
 The idle limit is the only waiting window, independent of provider cache limits, which change. At expiry the child gets one ask naming its running work and what closing will stop; a reply closes, `rearm` keeps it open.
 
 - **No work limit by default.** The parent can cancel, `--timeout` is an opt-in ceiling, and the idle limit catches stalled work.
-- **No keep-warm pings.** A waiting child takes a cold wake or closes for its owner to resume; pings add lifecycle machinery and recurring cost for a small saving.
+- **No keep-warm pings.** A waiting child takes a cold wake or closes for its owner to resume; pings add lifecycle machinery and recurring cost for a small saving. Interactive Claude primaries can opt in to [keepwarm](idle-notifications.md#keepwarm-pings-claude).
 - **Parents wait by ending their turn.** A spawned parent ends its turn and is woken with finished children's report paths: repeated foreground waits burn turns and can cost far more. The cost is that a parent can't react to a child before it closes. Primaries keep `spawn wait`. A parent with unread child results is woken before it closes, including for a child that finished during its turn.
 
 ## A close takes what it started

@@ -41,6 +41,19 @@ Live Haiku TUI probes, `claude-code.d.ts`, and `claude plugin test` on Claude Co
 | Module shape | Helpers that take `$` must be top-level function declarations, or the module validator rejects them. The hooks environment has `AbortController` but no `setTimeout`. |
 
 
+## Plugin state, store and tool checks (2.1.322)
+
+Live TUI checks and `claude plugin validate` on Claude Code 2.1.322, 2026-11-11, while building the `meridian-idle` keepwarm pings.
+
+| Behaviour | Observed |
+|---|---|
+| `$.state` lifetime | Survives a hot reload, which module-level variables do not. A restart and `/clear` both reset it. |
+| `$.store` lifetime | Survives restart, `/clear` and reload. It is one store per plugin, shared by every session running that plugin, so a read-modify-write from two sessions can lose a write. |
+| Declaring `$.state` keys | `claude plugin validate` refuses a `$.state` key the plugin does not declare. Declare it in a `.d.ts` that extends `PluginState` in `declare module 'claude-code'`, named by the `types` field of `plugin.json`. The `{ plugin, key }` reference must be a literal const in the module that registers hooks. |
+| `tool.check` events | The hook also sees other plugins' permission queries, which carry no `tool_use_id`. A gate meant for the model's tool calls must pass events without one. A plugin `deny` stops the call, and the model sees the plugin's reason. |
+| Importing a sibling module | Write `./keepwarm`, not `./keepwarm.ts`: TypeScript refuses the suffix without `allowImportingTsExtensions`, and the host loads either form. |
+
+
 ## The inbox socket
 
 Every session listens on a Unix socket for messages from other sessions. Claude
@@ -154,6 +167,7 @@ settings, including `refuse`.
 - A settings-file command `Stop` hook returning `block` under `-p`.
 - Claude Code versions other than 2.1.302, apart from the separately noted
   rejected-surface `$.ui.status` checks on 2.1.303 and 2.1.306, the 2.1.307
-  idle-delivery hooks, and the 2.1.310 inbound-gate reading. The inbox needs a version that
+  idle-delivery hooks, the 2.1.310 inbound-gate reading, and the 2.1.322 plugin
+  state and tool-check rows. The inbox needs a version that
   publishes the socket; Meridian's error message names 2.1.224 as the minimum.
   Bare mode has no socket.
