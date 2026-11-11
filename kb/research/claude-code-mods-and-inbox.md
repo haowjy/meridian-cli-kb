@@ -43,13 +43,13 @@ Live Haiku TUI probes, `claude-code.d.ts`, and `claude plugin test` on Claude Co
 
 ## Plugin state, store and tool checks (2.1.322)
 
-Live TUI checks and `claude plugin validate` on Claude Code 2.1.322, 2026-11-11, while building the `meridian-idle` keepwarm pings.
+Live TUI checks and `claude plugin validate` on Claude Code 2.1.322, 2026-11-11.
 
 | Behaviour | Observed |
 |---|---|
 | `$.state` lifetime | Survives a hot reload, which module-level variables do not. A restart and `/clear` both reset it. |
 | `$.store` lifetime | Survives restart, `/clear` and reload. It is one store per plugin, shared by every session running that plugin, so a read-modify-write from two sessions can lose a write. |
-| Declaring `$.state` keys | `claude plugin validate` refuses a `$.state` key the plugin does not declare. Declare it in a `.d.ts` that extends `PluginState` in `declare module 'claude-code'`, named by the `types` field of `plugin.json`. The `{ plugin, key }` reference must be a literal const in the module that registers hooks. |
+| Declaring `$.state` keys | `claude plugin validate` refuses a `$.state` key the plugin does not declare. Declare it in a `.d.ts` that extends `PluginState` in `declare module 'claude-code'`, named by the `types` field of `plugin.json`. The module that registers hooks must name the key in a literal, such as `const KEY = { plugin: 'meridian-idle', key: 'keepwarm' } as const`; a reference built elsewhere or computed is refused. |
 | `tool.check` events | The hook also sees other plugins' permission queries, which carry no `tool_use_id`. A gate meant for the model's tool calls must pass events without one. A plugin `deny` stops the call, and the model sees the plugin's reason. |
 | Importing a sibling module | Write `./keepwarm`, not `./keepwarm.ts`: TypeScript refuses the suffix without `allowImportingTsExtensions`, and the host loads either form. |
 

@@ -108,26 +108,30 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   warning once per stretch on every harness. Why core does not re-claim the warning
   for each ping: `src/meridian/lib/idle/.context/CONTEXT.md`.
 - **Never on a cold cache.** A ping on an expired cache pays for the rebuild it was
-  meant to avoid. So a ping is dropped when it cannot go out a minute before expiry,
-  and a 5-minute cache gets no warning, so no pings.
-- **At most three per absence.** A cache read costs about 0.1× the input and
-  rebuilding a one-hour cache about 2×, so three pings keep the cache warm for about
-  3½ hours for less than one rebuild.
+  meant to avoid. So a ping is dropped when it cannot go out a minute before expiry.
+  A cache shorter than `warn_minutes` gets no warning, since its warning time is
+  already past at the turn's end, so a 5-minute cache gets no pings at the default.
+- **At most three per absence.** On Anthropic's pricing a cache read costs about
+  0.1× the base input price and writing a one-hour cache 2×, so three pings keep the
+  cache warm for about 3½ hours for less than one rebuild
+  ([Anthropic prompt-caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)).
 - **Only the user turns it on.** Keepwarm is off by default and the model cannot turn
   it on. It resets on restart and `/clear`, because `/clear` starts a new
   conversation. A reply of `stop-waiting` ends pings for this absence but leaves the
   mode on: the model can neither turn the mode on nor off.
 - **Warming, not working.** The user allowed keeping the cache warm, not resuming
-  work, so during a ping's turn main-loop tool calls that are not read-only are
-  denied. The ping is sent as the plugin, not as the user, so the model does not read
+  work, so during a ping's turn the mod denies main-loop tool calls that Claude does
+  not mark read-only. Subagent tool calls are not gated. The ping is sent as the plugin, not as the user, so the model does not read
   it as the user being back, and the mod does not count it as a return.
 - **The your-turn push keeps the real reply.** A ping's turn re-arms idle like any
   turn, so it can still place a push that was owed. The push quotes the last answer
   from a non-ping turn, not the model's reply to the ping.
 - **It is an experiment.** Each ping's outcome (stopped, continued or failed, any
   denied tools, a reply excerpt) is kept in the plugin's `$.store`, and
-  `/meridian-idle` prints the tally. The ping says how to stop but not when, so the
-  tally mostly measures whether the model waits.
+  `/meridian-idle` prints the tally. The ping tells the model how to stop but not
+  when stopping is right, so the records show how models read the prompt: a bare
+  acknowledgement means the model waited, and a denied tool or a reply that starts
+  work means it did not.
 
 Keepwarm runs only in the Claude mod. A Claude mod can submit a prompt into the
 live TUI and deny tool calls during that turn. A Meridian hook outside Claude
