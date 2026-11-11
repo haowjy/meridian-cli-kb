@@ -90,9 +90,6 @@ observed.
 
 ## Keepwarm pings (Claude)
 
-> Not on `main` yet (2026-11-11): built and reviewed, waiting to merge. Delete this
-> note once it merges, or the section if it doesn't.
-
 On an interactive Claude primary, the user can turn on keepwarm: after the cache
 warning, the `meridian-idle` mod sends the model a short prompt so the cache stays
 warm while the user is away. How it times, submits and stops pings is in the mod's
