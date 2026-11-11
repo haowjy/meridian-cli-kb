@@ -4,7 +4,7 @@ The KB holds what spans more than one directory and can't be read from the sourc
 
 ## Writing
 
-- State the behaviour and its reason as current truth: no attribution, names, session or spawn ids, release status, or history of the page. The exception is `corrections.md`: each occurrence keeps its session ID and date, so the next miner can tell a repeat from a recount and see whether a mistake recurred after the prompt that should prevent it changed.
+- State the behaviour and its reason as current truth: no attribution, names, session or spawn ids, release status, or history of the page.
 - Keep it short. Don't describe what the code already shows, and don't keep inventories of files, functions or fields. Anything cut can be researched again or asked of the owner.
 - A rule whose reason nobody can state gets deleted, not kept. Rules without reasons get turned into code nobody can justify.
 - Only what the owner chose, or what shipped, belongs here. An option they floated or a question they asked stays in the work directory until they choose.

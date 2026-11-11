@@ -51,5 +51,3 @@ External facts, probed live, that the topic pages rest on. Recheck them after up
 - [How harnesses load plugins](research/harness-plugin-loading.md).
 - [OpenCode config and prompt semantics](research/opencode-config-semantics.md).
 - [Tailscale serve and funnel semantics](research/tailscale-serve-semantics.md), behind `meridian artifact serve`.
-
-The [corrections register](corrections.md) records recurring agent mistakes and their remedies.
