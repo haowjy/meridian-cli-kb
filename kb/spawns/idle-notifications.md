@@ -126,12 +126,13 @@ warm while the user is away. How it times, submits and stops pings is in the mod
 - **The your-turn push keeps the real reply.** A ping's turn re-arms idle like any
   turn, so it can still place a push that was owed. The push quotes the last answer
   from a non-ping turn, not the model's reply to the ping.
-- **It is an experiment.** Each ping's outcome (stopped, continued or failed, any
-  denied tools, a reply excerpt) is kept in the plugin's `$.store`, and
-  `/meridian-idle` prints the tally. The ping tells the model how to stop but not
-  when stopping is right, so the records show how models read the prompt: a bare
-  acknowledgement means the model waited, and a denied tool or a reply that starts
-  work means it did not.
+- **The transcript is the record.** The mod keeps no log of pings. Each one is in
+  the session transcript as a plugin prompt starting
+  `[meridian-idle keepwarm <nonce>]`, with the model's reply and any denied tool
+  call after it, so whether models actually wait is read from sessions. The ping
+  tells the model how to stop but not when stopping is right: a bare
+  acknowledgement means it waited, and a denied tool or a reply that starts work
+  means it did not.
 
 Keepwarm runs only in the Claude mod. A Claude mod can submit a prompt into the
 live TUI and deny tool calls during that turn. A Meridian hook outside Claude
