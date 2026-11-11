@@ -2,9 +2,6 @@
 
 How a tool call is decided when several rules match it, and how a project-wide deny joins an agent's own rules. User-facing behavior: Mars `docs/config/mars-toml.md` ("Project-wide tool rules"), meridian-cli `docs/agent-profiles.md` ("Project-wide tool rules") and `docs/upgrading.md`. How harnesses enforce rules at all: [tool permissions](tool-permissions.md).
 
-> [!NOTE]
-> Project-wide denies and the map form of `[agents.<name>.tools]` are on `feat/project-tool-rules` in mars-agents (Mars 0.29.0) and meridian-cli, not yet merged. Delete this note once both are on `main`.
-
 ## The chosen rule: strictest match, narrowness never matters
 
 For a tool call, take every rule whose key matches it. Any `deny` denies; otherwise any `ask` asks; otherwise any `allow` runs. With no matching rule, `'*'` decides, and without `'*'`, `approval` does. How narrow a key is never matters. This is Claude Code's own order and Codex's rules engine's, written in Mars's `tools:` grammar.
