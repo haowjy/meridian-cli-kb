@@ -6,7 +6,7 @@ and 1.19.3 against a local logging provider that recorded the actual provider
 request, and read from the tagged sources listed at the end. Several of these contradict the config
 schema and `--help`, so recheck them on a new major version before relying on
 them. How Meridian uses them:
-[OpenCode Prompt Delivery](../architecture/opencode-harness.md).
+[OpenCode](../harnesses/opencode.md).
 
 ## Prompt channels
 

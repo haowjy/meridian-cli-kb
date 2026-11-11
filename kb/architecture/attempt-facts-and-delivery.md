@@ -1,9 +1,0 @@
-# Attempt facts
-
-## One consumer per event stream
-
-`SpawnManager` consumes the connection's event stream and fans events out to hooks and subscribers. Claude's stream permits one consumer, so any second reader would compete with the drain loop. Pi's raw `agent_end` stays observable, but its decoded attempt outcome waits for `agent_settled`, because a native retry or compaction can follow `agent_end` ([Pi runtime](pi-runtime.md#quiescence)).
-
-## Attempt folds
-
-Attempt facts are folded from the events one turn actually observed, not from a time window over a later transcript; native transcripts serve conversation reads separately ([native transcript reads](native-transcript-reads.md)). If a fold fails, a known harness-specific usage total survives, but a generic partial sum is discarded rather than shown as a total. Unknown usage is not zero. A crashed runner loses its in-memory fold, so recovery relies on durable report and lifecycle evidence.

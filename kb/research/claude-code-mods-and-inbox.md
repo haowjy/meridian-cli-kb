@@ -1,6 +1,6 @@
 # Claude Code: Mods Under `-p`, and the Cross-Session Inbox
 
-These probes compare a mod running inside Claude Code with its cross-session inbox as ways to reach a live session from another process. Claude Code 2.1.302 was probed on Linux; later version-specific findings are marked below. See [mods API](https://code.claude.com/docs/en/plugins/mods/api), [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket), and [Meridian's inbox choice](../architecture/primary-messaging.md).
+These probes compare a mod running inside Claude Code with its cross-session inbox as ways to reach a live session from another process. Claude Code 2.1.302 was probed on Linux; later version-specific findings are marked below. See [mods API](https://code.claude.com/docs/en/plugins/mods/api), [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging#the-sessions-inbox-socket), and [Meridian's inbox choice](../spawns/messaging.md).
 
 ## Mods
 
@@ -23,7 +23,7 @@ These probes compare a mod running inside Claude Code with its cross-session inb
 
 ## Mod hooks for idle delivery (2.1.307)
 
-Live Haiku TUI probes, `claude-code.d.ts`, and `claude plugin test` on Claude Code 2.1.307. Main-loop events carry no `agentId`; see [child result delivery](../concepts/child-result-delivery.md).
+Live Haiku TUI probes, `claude-code.d.ts`, and `claude plugin test` on Claude Code 2.1.307. Main-loop events carry no `agentId`; see [results and waiting](../spawns/results-and-waiting.md).
 
 | Behaviour | Observed |
 |---|---|

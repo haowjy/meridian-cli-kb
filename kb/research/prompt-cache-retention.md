@@ -71,7 +71,7 @@ A new third-party-client measurement needs distinct
 prefixes or serial runs so one request cannot refresh another gap's entry.
 See [this discussion of the OpenAI statement](https://www.reddit.com/r/codex/comments/1xb9prz/caching_upgraded_massively/). The signed-in product statement was
 not independently reverified during this capture; the API options above were. Meridian's operational choice is
-[completion hold](../architecture/completion-drain.md).
+[completion hold](../spawns/completion-hold.md).
 
 ## Anthropic retention, which OpenCode and Pi inherit
 
@@ -103,7 +103,7 @@ Pi sources: [`providers/xai.ts`](https://github.com/earendil-works/pi/blob/main/
 
 ## Meridian policy
 
-See [idle TTL detection](../architecture/idle-notifications.md#cache-ttl) and [idle notifications](../architecture/idle-notifications.md) for Meridian's use of these facts.
+See [idle TTL detection](../spawns/idle-notifications.md#cache-ttl) and [idle notifications](../spawns/idle-notifications.md) for Meridian's use of these facts.
 
 ## Does the compaction request read the cache?
 

@@ -1,6 +1,6 @@
 # Meridian knowledge base
 
-The KB holds what spans more than one directory and can't be read from the source: cross-cutting intent, the reason behind a behaviour, external facts about harnesses and upstream tools, and open questions. Directory contracts live beside the code in `AGENTS.md` and `.context/`; user guidance lives in `docs/`. Link to those instead of copying them.
+The KB holds what spans more than one directory and can't be read from the source: cross-cutting intent, the reason behind a behaviour, and external facts about harnesses and upstream tools. Directory contracts live beside the code in `AGENTS.md` and `.context/`; user guidance lives in `docs/`. Link to those instead of copying them.
 
 ## Writing
 
@@ -14,7 +14,7 @@ The KB holds what spans more than one directory and can't be read from the sourc
 
 ## Structure
 
-`index.md` is a short map of the directories and the pages to read first. A topic page holds the mechanism and the reasons behind it together; `architecture/idle-notifications.md` is the model. A topic gets its own directory once it has several pages.
+`index.md` is the map: what Meridian is, which files it owns, and the topic directories (`state/`, `launch/`, `spawns/`, `harnesses/`, `permissions/`, `mars/`, `codebase/`, `operations/`, `research/`). A topic page holds the mechanism and the reasons behind it together; `spawns/idle-notifications.md` is the model. One topic is one page: extend the page that owns a fact rather than adding a page beside it, and give a topic its own directory once it has several pages. `research/` holds external facts probed live; a lesson from a failure goes on the page for the mechanism it concerns, not on a lessons page. Deferred work goes to the issue tracker or the directory's `.context/TODO` and `FUTURE`, not to the KB.
 
 ## Landing changes
 
