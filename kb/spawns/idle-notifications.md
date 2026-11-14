@@ -112,10 +112,20 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   0.1× the base input price and writing a one-hour cache 2×, so three pings keep the
   cache warm for about 3½ hours for less than one rebuild
   ([Anthropic prompt-caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)).
-- **Only the user turns it on.** Keepwarm is off by default and the model cannot turn
-  it on. It resets on restart and `/clear`, because `/clear` starts a new
-  conversation. A reply of `stop-waiting` ends pings for this absence but leaves the
-  mode on: the model can neither turn the mode on nor off.
+- **The user or their config turns it on, never the model.** Keepwarm costs
+  money, so it is opt-in: `[harness.claude.idle] keepwarm` (default `false`) sets
+  where every session starts, and `/keepwarm on|off` overrides that for the
+  session. Core answers the default in `meridian idle config`, so the mod still
+  reads no Meridian config itself. A restart, resume or `/clear` returns to the
+  config default, because `/clear` starts a new conversation. The model can
+  neither turn the mode on nor off.
+- **A stretch's pings end on `stop-waiting` or a compaction.** Both leave the
+  mode on for the next absence. The ping and the denied-tool reason say that
+  `stop-waiting` means the model stops waiting for the user and accepts the cache
+  going cold, so a model that stops knows what it gives up. A compaction of the
+  main conversation ends them because the cache they protected is gone: a ping
+  would only prefill the new summary. Subagent compactions and `precompute`
+  leave the main cache alone and change nothing.
 - **Warming, not working.** The user allowed keeping the cache warm, not resuming
   work, so during a ping's turn the mod denies main-loop tool calls that Claude does
   not mark read-only. Subagent tool calls are not gated. The ping is sent as the plugin, not as the user, so the model does not read
@@ -127,7 +137,7 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   the session transcript as a plugin prompt starting
   `[meridian-idle keepwarm <nonce>]`, with the model's reply and any denied tool
   call after it, so whether models actually wait is read from sessions. The ping
-  tells the model how to stop but not when stopping is right: a bare
+  tells the model how to stop and what it costs, but not when stopping is right: a bare
   acknowledgement means it waited, and a denied tool or a reply that starts work
   means it did not.
 
