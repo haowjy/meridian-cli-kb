@@ -97,29 +97,32 @@ warm while the user is away. How it times, submits and stops pings is in the mod
 
 - **The warning places ping 1.** `idle.warn_minutes` defaults to 10 for every
   harness, so on a one-hour Claude cache the warning and the first ping land 50
-  minutes after the turn. The default cannot differ by harness (per-harness idle
-  config has only `enabled` and `ttl_seconds`), so Pi, Codex and OpenCode get the
-  same 10-minute lead. Where their TTL is an estimate, that is less margin; a user
+  minutes after the turn. `warn_minutes` cannot differ by harness (per-harness idle
+  config has `enabled`, `ttl_seconds`, `keepwarm` and `keepwarm_pings`), so Pi,
+  Codex and OpenCode get the same 10-minute lead. Where their TTL is an estimate, that is less margin; a user
   who needs more sets `idle.warn_minutes`.
-- **The mod times pings 2 and 3, and they send no notice.** Core still fires the
+- **The mod times the later pings, and they send no notice.** Core still fires the
   warning once per stretch on every harness. Why core does not re-claim the warning
   for each ping: `src/meridian/lib/idle/.context/CONTEXT.md`.
 - **Never on a cold cache.** A ping on an expired cache pays for the rebuild it was
-  meant to avoid. So a ping is dropped when it cannot go out a minute before expiry.
+  meant to avoid. So a ping that cannot go out a minute before expiry is dropped,
+  and that ends the stretch's pings.
   A cache shorter than `warn_minutes` gets no warning, since its warning time is
   already past at the turn's end, so a 5-minute cache gets no pings at the default.
-- **At most three per absence.** On Anthropic's pricing a cache read costs about
+- **At most `keepwarm_pings` per stretch (default three, 1–10).** On Anthropic's pricing a cache read costs about
   0.1× the base input price and writing a one-hour cache 2×, so three pings keep the
   cache warm for about 3½ hours for less than one rebuild
   ([Anthropic prompt-caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)).
 - **The user or their config turns it on, never the model.** Keepwarm costs
-  money, so it is opt-in: `[harness.claude.idle] keepwarm` (default `false`) sets
-  where every session starts, and `/keepwarm on|off` overrides that for the
-  session. Core answers the default in `meridian idle config`, so the mod still
+  money, so it is opt-in: `[idle] keepwarm` (default `false`, overridable under
+  `[harness.<harness>.idle]`) sets where every session starts, and
+  `/keepwarm on|off` overrides that for the session. The keys are global because
+  keepwarm is one preference timed from the provider's cache lifetime; the harness
+  is only the adapter that can act on it, Claude today. Core answers the default in `meridian idle config`, so the mod still
   reads no Meridian config itself. A restart, resume or `/clear` returns to the
   config default, because `/clear` starts a new conversation. The model can
   neither turn the mode on nor off.
-- **A stretch's pings end on `stop-waiting` or a compaction.** Both leave the
+- **A stretch's pings end on `stop-waiting`, a compaction, or a cold deadline.** Both leave the
   mode on for the next absence. The ping and the denied-tool reason say that
   `stop-waiting` means the model stops waiting for the user and accepts the cache
   going cold, so a model that stops knows what it gives up. A compaction of the
