@@ -109,7 +109,7 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   and that ends the stretch's pings.
   A cache shorter than `warn_minutes` gets no warning, since its warning time is
   already past at the turn's end, so a 5-minute cache gets no pings at the default.
-- **At most `keepwarm_pings` per stretch (default three, no upper bound).** On Anthropic's pricing a cache read costs about
+- **At most `keepwarm_pings` per stretch (default three, no upper bound; 0 or less turns keepwarm off).** On Anthropic's pricing a cache read costs about
   0.1× the base input price and writing a one-hour cache 2×, so three pings keep the
   cache warm for about 3½ hours for less than one rebuild
   ([Anthropic prompt-caching pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)).
