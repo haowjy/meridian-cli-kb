@@ -12,6 +12,10 @@ A conversation becomes unavailable when its native transcript disappears and no 
 
 A last-observed chat may have no transcript yet; that absence is not a reason to fall back to the entry chat. Pi's tracked view follows its reopen lineage, while an explicit file read can show raw journal order ([Pi](../harnesses/pi.md#journal-topology-and-readback)).
 
+## The default view is the conversation
+
+`session log` shows the user's messages and the assistant's replies by default; `--tools` adds tool steps and injected messages. Its main readers, a session catching up on an earlier one and session mining for what the user said, need that back-and-forth, and on a typical lead session tool traffic is about two-thirds of the bytes. Each user message is its own entry: when entries mixed roles, a message typed mid-turn sat between two shell commands and a reader skimming for the user missed it. Entry numbers come from the full transcript, so a number printed by one view opens the same entry in the other. Text Meridian injects as a user turn carries a `[Meridian]` marker, because the transcript shows no harness tag for it and it would otherwise read as the user. Classification rules per harness: `src/meridian/lib/ops/.context/CONTEXT.md`.
+
 ## Search: an index nominates, native text verifies
 
 The search index is a disposable trigram projection keyed by native source. It nominates candidates, each verified against normalized native text, and it can never select a chat's source. Parsing every transcript at query time took 12.7 s on a 2,149-chat corpus; SQLite token search and storing raw trigram text both missed substring or Unicode matches, while a contentless trigram projection with exact verification found all 419,253 known matches in about 200 MiB.

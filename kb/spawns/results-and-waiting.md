@@ -16,6 +16,10 @@ A CLI surface that prints a terminal report consumes it for the caller. Internal
 
 Consumption is keyed by the consuming spawn (a primary keeps its spawn ID across continues) and stored in that spawn's directory, where published-spawn locking stops a concurrent prune from recreating a deleted directory. Readers also count command observations, Pi admission receipts and cleared launches, including the legacy files, because processes from older builds still write them until they restart.
 
+## A primary collects results one way
+
+A primary launches spawns with `--bg` and runs `meridian spawn wait` in its harness's background execution, so it keeps working and can reply to the user while the wait blocks. A rule that the lead drain every spawn before replying left an interactive lead two bad choices: go silent through a long review, or reply without it (one showed designs no reviewer had read). Claude starts a new turn when a background command finishes, so a backgrounded wait never stops a reply. On a harness that doesn't report a finished background command, the lead reads what the wait returned before ending its turn. Results stay owed until a wait collects them, and the idle delivery above stays as a safety net. Spawned leads differ: they end their turn and the completion hold wakes them.
+
 ## `spawn wait` blocks on a fixed set
 
 `meridian spawn wait` blocks on a fixed set of launches and yields a checkpoint when work remains. A fixed set lets the caller choose when to start another barrier, instead of letting new work extend the wait forever. A yield is not a failure; `--timeout` is a separate hard limit. Nested callers exclude siblings and ancestors, so a child never waits on its own parent. A waiting process pins the launch it awaits across checkpoints, so continuing the same spawn can't replace the result ([spawn launches](../state/spawn-launches.md#results-are-owed-per-launch)). A busy history index can yield a discovery checkpoint; retry rather than treating it as an empty set. Spawned leads normally end their turn instead of waiting ([completion hold](completion-hold.md#waiting-has-one-number)).

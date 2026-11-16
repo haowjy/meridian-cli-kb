@@ -1,7 +1,8 @@
 # Idle notifications
 
 When a primary session goes idle, Meridian sends a waiting push and, before the
-provider's prompt cache expires, a cache warning. Harness adapters report what they
+provider's prompt cache expires, a cache warning; on Claude the warning can also prompt
+the session to record its state. Harness adapters report what they
 observe; core decides what to send and when. The source checkout's
 `src/meridian/lib/idle/.context/CONTEXT.md` holds the contract.
 
@@ -20,8 +21,8 @@ launch.
 
 Each push and warning fires at most once between user prompts. Finished turns move
 pending deadlines but do not re-enable sent stages. Durable state lets adapter reloads
-rebuild timers without sending duplicates. The Claude mod's keepwarm pings
-(below) follow the one warning and leave this rule as it is.
+rebuild timers without sending duplicates. The Claude mod's keepwarm pings and state
+reminder (below) follow the one warning and leave this rule as it is.
 
 Reopening a primary through Meridian closes the previous idle stretch before the harness
 starts: the user has returned, so the old push and warning are stale. Reloads do not run
@@ -151,6 +152,33 @@ live TUI and deny tool calls during that turn. A Meridian hook outside Claude
 could only use `spawn message`, which starts a visible turn through the inbound
 gate. Spawned children get no pings ([completion hold](completion-hold.md#waiting-has-one-number)).
 
+## State reminder (Claude)
+
+When the cache warning fires in an interactive Claude primary that has a work item,
+the session gets one prompt asking it to bring the work item's recorded state up to
+date in place: status, decisions with their reasons, open questions, promises to other
+sessions, where it stopped. A resume or a `--from` handoff catches up from that recorded
+state first ([continue and fork](../launch/continue-and-fork.md#catch-up-starts-from-recorded-state)),
+so the state has to be current when the session goes quiet. Leads resumed days later
+found their records behind the conversation: an owner decision nobody was building, an
+unanswered question, a merged PR still listed as a draft.
+
+- **At the warning, because the cache is still warm.** The turn reads a cache the
+  session was about to lose, so it costs little. With keepwarm on, the reminder takes
+  ping 1's place; with keepwarm off it is one unrequested turn.
+- **On by default, with its own opt-out** (`[idle] state_reminder`, overridable under
+  `[harness.claude.idle]`): it is one turn per idle stretch on a warm cache, where
+  keepwarm's repeated pings are a spending choice the user opts into.
+- **Only with a work item.** The work item holds the recorded state; without one there is
+  nothing to update.
+- **Not a ping.** The reminder turn must be allowed to write files, which ping turns deny,
+  and `stop-waiting` means nothing to it.
+- **Core decides, the mod submits**, as with the rest of idle. How the reminder rides
+  the single warning without a new `IdleState` field: `src/meridian/lib/idle/.context/CONTEXT.md`.
+
+It runs on Claude only, by the owner's choice; Pi's idle extension could carry it but
+does not.
+
 ## OpenCode 2.x sensor
 
 The sensor follows the transport's resolved dialect: the configured preference can be
@@ -194,11 +222,16 @@ Why a password file beats the environment: the source checkout's
 
 The Gmail transport is tested with a fake; real email delivery is unverified.
 
-## No idle compaction
+## No idle compaction, no compaction hooks
 
 Meridian does not compact idle sessions; harness-native compaction settings are
 separate. A cold return costs a turn, while compaction discards transcript detail, and
 session mining can recover older context.
+
+Meridian also adds no hook around a harness's own compaction to save state. Claude's
+`PreCompact` gives the agent no turn: its output only instructs the summarizer, and
+blocking it stalls the session. The owner chose the idle state reminder as the whole of
+state-saving.
 
 ## Known fragility
 

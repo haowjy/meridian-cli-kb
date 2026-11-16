@@ -28,6 +28,7 @@ Per-run values go in the first user turn so sibling runs share the system prefix
 
 - **Delegation guidance follows capability.** Spawn guidance and the agent inventory are injected for profiles that can delegate. An opt-in skill alone was repeatedly not loaded; injecting it everywhere would waste leaf agents' context.
 - **Packages name capabilities; Meridian maps them to commands.** Prompt packages are also used by runtimes with app tools and no shell, so Meridian syntax inside them would make their guidance unportable. Meridian's own operations guidance ships with the CLI so commands and advice change together.
+- **Lead-only skills go to leads.** Meridian's lead skills (handoff, work, notify, messaging and the like) are listed for a primary launch, and for a `mode: primary` profile even when it is spawned. A root launch is the user's own session whatever the profile's `mode` says; the profile's `mode` decides only for spawns. Rewriting the profile's `mode` at a root launch was ruled out because it would also change how `spawn subagents` tags the profile.
 - **Pi keeps native skill and context discovery** for available skills and project instructions. Ambient Pi extensions stay separately controlled, because they run code and can conflict with Meridian's managed extensions.
 
 Continue, fork and `--from`: [continue and fork](continue-and-fork.md).

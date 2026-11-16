@@ -10,7 +10,15 @@ A missing tracked ID never falls through to an untracked native session: otherwi
 
 A spawn reference names that exact spawn, even when another run later occupies its chat. For spawn actions, a chat reference names the run currently occupying the chat, otherwise its own latest linked session, never a child. Resolving to the newest spawn in the chat's family could make `cancel` act on an unrelated child. Following a native `/resume` is best effort.
 
-`--from` a chat uses that chat's transcript; `--from` a spawn uses the spawn's current chat. After `/clear` the two can differ.
+`--from` a chat uses that chat's transcript. `--from` a primary's spawn renders that session under its chat ID, with the named spawn's own status and report, so a handoff block reads the same whichever ID the caller passed.
+
+## Chat IDs are the name Meridian speaks
+
+Guidance, handoffs and `--from` blocks name a session by chat ID; spawn IDs are still accepted as input everywhere. A chat ID changes after Claude's `/clear`, and the messaging guidance already says so; the owner judged that warning enough, so Meridian builds nothing around `/clear` (no extra ID fields, no telling agents to pass spawn IDs instead).
+
+## IDs count per project
+
+Spawn and chat IDs come from per-project counters, so a bare ID from one project names nothing in another, or quietly names a different spawn or chat there. A cross-project `--from` could therefore resolve wrong instead of failing. Until IDs are machine-wide (deferred to the [Rust rewrite](../codebase/rust-rewrite.md)), a reference into another project goes through `-C <project>`.
 
 Reads may use historical fallbacks that resuming refuses: showing an old transcript is less risky than resuming the wrong session.
 

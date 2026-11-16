@@ -14,4 +14,20 @@ A plain continue (no fork, no `--model`) runs the model the session last execute
 
 OpenCode takes different model shapes for session creation and for prompts, and named-model resume is unsupported: it fails before startup rather than silently using the harness default. A failed creation or prompt finalizes the single launch attempt ([launch system](launch-system.md#a-harness-turn-runs-once)).
 
+## Catch-up starts from recorded state
+
+A `--from` block shows the source's report when it has one. Without a report (a primary
+session, or a run that died early) it prints catch-up steps instead: read the work item's
+recorded state, then the tail of the old session's `session log`, then search that
+session only for what is still missing. Leads resumed with only a transcript pointer each
+needed a hand-built transcript digest of 50–240 KB to catch up, while what they needed
+was in their recorded state and the last few turns. A digest was ruled out on that
+count: most of its tokens repeat what the state already says. The steps only work if the
+recorded state is current, which is what the [idle state reminder](../spawns/idle-notifications.md#state-reminder-claude)
+is for.
+
+A handoff to a lead in another project leaves `--from` out and names the origin session
+with `meridian -C <origin project> session log cN`, because IDs count per project
+([session references](session-references.md#ids-count-per-project)).
+
 Re-entry from the session picker is in [session browse](session-browse.md).
