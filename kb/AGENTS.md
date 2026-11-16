@@ -9,7 +9,7 @@ The KB holds what spans more than one directory and can't be read from the sourc
 - A rule whose reason nobody can state gets deleted, not kept. Rules without reasons get turned into code nobody can justify.
 - Only what the owner chose, or what shipped, belongs here. An option they floated or a question they asked stays in the work directory until they choose.
 - Write by topic: no decision ids, and no list of rejected options. Keep a rejected option only with the fact that ruled it out.
-- Project invariants live in the root `AGENTS.md` of meridian-cli and mars-agents. Everything here is a current choice, open to rewriting when evidence shows something better.
+- Each project's design constraints live in its root `AGENTS.md` (meridian-cli, mars-agents). Everything here is a current choice, open to rewriting when evidence shows something better.
 - Delete a page whose subject no longer exists.
 
 ## Structure
