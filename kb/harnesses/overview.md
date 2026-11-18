@@ -8,6 +8,7 @@ A harness is an external AI runtime (Claude, Codex, Cursor, OpenCode, Pi) integr
 - **Raw harness events stay open; the normalized layer is closed.** Unpinned harnesses can add event types, and a closed semantic layer still gives shared code a stable vocabulary.
 - **Approval requests go through a handler.** It separates who decides an approval from how the transport sends it.
 - **A managed primary's TUI talks to its backend directly.** Routing the user's input through Meridian would add latency and complexity. Claude primaries use a PTY because Claude has no separate backend to attach to.
+- **The launch environment reaches the child and its descendants, nothing else.** A value Meridian sets at launch, such as a cache TTL, an env var or a sandbox flag, cannot govern work the harness starts on its own, such as a native subagent. Covering those needs harness configuration the harness reads in every session, which also reaches sessions Meridian didn't launch; a user-wide Codex rule already carries that cost for spawning from a sandbox ([sandbox projection](../permissions/sandbox-projection.md#spawning-from-inside-a-sandbox)). Where the limit bites today: [Claude's cache TTL](claude.md#no-profile-field-reaches-a-native-claude-subagent).
 - **Recursion is bounded by one spawn-depth cap (`MERIDIAN_MAX_DEPTH`) across all commands,** so runaway delegation stops however it recurses. A per-command launch guard was dropped because it also stopped delegated agents from testing launches.
 
 ## One consumer per event stream

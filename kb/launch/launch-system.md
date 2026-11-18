@@ -31,4 +31,8 @@ Per-run values go in the first user turn so sibling runs share the system prefix
 - **Lead-only skills go to leads.** Meridian's lead skills (handoff, work, notify, messaging and the like) are listed for a primary launch, and for a `mode: primary` profile even when it is spawned. A root launch is the user's own session whatever the profile's `mode` says; the profile's `mode` decides only for spawns. Rewriting the profile's `mode` at a root launch was ruled out because it would also change how `spawn subagents` tags the profile.
 - **Pi keeps native skill and context discovery** for available skills and project instructions. Ambient Pi extensions stay separately controlled, because they run code and can conflict with Meridian's managed extensions.
 
+## `mode` carries lifetime, not only skill listing
+
+Two launch decisions read a profile's `mode`: which bundled skills are listed ([above](#skills-and-guidance)) and, on Claude, whether the spawn keeps the session's prompt-cache TTL ([Claude](../harnesses/claude.md#the-spawns-prompt-cache-ttl-follows-its-profiles-mode)). Both read the same fact: `primary` marks a long-lived orchestrator, `subagent` a short-lived worker. A separate Mars field for the cache preference would restate `mode` and add a concept to the bundle schema; reusing it means a profile that declares `mode: primary` for its skills also gets the longer cache and pays the write premium.
+
 Continue, fork and `--from`: [continue and fork](continue-and-fork.md).
