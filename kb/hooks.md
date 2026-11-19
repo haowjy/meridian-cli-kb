@@ -20,4 +20,4 @@ The manual hook commands and notification emission resolve the project different
 
 ## Context sync is not a hook
 
-Clones of git contexts sync through the `meridian-sync` daemon, not a hook: a hook fires only on lifecycle events, so an edit made outside a spawn waited for the next one ([context sync](context-sync.md)). A `git-autosync` row, `Hook.remote` and `Hook.exclude` still load for one minor release and do nothing ([#693](https://github.com/haowjy/meridian-cli/issues/693)). Dispatcher ownership is open ([#692](https://github.com/haowjy/meridian-cli/issues/692)).
+Clones of git contexts sync through the `meridian-sync` daemon, not a hook: a hook fires only on lifecycle events, so an edit made outside a spawn waited for the next lifecycle event ([context sync](context-sync.md)). Since v0.24.0 a `git-autosync` row, `Hook.remote` and `Hook.exclude` load and do nothing, for one minor release ([#693](https://github.com/haowjy/meridian-cli/issues/693)). Dispatcher ownership is open ([#692](https://github.com/haowjy/meridian-cli/issues/692)).
