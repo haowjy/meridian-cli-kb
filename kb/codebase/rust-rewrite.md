@@ -1,6 +1,6 @@
 # The Rust rewrite
 
-meridian-cli is to be rewritten in Rust; the project invariants in the root `AGENTS.md` hold through it. It has no settled design yet. Two problems motivate it:
+meridian-cli is to be rewritten in Rust; the project invariants in the root `AGENTS.md` hold through it. It has no settled design yet. Its first piece has shipped: the `meridian-sync` daemon ([context sync](../context-sync.md#rust-inside-meridian-cli)), which then folds into the one `meridian` binary. Two problems motivate the rewrite:
 
 - **Memory.** The Python import floor is about 90 MB per process, so concurrent Meridian processes multiply the baseline. Algorithmic heap growth is a separate problem that a direct port of the same algorithm would keep.
 - **Upgrades crash running processes.** `uv tool install --force` can overwrite modules inside a live process's virtualenv, and a later lazy import then mixes versions ([#628](https://github.com/haowjy/meridian-cli/issues/628)). Until the rewrite, avoid upgrading while long-lived Meridian processes run.

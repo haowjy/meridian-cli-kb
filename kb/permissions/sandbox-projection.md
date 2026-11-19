@@ -6,7 +6,7 @@ A sandboxed child gets the current project's runtime and configured roots, plus 
 
 - **The exact project lock, not the lock directory.** Meridian materializes the project's lifetime lock before starting a sandboxed child, and nested processes open it read-only. Granting the shared directory would let the child create lock names for other projects.
 - **Missing context roots are left out.** Codex's bind mount of a missing path can fail the whole execution namespace, including the commands that could diagnose it.
-- **Cross-project maintenance is explicit** and gated at the library boundary, since optional global configuration and shared coordination may be unreachable from a child. Autosync is best effort: failing to take a lock is a skip, never a reason to grant the global lock directory. An unreadable implicit user config is treated as absent with a warning; an explicitly requested one fails visibly.
+- **Cross-project maintenance is explicit** and gated at the library boundary, since optional global configuration and shared coordination may be unreachable from a child. An unreadable implicit user config is treated as absent with a warning; an explicitly requested one fails visibly.
 
 ## Spawning from inside a sandbox
 

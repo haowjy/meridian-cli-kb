@@ -18,11 +18,6 @@ Each fact about an event has one owner: separate publishers and separate definit
 
 The manual hook commands and notification emission resolve the project differently on purpose: a subprocess may be working in another checkout from the session that launched it. The rule is in `src/meridian/lib/hooks/AGENTS.md`.
 
+## Context sync is not a hook
 
-## Git autosync
-
-Git autosync is a builtin hook, never a state authority; its default events are `spawn.finished`, `work.activated` and `work.done`. Adding `spawn.started` would put a blocking sync before every spawn. A background context autosync is planned ([#691](https://github.com/haowjy/meridian-cli/issues/691)).
-
-Autosync merges rather than rebases, and aborts on conflict: local work stays at HEAD and the remote stays available to inspect. A rebase can stop partway through replay and wedge later syncs; a merge has one conflict point. Conflict state is recorded separately, never written into user instruction files. Git subprocesses started from hooks inherit `GIT_DIR` and `GIT_WORK_TREE`, which redirect Git to another repository even when the cwd is right, so a subprocess that must act on its own cwd drops them. Behavior: `src/meridian/lib/hooks/builtin/`.
-
-Dispatcher ownership and `Hook.remote` are open ([#692](https://github.com/haowjy/meridian-cli/issues/692), [#693](https://github.com/haowjy/meridian-cli/issues/693)).
+Clones of git contexts sync through the `meridian-sync` daemon, not a hook: a hook fires only on lifecycle events, so an edit made outside a spawn waited for the next one ([context sync](context-sync.md)). A `git-autosync` row, `Hook.remote` and `Hook.exclude` still load for one minor release and do nothing ([#693](https://github.com/haowjy/meridian-cli/issues/693)). Dispatcher ownership is open ([#692](https://github.com/haowjy/meridian-cli/issues/692)).

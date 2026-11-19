@@ -22,7 +22,7 @@ Rename updates live attachments, not ended chats. A reference to a missing item 
 
 ## Activation means someone chose the item
 
-A user or agent choosing a work item, including a primary attaching it, activates it. Inheritance, rename maintenance and clearing do not: counting inheritance would run the default blocking autosync for every child spawn, and work events have no spawn-kind filter ([hooks](../hooks.md)).
+A user or agent choosing a work item, including a primary attaching it, activates it. Inheritance, rename maintenance and clearing do not: counting inheritance would fire `work.activated` hooks for every child spawn, and work events have no spawn-kind filter ([hooks](../hooks.md)).
 
 ## Checkout pins
 
