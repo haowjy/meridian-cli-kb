@@ -18,7 +18,7 @@ The KB holds what spans more than one directory and can't be read from the sourc
 
 ## Landing changes
 
-Edit the autosynced checkout (`$MERIDIAN_CONTEXT_KB_DIR`) directly; the autosync hook commits and pushes it. Use a branch (a worktree of the KB repo) only for a large update you don't want landed until it's finished. Merge it without asking once it's ready.
+Edit the autosynced checkout (`$MERIDIAN_CONTEXT_KB_DIR`) directly; the `meridian-sync` daemon commits and pushes it. If `SYNC-CONFLICT.md` exists in this directory, autosync is stopped: run `meridian sync now kb`, resolve what it shows, and run it again. Use a branch (a worktree of the KB repo) only for a large update you don't want landed until it's finished. Merge it without asking once it's ready.
 
 ## Checks
 
