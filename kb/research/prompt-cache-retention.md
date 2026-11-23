@@ -84,6 +84,8 @@ setting and its changelog through 1.5.15 never mentions a lifetime; its cache-re
 entries only keep the prompt's start stable between calls (fixed load order for rules and
 skills, tool declarations kept across compaction).
 
+Neon is `gemini-4-neon`, run at effort levels (Medium, High, XHigh) that cache differently.
+
 - Before 18 Nov one user measured about 98% hits on Neon, including one after a
   212-second gap.
 - On 18 Nov a server-side regression cut Neon's window to about 25 seconds, start of call

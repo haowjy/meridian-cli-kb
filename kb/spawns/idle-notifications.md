@@ -182,11 +182,11 @@ unanswered question, a merged PR still listed as a draft.
   `src/meridian/lib/idle/.context/CONTEXT.md`; how the mod times the compaction: the
   mod's `README.md`.
 
-It runs on Claude only today. The owner wants the reminder and `compact-now` on `agy` as
-well, `compact-now` above all; it is not built, and `agy` has no way to compact a running
+It runs on Claude only today. The owner chose to bring the reminder and `compact-now` to
+`agy` as well, `compact-now` above all; that is not built, and `agy` has no way to compact a running
 conversation without the user typing `/compact`
 ([agy direction](../harnesses/agy.md#idle-notifications-and-compaction-direction)). Pi's
-idle extension could carry it but does not.
+idle extension could carry the reminder but does not.
 
 ## OpenCode 2.x sensor
 
