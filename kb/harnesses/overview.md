@@ -29,4 +29,4 @@ A connection reports whether the harness acknowledged a message or the message w
 
 Adapters depend on upstream event names, payloads and binaries, which change without notice. A sensor that never fires needs positive evidence of activity, not just an absence of errors, and should be probed on the version users actually run. Before removing a workaround for an upstream bug, reproduce the original failure on the current binary: a closed issue doesn't show it was fixed. A running harness keeps the mod or extension it loaded at session start after the CLI on `PATH` is upgraded, so changing a flag or reply shape that bundled code calls can break live sessions until they restart.
 
-Harness specifics: [Claude](claude.md), [Pi](pi.md), [OpenCode](opencode.md), [Cursor](cursor.md). [Antigravity](agy.md) has no adapter: Meridian doesn't launch it.
+Harness specifics: [Claude](claude.md), [Pi](pi.md), [OpenCode](opencode.md), [Cursor](cursor.md). [Antigravity](agy.md), whose adapter is hosted by its plugin: Meridian prints the launch command and never runs `agy`.

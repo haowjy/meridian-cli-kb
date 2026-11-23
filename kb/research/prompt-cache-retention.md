@@ -1,7 +1,7 @@
 # Prompt-Cache Retention by Harness
 
 How long each harness's provider keeps the prompt cache warm while a session
-sits idle. Checked 2026-10-08 against Codex CLI `rust-v0.161.0`, OpenCode
+sits idle. Antigravity's section has its own date. Checked 2026-10-08 against Codex CLI `rust-v0.161.0`, OpenCode
 `v1.18.34`, Pi 1.1.0 and the OpenAI and Anthropic prompt-caching docs. Pi's
 `openai-codex`, `xai` and `deepseek` providers, and the ChatGPT backend, were
 checked 2026-10-13; the backend's idle window was probed 2026-10-14.
@@ -73,6 +73,38 @@ See [this discussion of the OpenAI statement](https://www.reddit.com/r/codex/com
 not independently reverified during this capture; the API options above were. Meridian's operational choice is
 [completion hold](../spawns/completion-hold.md).
 
+## Antigravity
+
+Checked 2026-11-23 against `agy` 1.5.15, its changelog, the antigravity-cli issue tracker
+and the owner's own `agy` transcripts. `agy` sessions run Gemini models through Google's
+own backend, not the public Gemini API.
+
+**No published TTL, and the window moves with server changes.** `agy` has no cache
+setting and its changelog through 1.5.15 never mentions a lifetime; its cache-related
+entries only keep the prompt's start stable between calls (fixed load order for rules and
+skills, tool declarations kept across compaction).
+
+- Before 18 Nov one user measured about 98% hits on Neon, including one after a
+  212-second gap.
+- On 18 Nov a server-side regression cut Neon's window to about 25 seconds, start of call
+  to start of call: 85% hits within 15 s, 34% at 30–60 s, near 0 past 2 minutes, measured
+  independently on Linux, macOS and Windows. Gemini 4 Hydrogen kept about 90% at the same
+  gaps ([antigravity-cli#1665](https://github.com/google-antigravity/antigravity-cli/issues/1665)).
+- On 21 Nov a server change enlarged Neon's cache pool. Afterwards Neon High reached 84%
+  and Medium 80%, while XHigh reached 45% and alternated between 0% and 99% on calls
+  12–51 s apart, which looks like calls landing on servers that don't share a cache rather
+  than a short TTL ([antigravity-cli#1720](https://github.com/google-antigravity/antigravity-cli/issues/1720), open).
+
+The owner's transcripts, mostly `gemini-4-neon-medium`: about 95% hits on calls under a
+minute apart both before and after the 21 Nov change, and mostly misses past 3 minutes.
+Calls more than 3 minutes apart are few (about 30 across every model `agy` ran, a handful
+on Neon after the change), too few to say whether the window grew. No controlled gap probe on Neon has been run; the
+`agy` probing rules allow only `gemini-3.8-flash-low`, whose cache says nothing about
+Neon's.
+
+So Meridian has no TTL to detect or estimate for `agy`
+([agy idle direction](../harnesses/agy.md#idle-notifications-and-compaction-direction)).
+
 ## Anthropic retention, which OpenCode and Pi inherit
 
 The default `ephemeral` cache lives 5 minutes. `ttl: "1h"` extends it to an
@@ -141,6 +173,6 @@ If Pi starts declaring OpenAI lifetimes, or a user adds `modelOverrides.promptCa
 re-check this. The lightest fix would be for the Pi extension to pass the
 effective warming decision into `idle arm`.
 
-Recheck this page when Codex, OpenCode or Pi releases a new version, when a
+Recheck this page when Codex, OpenCode, Pi or `agy` releases a new version, when a
 provider changes its cache-lifetime docs, or when signed-in product guarantees
 are clarified for third-party clients.

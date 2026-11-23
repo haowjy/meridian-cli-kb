@@ -2,7 +2,8 @@
 
 When a primary session goes idle, Meridian sends a waiting push and, before the
 provider's prompt cache expires, a cache warning; on Claude the warning can also prompt
-the session to record its state. Harness adapters report what they
+the session to record its state. `agy` gets none of these yet; what it has is waking for
+messages ([agy](../harnesses/agy.md#waking-an-idle-session)). Harness adapters report what they
 observe; core decides what to send and when. The source checkout's
 `src/meridian/lib/idle/.context/CONTEXT.md` holds the contract.
 
@@ -173,11 +174,19 @@ unanswered question, a merged PR still listed as a draft.
   nothing to update.
 - **Not a ping.** The reminder turn must be allowed to write files, which ping turns deny,
   and `stop-waiting` means nothing to it.
-- **Core decides, the mod submits**, as with the rest of idle. How the reminder rides
-  the single warning without a new `IdleState` field: `src/meridian/lib/idle/.context/CONTEXT.md`.
+- **The model may ask to compact.** A reply whose last line is `compact-now` (the work
+  item now holds what resuming needs) makes the mod compact the conversation while the
+  cache is still warm, so the user returns to a small context. Pings don't offer it.
+- **Core decides, the mod submits and compacts**, as with the rest of idle. How the
+  reminder rides the single warning without a new `IdleState` field:
+  `src/meridian/lib/idle/.context/CONTEXT.md`; how the mod times the compaction: the
+  mod's `README.md`.
 
-It runs on Claude only, by the owner's choice; Pi's idle extension could carry it but
-does not.
+It runs on Claude only today. The owner wants the reminder and `compact-now` on `agy` as
+well, `compact-now` above all; it is not built, and `agy` has no way to compact a running
+conversation without the user typing `/compact`
+([agy direction](../harnesses/agy.md#idle-notifications-and-compaction-direction)). Pi's
+idle extension could carry it but does not.
 
 ## OpenCode 2.x sensor
 
@@ -222,11 +231,13 @@ Why a password file beats the environment: the source checkout's
 
 The Gmail transport is tested with a fake; real email delivery is unverified.
 
-## No idle compaction, no compaction hooks
+## Compaction only on the model's word, no compaction hooks
 
-Meridian does not compact idle sessions; harness-native compaction settings are
-separate. A cold return costs a turn, while compaction discards transcript detail, and
-session mining can recover older context.
+Meridian does not compact a session because it went idle; harness-native compaction
+settings are separate. A cold return costs a turn, while compaction discards transcript
+detail, and session mining can recover older context. The one compaction Meridian runs is
+the state reminder's `compact-now`, after the model has recorded its state and judged it
+enough to resume from.
 
 Meridian also adds no hook around a harness's own compaction to save state. Claude's
 `PreCompact` gives the agent no turn: its output only instructs the summarizer, and

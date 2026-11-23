@@ -15,7 +15,7 @@ Jimmy, 2026-11-20: the rewrite may make Meridian an MCP server. This is an idea 
 
 **What it fixes.**
 - Identity. Today the caller is known from `MERIDIAN_*` environment variables, which break wherever a shell doesn't inherit them: a harness Meridian didn't launch, or a sandboxed shell. `agy` tags each MCP call's `_meta` with `antigravity.google/conversation_id`, `root_conversation_id` and, for its own subagents, `parent_conversation_id`. The server sets the session's variables per call. Whether Claude, Codex and OpenCode put a session ID in MCP `_meta` is unchecked.
-- Sandboxes and approval. In `agy`, a shell command can't write `~/.meridian`, and a child started from that shell can't reach its API. The MCP server runs outside the terminal sandbox, and the harness's own per-tool approval prompt gates it.
+- Sandboxes and approval. In `agy`'s Auto-mode terminal sandbox, `~/.meridian` is hidden and the process list is its own, so a shell command can't use Meridian state and a child started from that shell can't reach its API. The MCP server runs outside the terminal sandbox, and the harness's own per-tool approval prompt gates it.
 - A per-session process. Meridian already needs one to watch a session and deliver messages. In Python it costs about 90 MB; in Rust it would be small, so one MCP server per harness process, also serving the control socket, is affordable.
 
 **What it doesn't fix.**
