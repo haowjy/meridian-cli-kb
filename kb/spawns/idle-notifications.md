@@ -2,7 +2,7 @@
 
 When a primary session goes idle, Meridian sends a waiting push and, before the
 provider's prompt cache expires, a cache warning; on Claude and `agy` the warning can also
-prompt the session to record its state. How `agy` gets these, and why it gets no
+prompt the session to record its state. How `agy` gets these, and the state of its
 keepwarm, is on its page ([agy idle notices](../harnesses/agy.md#idle-notices)). Harness adapters report what they
 observe; core decides what to send and when. The source checkout's
 `src/meridian/lib/idle/.context/CONTEXT.md` holds the contract.
@@ -85,11 +85,11 @@ Pi chooses a TTL from the observed provider and `PI_CACHE_RETENTION`: Anthropic 
 seconds for short retention and 3600 for long; OpenAI long retention and OpenAI Codex
 use an estimated 1800 seconds; unsupported providers and OpenAI short retention are
 unknown. OpenCode estimates 1800 seconds for OpenAI and leaves other providers unknown;
-signed-in Codex and Work retention is not established by that estimate. The estimates
+signed-in Codex and Work retention is not established by that estimate. `agy` has no
+detection and gets a default 1800 seconds from observed transcripts. The estimates
 are not backend guarantees, and detection by provider can't tell models apart, so an
 older model may get an estimate that is too long. A configured `ttl_seconds` wins over
-detection; `agy` has no detection or estimate, so only a configured one gives it a cache
-warning. The [retention research](../research/prompt-cache-retention.md) has the
+detection and over these defaults. The [retention research](../research/prompt-cache-retention.md) has the
 evidence and limits.
 
 Interactive Pi primaries default to `PI_CACHE_RETENTION=long`, unless the user sets it,
@@ -107,8 +107,8 @@ warm while the user is away. How it times, submits and stops pings is in the mod
 - **The warning places ping 1.** `warn_minutes` defaults to 10, so on a one-hour
   Claude cache the warning and the first ping land 50 minutes after the turn. The lead
   is set globally (`[idle] warn_minutes`) or per harness (`[harness.<h>.idle]
-  warn_minutes`): one lead can't fit a one-hour Claude cache and an `agy` cache of a
-  few minutes, and where a TTL is an estimate the user may want more margin.
+  warn_minutes`): one lead can't fit every cache window (a one-hour Claude cache, a five-minute
+  Anthropic cache on Pi short retention), and where a TTL is an estimate the user may want more margin.
 - **The mod times the later pings, and they send no notice.** Core still fires the
   warning once per stretch on every harness. Why core does not re-claim the warning
   for each ping: `src/meridian/lib/idle/.context/CONTEXT.md`.
@@ -154,7 +154,7 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   acknowledgement means it waited, and a denied tool or a reply that starts work
   means it did not.
 
-Keepwarm runs only in the Claude mod; `agy` gets none, for its cache and quota
+Keepwarm runs only in the Claude mod; an opt-in `agy` keepwarm is being built
 ([agy idle notices](../harnesses/agy.md#idle-notices)). A Claude mod can submit a prompt into the
 live TUI and deny tool calls during that turn. A Meridian hook outside Claude
 could only use `spawn message`, which starts a visible turn through the inbound

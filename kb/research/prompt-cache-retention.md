@@ -97,14 +97,22 @@ Neon is `gemini-4-neon`, run at effort levels (Medium, High, XHigh) that cache d
   12–51 s apart, which looks like calls landing on servers that don't share a cache rather
   than a short TTL ([antigravity-cli#1720](https://github.com/google-antigravity/antigravity-cli/issues/1720), open).
 
-The owner's transcripts, mostly `gemini-4-neon-medium`: about 95% hits on calls under a
-minute apart both before and after the 21 Nov change, and mostly misses past 3 minutes.
-Calls more than 3 minutes apart are few (about 30 across every model `agy` ran, a handful
-on Neon after the change), too few to say whether the window grew. No controlled gap probe on Neon has been run; the
-`agy` probing rules allow only `gemini-3.8-flash-low`, whose cache says nothing about
-Neon's.
+**Since the 21 Nov change, Neon holds across idle gaps of at least 25 minutes.** One
+of the owner's `agy` conversations on 23 Nov (264 model calls over five hours) hit the
+cache on every call after an idle gap: 18 calls after 3–8-minute gaps on Neon Medium, 7
+after 15-minute gaps and 4 after 19–25-minute gaps on Neon High, each 96–99% of input
+cached once the conversation had grown past its first few calls. The misses were the
+conversation's first call, one call 90 seconds in whose cause the transcript doesn't show,
+and the first call after a switch from Medium to High: a model switch starts a new cache.
+No gap longer than 25 minutes was seen, so the window's upper end is unknown, and this is
+one conversation on one account; XHigh's split-server misses (above) were not tested.
+Read hits from the transcript's `source: MODEL` lines: `cache_read_tokens` is the cached
+part and `input_tokens` the uncached rest.
 
-So Meridian has no TTL to detect or estimate for `agy`
+No controlled gap probe on Neon has been run; the `agy` probing rules allow only
+`gemini-3.8-flash-low`, whose cache says nothing about Neon's.
+
+Meridian assumes a 30-minute window for `agy` from this evidence
 ([agy idle notices](../harnesses/agy.md#idle-notices)).
 
 ## Anthropic retention, which OpenCode and Pi inherit
