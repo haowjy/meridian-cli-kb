@@ -105,7 +105,7 @@ on Neon after the change), too few to say whether the window grew. No controlled
 Neon's.
 
 So Meridian has no TTL to detect or estimate for `agy`
-([agy idle direction](../harnesses/agy.md#idle-notifications-and-compaction-direction)).
+([agy idle notices](../harnesses/agy.md#idle-notices)).
 
 ## Anthropic retention, which OpenCode and Pi inherit
 

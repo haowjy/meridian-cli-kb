@@ -2,8 +2,8 @@
 
 When a primary session goes idle, Meridian sends a waiting push and, before the
 provider's prompt cache expires, a cache warning; on Claude the warning can also prompt
-the session to record its state. `agy` gets none of these yet; what it has is waking for
-messages ([agy](../harnesses/agy.md#waking-an-idle-session)). Harness adapters report what they
+the session to record its state. How `agy` gets the push and warning, and why it gets no
+keepwarm, is on its page ([agy idle notices](../harnesses/agy.md#idle-notices)). Harness adapters report what they
 observe; core decides what to send and when. The source checkout's
 `src/meridian/lib/idle/.context/CONTEXT.md` holds the contract.
 
@@ -13,7 +13,7 @@ Adapters report facts; core decides scheduling and guards. Separate policy in ea
 adapter would duplicate precedence and at-most-once handling across harnesses.
 
 Claude and Pi use bundled in-harness extensions; managed Codex and OpenCode primaries
-use launcher tasks. A running session keeps the extension version it loaded at startup
+use launcher tasks; `agy`, which Meridian never launches, uses its plugin's MCP server. A running session keeps the extension version it loaded at startup
 even after the CLI is upgraded, so an incompatible CLI contract can silently break idle
 until restart. Bundling the extension with the CLI keeps their versions coupled at
 launch.
@@ -82,7 +82,8 @@ unknown. OpenCode estimates 1800 seconds for OpenAI and leaves other providers u
 signed-in Codex and Work retention is not established by that estimate. The estimates
 are not backend guarantees, and detection by provider can't tell models apart, so an
 older model may get an estimate that is too long. A configured `ttl_seconds` wins over
-detection. The [retention research](../research/prompt-cache-retention.md) has the
+detection; `agy` has no detection or estimate, so only a configured one gives it a cache
+warning. The [retention research](../research/prompt-cache-retention.md) has the
 evidence and limits.
 
 Interactive Pi primaries default to `PI_CACHE_RETENTION=long`, unless the user sets it,
@@ -101,7 +102,7 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   harness, so on a one-hour Claude cache the warning and the first ping land 50
   minutes after the turn. `warn_minutes` cannot differ by harness (per-harness idle
   config has `enabled`, `ttl_seconds`, `keepwarm` and `keepwarm_pings`), so Pi,
-  Codex and OpenCode get the same 10-minute lead. Where their TTL is an estimate, that is less margin; a user
+  Codex, OpenCode and `agy` get the same 10-minute lead. Where their TTL is an estimate, that is less margin; a user
   who needs more sets `idle.warn_minutes`.
 - **The mod times the later pings, and they send no notice.** Core still fires the
   warning once per stretch on every harness. Why core does not re-claim the warning
@@ -148,7 +149,8 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   acknowledgement means it waited, and a denied tool or a reply that starts work
   means it did not.
 
-Keepwarm runs only in the Claude mod. A Claude mod can submit a prompt into the
+Keepwarm runs only in the Claude mod; `agy` gets none, for its cache and quota
+([agy idle notices](../harnesses/agy.md#idle-notices)). A Claude mod can submit a prompt into the
 live TUI and deny tool calls during that turn. A Meridian hook outside Claude
 could only use `spawn message`, which starts a visible turn through the inbound
 gate. Spawned children get no pings ([completion hold](completion-hold.md#waiting-has-one-number)).
@@ -185,7 +187,7 @@ unanswered question, a merged PR still listed as a draft.
 It runs on Claude only today. The owner chose to bring the reminder and `compact-now` to
 `agy` as well, `compact-now` above all; that is not built, and `agy` has no way to compact a running
 conversation without the user typing `/compact`
-([agy direction](../harnesses/agy.md#idle-notifications-and-compaction-direction)). Pi's
+([agy direction](../harnesses/agy.md#state-reminder-and-compaction-direction)). Pi's
 idle extension could carry the reminder but does not.
 
 ## OpenCode 2.x sensor
