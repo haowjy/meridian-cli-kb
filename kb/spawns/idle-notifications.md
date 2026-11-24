@@ -1,8 +1,8 @@
 # Idle notifications
 
 When a primary session goes idle, Meridian sends a waiting push and, before the
-provider's prompt cache expires, a cache warning; on Claude the warning can also prompt
-the session to record its state. How `agy` gets the push and warning, and why it gets no
+provider's prompt cache expires, a cache warning; on Claude and `agy` the warning can also
+prompt the session to record its state. How `agy` gets these, and why it gets no
 keepwarm, is on its page ([agy idle notices](../harnesses/agy.md#idle-notices)). Harness adapters report what they
 observe; core decides what to send and when. The source checkout's
 `src/meridian/lib/idle/.context/CONTEXT.md` holds the contract.
@@ -24,6 +24,12 @@ Each push and warning fires at most once between user prompts. Finished turns mo
 pending deadlines but do not re-enable sent stages. Durable state lets adapter reloads
 rebuild timers without sending duplicates. The Claude mod's keepwarm pings and state
 reminder (below) follow the one warning and leave this rule as it is.
+
+A warning that goes out in the push's place answers the push for the rest of the stretch.
+When the warning lands first, the push is dropped; without counting it as answered, the
+turn Meridian itself starts after the warning (a keepwarm ping, a state reminder) would re-arm
+idle and send the push as a second notice. The user has been told once, and a turn they
+didn't start is no reason to tell them again.
 
 Reopening a primary through Meridian closes the previous idle stretch before the harness
 starts: the user has returned, so the old push and warning are stale. Reloads do not run
@@ -98,12 +104,11 @@ warning, the `meridian-idle` mod sends the model a short prompt so the cache sta
 warm while the user is away. How it times, submits and stops pings is in the mod's
 `README.md` (source checkout `src/meridian/claude_runtime/meridian-idle/`).
 
-- **The warning places ping 1.** `idle.warn_minutes` defaults to 10 for every
-  harness, so on a one-hour Claude cache the warning and the first ping land 50
-  minutes after the turn. `warn_minutes` cannot differ by harness (per-harness idle
-  config has `enabled`, `ttl_seconds`, `keepwarm` and `keepwarm_pings`), so Pi,
-  Codex, OpenCode and `agy` get the same 10-minute lead. Where their TTL is an estimate, that is less margin; a user
-  who needs more sets `idle.warn_minutes`.
+- **The warning places ping 1.** `warn_minutes` defaults to 10, so on a one-hour
+  Claude cache the warning and the first ping land 50 minutes after the turn. The lead
+  is set globally (`[idle] warn_minutes`) or per harness (`[harness.<h>.idle]
+  warn_minutes`): one lead can't fit a one-hour Claude cache and an `agy` cache of a
+  few minutes, and where a TTL is an estimate the user may want more margin.
 - **The mod times the later pings, and they send no notice.** Core still fires the
   warning once per stretch on every harness. Why core does not re-claim the warning
   for each ping: `src/meridian/lib/idle/.context/CONTEXT.md`.
@@ -155,9 +160,9 @@ live TUI and deny tool calls during that turn. A Meridian hook outside Claude
 could only use `spawn message`, which starts a visible turn through the inbound
 gate. Spawned children get no pings ([completion hold](completion-hold.md#waiting-has-one-number)).
 
-## State reminder (Claude)
+## State reminder
 
-When the cache warning fires in an interactive Claude primary that has a work item,
+When the cache warning fires in an interactive Claude or `agy` primary that has a work item,
 the session gets one prompt asking it to bring the work item's recorded state up to
 date in place: status, decisions with their reasons, open questions, promises to other
 sessions, where it stopped. A resume or a `--from` handoff catches up from that recorded
@@ -170,25 +175,27 @@ unanswered question, a merged PR still listed as a draft.
   session was about to lose, so it costs little. With keepwarm on, the reminder takes
   ping 1's place; with keepwarm off it is one unrequested turn.
 - **On by default, with its own opt-out** (`[idle] state_reminder`, overridable under
-  `[harness.claude.idle]`): it is one turn per idle stretch on a warm cache, where
+  `[harness.<h>.idle]`): it is one turn per idle stretch on a warm cache, where
   keepwarm's repeated pings are a spending choice the user opts into.
 - **Only with a work item.** The work item holds the recorded state; without one there is
   nothing to update.
 - **Not a ping.** The reminder turn must be allowed to write files, which ping turns deny,
   and `stop-waiting` means nothing to it.
-- **The model may ask to compact.** A reply whose last line is `compact-now` (the work
+- **The model may ask to compact (Claude).** A reply whose last line is `compact-now` (the work
   item now holds what resuming needs) makes the mod compact the conversation while the
   cache is still warm, so the user returns to a small context. Pings don't offer it.
-- **Core decides, the mod submits and compacts**, as with the rest of idle. How the
-  reminder rides the single warning without a new `IdleState` field:
+- **Core decides, the harness delivers**, as with the rest of idle: the Claude mod
+  submits the reminder and compacts; `agy`'s sensor queues it as an inbox message.
+  How the reminder rides the single warning without a new `IdleState` field and
+  reaches a sensor without core naming a harness:
   `src/meridian/lib/idle/.context/CONTEXT.md`; how the mod times the compaction: the
   mod's `README.md`.
 
-It runs on Claude only today. The owner chose to bring the reminder and `compact-now` to
-`agy` as well, `compact-now` above all; that is not built, and `agy` has no way to compact a running
-conversation without the user typing `/compact`
-([agy direction](../harnesses/agy.md#state-reminder-and-compaction-direction)). Pi's
-idle extension could carry the reminder but does not.
+On `agy` the reminder offers no `compact-now`: nothing can compact a running `agy`
+conversation without the user typing `/compact`, and the owner's wish for it there
+waits on Google ([agy idle notices](../harnesses/agy.md#idle-notices),
+[compaction direction](../harnesses/agy.md#compaction-direction)). Pi's idle extension
+could carry the reminder but does not.
 
 ## OpenCode 2.x sensor
 

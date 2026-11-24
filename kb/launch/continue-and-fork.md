@@ -23,7 +23,7 @@ session only for what is still missing. Leads resumed with only a transcript poi
 needed a hand-built transcript digest of 50–240 KB to catch up, while what they needed
 was in their recorded state and the last few turns. A digest was ruled out on that
 count: most of its tokens repeat what the state already says. The steps only work if the
-recorded state is current, which is what the [idle state reminder](../spawns/idle-notifications.md#state-reminder-claude)
+recorded state is current, which is what the [idle state reminder](../spawns/idle-notifications.md#state-reminder)
 is for.
 
 A handoff to a lead in another project leaves `--from` out and names the origin session
