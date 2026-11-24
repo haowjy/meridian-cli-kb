@@ -158,9 +158,9 @@ warm while the user is away. How it times, submits and stops pings is in the mod
 Keepwarm runs in the Claude mod and on `agy`, where the core sidecar times the later
 pings and the plugin delivers them as inbox messages, with no read-only turn
 ([agy idle notices](../harnesses/agy.md#idle-notices)). A Claude mod can submit a prompt into the
-live TUI and deny tool calls during that turn. A Meridian hook outside Claude
-could only use `spawn message`, which starts a visible turn through the inbound
-gate. Spawned children get no pings ([completion hold](completion-hold.md#waiting-has-one-number)).
+live TUI and deny tool calls during that turn, which is why Claude's keepwarm lives in
+the mod: from outside it, Meridian could only use `spawn message`, which starts a
+visible turn through the inbound gate and can't keep the turn read-only. Spawned children get no pings ([completion hold](completion-hold.md#waiting-has-one-number)).
 
 ## State reminder
 
