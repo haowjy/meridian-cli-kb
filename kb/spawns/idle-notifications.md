@@ -2,8 +2,8 @@
 
 When a primary session goes idle, Meridian sends a waiting push and, before the
 provider's prompt cache expires, a cache warning; on Claude and `agy` the warning can also
-prompt the session to record its state. How `agy` gets these, and the state of its
-keepwarm, is on its page ([agy idle notices](../harnesses/agy.md#idle-notices)). Harness adapters report what they
+prompt the session to record its state. How `agy` gets these, keepwarm included,
+is on its page ([agy idle notices](../harnesses/agy.md#idle-notices)). Harness adapters report what they
 observe; core decides what to send and when. The source checkout's
 `src/meridian/lib/idle/.context/CONTEXT.md` holds the contract.
 
@@ -86,7 +86,8 @@ seconds for short retention and 3600 for long; OpenAI long retention and OpenAI 
 use an estimated 1800 seconds; unsupported providers and OpenAI short retention are
 unknown. OpenCode estimates 1800 seconds for OpenAI and leaves other providers unknown;
 signed-in Codex and Work retention is not established by that estimate. `agy` has no
-detection and gets a default 1800 seconds from observed transcripts. The estimates
+detection and gets a default 1800 seconds for every model, though its windows differ by
+model (Neon Medium outlasts an hour). The estimates
 are not backend guarantees, and detection by provider can't tell models apart, so an
 older model may get an estimate that is too long. A configured `ttl_seconds` wins over
 detection and over these defaults. The [retention research](../research/prompt-cache-retention.md) has the
@@ -128,7 +129,7 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   `[harness.<harness>.idle]`) sets where every session starts, and
   `/keepwarm on|off` overrides that for the session. The keys are global because
   keepwarm is one preference timed from the provider's cache lifetime; the harness
-  is only the adapter that can act on it, Claude today. Core answers the default in `meridian idle config`, so the mod still
+  is only the adapter that can act on it, Claude and `agy` today. Core answers the default in `meridian idle config`, so the mod still
   reads no Meridian config itself. A restart, resume or `/clear` returns to the
   config default, because `/clear` starts a new conversation. The model can
   neither turn the mode on nor off.
@@ -154,7 +155,8 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   acknowledgement means it waited, and a denied tool or a reply that starts work
   means it did not.
 
-Keepwarm runs only in the Claude mod; an opt-in `agy` keepwarm is being built
+Keepwarm runs in the Claude mod and on `agy`, where the core sidecar times the later
+pings and the plugin delivers them as inbox messages, with no read-only turn
 ([agy idle notices](../harnesses/agy.md#idle-notices)). A Claude mod can submit a prompt into the
 live TUI and deny tool calls during that turn. A Meridian hook outside Claude
 could only use `spawn message`, which starts a visible turn through the inbound
@@ -179,7 +181,7 @@ unanswered question, a merged PR still listed as a draft.
   keepwarm's repeated pings are a spending choice the user opts into.
 - **Only with a work item.** The work item holds the recorded state; without one there is
   nothing to update.
-- **Not a ping.** The reminder turn must be allowed to write files, which ping turns deny,
+- **Not a ping.** The reminder turn must be allowed to write files, which Claude's ping turns deny,
   and `stop-waiting` means nothing to it.
 - **The model may ask to compact (Claude).** A reply whose last line is `compact-now` (the work
   item now holds what resuming needs) makes the mod compact the conversation while the

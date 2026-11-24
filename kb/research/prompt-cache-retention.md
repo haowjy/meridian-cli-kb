@@ -76,7 +76,7 @@ not independently reverified during this capture; the API options above were. Me
 ## Antigravity
 
 Checked 2026-11-23 against `agy` 1.5.15, its changelog, the antigravity-cli issue tracker
-and the owner's own `agy` transcripts. `agy` sessions run Gemini models through Google's
+and the owner's own `agy` transcripts; the controlled probe below ran on 2026-11-24 on `agy` 1.5.16. `agy` sessions run Gemini models through Google's
 own backend, not the public Gemini API.
 
 **No published TTL, and the window moves with server changes.** `agy` has no cache
@@ -109,10 +109,17 @@ one conversation on one account; XHigh's split-server misses (above) were not te
 Read hits from the transcript's `source: MODEL` lines: `cache_read_tokens` is the cached
 part and `input_tokens` the uncached rest.
 
-No controlled gap probe on Neon has been run; the `agy` probing rules allow only
-`gemini-3.8-flash-low`, whose cache says nothing about Neon's.
+**The window depends on the model: Neon Medium held past an hour of idle, flash-low did not.**
+A controlled probe ran two TUI sessions side by side on one Google AI Pro account, each a
+~57k-token conversation, warmed with a call 51–53 s after the last, then left idle 55 minutes,
+prompted, and left idle 65 minutes more. Neon Medium hit 96% on both returns, the same share
+as the warm call. `gemini-3.8-flash-low` missed completely on both (0 of ~57k cached, the same
+prefix as its warm call), so its window lies somewhere between 53 seconds and 55 minutes. The
+65-minute Neon gap follows the 55-minute call, which would have refreshed the entry, so it is
+not one 120-minute wait; Neon's upper end is still unknown. One run each, on one account.
 
-Meridian assumes a 30-minute window for `agy` from this evidence
+Meridian assumes a 30-minute window for every `agy` model and leaves a longer one to the
+user's config, because the idle sensor can't see which model a session runs
 ([agy idle notices](../harnesses/agy.md#idle-notices)).
 
 ## Anthropic retention, which OpenCode and Pi inherit
