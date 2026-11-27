@@ -26,8 +26,12 @@ count: most of its tokens repeat what the state already says. The steps only wor
 recorded state is current, which is what the [idle state reminder](../spawns/idle-notifications.md#state-reminder)
 is for.
 
-A handoff to a lead in another project leaves `--from` out and names the origin session
-with `meridian -C <origin project> session log cN`, because IDs count per project
-([session references](session-references.md#ids-count-per-project)).
+A handoff to a lead in another project passes `--from cN` under `-C <other project>`:
+the ID is [machine-wide](session-references.md#ids-are-machine-wide), so the new lead reads
+the origin's report and log from its own project. It leaves `--work` out, because a work
+item belongs to one project. An ID issued before machine-wide IDs counts per project and
+could name a different chat there, so for one of those the handoff leaves `--from` out and
+the brief names the origin as `meridian -C <origin project> session log cN`. The bundled
+`handoff__meridian` skill carries the command.
 
 Re-entry from the session picker is in [session browse](session-browse.md).

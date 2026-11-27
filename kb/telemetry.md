@@ -12,7 +12,7 @@ Telemetry supplies diagnostic events and correlation across subsystems; lifecycl
 
 ## Readers
 
-Cross-project queries take a point-in-time directory snapshot. They are a debugging path, so a registry and its stale-registration failure mode aren't worth it. Tail cursors use byte offsets, which avoid text-mode translation and multibyte seek ambiguity.
+Cross-project queries take a point-in-time directory snapshot. They are a debugging path, so a registry and its stale-registration failure mode aren't worth it. The machine-wide [ID claims](launch/session-references.md#ids-are-machine-wide) are written once and never go stale, but they map IDs to roots and list no projects. Tail cursors use byte offsets, which avoid text-mode translation and multibyte seek ambiguity.
 
 Error reporting and feature tracking aren't built. They are meant to read local segments rather than join the write path, keeping their backpressure and consent outside event emission.
 

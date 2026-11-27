@@ -1,6 +1,6 @@
 # Messaging a live session
 
-`meridian spawn message` reaches every live session, primaries included, through the same control socket spawned sessions serve. Current behavior: the source checkout's [message route contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/.context/CONTEXT.md#message-delivery), [framing contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/cli/.context/CONTEXT.md) and `docs/harness-integration.md`. Harness evidence: [reaching a live TUI](../research/reaching-a-live-tui.md). Remaining edges: [#916](https://github.com/haowjy/meridian-cli/issues/916).
+`meridian message ADDRESS "text"` reaches every live session, primaries included, through the same control socket spawned sessions serve. The address says where a message goes: a spawn or chat ID for a session on this machine, `<machine>/<id>` for one on a [saved machine](../machines.md), `@person` for a person, `inbox` for the machine inbox. One verb means an agent doesn't need to know which program owns the receiver before it can say anything. The command surface, error kinds and JSON are in meridian-cli `docs/commands.md`. Current behavior: the source checkout's [message route contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/lib/harness/.context/CONTEXT.md#message-delivery), [framing contract](https://github.com/haowjy/meridian-cli/blob/main/src/meridian/cli/.context/CONTEXT.md) and `docs/harness-integration.md`. Harness evidence: [reaching a live TUI](../research/reaching-a-live-tui.md). Remaining edges: [#916](https://github.com/haowjy/meridian-cli/issues/916).
 
 ## One socket for every primary
 
@@ -22,7 +22,29 @@ Meridian doesn't send Claude's messaging token, forge a bypass-mode envelope, or
 
 Sender identity travels in the message text, because every route carries text, unlike Claude's peer envelope. The reply goes to the sender's current chat, not its spawn ID or launching chat: a session can move to another chat (`/clear`, native `/resume`), so its spawn ID or launching chat may no longer reach the conversation the sender is in. A reply command is offered only when a socket file exists, which shows reachability, not that a send will succeed.
 
-Chat and spawn IDs are project-scoped, so a cross-project address includes the project root; a project-qualified ID syntax would need a registry Meridian doesn't have. The caller's identity is captured before `-C` drops project-scoped environment IDs: restoring those IDs in the target environment would let a child there claim the caller's identity.
+A claimed chat ID reaches its session from any project, so the reply line is a bare `meridian message cN` ([machine-wide IDs](../launch/session-references.md#ids-are-machine-wide)); it adds `-C` only for an ID issued before claims, and a machine prefix when the sender is on another machine, written with the name the receiver saved for it. The caller's identity is captured before `-C` drops project-scoped environment IDs: restoring those IDs in the target environment would let a child there claim the caller's identity.
+
+## The command leaves the sandbox by its first words
+
+A control socket, `ssh` and the people program are all out of a harness sandbox's reach, so `meridian message` runs outside it, as `meridian spawn` does, and only for agents whose profile may spawn: no session gains or loses the ability to send ([sandbox projection](../permissions/sandbox-projection.md)). Claude and Codex match the first words of a command, so every reply line, help text and skill puts global options after the address (`meridian message cN -C <path> "…"`); written `meridian -C <path> message …`, the command stays sandboxed and can't reach the socket. A sandbox is fixed when the session starts, so a session started before the grant existed has to be restarted to send with the new command.
+
+## A message to a cold session is held
+
+A cold session is idle past its prompt-cache deadline, so the turn a message starts re-reads the whole conversation at full price. `meridian message` to one sends nothing and fails with kind `cold`, giving how long it has been idle, its model, its cost so far, and the two ways on: send again with `--wake`, or start a fresh session with `--from`. The owner chose to warn instead of waking, so the sender weighs the cache miss first; often a fresh session started `--from` the cold one costs less. The check runs before any byte is written, so `cold` always means nothing arrived. A session that reports no idle state is delivered to, as before: the hold is best effort, not a gate. The warning gives no cost estimate, because no harness exposes the current context size.
+
+`--wake` belongs to a session address. Meridian's own `agy` never-delivered notice passes it: that notice is a failure report the sender is owed, and holding it would drop it. [meridian-comms](../ecosystem.md#meridian-comms) passes it when a person chose the session.
+
+A delivery that starts a turn ends the session's idle stretch, and that turn opens a new one with its own push and warning, because the session did real work. Only a spawned child's control server ends the stretch on delivery, and only for `posted` or `acknowledged`. A primary's stretch is left to its idle sensor, which sees a turn when it really starts: a Claude primary that bypasses permission prompts holds an inbound message for approval, so `posted` doesn't mean a turn began, and ending the stretch then would silently drop the human's idle push ([idle notifications](idle-notifications.md)).
+
+## People go to a program the user names
+
+Meridian knows nothing about Slack: a second chat surface inside Meridian would duplicate what [meridian-comms](../ecosystem.md#meridian-comms) does. An `@` address goes to the program in `[message] people`, which Meridian runs with no shell and reads one line of JSON back from. Meridian owns that contract, so it has one printer and one list of error kinds, and any program can implement it; passing a tool's own terminal text through would leave Meridian unable to tell a post that went out from one that didn't. The program is not found on `PATH` by a built-in name, which would send to Slack on one machine and fail on another with nothing written down to say why.
+
+`[message]` is read only from the user's `~/.meridian/config.toml`. A project's `meridian.toml`, a local override or a `--config` file is repository content a sandboxed session can write, and the message runs outside the sandbox: `people = ["sh", "-c", …]` there would run a program of the repository's choosing. Who may post stays the program's decision; Meridian passes the starting environment through so the program can tell a child from a primary, and an `@` address never crosses machines, because a command arriving from another machine carries no session variables and would read as a person at a terminal.
+
+## Only one error kind means it may have arrived
+
+Every outcome has a kind, and only `maybe_delivered` means the message may have arrived; with any other, nothing was sent and sending again is safe. Once the first byte is written, an outcome without a parsed answer is `maybe_delivered`, and so is a reply with a kind this build doesn't know. Scripts such as meridian-comms poll and resend, and a resend after a partial write could deliver twice, which a turn can't undo.
 
 ## Posted or acknowledged, never resent after a write
 

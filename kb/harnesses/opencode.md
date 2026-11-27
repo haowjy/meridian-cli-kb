@@ -13,6 +13,6 @@ The model has its own channel, because OpenCode 2 ignores an agent's model
 
 ## Managed primaries
 
-The managed primary's model selection can't see an unsent choice made in the TUI, and its read-then-write over HTTP isn't atomic against a concurrent TUI submission. On OpenCode 1, a `spawn message` follows the last committed agent, not a TUI agent switch that hasn't produced a turn yet. The observer also carries messages ([messaging](../spawns/messaging.md#one-socket-for-every-primary)).
+The managed primary's model selection can't see an unsent choice made in the TUI, and its read-then-write over HTTP isn't atomic against a concurrent TUI submission. On OpenCode 1, a `meridian message` follows the last committed agent, not a TUI agent switch that hasn't produced a turn yet. The observer also carries messages ([messaging](../spawns/messaging.md#one-socket-for-every-primary)).
 
 OpenCode lowers `ask` to native `deny` in spawns ([tool permissions](../permissions/tool-permissions.md#headless-ask)).
