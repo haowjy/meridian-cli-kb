@@ -39,7 +39,7 @@ The CLI and the MCP server share one extension registry and operations layer (so
 - **Other mechanisms** — [context sync](context-sync.md), [hooks](hooks.md), [telemetry](telemetry.md).
 - **Working on the code** — [codebase guide](codebase/guide.md), [testing](codebase/testing.md), [verifying changes](codebase/verifying-changes.md), [releasing](codebase/releasing.md), [the Rust rewrite](codebase/rust-rewrite.md).
 - **Operations** — [setup](operations/setup.md), [troubleshooting](operations/troubleshooting.md).
-- **Related projects** — [ecosystem](ecosystem.md).
+- **Related projects** — [ecosystem](ecosystem.md): prompt packages, [meridian-comms](ecosystem.md#meridian-comms) (the Slack bot that files into the machine inbox and routes), domain packages.
 
 ## Research
 

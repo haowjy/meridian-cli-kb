@@ -1,6 +1,6 @@
 # Claude
 
-Claude sessions share a store for a config root. Selecting the newest file or a similar directory slug can select another concurrent conversation; Meridian uses the recorded store and exact ID ([native session binding](../state/native-session-binding.md)). Messaging a Claude primary goes through its cross-session inbox ([messaging](../spawns/messaging.md#claude-primaries-use-the-inbox)).
+Claude sessions share a store for a config root. Selecting the newest file or a similar directory slug can select another concurrent conversation; Meridian uses the recorded store and exact ID ([native session binding](../state/native-session-binding.md)). Messaging a Claude primary goes through its cross-session inbox ([messaging](../spawns/messaging.md#claude-primaries-use-the-session-inbox)).
 
 ## Reading transcripts
 

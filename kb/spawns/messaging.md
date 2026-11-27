@@ -4,19 +4,19 @@
 
 ## One socket for every primary
 
-The launcher serves a common socket instead of a CLI branch and reachability check per harness. The socket is bound once a route actually exists, rather than predicting support from launch flags, version or an outstanding trust prompt; it can still be stale or refuse. A sender may wait for the route to appear before failing. Advertising a reply route with no usable inbox would offer a command that can't deliver. Older primaries need relaunching to expose the route.
+The launcher serves a common socket instead of a CLI branch and reachability check per harness. The socket is bound once a route actually exists, rather than predicting support from launch flags, version or an outstanding trust prompt; it can still be stale or refuse. A sender may wait for the route to appear before failing. Advertising a reply route with no usable session inbox would offer a command that can't deliver. Older primaries need relaunching to expose the route.
 
 - **Codex and OpenCode:** the observer that watches the backend is also the message route, so it must survive idle silence. A busy Codex primary is steered; OpenCode counts injected turns as activity. Meridian doesn't answer approvals raised by injected turns; they reach the human's TUI.
 - **Pi:** an extension serves the socket, because Pi has no external delivery channel. A launcher-to-extension socket would add a second transport, and a file drop couldn't report failure; the cost is maintaining the wire handling in TypeScript.
 - **Claude:** the launcher's socket writes into Claude's cross-session inbox, below.
 
-## Claude primaries use the inbox
+## Claude primaries use the session inbox
 
-The inbox delivers between tool calls, needs no extra listener, and doesn't depend on a mod loading silently. A mod also can't replace the child's stdin stream: plain `claude -p` exits after going idle even if a mod listener remains, and `$.prompt.submit` waits for the turn to end ([probes](../research/claude-code-mods-and-inbox.md)). The inbox schema comes from the Claude binary and can change without notice, and the inbox gives no receipt that separates held, refused and delivered. Claude adds its peer-safety paragraph to injected messages.
+Claude's cross-session inbox delivers between tool calls, needs no extra listener, and doesn't depend on a mod loading silently. A mod also can't replace the child's stdin stream: plain `claude -p` exits after going idle even if a mod listener remains, and `$.prompt.submit` waits for the turn to end ([probes](../research/claude-code-mods-and-inbox.md)). The inbox schema comes from the Claude binary and can change without notice, and the inbox gives no receipt that separates held, refused and delivered. Claude adds its peer-safety paragraph to injected messages.
 
 Meridian doesn't send Claude's messaging token, forge a bypass-mode envelope, or override `crossSessionInbound`: each would claim authority the user hasn't given Meridian. A user can set `crossSessionInbound: "accept"` themselves.
 
-> [!FLAG] **Needs human review**: whether to replace the inbox with a mod, and whether bypass-mode primaries should hold injected messages for approval, are undecided. Flagged 2026-11-07.
+> [!FLAG] **Needs human review**: whether to replace Claude's session inbox with a mod, and whether bypass-mode primaries should hold injected messages for approval, are undecided. Flagged 2026-11-07.
 
 ## The frame carries a reply address
 

@@ -1,6 +1,6 @@
 # Ecosystem
 
-Meridian coordinates agents; [Mars](mars/package-management.md) resolves prompt packages and projects them into harness-native formats. Package manifests and READMEs own current dependencies and inventories.
+Meridian coordinates agents; [Mars](mars/package-management.md) resolves prompt packages and projects them into harness-native formats; meridian-comms carries work between Slack and Meridian sessions. Package manifests and READMEs own current dependencies and inventories.
 
 ## Prompt packages
 
@@ -11,6 +11,20 @@ Meridian coordinates agents; [Mars](mars/package-management.md) resolves prompt 
 Base and dev-workflow declare prompter as a local dependency: authors can use it in those checkouts, but consumers don't receive it unless they declare it. Prompter depends on base for selected skills.
 
 Dependency pins can exclude a new minor release, so a base minor release means checking and updating the packages that depend on it. A package that drops content Meridian now supplies must require the Meridian version that supplies the replacement, or its consumers lose that capability.
+
+## meridian-comms
+
+[meridian-comms](https://github.com/haowjy/meridian-comms) is a Slack bot for handing work to someone's agent sessions and getting the answer in the same thread. Its daemon wakes the sessions a person chose. A message nobody was woken for is filed in Meridian's machine inbox, and an optional router offers it to one session that is working or still warm. What it does and why: its `docs/design.md`.
+
+**It uses Meridian only through the public CLI.** It parses the JSON of Meridian's commands (the list is in its design's "Client and daemon" section), learns of a new inbox message from an `inbox.received` hook row the user adds to `~/.meridian/config.toml`, and writes under `~/.meridian/` only by running those commands. A change to that output, to the hook and its `MERIDIAN_INBOX_MESSAGE_ID`, or to the `activity` and `idle` fields of a primary's row in `spawn list --global --json` changes a program outside this repository, which is why such changes need the owner's approval (meridian-cli's root `AGENTS.md`).
+
+**It runs on any Meridian, and without one.** Waking sessions works with any current Meridian; filing and routing need 0.28, the first release with the machine inbox. The daemon asks at start whether Meridian has the `inbox` command, and without it files and routes nothing: a message nobody was woken for waits in meridian-comms's own pending list, as it does with no Meridian installed. The owner drew the split so that meridian-comms stays usable without meridian-cli, so everything that needs sessions (waking, filing, offering, routing) sits behind its Meridian source.
+
+**Meridian owns the inbox and the offer; meridian-comms owns the router.** The inbox is files under `~/.meridian/` that every session on the machine can read with nothing else installed, so a message between two sessions never has to pass through Slack. `meridian inbox offer` writes the notice a session receives, so no router builds a command line out of a message's fields. The router asks a model, Jev on OpenCode, and needs a key for it. Meridian calls no model, and a router inside it would put a model client and a key on every machine that has an inbox, and still couldn't post in the Slack thread. The cost: Meridian without meridian-comms has an inbox and no router, unless the user writes an `inbox.received` row that runs `meridian inbox offer`.
+
+**Only the router offers; a person's choice wakes.** A choice reaches the session even when it is cold. An offer is a guess: Meridian refuses one to a cold session, a child or a session in another project, and its notice tells the session to leave a message that isn't its own. Those refusals and that wording would be wrong for a person's instruction. Both programs keep one cost rule: nothing wakes a cold session by guessing, because waking one re-reads its whole context.
+
+**The router's second step is meridian-base's `inbox-router` profile.** When Jev is unsure, the daemon spawns that profile in a Meridian project it keeps for it. The agent may run only Meridian's read commands, and its report's last line (`offer <session>`, `none` or `ask <question>`) is the whole contract: meridian-comms carries out the decision and reads any other line as `none`. The profile pins `harness: opencode`, because its model is paid through the machine's OpenCode sign-in; unpinned, the spawn ran on Pi. Changing its last line, its tools or its harness changes the router.
 
 ## Domain packages
 

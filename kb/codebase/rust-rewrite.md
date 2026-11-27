@@ -19,7 +19,7 @@ Jimmy, 2026-11-20: the rewrite may make Meridian an MCP server. This is an idea 
 - A per-session process. Meridian already needs one to watch a session and deliver messages. In Python it costs about 90 MB; in Rust it would be small, so one MCP server per harness process, also serving the control socket, is affordable.
 
 **What it doesn't fix.**
-- MCP can't push text to the model, so each harness still needs a delivery route: hooks, Claude's inbox, app-server connections.
+- MCP can't push text to the model, so each harness still needs a delivery route: hooks, Claude's session inbox, app-server connections.
 - One tool means one approval covers every command, spawns included.
 - Long waits must fit each harness's tool-call timeout, so wait in bounded calls.
 - The CLI remains the contract for people, scripts and `meridian-comms`.

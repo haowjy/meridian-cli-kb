@@ -156,7 +156,7 @@ warm while the user is away. How it times, submits and stops pings is in the mod
   means it did not.
 
 Keepwarm runs in the Claude mod and on `agy`, where the core sidecar times the later
-pings and the plugin delivers them as inbox messages, with no read-only turn
+pings and the plugin delivers them through the conversation's session inbox, with no read-only turn
 ([agy idle notices](../harnesses/agy.md#idle-notices)). A Claude mod can submit a prompt into the
 live TUI and deny tool calls during that turn, which is why Claude's keepwarm lives in
 the mod: from outside it, Meridian could only use `spawn message`, which starts a
@@ -187,7 +187,7 @@ unanswered question, a merged PR still listed as a draft.
   item now holds what resuming needs) makes the mod compact the conversation while the
   cache is still warm, so the user returns to a small context. Pings don't offer it.
 - **Core decides, the harness delivers**, as with the rest of idle: the Claude mod
-  submits the reminder and compacts; `agy`'s sensor queues it as an inbox message.
+  submits the reminder and compacts; `agy`'s sensor queues it in the session inbox.
   How the reminder rides the single warning without a new `IdleState` field and
   reaches a sensor without core naming a harness:
   `src/meridian/lib/idle/.context/CONTEXT.md`; how the mod times the compaction: the
