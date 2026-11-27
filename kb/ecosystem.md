@@ -14,7 +14,7 @@ Dependency pins can exclude a new minor release, so a base minor release means c
 
 ## meridian-comms
 
-[meridian-comms](https://github.com/haowjy/meridian-comms) is a Slack bot for handing work to someone's agent sessions and getting the answer in the same thread. Its daemon wakes the sessions a person names. A message that names nobody wakes nobody: it is filed in Meridian's machine inbox, and an optional router offers it to one session that is working or idle on a warm cache. What it does and why: its `docs/design.md`.
+[meridian-comms](https://github.com/haowjy/meridian-comms) is a Slack bot for handing work to someone's agent sessions and getting the answer in the same thread. Its daemon wakes the sessions a person names. A message that names nobody wakes nobody: it is filed in Meridian's machine inbox, and an optional router offers it to one session that is working or idle on a warm cache. What it does and why: its `docs/design.md`; the inbox's own reasons are on [the machine inbox](inbox.md).
 
 **It uses Meridian only through the public CLI.** It parses the JSON of Meridian's commands (the list is in its design's "Client and daemon" section), learns of a new inbox message from an `inbox.received` hook row the user adds to `~/.meridian/config.toml`, and writes under `~/.meridian/` only by running those commands. A change to that output, to the hook and its `MERIDIAN_INBOX_MESSAGE_ID`, or to the `activity` and `idle` fields of a primary's row in `spawn list --global --json` changes a program outside this repository, which is why such changes need the owner's approval (meridian-cli's root `AGENTS.md`).
 

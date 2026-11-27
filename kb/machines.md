@@ -10,9 +10,9 @@ Each call is a new connection. Measured from a Linux desktop to a Mac mini on th
 
 The other side runs `meridian machine run`, with the request on stdin and nothing the user typed on the remote command line, so no remote shell parses it. It reads the default `~/.meridian`, because a command run over SSH doesn't read a `MERIDIAN_HOME` set in a shell profile.
 
-## Only reading and messaging cross
+## Reading, messaging and taking from the inbox cross
 
-The commands that may run on another machine are one list on the command catalog, read by the calling side and again by `machine run` on arrival, and none of them has a form that writes state; `message` delivers, which is what the list is for. Starting, continuing or cancelling a session on another machine isn't offered: profile, model, sandbox and workspace would all come from the other machine, and the result would have to come back. Printing a machine's name is `machine name`, which may cross; renaming it writes, so it is a separate command, `machine rename`, which may not, because the list holds whole commands and has no rules per argument.
+The commands that may run on another machine are one list on the command catalog, read by the calling side and again by `machine run` on arrival. `message` delivers, which is what the list is for, and the rest read, with one exception: `inbox take`, `release` and `offer` change the other machine's inbox, because messages filed on the bot's machine have to be taken from sessions elsewhere ([machine inbox](inbox.md#taking-across-machines)). Starting, continuing or cancelling a session on another machine isn't offered: profile, model, sandbox and workspace would all come from the other machine, and the result would have to come back. Printing a machine's name is `machine name`, which may cross; renaming it writes, so it is a separate command, `machine rename`, which may not, because the list holds whole commands and has no rules per argument.
 
 The owner let sandboxed sessions use the crossing commands. A sandboxed session's `meridian spawn` and `meridian message` already run outside its sandbox and can read or message any session on its own machine; reaching another machine with the user's SSH keys adds no new kind of reach, and refusing it would be a check Meridian had to enforce itself.
 

@@ -23,7 +23,7 @@ graph LR
 The CLI and the MCP server share one extension registry and operations layer (source checkout `src/meridian/lib/extensions/.context/CONTEXT.md`). Files and who owns them:
 
 - **`meridian.toml`** is committed project configuration; its `[project].id` is a committed project's identity. A directory with neither `meridian.toml` nor `mars.toml` is an ad-hoc place, and Meridian writes nothing into it ([project identity](state/project-identity.md)).
-- **`~/.meridian/projects/<project-id>/`** holds Meridian's runtime state: spawn rows, session events, locks, caches and artifacts. Repo-local `.meridian/` holds no state. Machine-wide files sit beside it: the ID claims under `~/.meridian/machine/ids/` ([machine-wide IDs](launch/session-references.md#ids-are-machine-wide)), and `~/.meridian/machine.json` and `machines.json` ([saved machines](machines.md)).
+- **`~/.meridian/projects/<project-id>/`** holds Meridian's runtime state: spawn rows, session events, locks, caches and artifacts. Repo-local `.meridian/` holds no state. Machine-wide files sit beside it: the ID claims under `~/.meridian/machine/ids/` ([machine-wide IDs](launch/session-references.md#ids-are-machine-wide)), the [machine inbox](inbox.md) under `~/.meridian/machine/inbox/`, and `~/.meridian/machine.json` and `machines.json` ([saved machines](machines.md)).
 - **The context work root** holds work items ([work items](state/work-items.md)).
 - **`.mars/`** is Mars's compiled catalog; **`~/.meridian/mars/`** holds user-scope packages ([Mars user scope](mars/package-management.md#user-scope)). `.agents/` is not a catalog fallback.
 - **`.claude/`, `.codex/`, `.cursor/`, `.opencode/`, `.pi/`** are Mars's projections for each harness ([targets](mars/package-management.md#targets)).
@@ -36,7 +36,7 @@ The CLI and the MCP server share one extension registry and operations layer (so
 - **[Harnesses](harnesses/overview.md)** — [Claude](harnesses/claude.md), [Pi](harnesses/pi.md), [OpenCode](harnesses/opencode.md), [Cursor](harnesses/cursor.md); [Antigravity](harnesses/agy.md), which Meridian hosts through a plugin and never runs.
 - **Permissions** — [tool permissions](permissions/tool-permissions.md), [tool rule precedence](permissions/tool-rule-precedence.md), [sandbox projection](permissions/sandbox-projection.md), [workspace](permissions/workspace.md).
 - **Mars** — [package management](mars/package-management.md), [model resolution](mars/model-resolution.md), [skills](mars/skills.md), [portable hooks](mars/package-hooks.md), [launch bundle](mars/launch-bundle.md).
-- **Other mechanisms** — [saved machines](machines.md), [context sync](context-sync.md), [hooks](hooks.md), [telemetry](telemetry.md).
+- **Other mechanisms** — [saved machines](machines.md), [the machine inbox](inbox.md), [context sync](context-sync.md), [hooks](hooks.md), [telemetry](telemetry.md).
 - **Working on the code** — [codebase guide](codebase/guide.md), [testing](codebase/testing.md), [verifying changes](codebase/verifying-changes.md), [releasing](codebase/releasing.md), [the Rust rewrite](codebase/rust-rewrite.md).
 - **Operations** — [setup](operations/setup.md), [troubleshooting](operations/troubleshooting.md).
 - **Related projects** — [ecosystem](ecosystem.md): prompt packages, [meridian-comms](ecosystem.md#meridian-comms) (the Slack bot that files into the machine inbox and routes), domain packages.
